@@ -1,0 +1,531 @@
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Header } from '@/components/Header';
+import { LeftPanel } from '@/components/LeftPanel';
+import { CenterPanel } from '@/components/CenterPanel';
+import { RightPanel } from '@/components/RightPanel';
+import { SettingsModal } from '@/components/SettingsModal';
+import { InfoModal } from '@/components/InfoModal';
+import { ExportModal } from '@/components/ExportModal';
+import { useAppState } from '@/hooks/useAppState';
+import { parseDocument } from '@/lib/documentParser';
+import { parseEpisodes } from '@/lib/contextDetection';
+import { generatePrompts, revisePrompt, generateImage, loadSystemPrompt } from '@/lib/geminiApi';
+import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup } from '@/types';
+
+
+const GROUP_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+const Index = () => {
+  const { state, dispatch, undo, redo } = useAppState();
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [infoOpen, setInfoOpen] = React.useState(false);
+  const [exportOpen, setExportOpen] = React.useState(false);
+  const [scrollToIndex, setScrollToIndex] = useState<number | null>(null);
+  const mainFileRef = useRef<HTMLInputElement>(null);
+  const n1kFileRef = useRef<HTMLInputElement>(null);
+
+  // Ctrl+Z / Ctrl+Y global keyboard shortcuts
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return; // don't hijack input fields
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [undo, redo]);
+
+  const getActiveKey = useCallback(() => {
+    if (state.apiKeys.length === 0) return null;
+    return state.apiKeys[state.currentKeyIndex % state.apiKeys.length];
+  }, [state.apiKeys, state.currentKeyIndex]);
+
+  const handleFileUpload = useCallback(async (file: File, type: 'main' | '5n1k') => {
+    try {
+      const text = await parseDocument(file);
+      if (type === 'main') {
+        dispatch({ type: 'SET_MAIN_TEXT', payload: { text, fileName: file.name } });
+        const episodes = parseEpisodes(text);
+        dispatch({ type: 'SET_EPISODES', payload: episodes });
+      } else {
+        dispatch({ type: 'SET_5N1K_TEXT', payload: { text, fileName: file.name } });
+      }
+    } catch (e) {
+      console.error('Dosya okunamadı', e);
+    }
+  }, [dispatch]);
+
+  const handleAddScene = useCallback((segment: TextSegment, episodeTitle: string) => {
+    const scene: Scene = {
+      id: `scene-${Date.now()}`,
+      number: state.scenes.length + 1,
+      episodeTitle,
+      segments: [segment],
+      subjectReferences: [],
+      consistencyGroupIds: [],
+      prompts: [],
+      status: 'pending',
+    };
+    dispatch({ type: 'ADD_SCENE', payload: scene });
+    dispatch({ type: 'SET_ACTIVE_SCENE', payload: scene.id });
+  }, [dispatch, state.scenes.length]);
+
+  const handleAddReference = useCallback((segment: TextSegment) => {
+    const targetScene = state.scenes.find(s => s.id === state.activeSceneId) || state.scenes[state.scenes.length - 1];
+    if (!targetScene) return;
+    dispatch({ type: 'ADD_SUBJECT_REFERENCE', payload: { sceneId: targetScene.id, segment } });
+  }, [dispatch, state.scenes, state.activeSceneId]);
+
+  const handleAppendToLastScene = useCallback((segment: TextSegment) => {
+    const activeScene = state.scenes.find(s => s.id === state.activeSceneId) || state.scenes[state.scenes.length - 1];
+    if (!activeScene) return;
+    dispatch({ type: 'ADD_SEGMENT_TO_SCENE', payload: { sceneId: activeScene.id, segment } });
+  }, [dispatch, state.scenes, state.activeSceneId]);
+
+  const handleAddConsistency = useCallback((segment: TextSegment, groupId: string | null) => {
+    const activeScene = state.scenes.find(s => s.id === state.activeSceneId) || state.scenes[state.scenes.length - 1];
+    if (!activeScene) return;
+
+    let targetGroupId = groupId;
+    if (!targetGroupId) {
+      const label = GROUP_LABELS[state.consistencyGroups.length % GROUP_LABELS.length];
+      const newGroup: ConsistencyGroup = {
+        id: `group-${Date.now()}`,
+        label,
+        color: `highlight-group-${label.toLowerCase()}`,
+        sceneIds: [],
+      };
+      dispatch({ type: 'ADD_CONSISTENCY_GROUP', payload: newGroup });
+      targetGroupId = newGroup.id;
+    }
+
+    dispatch({ type: 'ADD_SCENE_TO_GROUP', payload: { groupId: targetGroupId, sceneId: activeScene.id } });
+  }, [dispatch, state.scenes, state.activeSceneId, state.consistencyGroups]);
+
+  const handleAddSceneToGroup = useCallback((sceneId: string, groupId: string | null) => {
+    let targetGroupId = groupId;
+    if (!targetGroupId) {
+      const label = GROUP_LABELS[state.consistencyGroups.length % GROUP_LABELS.length];
+      const newGroup: ConsistencyGroup = {
+        id: `group-${Date.now()}`,
+        label,
+        color: `highlight-group-${label.toLowerCase()}`,
+        sceneIds: [],
+      };
+      dispatch({ type: 'ADD_CONSISTENCY_GROUP', payload: newGroup });
+      targetGroupId = newGroup.id;
+    }
+    dispatch({ type: 'ADD_SCENE_TO_GROUP', payload: { groupId: targetGroupId, sceneId } });
+  }, [dispatch, state.consistencyGroups]);
+
+  const handleRemoveSceneFromGroup = useCallback((sceneId: string, groupId: string) => {
+    dispatch({ type: 'REMOVE_SCENE_FROM_GROUP', payload: { groupId, sceneId } });
+  }, [dispatch]);
+
+  const handleDeletePrompt = useCallback((sceneId: string, promptId: string) => {
+    dispatch({ type: 'REMOVE_PROMPT', payload: { sceneId, promptId } });
+  }, [dispatch]);
+
+  const handleSetSceneNote = useCallback((sceneId: string, note: string) => {
+    dispatch({ type: 'SET_SCENE_NOTE', payload: { sceneId, note } });
+  }, [dispatch]);
+
+  const handleSetGroupNote = useCallback((groupId: string, note: string) => {
+    dispatch({ type: 'SET_GROUP_NOTE', payload: { groupId, note } });
+  }, [dispatch]);
+
+  // ─── Sub-scene handlers ───────────────────────────────────────────
+  const handleAddSubScene = useCallback((sceneId: string, label: string) => {
+    const parentScene = state.scenes.find(s => s.id === sceneId);
+    if (!parentScene) return;
+    const subScene: SubScene = {
+      id: `subscene-${Date.now()}`,
+      parentSceneId: sceneId,
+      label,
+      segments: [{ id: `seg-${Date.now()}`, text: label, startIndex: 0, endIndex: label.length }],
+      subjectReferences: [],
+      consistencyGroupIds: [],
+      prompts: [],
+      status: 'pending',
+    };
+    dispatch({ type: 'ADD_SUB_SCENE', payload: { sceneId, subScene } });
+  }, [dispatch, state.scenes]);
+
+  const handleRemoveSubScene = useCallback((sceneId: string, subSceneId: string) => {
+    dispatch({ type: 'REMOVE_SUB_SCENE', payload: { sceneId, subSceneId } });
+  }, [dispatch]);
+
+  const handleSetSubSceneNote = useCallback((sceneId: string, subSceneId: string, note: string) => {
+    dispatch({ type: 'SET_SUB_SCENE_NOTE', payload: { sceneId, subSceneId, note } });
+  }, [dispatch]);
+
+  const handleDeleteSubScenePrompt = useCallback((sceneId: string, subSceneId: string, promptId: string) => {
+    dispatch({ type: 'REMOVE_SUB_SCENE_PROMPT', payload: { sceneId, subSceneId, promptId } });
+  }, [dispatch]);
+
+  const handleAddSubSceneToGroup = useCallback((sceneId: string, subSceneId: string, groupId: string | null) => {
+    const scene = state.scenes.find(s => s.id === sceneId);
+    if (!scene) return;
+    const subScene = (scene.subScenes || []).find(ss => ss.id === subSceneId);
+    if (!subScene) return;
+
+    let targetGroupId = groupId;
+    if (!targetGroupId) {
+      const label = GROUP_LABELS[state.consistencyGroups.length % GROUP_LABELS.length];
+      const newGroup: ConsistencyGroup = {
+        id: `group-${Date.now()}`,
+        label,
+        color: `highlight-group-${label.toLowerCase()}`,
+        sceneIds: [],
+      };
+      dispatch({ type: 'ADD_CONSISTENCY_GROUP', payload: newGroup });
+      targetGroupId = newGroup.id;
+    }
+
+    const updated: SubScene = {
+      ...subScene,
+      consistencyGroupIds: subScene.consistencyGroupIds.includes(targetGroupId)
+        ? subScene.consistencyGroupIds
+        : [...subScene.consistencyGroupIds, targetGroupId],
+    };
+    dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: updated } });
+  }, [dispatch, state.scenes, state.consistencyGroups]);
+
+  const handleRemoveSubSceneFromGroup = useCallback((sceneId: string, subSceneId: string, groupId: string) => {
+    const scene = state.scenes.find(s => s.id === sceneId);
+    if (!scene) return;
+    const subScene = (scene.subScenes || []).find(ss => ss.id === subSceneId);
+    if (!subScene) return;
+    const updated: SubScene = {
+      ...subScene,
+      consistencyGroupIds: subScene.consistencyGroupIds.filter(gId => gId !== groupId),
+    };
+    dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: updated } });
+  }, [dispatch, state.scenes]);
+
+  const handleGenerateSubScene = useCallback(async (sceneId: string, subSceneId: string) => {
+    const apiKey = getActiveKey();
+    if (!apiKey) { setSettingsOpen(true); return; }
+    const scene = state.scenes.find(s => s.id === sceneId);
+    if (!scene) return;
+    const subScene = (scene.subScenes || []).find(ss => ss.id === subSceneId);
+    if (!subScene) return;
+
+    const updatedSub: SubScene = { ...subScene, status: 'generating' };
+    dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: updatedSub } });
+
+    const parentGroups = state.consistencyGroups.filter(g => scene.consistencyGroupIds?.includes(g.id));
+    const subGroups = state.consistencyGroups.filter(g => subScene.consistencyGroupIds?.includes(g.id));
+
+    try {
+      const results = await generatePrompts({
+        scene,
+        apiKey,
+        model: state.settings.model,
+        variantCount: state.settings.variantCount,
+        temperature: state.settings.temperature,
+        consistencyGroups: subGroups.length > 0 ? subGroups : undefined,
+        allScenes: state.scenes,
+        systemPrompt: loadSystemPrompt(),
+        subScene,
+        parentScene: scene,
+        parentConsistencyGroups: parentGroups.length > 0 ? parentGroups : undefined,
+      });
+      dispatch({ type: 'ROTATE_API_KEY' });
+
+      const prompts: PromptVariant[] = results.map((r, i) => ({
+        id: `prompt-${Date.now()}-${i}`,
+        shotType: r.shotType,
+        text: r.text,
+        versions: [r.text],
+        isRevising: false,
+      }));
+      dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, prompts, status: 'done' } } });
+    } catch (e: any) {
+      if (e.message === 'RATE_LIMIT' && state.apiKeys.length > 1) {
+        dispatch({ type: 'ROTATE_API_KEY' });
+        setTimeout(() => handleGenerateSubScene(sceneId, subSceneId), 500);
+        return;
+      }
+      dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, status: 'error' } } });
+    }
+  }, [state, dispatch, getActiveKey]);
+
+  const handleReviseSubScene = useCallback(async (sceneId: string, subSceneId: string, promptId: string, instruction: string) => {
+    const apiKey = getActiveKey();
+    if (!apiKey) return;
+    const scene = state.scenes.find(s => s.id === sceneId);
+    if (!scene) return;
+    const subScene = (scene.subScenes || []).find(ss => ss.id === subSceneId);
+    if (!subScene) return;
+    const prompt = subScene.prompts.find(p => p.id === promptId);
+    if (!prompt) return;
+
+    try {
+      const revised = await revisePrompt(prompt.text, instruction, apiKey, state.settings.model, state.settings.temperature);
+      dispatch({ type: 'ROTATE_API_KEY' });
+      const updatedPrompts = subScene.prompts.map(p =>
+        p.id === promptId ? { ...p, text: revised, versions: [...p.versions, revised] } : p
+      );
+      dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, prompts: updatedPrompts } } });
+    } catch (e: any) {
+      if (e.message === 'RATE_LIMIT' && state.apiKeys.length > 1) dispatch({ type: 'ROTATE_API_KEY' });
+    }
+  }, [state, dispatch, getActiveKey]);
+
+  const handleGenerateSubSceneImage = useCallback(async (sceneId: string, subSceneId: string, promptId: string) => {
+    const imageKey = state.imageApiKeys[0];
+    if (!imageKey) { setSettingsOpen(true); return; }
+    const scene = state.scenes.find(s => s.id === sceneId);
+    if (!scene) return;
+    const subScene = (scene.subScenes || []).find(ss => ss.id === subSceneId);
+    if (!subScene) return;
+    const prompt = subScene.prompts.find(p => p.id === promptId);
+    if (!prompt) return;
+
+    dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, prompts: subScene.prompts.map(p => p.id === promptId ? { ...p, imageStatus: 'generating' as const } : p) } } });
+
+    try {
+      const imageUrl = await generateImage(prompt.text, imageKey, state.settings.imageModel);
+      const freshScene = state.scenes.find(s => s.id === sceneId);
+      const freshSub = (freshScene?.subScenes || []).find(ss => ss.id === subSceneId);
+      if (freshSub) {
+        dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...freshSub, prompts: freshSub.prompts.map(p => p.id === promptId ? { ...p, imageUrl, imageStatus: 'done' as const } : p) } } });
+      }
+    } catch {
+      const freshScene = state.scenes.find(s => s.id === sceneId);
+      const freshSub = (freshScene?.subScenes || []).find(ss => ss.id === subSceneId);
+      if (freshSub) {
+        dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...freshSub, prompts: freshSub.prompts.map(p => p.id === promptId ? { ...p, imageStatus: 'error' as const } : p) } } });
+      }
+    }
+  }, [state, dispatch]);
+
+
+  const handleGenerate = useCallback(async (sceneId: string) => {
+    const apiKey = getActiveKey();
+    if (!apiKey) {
+      setSettingsOpen(true);
+      return;
+    }
+    const scene = state.scenes.find(s => s.id === sceneId);
+    if (!scene) return;
+
+    dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'generating' } });
+
+    const groups = state.consistencyGroups.filter(g => scene.consistencyGroupIds?.includes(g.id));
+
+    try {
+      const results = await generatePrompts({
+        scene,
+        apiKey,
+        model: state.settings.model,
+        variantCount: state.settings.variantCount,
+        temperature: state.settings.temperature,
+        consistencyGroups: groups.length > 0 ? groups : undefined,
+        allScenes: state.scenes,
+        systemPrompt: loadSystemPrompt(),
+      });
+      dispatch({ type: 'ROTATE_API_KEY' });
+
+      const prompts: PromptVariant[] = results.map((r, i) => ({
+        id: `prompt-${Date.now()}-${i}`,
+        shotType: r.shotType,
+        text: r.text,
+        versions: [r.text],
+        isRevising: false,
+      }));
+      dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, prompts, status: 'done' } });
+    } catch (e: any) {
+      if (e.message === 'RATE_LIMIT' && state.apiKeys.length > 1) {
+        dispatch({ type: 'ROTATE_API_KEY' });
+        setTimeout(() => handleGenerate(sceneId), 500);
+        return;
+      }
+      dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'error' } });
+    }
+  }, [state, dispatch, getActiveKey]);
+
+  const handleGenerateAll = useCallback(async () => {
+    const pending = state.scenes.filter(s => s.status === 'pending');
+    for (const scene of pending) {
+      await handleGenerate(scene.id);
+    }
+  }, [state.scenes, handleGenerate]);
+
+  const handleRevise = useCallback(async (sceneId: string, promptId: string, instruction: string) => {
+    const apiKey = getActiveKey();
+    if (!apiKey) return;
+    const scene = state.scenes.find(s => s.id === sceneId);
+    if (!scene) return;
+    const prompt = scene.prompts.find(p => p.id === promptId);
+    if (!prompt) return;
+
+    try {
+      const revised = await revisePrompt(prompt.text, instruction, apiKey, state.settings.model, state.settings.temperature);
+      dispatch({ type: 'ROTATE_API_KEY' });
+      const updatedPrompts = scene.prompts.map(p =>
+        p.id === promptId
+          ? { ...p, text: revised, versions: [...p.versions, revised] }
+          : p
+      );
+      dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, prompts: updatedPrompts } });
+    } catch (e: any) {
+      if (e.message === 'RATE_LIMIT' && state.apiKeys.length > 1) {
+        dispatch({ type: 'ROTATE_API_KEY' });
+      }
+      console.error('Revizyon başarısız', e);
+    }
+  }, [state, dispatch, getActiveKey]);
+
+  const handleRefreshAll = useCallback(async (sceneId: string) => {
+    await handleGenerate(sceneId);
+  }, [handleGenerate]);
+
+  const handleGenerateImage = useCallback(async (sceneId: string, promptId: string) => {
+    const imageKey = state.imageApiKeys[0];
+    if (!imageKey) {
+      setSettingsOpen(true);
+      return;
+    }
+    const scene = state.scenes.find(s => s.id === sceneId);
+    if (!scene) return;
+    const prompt = scene.prompts.find(p => p.id === promptId);
+    if (!prompt) return;
+
+    const updatedPrompts = scene.prompts.map(p =>
+      p.id === promptId ? { ...p, imageStatus: 'generating' as const } : p
+    );
+    dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, prompts: updatedPrompts } });
+
+    try {
+      const imageUrl = await generateImage(prompt.text, imageKey, state.settings.imageModel);
+      const finalPrompts = scene.prompts.map(p =>
+        p.id === promptId ? { ...p, imageUrl, imageStatus: 'done' as const } : p
+      );
+      dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, prompts: finalPrompts } });
+    } catch (e: any) {
+      const errorPrompts = scene.prompts.map(p =>
+        p.id === promptId ? { ...p, imageStatus: 'error' as const } : p
+      );
+      dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, prompts: errorPrompts } });
+    }
+  }, [state.scenes, state.imageApiKeys, state.settings.imageModel, dispatch]);
+
+  return (
+    <div className="flex h-screen flex-col bg-background">
+      <Header
+        onUploadMain={() => mainFileRef.current?.click()}
+        onUpload5N1K={() => n1kFileRef.current?.click()}
+        onExport={() => setExportOpen(true)}
+        onSettings={() => setSettingsOpen(true)}
+        onInfo={() => setInfoOpen(true)}
+        mainFileName={state.mainFileName}
+        n1kFileName={state.n1kFileName}
+      />
+
+      <input ref={mainFileRef} type="file" accept=".docx,.txt" className="hidden"
+        onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], 'main')} />
+      <input ref={n1kFileRef} type="file" accept=".docx,.txt" className="hidden"
+        onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], '5n1k')} />
+
+      <div className="flex flex-1 overflow-hidden">
+        <div className="w-[280px] shrink-0">
+          <LeftPanel
+            episodes={state.episodes}
+            scenes={state.scenes}
+            consistencyGroups={state.consistencyGroups}
+            activeSceneId={state.activeSceneId}
+            selectionMode={state.selectionMode}
+            mainFileName={state.mainFileName}
+            onEpisodeClick={(ep) => setScrollToIndex(ep.startIndex)}
+            onSceneClick={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
+            onSetSelectionMode={mode => dispatch({ type: 'SET_SELECTION_MODE', payload: mode })}
+            onMoveEpisode={(episodeId, newParentId) => dispatch({ type: 'MOVE_EPISODE', payload: { episodeId, newParentId } })}
+            onReorderEpisodes={(eps) => dispatch({ type: 'REORDER_EPISODES', payload: eps })}
+          />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <CenterPanel
+            mainText={state.mainText}
+            episodes={state.episodes}
+            scenes={state.scenes}
+            consistencyGroups={state.consistencyGroups}
+            activeSceneId={state.activeSceneId}
+            selectionMode={state.selectionMode}
+            scrollToIndex={scrollToIndex}
+            onScrollComplete={() => setScrollToIndex(null)}
+            onAddScene={handleAddScene}
+            onAddReference={handleAddReference}
+            onAppendToLastScene={handleAppendToLastScene}
+            onAddConsistency={handleAddConsistency}
+            onSetActiveScene={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
+            onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
+          />
+        </div>
+
+        <div className="w-[380px] shrink-0">
+          <RightPanel
+            scenes={state.scenes}
+            consistencyGroups={state.consistencyGroups}
+            activeSceneId={state.activeSceneId}
+            onGenerate={handleGenerate}
+            onGenerateAll={handleGenerateAll}
+            onRevise={handleRevise}
+            onRefreshAll={handleRefreshAll}
+            onGenerateImage={handleGenerateImage}
+            onSetActiveScene={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
+            onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
+            onAddSceneToGroup={handleAddSceneToGroup}
+            onRemoveSceneFromGroup={handleRemoveSceneFromGroup}
+            onDeletePrompt={handleDeletePrompt}
+            onSetSceneNote={handleSetSceneNote}
+            onSetGroupNote={handleSetGroupNote}
+            onAddSubScene={handleAddSubScene}
+            onRemoveSubScene={handleRemoveSubScene}
+            onGenerateSubScene={handleGenerateSubScene}
+            onReviseSubScene={handleReviseSubScene}
+            onRefreshSubScene={(sceneId, subSceneId) => handleGenerateSubScene(sceneId, subSceneId)}
+            onDeleteSubScenePrompt={handleDeleteSubScenePrompt}
+            onSetSubSceneNote={handleSetSubSceneNote}
+            onGenerateSubSceneImage={handleGenerateSubSceneImage}
+            onAddSubSceneToGroup={handleAddSubSceneToGroup}
+            onRemoveSubSceneFromGroup={handleRemoveSubSceneFromGroup}
+          />
+        </div>
+      </div>
+
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        apiKeys={state.apiKeys}
+        imageApiKeys={state.imageApiKeys}
+        settings={state.settings}
+        onSaveKeys={keys => dispatch({ type: 'SET_API_KEYS', payload: keys })}
+        onSaveImageKeys={keys => dispatch({ type: 'SET_IMAGE_API_KEYS', payload: keys })}
+        onSaveSettings={s => dispatch({ type: 'SET_SETTINGS', payload: s })}
+      />
+
+      <ExportModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        scenes={state.scenes}
+        consistencyGroups={state.consistencyGroups}
+      />
+
+      <InfoModal
+        open={infoOpen}
+        onClose={() => setInfoOpen(false)}
+      />
+    </div>
+  );
+};
+
+export default Index;
