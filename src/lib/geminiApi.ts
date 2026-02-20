@@ -47,6 +47,62 @@ export function saveSystemPrompt(prompt: string): void {
   localStorage.setItem('system_prompt', prompt);
 }
 
+/**
+ * Extracts the relevant section from the 5N1K document for a given episode title.
+ * The 5N1K doc is structured with ALL-CAPS headers just like the main text.
+ * We find the section whose header best matches the scene's episode title,
+ * and return only that section — saving tokens instead of sending the whole doc.
+ */
+export function extract5N1KSection(text5N1K: string, episodeTitle: string): string {
+  if (!text5N1K?.trim() || !episodeTitle?.trim()) return '';
+
+  const lines = text5N1K.split('\n');
+  const upperTitle = episodeTitle.toUpperCase();
+
+  // Find keywords from the episode title (words longer than 3 chars)
+  const titleWords = upperTitle.split(/\s+/).filter(w => w.length > 3);
+
+  // Score each line as a potential header by how many title keywords it contains
+  let bestHeaderIdx = -1;
+  let bestScore = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim().toUpperCase();
+    if (line.length < 3 || line.length > 120) continue;
+    // Must look like a header (short ALL-CAPS line)
+    const isHeaderLike = line === line.replace(/[^A-ZÇĞİÖŞÜa-zçğışöü0-9\s\-–:]/g, '') &&
+      line.split(' ').length < 10;
+    if (!isHeaderLike) continue;
+
+    const score = titleWords.filter(w => line.includes(w)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      bestHeaderIdx = i;
+    }
+  }
+
+  if (bestHeaderIdx === -1 || bestScore === 0) {
+    // No specific section found — return first 800 chars as general context
+    return text5N1K.slice(0, 800);
+  }
+
+  // Find the next header after bestHeaderIdx to delimit the section
+  let nextHeaderIdx = lines.length;
+  for (let i = bestHeaderIdx + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.length > 3 && line.length < 120 && line === line.toUpperCase() && /[A-ZÇĞİÖŞÜ]/.test(line)) {
+      nextHeaderIdx = i;
+      break;
+    }
+  }
+
+  const sectionLines = lines.slice(bestHeaderIdx, nextHeaderIdx);
+  const section = sectionLines.join('\n').trim();
+
+  // Cap at ~1200 chars to keep token usage bounded
+  return section.length > 1200 ? section.slice(0, 1200) + '…' : section;
+}
+
 interface GenerateOptions {
   scene: Scene;
   apiKey: string;
@@ -59,10 +115,12 @@ interface GenerateOptions {
   subScene?: SubScene;
   parentScene?: Scene;
   parentConsistencyGroups?: ConsistencyGroup[];
+  // 5N1K context — only the relevant section for this scene's episode
+  relevant5N1KContext?: string;
 }
 
 export async function generatePrompts(opts: GenerateOptions & { systemPrompt?: string }): Promise<{ shotType: string; text: string }[]> {
-  const { scene, apiKey, model, variantCount, temperature, consistencyGroups, allScenes, systemPrompt: customPrompt, subScene, parentScene, parentConsistencyGroups } = opts;
+  const { scene, apiKey, model, variantCount, temperature, consistencyGroups, allScenes, systemPrompt: customPrompt, subScene, parentScene, parentConsistencyGroups, relevant5N1KContext } = opts;
 
   const isSubScene = !!subScene && !!parentScene;
 
@@ -75,6 +133,11 @@ export async function generatePrompts(opts: GenerateOptions & { systemPrompt?: s
     : scene.subjectReferences.map(s => s.text).join('\n');
 
   let userMessage = `EPISODE: ${scene.episodeTitle}\nCONTEXT: ${context}\n\n`;
+
+  // Inject only the relevant 5N1K section — token-efficient, API-friendly
+  if (relevant5N1KContext?.trim()) {
+    userMessage += `BACKGROUND (5N1K — Who/What/Where/When/Why for this episode):\n${relevant5N1KContext.trim()}\n\n`;
+  }
 
   if (refText) {
     userMessage += `SUBJECT REFERENCE: ${refText}\n\n`;
@@ -183,6 +246,11 @@ export async function generatePrompts(opts: GenerateOptions & { systemPrompt?: s
   return parsePromptResponse(content, variantCount);
 }
 
+/**
+ * Revise a prompt via API.
+ * Special case: if instruction starts with __RESTORE__:: the text after is returned directly
+ * (no API call) — used for reverting to a previous version from history.
+ */
 export async function revisePrompt(
   originalPrompt: string,
   revisionInstruction: string,
@@ -190,6 +258,11 @@ export async function revisePrompt(
   model: string,
   temperature: number,
 ): Promise<string> {
+  // Version restore — no API call needed
+  if (revisionInstruction.startsWith('__RESTORE__::')) {
+    return revisionInstruction.slice('__RESTORE__::'.length);
+  }
+
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   const response = await fetch(url, {

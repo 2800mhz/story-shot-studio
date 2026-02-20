@@ -9,7 +9,7 @@ import { ExportModal } from '@/components/ExportModal';
 import { useAppState } from '@/hooks/useAppState';
 import { parseDocument } from '@/lib/documentParser';
 import { parseEpisodes } from '@/lib/contextDetection';
-import { generatePrompts, revisePrompt, generateImage, loadSystemPrompt } from '@/lib/geminiApi';
+import { generatePrompts, revisePrompt, generateImage, loadSystemPrompt, extract5N1KSection } from '@/lib/geminiApi';
 import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup } from '@/types';
 
 
@@ -224,6 +224,7 @@ const Index = () => {
     const subGroups = state.consistencyGroups.filter(g => subScene.consistencyGroupIds?.includes(g.id));
 
     try {
+      const relevant5N1KContext = extract5N1KSection(state.text5N1K, scene.episodeTitle);
       const results = await generatePrompts({
         scene,
         apiKey,
@@ -236,6 +237,7 @@ const Index = () => {
         subScene,
         parentScene: scene,
         parentConsistencyGroups: parentGroups.length > 0 ? parentGroups : undefined,
+        relevant5N1KContext: relevant5N1KContext || undefined,
       });
       dispatch({ type: 'ROTATE_API_KEY' });
 
@@ -322,6 +324,7 @@ const Index = () => {
     const groups = state.consistencyGroups.filter(g => scene.consistencyGroupIds?.includes(g.id));
 
     try {
+      const relevant5N1KContext = extract5N1KSection(state.text5N1K, scene.episodeTitle);
       const results = await generatePrompts({
         scene,
         apiKey,
@@ -331,6 +334,7 @@ const Index = () => {
         consistencyGroups: groups.length > 0 ? groups : undefined,
         allScenes: state.scenes,
         systemPrompt: loadSystemPrompt(),
+        relevant5N1KContext: relevant5N1KContext || undefined,
       });
       dispatch({ type: 'ROTATE_API_KEY' });
 

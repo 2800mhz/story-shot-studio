@@ -326,13 +326,28 @@ export function PromptCard({
             )}
 
             {historyId === prompt.id && (
-              <div className="animate-fade-in rounded-md border bg-muted/30 p-2.5 space-y-1.5 max-h-40 overflow-y-auto scrollbar-thin">
-                <p className="text-[10px] font-medium text-muted-foreground">Versiyon Geçmişi</p>
-                {prompt.versions.map((v, vi) => (
-                  <p key={vi} className="rounded bg-secondary/50 px-2 py-1.5 text-[11px] text-foreground/70">
-                    <span className="font-medium text-muted-foreground">v{vi + 1}: </span>{v.slice(0, 100)}...
-                  </p>
-                ))}
+              <div className="animate-fade-in rounded-md border bg-muted/30 p-2.5 space-y-1.5 max-h-48 overflow-y-auto scrollbar-thin">
+                <p className="text-[10px] font-medium text-muted-foreground">Versiyon Geçmişi — tıkla geri dön</p>
+                {prompt.versions.map((v, vi) => {
+                  const isCurrent = v === prompt.text;
+                  return (
+                    <div
+                      key={vi}
+                      className={`group flex items-start gap-2 rounded px-2 py-1.5 transition-colors ${isCurrent ? 'bg-primary/10 border border-primary/30' : 'bg-secondary/50 hover:bg-secondary cursor-pointer'}`}
+                      onClick={() => {
+                        if (!isCurrent) onRevise(prompt.id, `__RESTORE__::${v}`);
+                        setHistoryId(null);
+                      }}
+                    >
+                      <span className={`mt-0.5 shrink-0 text-[10px] font-bold ${isCurrent ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}>
+                        {isCurrent ? '▶ şimdi' : `v${vi + 1}`}
+                      </span>
+                      <p className="text-[11px] text-foreground/70 leading-relaxed">
+                        {v.slice(0, 120)}{v.length > 120 ? '...' : ''}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
