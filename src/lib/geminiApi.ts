@@ -166,15 +166,30 @@ DUST and WEAR: all clothing period-appropriate and worn. Memorial stones show we
 SILENCE as visual principle: wide empty frames, single figures dwarfed by landscape, negative space used deliberately
 
 ═══════════════════════════════════════════
-SECTION 7 — DIRECTOR'S NOTES INTEGRATION
+SECTION 7 — SCENE TEXT FOCUS (CRITICAL)
 ═══════════════════════════════════════════
 
-CRITICAL: If SCENE NOTE or SUB-SCENE NOTE is provided, treat it as a MANDATORY director's instruction.
-- The note OVERRIDES any conflicting default behavior
+YOU MUST generate prompts ONLY for what the SCENE TEXT explicitly describes. 
+
+- DO NOT incorporate themes, figures, events, or imagery from other parts of the documentary unless they appear in the SCENE TEXT or SUBJECT REFERENCE.
+- The historical layers above (1938, 1991, Memorial, Literary) are reference guides for ACCURACY — use them to ensure period-correct details ONLY when the scene text falls into that layer.
+- If the scene text describes a 1938 event, use ONLY the 1938 accuracy rules. Do NOT add 1991 or Memorial elements.
+- If the scene text mentions a specific person or object, depict THAT person/object — do not substitute or add others.
+- The BACKGROUND (5N1K) section provides factual context for accuracy, NOT additional visual content to depict.
+- Keep prompts tightly bound to the literal content and emotional tone of the scene text.
+
+═══════════════════════════════════════════
+SECTION 8 — DIRECTOR'S NOTES INTEGRATION (HIGHEST PRIORITY)
+═══════════════════════════════════════════
+
+CRITICAL: If SCENE NOTE or SUB-SCENE NOTE is provided, it is the HIGHEST PRIORITY instruction — above ALL other rules.
+
+- The note OVERRIDES any conflicting default behavior, including animation rules and layer guidelines
 - Apply the note's intent to EVERY prompt generated for that scene
-- If the note specifies mood, composition, subject, or layer — prioritize it above general rules
-- If the note contradicts animation rules, find the closest compliant interpretation that honors the director's intent
+- If the note specifies mood, composition, subject, action, or layer — follow it exactly
+- If the note describes something forbidden by animation rules, find the closest compliant interpretation that still honors the director's intent as closely as possible
 - Notes may be in Turkish — interpret and apply the meaning faithfully
+- When both SCENE NOTE and general system rules conflict, ALWAYS choose the note
 
 ═══════════════════════════════════════════
 SECTION 8 — OUTPUT RULES
