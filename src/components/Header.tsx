@@ -1,5 +1,6 @@
 import React from 'react';
-import { Settings, Download, Film, Upload, Info } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Settings, Download, Film, Upload, Info, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface HeaderProps {
@@ -37,6 +38,12 @@ export function Header({ onUploadMain, onUpload5N1K, onExport, onSettings, onInf
           <Download className="mr-1.5 h-3.5 w-3.5" />
           Dışa Aktar
         </Button>
+        <Link to="/motion-prompt">
+          <Button variant="outline" size="sm">
+            <Video className="mr-1.5 h-3.5 w-3.5" />
+            Motion
+          </Button>
+        </Link>
         <Button variant="ghost" size="icon" onClick={onInfo} title="Nasıl Çalışır?">
           <Info className="h-4 w-4" />
         </Button>
