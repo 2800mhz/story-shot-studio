@@ -8,12 +8,19 @@ function loadKeys(key: string): string[] {
   } catch { return []; }
 }
 
+function loadJson<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch { return fallback; }
+}
+
 const initialState: AppState = {
-  mainText: '',
-  text5N1K: '',
-  episodes: [],
-  scenes: [],
-  consistencyGroups: [],
+  mainText: loadJson('app_mainText', ''),
+  text5N1K: loadJson('app_text5N1K', ''),
+  episodes: loadJson('app_episodes', []),
+  scenes: loadJson('app_scenes', []),
+  consistencyGroups: loadJson('app_consistencyGroups', []),
   activeSceneId: null,
   selectionMode: 'scene',
   apiKeys: loadKeys('gemini_api_keys'),
@@ -26,8 +33,8 @@ const initialState: AppState = {
     imageModel: localStorage.getItem('gemini_image_model') || 'gemini-2.0-flash-exp',
   },
   imageApiKeys: loadKeys('gemini_image_api_keys'),
-  mainFileName: '',
-  n1kFileName: '',
+  mainFileName: loadJson('app_mainFileName', ''),
+  n1kFileName: loadJson('app_n1kFileName', ''),
 };
 
 // Actions that should NOT push to undo history (transient / settings)
@@ -39,8 +46,29 @@ const NON_UNDOABLE = new Set<string>([
 type InternalAction = AppAction | { type: '__RESTORE__'; payload: AppState };
 
 function reducer(state: AppState, action: InternalAction): AppState {
-  if (action.type === '__RESTORE__') return action.payload;
+  if (action.type === '__RESTORE__') {
+    persistState(action.payload);
+    return action.payload;
+  }
 
+  const next = reducerCore(state, action);
+  if (next !== state) persistState(next);
+  return next;
+}
+
+function persistState(s: AppState) {
+  try {
+    localStorage.setItem('app_mainText', JSON.stringify(s.mainText));
+    localStorage.setItem('app_text5N1K', JSON.stringify(s.text5N1K));
+    localStorage.setItem('app_episodes', JSON.stringify(s.episodes));
+    localStorage.setItem('app_scenes', JSON.stringify(s.scenes));
+    localStorage.setItem('app_consistencyGroups', JSON.stringify(s.consistencyGroups));
+    localStorage.setItem('app_mainFileName', JSON.stringify(s.mainFileName));
+    localStorage.setItem('app_n1kFileName', JSON.stringify(s.n1kFileName));
+  } catch { /* storage full — silently ignore */ }
+}
+
+function reducerCore(state: AppState, action: InternalAction): AppState {
   switch (action.type) {
     case 'SET_MAIN_TEXT':
       return { ...state, mainText: action.payload.text, mainFileName: action.payload.fileName };
