@@ -84,7 +84,7 @@ export async function generateMotionPrompt(
     ],
     generationConfig: {
       temperature: 0.65,
-      maxOutputTokens: 350,
+      maxOutputTokens: 8192,
     },
   };
 
