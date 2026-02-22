@@ -1,7 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Settings, Download, Film, Upload, Info, Video } from 'lucide-react';
+import { Settings, Download, Film, Upload, Info, Video, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface HeaderProps {
   onUploadMain: () => void;
@@ -14,6 +22,8 @@ interface HeaderProps {
 }
 
 export function Header({ onUploadMain, onUpload5N1K, onExport, onSettings, onInfo, mainFileName, n1kFileName }: HeaderProps) {
+  const { user, signOut } = useAuth();
+
   return (
     <header className="film-grain flex items-center justify-between border-b bg-card px-5 py-3">
       <div className="flex items-center gap-3">
@@ -50,6 +60,30 @@ export function Header({ onUploadMain, onUpload5N1K, onExport, onSettings, onInf
         <Button variant="ghost" size="icon" onClick={onSettings}>
           <Settings className="h-4 w-4" />
         </Button>
+
+        {user && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <Avatar className="h-7 w-7">
+                  <AvatarImage src={user.user_metadata?.avatar_url} />
+                  <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                    {(user.user_metadata?.full_name || user.email || '?')[0].toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem className="text-xs text-muted-foreground" disabled>
+                {user.email}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={signOut}>
+                <LogOut className="mr-2 h-3.5 w-3.5" />
+                Çıkış Yap
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </header>
   );
