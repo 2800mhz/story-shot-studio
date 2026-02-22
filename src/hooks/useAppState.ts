@@ -74,6 +74,10 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       return { ...state, mainText: action.payload.text, mainFileName: action.payload.fileName };
     case 'SET_5N1K_TEXT':
       return { ...state, text5N1K: action.payload.text, n1kFileName: action.payload.fileName };
+    case 'CLEAR_MAIN_TEXT':
+      return { ...state, mainText: '', mainFileName: '', episodes: [], scenes: [], consistencyGroups: [], activeSceneId: null };
+    case 'CLEAR_5N1K_TEXT':
+      return { ...state, text5N1K: '', n1kFileName: '' };
     case 'SET_EPISODES':
       return { ...state, episodes: action.payload };
     case 'REORDER_EPISODES':

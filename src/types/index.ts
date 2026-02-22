@@ -84,6 +84,8 @@ export interface AppState {
 export type AppAction =
   | { type: 'SET_MAIN_TEXT'; payload: { text: string; fileName: string } }
   | { type: 'SET_5N1K_TEXT'; payload: { text: string; fileName: string } }
+  | { type: 'CLEAR_MAIN_TEXT' }
+  | { type: 'CLEAR_5N1K_TEXT' }
   | { type: 'SET_EPISODES'; payload: Episode[] }
   | { type: 'REORDER_EPISODES'; payload: Episode[] }
   | { type: 'MOVE_EPISODE'; payload: { episodeId: string; newParentId: string | null } }
