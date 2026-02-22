@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Settings, Download, Film, Upload, Info, Video, LogOut } from 'lucide-react';
+import { Settings, Download, Film, Upload, Info, Video, LogOut, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -17,11 +17,13 @@ interface HeaderProps {
   onExport: () => void;
   onSettings: () => void;
   onInfo: () => void;
+  onClearMain: () => void;
+  onClear5N1K: () => void;
   mainFileName: string;
   n1kFileName: string;
 }
 
-export function Header({ onUploadMain, onUpload5N1K, onExport, onSettings, onInfo, mainFileName, n1kFileName }: HeaderProps) {
+export function Header({ onUploadMain, onUpload5N1K, onExport, onSettings, onInfo, onClearMain, onClear5N1K, mainFileName, n1kFileName }: HeaderProps) {
   const { user, signOut } = useAuth();
 
   return (
@@ -36,14 +38,28 @@ export function Header({ onUploadMain, onUpload5N1K, onExport, onSettings, onInf
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={onUploadMain} className="max-w-[180px]">
-          <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{mainFileName || 'Ana Metin'}</span>
-        </Button>
-        <Button variant="outline" size="sm" onClick={onUpload5N1K} className="max-w-[180px]">
-          <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{n1kFileName || '5N1K'}</span>
-        </Button>
+        <div className="flex items-center">
+          <Button variant="outline" size="sm" onClick={onUploadMain} className="max-w-[180px] rounded-r-none border-r-0">
+            <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{mainFileName || 'Ana Metin'}</span>
+          </Button>
+          {mainFileName && (
+            <Button variant="outline" size="sm" onClick={onClearMain} className="rounded-l-none px-1.5" title="Dosyayı kaldır">
+              <X className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
+          )}
+        </div>
+        <div className="flex items-center">
+          <Button variant="outline" size="sm" onClick={onUpload5N1K} className="max-w-[180px] rounded-r-none border-r-0">
+            <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{n1kFileName || '5N1K'}</span>
+          </Button>
+          {n1kFileName && (
+            <Button variant="outline" size="sm" onClick={onClear5N1K} className="rounded-l-none px-1.5" title="Dosyayı kaldır">
+              <X className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
+          )}
+        </div>
         <Button variant="outline" size="sm" onClick={onExport}>
           <Download className="mr-1.5 h-3.5 w-3.5" />
           Dışa Aktar

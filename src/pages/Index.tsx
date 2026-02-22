@@ -430,6 +430,8 @@ const Index = () => {
         onExport={() => setExportOpen(true)}
         onSettings={() => setSettingsOpen(true)}
         onInfo={() => setInfoOpen(true)}
+        onClearMain={() => dispatch({ type: 'CLEAR_MAIN_TEXT' })}
+        onClear5N1K={() => dispatch({ type: 'CLEAR_5N1K_TEXT' })}
         mainFileName={state.mainFileName}
         n1kFileName={state.n1kFileName}
       />
