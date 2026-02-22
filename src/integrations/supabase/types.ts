@@ -14,7 +14,168 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      motion_prompt_results: {
+        Row: {
+          api_key_used: string | null
+          created_at: string
+          file_name: string
+          file_size: number | null
+          id: string
+          model_used: string | null
+          note: string | null
+          project_context: string | null
+          prompt: string | null
+          thumbnail_url: string | null
+          user_id: string
+        }
+        Insert: {
+          api_key_used?: string | null
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          id?: string
+          model_used?: string | null
+          note?: string | null
+          project_context?: string | null
+          prompt?: string | null
+          thumbnail_url?: string | null
+          user_id: string
+        }
+        Update: {
+          api_key_used?: string | null
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          model_used?: string | null
+          note?: string | null
+          project_context?: string | null
+          prompt?: string | null
+          thumbnail_url?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_projects: {
+        Row: {
+          consistency_groups: Json | null
+          created_at: string
+          episodes: Json | null
+          id: string
+          main_file_name: string | null
+          main_text: string | null
+          n1k_file_name: string | null
+          name: string
+          scenes: Json | null
+          text_5n1k: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          consistency_groups?: Json | null
+          created_at?: string
+          episodes?: Json | null
+          id?: string
+          main_file_name?: string | null
+          main_text?: string | null
+          n1k_file_name?: string | null
+          name?: string
+          scenes?: Json | null
+          text_5n1k?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          consistency_groups?: Json | null
+          created_at?: string
+          episodes?: Json | null
+          id?: string
+          main_file_name?: string | null
+          main_text?: string | null
+          n1k_file_name?: string | null
+          name?: string
+          scenes?: Json | null
+          text_5n1k?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          api_keys: string[] | null
+          created_at: string
+          id: string
+          image_api_keys: string[] | null
+          image_model: string | null
+          model: string | null
+          system_prompt: string | null
+          temperature: number | null
+          thinking_mode: boolean | null
+          updated_at: string
+          user_id: string
+          variant_count: number | null
+        }
+        Insert: {
+          api_keys?: string[] | null
+          created_at?: string
+          id?: string
+          image_api_keys?: string[] | null
+          image_model?: string | null
+          model?: string | null
+          system_prompt?: string | null
+          temperature?: number | null
+          thinking_mode?: boolean | null
+          updated_at?: string
+          user_id: string
+          variant_count?: number | null
+        }
+        Update: {
+          api_keys?: string[] | null
+          created_at?: string
+          id?: string
+          image_api_keys?: string[] | null
+          image_model?: string | null
+          model?: string | null
+          system_prompt?: string | null
+          temperature?: number | null
+          thinking_mode?: boolean | null
+          updated_at?: string
+          user_id?: string
+          variant_count?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
