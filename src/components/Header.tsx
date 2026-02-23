@@ -1,15 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Settings, Download, Film, Upload, Info, Video, LogOut, X } from 'lucide-react';
+import { Settings, Download, Film, Upload, Info, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/useAuth';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 interface HeaderProps {
   onUploadMain: () => void;
@@ -17,15 +9,11 @@ interface HeaderProps {
   onExport: () => void;
   onSettings: () => void;
   onInfo: () => void;
-  onClearMain: () => void;
-  onClear5N1K: () => void;
   mainFileName: string;
   n1kFileName: string;
 }
 
-export function Header({ onUploadMain, onUpload5N1K, onExport, onSettings, onInfo, onClearMain, onClear5N1K, mainFileName, n1kFileName }: HeaderProps) {
-  const { user, signOut } = useAuth();
-
+export function Header({ onUploadMain, onUpload5N1K, onExport, onSettings, onInfo, mainFileName, n1kFileName }: HeaderProps) {
   return (
     <header className="film-grain flex items-center justify-between border-b bg-card px-5 py-3">
       <div className="flex items-center gap-3">
@@ -38,28 +26,14 @@ export function Header({ onUploadMain, onUpload5N1K, onExport, onSettings, onInf
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <div className="flex items-center">
-          <Button variant="outline" size="sm" onClick={onUploadMain} className="max-w-[180px] rounded-r-none border-r-0">
-            <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{mainFileName || 'Ana Metin'}</span>
-          </Button>
-          {mainFileName && (
-            <Button variant="outline" size="sm" onClick={onClearMain} className="rounded-l-none px-1.5" title="Dosyayı kaldır">
-              <X className="h-3.5 w-3.5 text-muted-foreground" />
-            </Button>
-          )}
-        </div>
-        <div className="flex items-center">
-          <Button variant="outline" size="sm" onClick={onUpload5N1K} className="max-w-[180px] rounded-r-none border-r-0">
-            <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{n1kFileName || '5N1K'}</span>
-          </Button>
-          {n1kFileName && (
-            <Button variant="outline" size="sm" onClick={onClear5N1K} className="rounded-l-none px-1.5" title="Dosyayı kaldır">
-              <X className="h-3.5 w-3.5 text-muted-foreground" />
-            </Button>
-          )}
-        </div>
+        <Button variant="outline" size="sm" onClick={onUploadMain} className="max-w-[180px]">
+          <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{mainFileName || 'Ana Metin'}</span>
+        </Button>
+        <Button variant="outline" size="sm" onClick={onUpload5N1K} className="max-w-[180px]">
+          <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{n1kFileName || '5N1K'}</span>
+        </Button>
         <Button variant="outline" size="sm" onClick={onExport}>
           <Download className="mr-1.5 h-3.5 w-3.5" />
           Dışa Aktar
@@ -76,30 +50,6 @@ export function Header({ onUploadMain, onUpload5N1K, onExport, onSettings, onInf
         <Button variant="ghost" size="icon" onClick={onSettings}>
           <Settings className="h-4 w-4" />
         </Button>
-
-        {user && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full">
-                <Avatar className="h-7 w-7">
-                  <AvatarImage src={user.user_metadata?.avatar_url} />
-                  <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                    {(user.user_metadata?.full_name || user.email || '?')[0].toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem className="text-xs text-muted-foreground" disabled>
-                {user.email}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={signOut}>
-                <LogOut className="mr-2 h-3.5 w-3.5" />
-                Çıkış Yap
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
       </div>
     </header>
   );
