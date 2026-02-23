@@ -358,10 +358,70 @@ const Index = () => {
 
   const handleGenerateAll = useCallback(async () => {
     const pending = state.scenes.filter(s => s.status === 'pending');
-    for (const scene of pending) {
-      await handleGenerate(scene.id);
+    
+    for (let i = 0; i < pending.length; i++) {
+      const scene = pending[i];
+      const sceneRef = state.scenes.find(s => s.id === scene.id);
+      if (!sceneRef) continue;
+
+      dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'generating' } });
+
+      const groups = state.consistencyGroups.filter(g => sceneRef.consistencyGroupIds?.includes(g.id));
+      let success = false;
+      let triedKeys = 0;
+      const totalKeys = state.apiKeys.length;
+
+      while (!success && triedKeys < totalKeys) {
+        const apiKey = state.apiKeys[(state.currentKeyIndex + triedKeys) % totalKeys];
+        if (!apiKey) break;
+
+        try {
+          const relevant5N1KContext = extract5N1KSection(state.text5N1K, sceneRef.episodeTitle);
+          const results = await generatePrompts({
+            scene: sceneRef,
+            apiKey,
+            model: state.settings.model,
+            variantCount: state.settings.variantCount,
+            temperature: state.settings.temperature,
+            consistencyGroups: groups.length > 0 ? groups : undefined,
+            allScenes: state.scenes,
+            systemPrompt: loadSystemPrompt(),
+            relevant5N1KContext: relevant5N1KContext || undefined,
+          });
+
+          const prompts: PromptVariant[] = results.map((r, idx) => ({
+            id: `prompt-${Date.now()}-${idx}`,
+            shotType: r.shotType,
+            text: r.text,
+            versions: [r.text],
+            isRevising: false,
+          }));
+          dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, prompts, status: 'done' } });
+          dispatch({ type: 'ROTATE_API_KEY' });
+          success = true;
+        } catch (e: any) {
+          if (e.message === 'RATE_LIMIT') {
+            triedKeys++;
+            dispatch({ type: 'ROTATE_API_KEY' });
+            // Wait before trying next key
+            await new Promise(r => setTimeout(r, 2000));
+          } else {
+            dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'error' } });
+            success = true; // break out, it's a non-retryable error
+          }
+        }
+      }
+
+      if (!success) {
+        dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'error' } });
+      }
+
+      // Delay between scenes to avoid rate limits
+      if (i < pending.length - 1) {
+        await new Promise(r => setTimeout(r, 1500));
+      }
     }
-  }, [state.scenes, handleGenerate]);
+  }, [state, dispatch]);
 
   const handleRevise = useCallback(async (sceneId: string, promptId: string, instruction: string) => {
     const apiKey = getActiveKey();

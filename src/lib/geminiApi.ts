@@ -403,7 +403,7 @@ export async function generatePrompts(opts: GenerateOptions & { systemPrompt?: s
     }),
   });
 
-  if (response.status === 429) {
+  if (response.status === 429 || response.status === 403) {
     throw new Error('RATE_LIMIT');
   }
 
