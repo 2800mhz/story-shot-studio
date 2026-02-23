@@ -597,6 +597,7 @@ const Index = () => {
             onGenerateSubSceneImage={handleGenerateSubSceneImage}
             onAddSubSceneToGroup={handleAddSubSceneToGroup}
             onRemoveSubSceneFromGroup={handleRemoveSubSceneFromGroup}
+            onReorderScenes={(reordered) => dispatch({ type: 'REORDER_SCENES', payload: reordered })}
           />
         </div>
       </div>
