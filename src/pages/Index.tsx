@@ -250,10 +250,36 @@ const Index = () => {
       }));
       dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, prompts, status: 'done' } } });
     } catch (e: any) {
-      if (e.message === 'RATE_LIMIT' && state.apiKeys.length > 1) {
+      if (e.message === 'RATE_LIMIT') {
+        // Retry with key rotation, max attempts = total keys
+        const totalKeys = state.apiKeys.length;
+        let triedKeys = 1;
         dispatch({ type: 'ROTATE_API_KEY' });
-        setTimeout(() => handleGenerateSubScene(sceneId, subSceneId), 500);
-        return;
+        while (triedKeys < totalKeys) {
+          await new Promise(r => setTimeout(r, 2000));
+          const nextKey = state.apiKeys[(state.currentKeyIndex + triedKeys) % totalKeys];
+          try {
+            const relevant5N1KContext2 = extract5N1KSection(state.text5N1K, scene.episodeTitle);
+            const results2 = await generatePrompts({
+              scene, apiKey: nextKey, model: state.settings.model,
+              variantCount: state.settings.variantCount, temperature: state.settings.temperature,
+              consistencyGroups: subGroups.length > 0 ? subGroups : undefined,
+              allScenes: state.scenes, systemPrompt: loadSystemPrompt(),
+              subScene, parentScene: scene,
+              parentConsistencyGroups: parentGroups.length > 0 ? parentGroups : undefined,
+              relevant5N1KContext: relevant5N1KContext2 || undefined,
+            });
+            dispatch({ type: 'ROTATE_API_KEY' });
+            const prompts2: PromptVariant[] = results2.map((r, i) => ({
+              id: `prompt-${Date.now()}-${i}`, shotType: r.shotType, text: r.text, versions: [r.text], isRevising: false,
+            }));
+            dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, prompts: prompts2, status: 'done' } } });
+            return;
+          } catch (e2: any) {
+            if (e2.message === 'RATE_LIMIT') { triedKeys++; dispatch({ type: 'ROTATE_API_KEY' }); }
+            else break;
+          }
+        }
       }
       dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, status: 'error' } } });
     }
@@ -311,8 +337,7 @@ const Index = () => {
 
 
   const handleGenerate = useCallback(async (sceneId: string) => {
-    const apiKey = getActiveKey();
-    if (!apiKey) {
+    if (state.apiKeys.length === 0) {
       setSettingsOpen(true);
       return;
     }
@@ -322,39 +347,49 @@ const Index = () => {
     dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'generating' } });
 
     const groups = state.consistencyGroups.filter(g => scene.consistencyGroupIds?.includes(g.id));
+    const totalKeys = state.apiKeys.length;
+    let triedKeys = 0;
 
-    try {
-      const relevant5N1KContext = extract5N1KSection(state.text5N1K, scene.episodeTitle);
-      const results = await generatePrompts({
-        scene,
-        apiKey,
-        model: state.settings.model,
-        variantCount: state.settings.variantCount,
-        temperature: state.settings.temperature,
-        consistencyGroups: groups.length > 0 ? groups : undefined,
-        allScenes: state.scenes,
-        systemPrompt: loadSystemPrompt(),
-        relevant5N1KContext: relevant5N1KContext || undefined,
-      });
-      dispatch({ type: 'ROTATE_API_KEY' });
-
-      const prompts: PromptVariant[] = results.map((r, i) => ({
-        id: `prompt-${Date.now()}-${i}`,
-        shotType: r.shotType,
-        text: r.text,
-        versions: [r.text],
-        isRevising: false,
-      }));
-      dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, prompts, status: 'done' } });
-    } catch (e: any) {
-      if (e.message === 'RATE_LIMIT' && state.apiKeys.length > 1) {
+    while (triedKeys < totalKeys) {
+      const apiKey = state.apiKeys[(state.currentKeyIndex + triedKeys) % totalKeys];
+      try {
+        const relevant5N1KContext = extract5N1KSection(state.text5N1K, scene.episodeTitle);
+        const results = await generatePrompts({
+          scene,
+          apiKey,
+          model: state.settings.model,
+          variantCount: state.settings.variantCount,
+          temperature: state.settings.temperature,
+          consistencyGroups: groups.length > 0 ? groups : undefined,
+          allScenes: state.scenes,
+          systemPrompt: loadSystemPrompt(),
+          relevant5N1KContext: relevant5N1KContext || undefined,
+        });
         dispatch({ type: 'ROTATE_API_KEY' });
-        setTimeout(() => handleGenerate(sceneId), 500);
+
+        const prompts: PromptVariant[] = results.map((r, i) => ({
+          id: `prompt-${Date.now()}-${i}`,
+          shotType: r.shotType,
+          text: r.text,
+          versions: [r.text],
+          isRevising: false,
+        }));
+        dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, prompts, status: 'done' } });
         return;
+      } catch (e: any) {
+        if (e.message === 'RATE_LIMIT') {
+          triedKeys++;
+          dispatch({ type: 'ROTATE_API_KEY' });
+          await new Promise(r => setTimeout(r, 2000));
+        } else {
+          dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'error' } });
+          return;
+        }
       }
-      dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'error' } });
     }
-  }, [state, dispatch, getActiveKey]);
+    // All keys exhausted
+    dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'error' } });
+  }, [state, dispatch]);
 
   const handleGenerateAll = useCallback(async () => {
     const pending = state.scenes.filter(s => s.status === 'pending');
