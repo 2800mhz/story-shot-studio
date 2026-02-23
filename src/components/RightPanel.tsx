@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Sparkles, Zap, StickyNote } from 'lucide-react';
+import React, { useState, useRef, useCallback } from 'react';
+import { Sparkles, Zap, StickyNote, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PromptCard } from './PromptCard';
 import type { Scene, ConsistencyGroup, SubScene } from '@/types';
@@ -32,6 +32,7 @@ interface RightPanelProps {
   onGenerateSubSceneImage?: (sceneId: string, subSceneId: string, promptId: string) => void;
   onAddSubSceneToGroup?: (sceneId: string, subSceneId: string, groupId: string | null) => void;
   onRemoveSubSceneFromGroup?: (sceneId: string, subSceneId: string, groupId: string) => void;
+  onReorderScenes?: (scenes: Scene[]) => void;
 }
 
 function GroupNoteEditor({ group, onSave }: { group: ConsistencyGroup; onSave: (note: string) => void }) {
@@ -86,9 +87,49 @@ export function RightPanel({
   onAddSubScene, onRemoveSubScene, onGenerateSubScene, onReviseSubScene, onRefreshSubScene,
   onDeleteSubScenePrompt, onSetSubSceneNote, onGenerateSubSceneImage,
   onAddSubSceneToGroup, onRemoveSubSceneFromGroup,
+  onReorderScenes,
 }: RightPanelProps) {
   const doneCount = scenes.filter(s => s.status === 'done').length;
   const pendingCount = scenes.filter(s => s.status === 'pending').length;
+
+  // Drag-and-drop state
+  const dragIndexRef = useRef<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
+    dragIndexRef.current = index;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    const fromIndex = dragIndexRef.current;
+    if (fromIndex === null || fromIndex === dropIndex) {
+      setDragOverIndex(null);
+      dragIndexRef.current = null;
+      return;
+    }
+    const reordered = [...scenes];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(dropIndex, 0, moved);
+    // Update scene numbers
+    const renumbered = reordered.map((s, i) => ({ ...s, number: i + 1 }));
+    onReorderScenes?.(renumbered);
+    setDragOverIndex(null);
+    dragIndexRef.current = null;
+  }, [scenes, onReorderScenes]);
+
+  const handleDragEnd = useCallback(() => {
+    setDragOverIndex(null);
+    dragIndexRef.current = null;
+  }, []);
 
   return (
     <div className="flex h-full flex-col border-l bg-card">
@@ -132,6 +173,20 @@ export function RightPanel({
           scenes.map((scene, i) => {
             const groups = scene.consistencyGroupIds?.map(gId => consistencyGroups.find(g => g.id === gId)).filter(Boolean) as ConsistencyGroup[] || [];
             return (
+              <div
+                key={scene.id}
+                draggable
+                onDragStart={(e) => handleDragStart(e, i)}
+                onDragOver={(e) => handleDragOver(e, i)}
+                onDrop={(e) => handleDrop(e, i)}
+                onDragEnd={handleDragEnd}
+                className={`relative transition-all ${dragOverIndex === i ? 'border-t-2 border-primary pt-1' : ''}`}
+              >
+                <div className="flex gap-1">
+                  <div className="flex items-start pt-3 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+                    <GripVertical className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
               <PromptCard
                 key={scene.id}
                 sceneIndex={i + 1}
@@ -167,6 +222,9 @@ export function RightPanel({
                 onRemoveSubSceneFromGroup={onRemoveSubSceneFromGroup ? (subSceneId, groupId) => onRemoveSubSceneFromGroup(scene.id, subSceneId, groupId) : undefined}
                 onClick={() => onSetActiveScene(scene.id)}
               />
+                  </div>
+                </div>
+              </div>
             );
           })
         )}

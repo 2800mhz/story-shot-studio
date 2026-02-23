@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Film, ArrowLeft, Plus, Trash2, Play, Square, Copy, Download, Check, Image as ImageIcon, Settings, ChevronDown } from 'lucide-react';
+import { Film, ArrowLeft, Plus, Trash2, Play, Square, Copy, Download, Check, Image as ImageIcon, Settings, ChevronDown, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -193,6 +193,63 @@ export default function MotionPrompt() {
     navigator.clipboard.writeText(text);
     toast.success('Kopyalandı');
   }, []);
+
+  // ─── Regenerate single item ───
+  const regenerateItem = useCallback(async (itemId: string) => {
+    if (apiKeys.length === 0) {
+      toast.error('API anahtarı bulunamadı.');
+      return;
+    }
+    const item = queue.find(i => i.id === itemId);
+    if (!item) return;
+
+    setQueue(prev => prev.map(i => i.id === itemId ? { ...i, status: 'processing', prompt: undefined, error: undefined } : i));
+
+    let currentKeyIdx = keyIndex;
+    let attempts = 0;
+    let success = false;
+
+    while (attempts < apiKeys.length && !success) {
+      const key = apiKeys[currentKeyIdx];
+      try {
+        const prompt = await generateMotionPrompt(item.file, key, model, projectContext, globalNote, item.note);
+        setQueue(prev => prev.map(i => i.id === itemId ? { ...i, status: 'done', prompt, apiKeyUsed: key.slice(-6) } : i));
+        success = true;
+      } catch (err: any) {
+        const msg = err?.message || '';
+        if (msg.includes('API_429') || msg.includes('API_403')) {
+          currentKeyIdx = (currentKeyIdx + 1) % apiKeys.length;
+          setKeyIndex(currentKeyIdx);
+          attempts++;
+        } else {
+          setQueue(prev => prev.map(i => i.id === itemId ? { ...i, status: 'error', error: msg } : i));
+          success = true;
+        }
+      }
+    }
+    if (!success) {
+      setQueue(prev => prev.map(i => i.id === itemId ? { ...i, status: 'error', error: 'Tüm anahtarlar rate-limit' } : i));
+    }
+  }, [apiKeys, keyIndex, model, projectContext, globalNote, queue]);
+
+  // ─── Regenerate all done items ───
+  const regenerateAll = useCallback(async () => {
+    const doneItems = queue.filter(i => i.status === 'done');
+    if (doneItems.length === 0) return;
+
+    setIsProcessing(true);
+    abortRef.current = false;
+
+    for (const item of doneItems) {
+      if (abortRef.current) break;
+      await regenerateItem(item.id);
+      if (!abortRef.current && doneItems.indexOf(item) < doneItems.length - 1) {
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+    setIsProcessing(false);
+    toast.success('Yeniden üretim tamamlandı');
+  }, [queue, regenerateItem, delay]);
 
   return (
     <div className="flex h-screen flex-col bg-background">
@@ -442,48 +499,87 @@ export default function MotionPrompt() {
         </div>
 
         {/* Right: Results */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-3">
-          {queue.filter(i => i.status === 'done').length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
-              <Film className="h-12 w-12 opacity-20" />
-              <p className="text-sm">Motion promptlar burada görünecek</p>
-              <p className="text-xs max-w-md text-center">
-                Sol panelden görsel ekleyin, ayarları yapın ve "Başlat" butonuna tıklayın.
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Bulk regenerate header */}
+          {queue.filter(i => i.status === 'done').length > 0 && (
+            <div className="flex items-center justify-between border-b border-border px-4 py-2">
+              <p className="text-xs text-muted-foreground">
+                <strong className="text-foreground">{queue.filter(i => i.status === 'done').length}</strong> prompt üretildi
               </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={regenerateAll}
+                disabled={isProcessing}
+              >
+                <RefreshCw className="mr-1 h-3 w-3" /> Tümünü Yeniden Üret
+              </Button>
             </div>
           )}
-          {queue.filter(i => i.status === 'done').map(item => (
-            <div key={item.id} className="rounded-lg border border-border bg-card p-3 space-y-2">
-              <div className="flex items-start gap-3">
-                <img
-                  src={item.thumbnailUrl}
-                  alt={item.file.name}
-                  className="h-20 w-20 rounded object-cover shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium text-foreground truncate">{item.file.name}</p>
-                    <Badge variant="outline" className="text-[9px] shrink-0">
-                      Key: ...{item.apiKeyUsed}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-foreground/90 leading-relaxed mt-1.5 whitespace-pre-wrap">
-                    {item.prompt}
-                  </p>
-                  <div className="flex gap-1.5 mt-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-6 text-[10px]"
-                      onClick={() => copyPrompt(item.prompt || '')}
-                    >
-                      <Copy className="mr-1 h-3 w-3" /> Kopyala
-                    </Button>
+
+          <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-3">
+            {queue.filter(i => i.status === 'done' || i.status === 'processing').length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+                <Film className="h-12 w-12 opacity-20" />
+                <p className="text-sm">Motion promptlar burada görünecek</p>
+                <p className="text-xs max-w-md text-center">
+                  Sol panelden görsel ekleyin, ayarları yapın ve "Başlat" butonuna tıklayın.
+                </p>
+              </div>
+            )}
+            {queue.filter(i => i.status === 'done' || i.status === 'processing').map(item => (
+              <div key={item.id} className={`rounded-lg border bg-card p-3 space-y-2 ${item.status === 'processing' ? 'border-primary/50 ring-1 ring-primary/20 animate-pulse' : 'border-border'}`}>
+                <div className="flex items-start gap-3">
+                  <img
+                    src={item.thumbnailUrl}
+                    alt={item.file.name}
+                    className="h-20 w-20 rounded object-cover shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-foreground truncate">{item.file.name}</p>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {item.status === 'processing' && (
+                          <Badge variant="outline" className="text-[9px] text-primary animate-pulse">Üretiliyor...</Badge>
+                        )}
+                        {item.apiKeyUsed && (
+                          <Badge variant="outline" className="text-[9px]">
+                            Key: ...{item.apiKeyUsed}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    {item.prompt && (
+                      <p className="text-sm text-foreground/90 leading-relaxed mt-1.5 whitespace-pre-wrap">
+                        {item.prompt}
+                      </p>
+                    )}
+                    <div className="flex gap-1.5 mt-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 text-[10px]"
+                        onClick={() => copyPrompt(item.prompt || '')}
+                        disabled={!item.prompt}
+                      >
+                        <Copy className="mr-1 h-3 w-3" /> Kopyala
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 text-[10px]"
+                        onClick={() => regenerateItem(item.id)}
+                        disabled={item.status === 'processing'}
+                      >
+                        <RefreshCw className="mr-1 h-3 w-3" /> Yeniden Üret
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </div>
