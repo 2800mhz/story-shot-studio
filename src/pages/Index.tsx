@@ -24,6 +24,8 @@ const Index = () => {
   const mainFileRef = useRef<HTMLInputElement>(null);
   const n1kFileRef = useRef<HTMLInputElement>(null);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const bulkAbortRef = useRef<AbortController | null>(null);
+  const [isGeneratingAll, setIsGeneratingAll] = useState(false);
 
   // Ctrl+Z / Ctrl+Y global keyboard shortcuts
   useEffect(() => {
@@ -422,8 +424,13 @@ const Index = () => {
 
   const handleGenerateAll = useCallback(async () => {
     const pending = state.scenes.filter(s => s.status === 'pending');
+    const bulkController = new AbortController();
+    bulkAbortRef.current = bulkController;
+    setIsGeneratingAll(true);
     
     for (let i = 0; i < pending.length; i++) {
+      if (bulkController.signal.aborted) break;
+
       const scene = pending[i];
       const sceneRef = state.scenes.find(s => s.id === scene.id);
       if (!sceneRef) continue;
@@ -436,6 +443,10 @@ const Index = () => {
       const totalKeys = state.apiKeys.length;
 
       while (!success && triedKeys < totalKeys) {
+        if (bulkController.signal.aborted) {
+          dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'pending' } });
+          break;
+        }
         const apiKey = state.apiKeys[(state.currentKeyIndex + triedKeys) % totalKeys];
         if (!apiKey) break;
 
@@ -451,6 +462,7 @@ const Index = () => {
             allScenes: state.scenes,
             systemPrompt: loadSystemPrompt(),
             relevant5N1KContext: relevant5N1KContext || undefined,
+            signal: bulkController.signal,
           });
 
           const prompts: PromptVariant[] = results.map((r, idx) => ({
@@ -464,28 +476,49 @@ const Index = () => {
           dispatch({ type: 'ROTATE_API_KEY' });
           success = true;
         } catch (e: any) {
+          if (e.name === 'AbortError') {
+            dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'pending' } });
+            break;
+          }
           if (e.message === 'RATE_LIMIT') {
             triedKeys++;
             dispatch({ type: 'ROTATE_API_KEY' });
-            // Wait before trying next key
             await new Promise(r => setTimeout(r, 2000));
           } else {
             dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'error' } });
-            success = true; // break out, it's a non-retryable error
+            success = true;
           }
         }
       }
 
-      if (!success) {
+      if (!success && !bulkController.signal.aborted) {
         dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'error' } });
       }
 
       // Delay between scenes to avoid rate limits
-      if (i < pending.length - 1) {
+      if (i < pending.length - 1 && !bulkController.signal.aborted) {
         await new Promise(r => setTimeout(r, 1500));
       }
     }
+    setIsGeneratingAll(false);
+    bulkAbortRef.current = null;
   }, [state, dispatch]);
+
+  const handleCancelAll = useCallback(() => {
+    if (bulkAbortRef.current) {
+      bulkAbortRef.current.abort();
+    }
+    // Also abort any individual scene controllers
+    abortControllersRef.current.forEach((controller) => controller.abort());
+    abortControllersRef.current.clear();
+    // Revert all generating scenes to pending
+    state.scenes.forEach(s => {
+      if (s.status === 'generating') {
+        dispatch({ type: 'UPDATE_SCENE', payload: { ...s, status: 'pending' } });
+      }
+    });
+    setIsGeneratingAll(false);
+  }, [state.scenes, dispatch]);
 
   const handleRevise = useCallback(async (sceneId: string, promptId: string, instruction: string) => {
     const apiKey = getActiveKey();
@@ -606,7 +639,9 @@ const Index = () => {
             activeSceneId={state.activeSceneId}
             onGenerate={handleGenerate}
             onCancel={handleCancel}
+            onCancelAll={handleCancelAll}
             onGenerateAll={handleGenerateAll}
+            isGeneratingAll={isGeneratingAll}
             onRevise={handleRevise}
             onRefreshAll={handleRefreshAll}
             onGenerateImage={handleGenerateImage}
