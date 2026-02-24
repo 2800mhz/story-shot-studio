@@ -136,8 +136,8 @@ export function PromptCard({
               )}
             </>
           )}
-          {status === 'pending' && (
-            <button onClick={(e) => { e.stopPropagation(); onGenerate(); }} className="rounded p-1 text-primary hover:bg-primary/10">
+          {(status === 'pending' || status === 'error') && (
+            <button onClick={(e) => { e.stopPropagation(); onGenerate(); }} className={`rounded p-1 hover:bg-primary/10 ${status === 'error' ? 'text-destructive' : 'text-primary'}`}>
               <Zap className="h-3.5 w-3.5" />
             </button>
           )}
@@ -241,9 +241,9 @@ export function PromptCard({
 
       {/* Prompts */}
       <div className="px-4 py-3 space-y-3">
-        {status === 'pending' && prompts.length === 0 && (
+        {(status === 'pending' || status === 'error') && prompts.length === 0 && (
           <Button size="sm" onClick={(e) => { e.stopPropagation(); onGenerate(); }} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
-            ⚡ Prompt Üret
+            ⚡ {status === 'error' ? 'Tekrar Dene' : 'Prompt Üret'}
           </Button>
         )}
 
