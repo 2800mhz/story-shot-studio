@@ -10,7 +10,9 @@ interface RightPanelProps {
   activeSceneId: string | null;
   onGenerate: (sceneId: string) => void;
   onCancel?: (sceneId: string) => void;
+  onCancelAll?: () => void;
   onGenerateAll: () => void;
+  isGeneratingAll?: boolean;
   onRevise: (sceneId: string, promptId: string, instruction: string) => void;
   onRefreshAll: (sceneId: string) => void;
   onGenerateImage?: (sceneId: string, promptId: string) => void;
@@ -82,7 +84,7 @@ function GroupNoteEditor({ group, onSave }: { group: ConsistencyGroup; onSave: (
 
 export function RightPanel({
   scenes, consistencyGroups, activeSceneId,
-  onGenerate, onCancel, onGenerateAll, onRevise, onRefreshAll, onGenerateImage,
+  onGenerate, onCancel, onCancelAll, onGenerateAll, isGeneratingAll, onRevise, onRefreshAll, onGenerateImage,
   onSetActiveScene, onRemoveScene, onRegenerateGroup,
   onAddSceneToGroup, onRemoveSceneFromGroup, onDeletePrompt, onSetSceneNote, onSetGroupNote,
   onAddSubScene, onRemoveSubScene, onGenerateSubScene, onReviseSubScene, onRefreshSubScene,
@@ -142,12 +144,17 @@ export function RightPanel({
           )}
         </div>
         <div className="flex gap-1.5">
-          {pendingCount > 0 && (
+          {isGeneratingAll ? (
+            <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={onCancelAll}>
+              <span className="mr-1">✕</span>
+              Toplu Üretimi İptal Et
+            </Button>
+          ) : pendingCount > 0 ? (
             <Button size="sm" className="h-7 text-xs bg-primary text-primary-foreground" onClick={onGenerateAll}>
               <Sparkles className="mr-1 h-3 w-3" />
               Tümünü Üret ({pendingCount})
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
 
