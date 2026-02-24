@@ -18,6 +18,7 @@ interface PromptCardProps {
   note?: string;
   subScenes?: SubScene[];
   onGenerate: () => void;
+  onCancel?: () => void;
   onRevise: (promptId: string, instruction: string) => void;
   onGenerateImage?: (promptId: string) => void;
   onRefreshAll: () => void;
@@ -47,7 +48,7 @@ export function PromptCard({
   sceneIndex, episodeTitle, sceneText, referenceText, prompts, status,
   consistencyGroups = [], allConsistencyGroups = [],
   consistencyWarning, note, subScenes = [],
-  onGenerate, onRevise, onRefreshAll, onDelete, onDeletePrompt, onRegenerateGroup, onGenerateImage,
+  onGenerate, onCancel, onRevise, onRefreshAll, onDelete, onDeletePrompt, onRegenerateGroup, onGenerateImage,
   onAddToGroup, onRemoveFromGroup, onSetNote,
   onAddSubScene, onRemoveSubScene, onGenerateSubScene, onReviseSubScene,
   onRefreshSubScene, onDeleteSubScenePrompt, onSetSubSceneNote,
@@ -121,7 +122,20 @@ export function PromptCard({
           ))}
         </div>
         <div className="flex items-center gap-1">
-          {status === 'generating' && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
+          {status === 'generating' && (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+              {onCancel && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onCancel(); }}
+                  className="flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium text-destructive bg-destructive/10 hover:bg-destructive/20 transition-colors"
+                  title="İptal et"
+                >
+                  <X className="h-3 w-3" /> İptal
+                </button>
+              )}
+            </>
+          )}
           {status === 'pending' && (
             <button onClick={(e) => { e.stopPropagation(); onGenerate(); }} className="rounded p-1 text-primary hover:bg-primary/10">
               <Zap className="h-3.5 w-3.5" />

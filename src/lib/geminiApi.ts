@@ -290,7 +290,7 @@ interface GenerateOptions {
   relevant5N1KContext?: string;
 }
 
-export async function generatePrompts(opts: GenerateOptions & { systemPrompt?: string }): Promise<{ shotType: string; text: string }[]> {
+export async function generatePrompts(opts: GenerateOptions & { systemPrompt?: string; signal?: AbortSignal }): Promise<{ shotType: string; text: string }[]> {
   const { scene, apiKey, model, variantCount, temperature, consistencyGroups, allScenes, systemPrompt: customPrompt, subScene, parentScene, parentConsistencyGroups, relevant5N1KContext } = opts;
 
   const isSubScene = !!subScene && !!parentScene;
@@ -393,6 +393,7 @@ export async function generatePrompts(opts: GenerateOptions & { systemPrompt?: s
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    signal: opts.signal,
     body: JSON.stringify({
       system_instruction: { parts: [{ text: systemPrompt }] },
       contents: [{ role: 'user', parts: [{ text: userMessage }] }],

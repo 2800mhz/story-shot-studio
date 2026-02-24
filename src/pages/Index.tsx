@@ -23,6 +23,7 @@ const Index = () => {
   const [scrollToIndex, setScrollToIndex] = useState<number | null>(null);
   const mainFileRef = useRef<HTMLInputElement>(null);
   const n1kFileRef = useRef<HTMLInputElement>(null);
+  const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
 
   // Ctrl+Z / Ctrl+Y global keyboard shortcuts
   useEffect(() => {
@@ -336,6 +337,18 @@ const Index = () => {
   }, [state, dispatch]);
 
 
+  const handleCancel = useCallback((sceneId: string) => {
+    const controller = abortControllersRef.current.get(sceneId);
+    if (controller) {
+      controller.abort();
+      abortControllersRef.current.delete(sceneId);
+    }
+    const scene = state.scenes.find(s => s.id === sceneId);
+    if (scene) {
+      dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'pending' } });
+    }
+  }, [state.scenes, dispatch]);
+
   const handleGenerate = useCallback(async (sceneId: string) => {
     if (state.apiKeys.length === 0) {
       setSettingsOpen(true);
@@ -344,6 +357,10 @@ const Index = () => {
     const scene = state.scenes.find(s => s.id === sceneId);
     if (!scene) return;
 
+    // Create AbortController for this scene
+    const controller = new AbortController();
+    abortControllersRef.current.set(sceneId, controller);
+
     dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'generating' } });
 
     const groups = state.consistencyGroups.filter(g => scene.consistencyGroupIds?.includes(g.id));
@@ -351,6 +368,10 @@ const Index = () => {
     let triedKeys = 0;
 
     while (triedKeys < totalKeys) {
+      if (controller.signal.aborted) {
+        abortControllersRef.current.delete(sceneId);
+        return;
+      }
       const apiKey = state.apiKeys[(state.currentKeyIndex + triedKeys) % totalKeys];
       try {
         const relevant5N1KContext = extract5N1KSection(state.text5N1K, scene.episodeTitle);
@@ -364,6 +385,7 @@ const Index = () => {
           allScenes: state.scenes,
           systemPrompt: loadSystemPrompt(),
           relevant5N1KContext: relevant5N1KContext || undefined,
+          signal: controller.signal,
         });
         dispatch({ type: 'ROTATE_API_KEY' });
 
@@ -375,20 +397,27 @@ const Index = () => {
           isRevising: false,
         }));
         dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, prompts, status: 'done' } });
+        abortControllersRef.current.delete(sceneId);
         return;
       } catch (e: any) {
+        if (e.name === 'AbortError') {
+          abortControllersRef.current.delete(sceneId);
+          return;
+        }
         if (e.message === 'RATE_LIMIT') {
           triedKeys++;
           dispatch({ type: 'ROTATE_API_KEY' });
           await new Promise(r => setTimeout(r, 2000));
         } else {
           dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'error' } });
+          abortControllersRef.current.delete(sceneId);
           return;
         }
       }
     }
     // All keys exhausted
     dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'error' } });
+    abortControllersRef.current.delete(sceneId);
   }, [state, dispatch]);
 
   const handleGenerateAll = useCallback(async () => {
@@ -576,6 +605,7 @@ const Index = () => {
             consistencyGroups={state.consistencyGroups}
             activeSceneId={state.activeSceneId}
             onGenerate={handleGenerate}
+            onCancel={handleCancel}
             onGenerateAll={handleGenerateAll}
             onRevise={handleRevise}
             onRefreshAll={handleRefreshAll}
