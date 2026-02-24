@@ -9,7 +9,8 @@ import { ExportModal } from '@/components/ExportModal';
 import { useAppState } from '@/hooks/useAppState';
 import { parseDocument } from '@/lib/documentParser';
 import { parseEpisodes } from '@/lib/contextDetection';
-import { generatePrompts, revisePrompt, generateImage, loadSystemPrompt, extract5N1KSection } from '@/lib/geminiApi';
+import { generatePrompts, revisePrompt, generateImage, loadSystemPrompt } from '@/lib/geminiApi';
+import { extractEntitiesFromText, analyzeScene, matchEntitiesToScene } from '@/lib/aiAnalyzer';
 import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup } from '@/types';
 
 
@@ -22,10 +23,12 @@ const Index = () => {
   const [exportOpen, setExportOpen] = React.useState(false);
   const [scrollToIndex, setScrollToIndex] = useState<number | null>(null);
   const mainFileRef = useRef<HTMLInputElement>(null);
-  const n1kFileRef = useRef<HTMLInputElement>(null);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const bulkAbortRef = useRef<AbortController | null>(null);
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
+  // Use a ref to access current scenes without adding them as a callback dependency
+  const scenesRef = useRef(state.scenes);
+  scenesRef.current = state.scenes;
 
   // Ctrl+Z / Ctrl+Y global keyboard shortcuts
   useEffect(() => {
@@ -49,20 +52,41 @@ const Index = () => {
     return state.apiKeys[state.currentKeyIndex % state.apiKeys.length];
   }, [state.apiKeys, state.currentKeyIndex]);
 
-  const handleFileUpload = useCallback(async (file: File, type: 'main' | '5n1k') => {
+  const handleFileUpload = useCallback(async (file: File) => {
     try {
       const text = await parseDocument(file);
-      if (type === 'main') {
-        dispatch({ type: 'SET_MAIN_TEXT', payload: { text, fileName: file.name } });
-        const episodes = parseEpisodes(text);
-        dispatch({ type: 'SET_EPISODES', payload: episodes });
-      } else {
-        dispatch({ type: 'SET_5N1K_TEXT', payload: { text, fileName: file.name } });
+      dispatch({ type: 'SET_MAIN_TEXT', payload: { text, fileName: file.name } });
+      const episodes = parseEpisodes(text);
+      dispatch({ type: 'SET_EPISODES', payload: episodes });
+
+      // Trigger automatic AI analysis
+      const apiKey = getActiveKey();
+      if (apiKey) {
+        try {
+          const entities = await extractEntitiesFromText(text, apiKey, state.settings.model);
+          dispatch({ type: 'SET_EXTRACTED_ENTITIES', payload: entities });
+
+          // Analyze each existing scene using ref to avoid stale closure / circular deps
+          for (const scene of scenesRef.current) {
+            const sceneText = scene.segments.map(s => s.text).join('\n\n');
+            const analysisResult = await analyzeScene(sceneText, apiKey, state.settings.model);
+            const entityIds = matchEntitiesToScene(sceneText, entities);
+            dispatch({
+              type: 'SET_SCENE_ANALYSIS',
+              payload: {
+                sceneId: scene.id,
+                analysis: { ...analysisResult, sceneId: scene.id, entityReferences: entityIds },
+              },
+            });
+          }
+        } catch (e) {
+          console.error('AI analysis failed, continuing without it', e);
+        }
       }
     } catch (e) {
       console.error('Dosya okunamadı', e);
     }
-  }, [dispatch]);
+  }, [dispatch, getActiveKey, state.settings.model]);
 
   const handleAddScene = useCallback((segment: TextSegment, episodeTitle: string) => {
     const scene: Scene = {
@@ -227,7 +251,6 @@ const Index = () => {
     const subGroups = state.consistencyGroups.filter(g => subScene.consistencyGroupIds?.includes(g.id));
 
     try {
-      const relevant5N1KContext = extract5N1KSection(state.text5N1K, scene.episodeTitle);
       const results = await generatePrompts({
         scene,
         apiKey,
@@ -240,7 +263,6 @@ const Index = () => {
         subScene,
         parentScene: scene,
         parentConsistencyGroups: parentGroups.length > 0 ? parentGroups : undefined,
-        relevant5N1KContext: relevant5N1KContext || undefined,
       });
       dispatch({ type: 'ROTATE_API_KEY' });
 
@@ -262,7 +284,6 @@ const Index = () => {
           await new Promise(r => setTimeout(r, 2000));
           const nextKey = state.apiKeys[(state.currentKeyIndex + triedKeys) % totalKeys];
           try {
-            const relevant5N1KContext2 = extract5N1KSection(state.text5N1K, scene.episodeTitle);
             const results2 = await generatePrompts({
               scene, apiKey: nextKey, model: state.settings.model,
               variantCount: state.settings.variantCount, temperature: state.settings.temperature,
@@ -270,7 +291,6 @@ const Index = () => {
               allScenes: state.scenes, systemPrompt: loadSystemPrompt(),
               subScene, parentScene: scene,
               parentConsistencyGroups: parentGroups.length > 0 ? parentGroups : undefined,
-              relevant5N1KContext: relevant5N1KContext2 || undefined,
             });
             dispatch({ type: 'ROTATE_API_KEY' });
             const prompts2: PromptVariant[] = results2.map((r, i) => ({
@@ -376,7 +396,10 @@ const Index = () => {
       }
       const apiKey = state.apiKeys[(state.currentKeyIndex + triedKeys) % totalKeys];
       try {
-        const relevant5N1KContext = extract5N1KSection(state.text5N1K, scene.episodeTitle);
+        const sceneEntities = {
+          characters: state.extractedEntities.filter(e => e.type === 'character' && e.sceneIds.includes(sceneId)),
+          locations: state.extractedEntities.filter(e => e.type === 'location' && e.sceneIds.includes(sceneId)),
+        };
         const results = await generatePrompts({
           scene,
           apiKey,
@@ -386,7 +409,8 @@ const Index = () => {
           consistencyGroups: groups.length > 0 ? groups : undefined,
           allScenes: state.scenes,
           systemPrompt: loadSystemPrompt(),
-          relevant5N1KContext: relevant5N1KContext || undefined,
+          sceneEntities: (sceneEntities.characters.length > 0 || sceneEntities.locations.length > 0) ? sceneEntities : undefined,
+          sceneAnalysis: state.sceneAnalyses[sceneId],
           signal: controller.signal,
         });
         dispatch({ type: 'ROTATE_API_KEY' });
@@ -451,7 +475,10 @@ const Index = () => {
         if (!apiKey) break;
 
         try {
-          const relevant5N1KContext = extract5N1KSection(state.text5N1K, sceneRef.episodeTitle);
+          const sceneEntitiesAll = {
+            characters: state.extractedEntities.filter(e => e.type === 'character' && e.sceneIds.includes(sceneRef.id)),
+            locations: state.extractedEntities.filter(e => e.type === 'location' && e.sceneIds.includes(sceneRef.id)),
+          };
           const results = await generatePrompts({
             scene: sceneRef,
             apiKey,
@@ -461,7 +488,8 @@ const Index = () => {
             consistencyGroups: groups.length > 0 ? groups : undefined,
             allScenes: state.scenes,
             systemPrompt: loadSystemPrompt(),
-            relevant5N1KContext: relevant5N1KContext || undefined,
+            sceneEntities: (sceneEntitiesAll.characters.length > 0 || sceneEntitiesAll.locations.length > 0) ? sceneEntitiesAll : undefined,
+            sceneAnalysis: state.sceneAnalyses[sceneRef.id],
             signal: bulkController.signal,
           });
 
@@ -583,18 +611,14 @@ const Index = () => {
     <div className="flex h-screen flex-col bg-background">
       <Header
         onUploadMain={() => mainFileRef.current?.click()}
-        onUpload5N1K={() => n1kFileRef.current?.click()}
         onExport={() => setExportOpen(true)}
         onSettings={() => setSettingsOpen(true)}
         onInfo={() => setInfoOpen(true)}
         mainFileName={state.mainFileName}
-        n1kFileName={state.n1kFileName}
       />
 
       <input ref={mainFileRef} type="file" accept=".docx,.txt" className="hidden"
-        onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], 'main')} />
-      <input ref={n1kFileRef} type="file" accept=".docx,.txt" className="hidden"
-        onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], '5n1k')} />
+        onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
 
       <div className="flex flex-1 overflow-hidden">
         <div className="w-[280px] shrink-0">
@@ -637,6 +661,8 @@ const Index = () => {
             scenes={state.scenes}
             consistencyGroups={state.consistencyGroups}
             activeSceneId={state.activeSceneId}
+            extractedEntities={state.extractedEntities}
+            sceneAnalyses={state.sceneAnalyses}
             onGenerate={handleGenerate}
             onCancel={handleCancel}
             onCancelAll={handleCancelAll}

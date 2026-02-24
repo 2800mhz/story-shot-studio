@@ -59,11 +59,30 @@ export interface Episode {
 
 export type SelectionMode = 'scene' | 'reference' | 'consistency' | 'append';
 
+export interface ExtractedEntity {
+  id: string;
+  type: 'character' | 'location' | 'object';
+  name: string;
+  visualDescription: string;
+  sceneIds: string[];
+  firstMention: number;
+}
+
+export interface SceneAnalysis {
+  sceneId: string;
+  narrativeType: 'static' | 'sequence' | 'timelapse';
+  suggestedPromptCount: number;
+  entityReferences: string[];
+  temporalComplexity: 'simple' | 'moderate' | 'complex';
+  reasoning?: string;
+}
+
 export interface AppState {
   mainText: string;
-  text5N1K: string;
   episodes: Episode[];
   scenes: Scene[];
+  extractedEntities: ExtractedEntity[];
+  sceneAnalyses: Record<string, SceneAnalysis>;
   consistencyGroups: ConsistencyGroup[];
   activeSceneId: string | null;
   selectionMode: SelectionMode;
@@ -78,12 +97,14 @@ export interface AppState {
   };
   imageApiKeys: string[];
   mainFileName: string;
-  n1kFileName: string;
 }
 
 export type AppAction =
   | { type: 'SET_MAIN_TEXT'; payload: { text: string; fileName: string } }
-  | { type: 'SET_5N1K_TEXT'; payload: { text: string; fileName: string } }
+  | { type: 'SET_EXTRACTED_ENTITIES'; payload: ExtractedEntity[] }
+  | { type: 'ADD_EXTRACTED_ENTITY'; payload: ExtractedEntity }
+  | { type: 'UPDATE_ENTITY'; payload: { entityId: string; updates: Partial<ExtractedEntity> } }
+  | { type: 'SET_SCENE_ANALYSIS'; payload: { sceneId: string; analysis: SceneAnalysis } }
   | { type: 'SET_EPISODES'; payload: Episode[] }
   | { type: 'REORDER_EPISODES'; payload: Episode[] }
   | { type: 'MOVE_EPISODE'; payload: { episodeId: string; newParentId: string | null } }

@@ -17,9 +17,10 @@ function loadJson<T>(key: string, fallback: T): T {
 
 const initialState: AppState = {
   mainText: loadJson('app_mainText', ''),
-  text5N1K: loadJson('app_text5N1K', ''),
   episodes: loadJson('app_episodes', []),
   scenes: loadJson('app_scenes', []),
+  extractedEntities: loadJson('app_extractedEntities', []),
+  sceneAnalyses: loadJson('app_sceneAnalyses', {}),
   consistencyGroups: loadJson('app_consistencyGroups', []),
   activeSceneId: null,
   selectionMode: 'scene',
@@ -34,7 +35,6 @@ const initialState: AppState = {
   },
   imageApiKeys: loadKeys('gemini_image_api_keys'),
   mainFileName: loadJson('app_mainFileName', ''),
-  n1kFileName: loadJson('app_n1kFileName', ''),
 };
 
 // Actions that should NOT push to undo history (transient / settings)
@@ -59,12 +59,12 @@ function reducer(state: AppState, action: InternalAction): AppState {
 function persistState(s: AppState) {
   try {
     localStorage.setItem('app_mainText', JSON.stringify(s.mainText));
-    localStorage.setItem('app_text5N1K', JSON.stringify(s.text5N1K));
     localStorage.setItem('app_episodes', JSON.stringify(s.episodes));
     localStorage.setItem('app_scenes', JSON.stringify(s.scenes));
+    localStorage.setItem('app_extractedEntities', JSON.stringify(s.extractedEntities));
+    localStorage.setItem('app_sceneAnalyses', JSON.stringify(s.sceneAnalyses));
     localStorage.setItem('app_consistencyGroups', JSON.stringify(s.consistencyGroups));
     localStorage.setItem('app_mainFileName', JSON.stringify(s.mainFileName));
-    localStorage.setItem('app_n1kFileName', JSON.stringify(s.n1kFileName));
   } catch { /* storage full — silently ignore */ }
 }
 
@@ -72,8 +72,27 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
   switch (action.type) {
     case 'SET_MAIN_TEXT':
       return { ...state, mainText: action.payload.text, mainFileName: action.payload.fileName };
-    case 'SET_5N1K_TEXT':
-      return { ...state, text5N1K: action.payload.text, n1kFileName: action.payload.fileName };
+    case 'SET_EXTRACTED_ENTITIES':
+      return { ...state, extractedEntities: action.payload };
+    case 'ADD_EXTRACTED_ENTITY':
+      return { ...state, extractedEntities: [...state.extractedEntities, action.payload] };
+    case 'UPDATE_ENTITY': {
+      const { entityId, updates } = action.payload;
+      return {
+        ...state,
+        extractedEntities: state.extractedEntities.map(e =>
+          e.id === entityId ? { ...e, ...updates } : e
+        ),
+      };
+    }
+    case 'SET_SCENE_ANALYSIS':
+      return {
+        ...state,
+        sceneAnalyses: {
+          ...state.sceneAnalyses,
+          [action.payload.sceneId]: action.payload.analysis,
+        },
+      };
     case 'SET_EPISODES':
       return { ...state, episodes: action.payload };
     case 'REORDER_EPISODES':
