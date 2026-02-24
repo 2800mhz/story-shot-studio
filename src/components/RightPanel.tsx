@@ -9,6 +9,7 @@ interface RightPanelProps {
   consistencyGroups: ConsistencyGroup[];
   activeSceneId: string | null;
   onGenerate: (sceneId: string) => void;
+  onCancel?: (sceneId: string) => void;
   onGenerateAll: () => void;
   onRevise: (sceneId: string, promptId: string, instruction: string) => void;
   onRefreshAll: (sceneId: string) => void;
@@ -81,7 +82,7 @@ function GroupNoteEditor({ group, onSave }: { group: ConsistencyGroup; onSave: (
 
 export function RightPanel({
   scenes, consistencyGroups, activeSceneId,
-  onGenerate, onGenerateAll, onRevise, onRefreshAll, onGenerateImage,
+  onGenerate, onCancel, onGenerateAll, onRevise, onRefreshAll, onGenerateImage,
   onSetActiveScene, onRemoveScene, onRegenerateGroup,
   onAddSceneToGroup, onRemoveSceneFromGroup, onDeletePrompt, onSetSceneNote, onSetGroupNote,
   onAddSubScene, onRemoveSubScene, onGenerateSubScene, onReviseSubScene, onRefreshSubScene,
@@ -201,6 +202,7 @@ export function RightPanel({
                 subScenes={scene.subScenes || []}
                 isActive={activeSceneId === scene.id}
                 onGenerate={() => onGenerate(scene.id)}
+                onCancel={onCancel ? () => onCancel(scene.id) : undefined}
                 onRevise={(promptId, instruction) => onRevise(scene.id, promptId, instruction)}
                 onRefreshAll={() => onRefreshAll(scene.id)}
                 onDelete={() => onRemoveScene(scene.id)}
