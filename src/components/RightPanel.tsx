@@ -1,13 +1,16 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Sparkles, Zap, StickyNote, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { PromptCard } from './PromptCard';
-import type { Scene, ConsistencyGroup, SubScene } from '@/types';
+import type { Scene, ConsistencyGroup, ExtractedEntity, SceneAnalysis } from '@/types';
 
 interface RightPanelProps {
   scenes: Scene[];
   consistencyGroups: ConsistencyGroup[];
   activeSceneId: string | null;
+  extractedEntities?: ExtractedEntity[];
+  sceneAnalyses?: Record<string, SceneAnalysis>;
   onGenerate: (sceneId: string) => void;
   onCancel?: (sceneId: string) => void;
   onCancelAll?: () => void;
@@ -84,6 +87,7 @@ function GroupNoteEditor({ group, onSave }: { group: ConsistencyGroup; onSave: (
 
 export function RightPanel({
   scenes, consistencyGroups, activeSceneId,
+  extractedEntities, sceneAnalyses,
   onGenerate, onCancel, onCancelAll, onGenerateAll, isGeneratingAll, onRevise, onRefreshAll, onGenerateImage,
   onSetActiveScene, onRemoveScene, onRegenerateGroup,
   onAddSceneToGroup, onRemoveSceneFromGroup, onDeletePrompt, onSetSceneNote, onSetGroupNote,
@@ -180,6 +184,8 @@ export function RightPanel({
         ) : (
           scenes.map((scene, i) => {
             const groups = scene.consistencyGroupIds?.map(gId => consistencyGroups.find(g => g.id === gId)).filter(Boolean) as ConsistencyGroup[] || [];
+            const sceneEntities = extractedEntities?.filter(e => e.sceneIds.includes(scene.id)) ?? [];
+            const sceneAnalysis = sceneAnalyses?.[scene.id];
             return (
               <div
                 key={scene.id}
@@ -231,6 +237,28 @@ export function RightPanel({
                 onRemoveSubSceneFromGroup={onRemoveSubSceneFromGroup ? (subSceneId, groupId) => onRemoveSubSceneFromGroup(scene.id, subSceneId, groupId) : undefined}
                 onClick={() => onSetActiveScene(scene.id)}
               />
+              {sceneEntities.length > 0 && (
+                <div className="mt-2 p-2 bg-muted/30 rounded text-xs">
+                  <div className="font-semibold mb-1">🔍 Detected Entities:</div>
+                  <div className="flex flex-wrap gap-1">
+                    {sceneEntities.map(entity => (
+                      <Badge
+                        key={entity.id}
+                        variant={entity.type === 'character' ? 'default' : 'secondary'}
+                        className="text-xs"
+                      >
+                        {entity.type === 'character' ? '👤' : entity.type === 'location' ? '📍' : '🎭'} {entity.name}
+                      </Badge>
+                    ))}
+                  </div>
+                  {sceneAnalysis && (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      <strong>AI Analysis:</strong> {sceneAnalysis.narrativeType} •{' '}
+                      {sceneAnalysis.suggestedPromptCount} prompts recommended
+                    </div>
+                  )}
+                </div>
+              )}
                   </div>
                 </div>
               </div>

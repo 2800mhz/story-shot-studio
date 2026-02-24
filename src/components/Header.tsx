@@ -5,15 +5,13 @@ import { Button } from '@/components/ui/button';
 
 interface HeaderProps {
   onUploadMain: () => void;
-  onUpload5N1K: () => void;
   onExport: () => void;
   onSettings: () => void;
   onInfo: () => void;
   mainFileName: string;
-  n1kFileName: string;
 }
 
-export function Header({ onUploadMain, onUpload5N1K, onExport, onSettings, onInfo, mainFileName, n1kFileName }: HeaderProps) {
+export function Header({ onUploadMain, onExport, onSettings, onInfo, mainFileName }: HeaderProps) {
   return (
     <header className="film-grain flex items-center justify-between border-b bg-card px-5 py-3">
       <div className="flex items-center gap-3">
@@ -29,10 +27,6 @@ export function Header({ onUploadMain, onUpload5N1K, onExport, onSettings, onInf
         <Button variant="outline" size="sm" onClick={onUploadMain} className="max-w-[180px]">
           <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />
           <span className="truncate">{mainFileName || 'Ana Metin'}</span>
-        </Button>
-        <Button variant="outline" size="sm" onClick={onUpload5N1K} className="max-w-[180px]">
-          <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{n1kFileName || '5N1K'}</span>
         </Button>
         <Button variant="outline" size="sm" onClick={onExport}>
           <Download className="mr-1.5 h-3.5 w-3.5" />

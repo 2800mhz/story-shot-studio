@@ -32,13 +32,41 @@ export function InfoModal({ open, onClose }: InfoModalProps) {
             </section>
 
             <section>
+              <h3 className="text-primary font-semibold mb-1.5">🤖 AI-Powered Analysis</h3>
+              <p>
+                When you upload your text, the system automatically uses AI to:
+              </p>
+              <ul className="list-disc list-inside mt-1 space-y-1">
+                <li><strong>Extract Characters:</strong> Identifies people with their physical descriptions</li>
+                <li><strong>Extract Locations:</strong> Detects places with architectural/geographic details</li>
+                <li><strong>Analyze Scenes:</strong> Determines if a scene is static, a sequence, or time-lapse</li>
+                <li><strong>Suggest Prompt Count:</strong> AI recommends how many images needed per scene</li>
+              </ul>
+              <p className="mt-2 text-xs text-muted-foreground">
+                No manual annotation needed - just upload and the AI does the rest!
+              </p>
+            </section>
+
+            <section>
               <h3 className="text-primary font-semibold mb-1.5">📄 Belge Yükleme</h3>
               <p>
                 <strong>Ana Metin:</strong> Belgeselinizin senaryosu (.docx veya .txt).
-                Yüklendiğinde otomatik olarak bölümlere (ülke ve alt bölüm) ayrılır.
+                Yüklendiğinde otomatik olarak bölümlere ayrılır ve AI analizi başlar.
               </p>
-              <p className="mt-1">
-                <strong>5N1K:</strong> Ek bağlam dosyası — kim, ne, nerede, ne zaman, neden bilgileri.
+              <p className="mt-2 text-xs text-muted-foreground line-through">
+                Old system required a separate 5N1K file - this is no longer needed!
+              </p>
+            </section>
+
+            <section>
+              <h3 className="text-primary font-semibold mb-1.5">👤 Character & Location Consistency</h3>
+              <p>
+                AI extracts character and location descriptions once, then automatically includes them
+                in every relevant scene's prompts. This ensures visual consistency across all generated images.
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Example: If AI detects "John, a tall man with grey beard" in chapter 1, this description
+                will be included in all scenes where John appears.
               </p>
             </section>
 
@@ -130,7 +158,7 @@ export function InfoModal({ open, onClose }: InfoModalProps) {
               <h3 className="text-primary font-semibold mb-1.5">🎯 Kullanım Akışı</h3>
               <ol className="list-decimal list-inside mt-1 space-y-1 text-muted-foreground">
                 <li className="text-foreground">API anahtarınızı girin (Ayarlar → API Anahtarları)</li>
-                <li className="text-foreground">Ana metni yükleyin (.docx veya .txt)</li>
+                <li className="text-foreground">Ana metni yükleyin (.docx veya .txt) — AI otomatik analiz eder</li>
                 <li className="text-foreground">Sol panelden modunuzu seçin (Sahne, Referans, Tutarlı, Ekle)</li>
                 <li className="text-foreground">Metinden pasaj seçerek sahne oluşturun</li>
                 <li className="text-foreground">Gerekirse referans ve tutarlılık grubu ekleyin</li>
