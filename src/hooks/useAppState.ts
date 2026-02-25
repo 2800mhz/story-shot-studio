@@ -402,6 +402,30 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
         ...state,
         sceneCards: state.sceneCards.filter(sc => sc.id !== action.payload),
       };
+    case 'ADD_NEW_CHARACTER_TO_SCENE_CARD': {
+      const { sceneId, character } = action.payload;
+      return {
+        ...state,
+        characters: [...state.characters, character],
+        sceneCards: state.sceneCards.map(sc =>
+          sc.id === sceneId
+            ? { ...sc, characterIds: [...sc.characterIds, character.id] }
+            : sc
+        ),
+      };
+    }
+    case 'ADD_NEW_LOCATION_TO_SCENE_CARD': {
+      const { sceneId, location } = action.payload;
+      return {
+        ...state,
+        locations: [...state.locations, location],
+        sceneCards: state.sceneCards.map(sc =>
+          sc.id === sceneId
+            ? { ...sc, locationIds: [...sc.locationIds, location.id] }
+            : sc
+        ),
+      };
+    }
     case 'SET_MASTER_PROMPT':
       localStorage.setItem('app_masterPrompt', JSON.stringify(action.payload));
       return { ...state, masterPrompt: action.payload };

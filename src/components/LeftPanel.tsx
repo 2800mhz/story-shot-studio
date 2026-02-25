@@ -39,19 +39,23 @@ interface EpisodeNodeProps {
   onDrop: (e: React.DragEvent, targetId: string) => void;
   onDragEnd: () => void;
   dropTargetId: string | null;
+  activeSceneId: string | null;
+  onSceneClick: (id: string) => void;
 }
 
 function EpisodeNode({
   episode, children, allEpisodes, scenes, expandedIds, onToggle, onEpisodeClick,
   draggedId, onDragStart, onDragOver, onDrop, onDragEnd, dropTargetId,
+  activeSceneId, onSceneClick,
 }: EpisodeNodeProps) {
   const isExpanded = expandedIds.has(episode.id);
   const hasChildren = children.length > 0;
-  const sceneCount = scenes.filter(s => s.episodeTitle === episode.title).length;
+  const episodeScenes = scenes.filter(s => s.episodeTitle === episode.title);
+  const hasExpandable = hasChildren || episodeScenes.length > 0;
   const childSceneCount = children.reduce(
     (sum, ch) => sum + scenes.filter(s => s.episodeTitle === ch.title).length, 0
   );
-  const totalScenes = sceneCount + childSceneCount;
+  const totalScenes = episodeScenes.length + childSceneCount;
   const isDragging = draggedId === episode.id;
   const isDropTarget = dropTargetId === episode.id;
 
@@ -80,7 +84,7 @@ function EpisodeNode({
       >
         <GripVertical className="h-3 w-3 shrink-0 text-muted-foreground/40 opacity-0 group-hover:opacity-100 cursor-grab" />
 
-        {hasChildren ? (
+        {hasExpandable ? (
           <button
             onClick={(e) => { e.stopPropagation(); onToggle(episode.id); }}
             className="shrink-0 p-0.5 rounded hover:bg-muted"
@@ -116,29 +120,57 @@ function EpisodeNode({
         )}
       </div>
 
-      {hasChildren && isExpanded && (
-        <div className="border-l border-border/50 ml-3">
-          {children.map(child => {
-            const grandChildren = allEpisodes.filter(e => e.parentId === child.id);
-            return (
-              <EpisodeNode
-                key={child.id}
-                episode={child}
-                children={grandChildren}
-                allEpisodes={allEpisodes}
-                scenes={scenes}
-                expandedIds={expandedIds}
-                onToggle={onToggle}
-                onEpisodeClick={onEpisodeClick}
-                draggedId={draggedId}
-                onDragStart={onDragStart}
-                onDragOver={onDragOver}
-                onDrop={onDrop}
-                onDragEnd={onDragEnd}
-                dropTargetId={dropTargetId}
-              />
-            );
-          })}
+      {hasExpandable && isExpanded && (
+        <div>
+          {hasChildren && (
+            <div className="border-l border-border/50 ml-3">
+              {children.map(child => {
+                const grandChildren = allEpisodes.filter(e => e.parentId === child.id);
+                return (
+                  <EpisodeNode
+                    key={child.id}
+                    episode={child}
+                    children={grandChildren}
+                    allEpisodes={allEpisodes}
+                    scenes={scenes}
+                    expandedIds={expandedIds}
+                    onToggle={onToggle}
+                    onEpisodeClick={onEpisodeClick}
+                    draggedId={draggedId}
+                    onDragStart={onDragStart}
+                    onDragOver={onDragOver}
+                    onDrop={onDrop}
+                    onDragEnd={onDragEnd}
+                    dropTargetId={dropTargetId}
+                    activeSceneId={activeSceneId}
+                    onSceneClick={onSceneClick}
+                  />
+                );
+              })}
+            </div>
+          )}
+          {episodeScenes.length > 0 && (
+            <div className="ml-3 space-y-0.5 py-0.5">
+              {episodeScenes.map(scene => (
+                <button
+                  key={scene.id}
+                  onClick={() => onSceneClick(scene.id)}
+                  className={`w-full text-left rounded-md px-2 py-1.5 transition-colors ${
+                    activeSceneId === scene.id
+                      ? 'border border-primary bg-primary/5 text-primary'
+                      : 'hover:bg-muted/50 border border-transparent'
+                  }`}
+                >
+                  <div className="text-xs font-medium truncate">
+                    {scene.title || `Sahne ${scene.number}`}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">
+                    {(scene.text || scene.segments[0]?.text || '').substring(0, 60)}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -153,8 +185,6 @@ export function LeftPanel({
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
-
-  const activeScene = scenes.find(s => s.id === activeSceneId);
 
   const topLevelEpisodes = useMemo(
     () => episodes.filter(ep => ep.parentId === null),
@@ -297,61 +327,14 @@ export function LeftPanel({
                   onDrop={handleDrop}
                   onDragEnd={handleDragEnd}
                   dropTargetId={dropTargetId}
+                  activeSceneId={activeSceneId}
+                  onSceneClick={onSceneClick}
                 />
               );
             })}
           </div>
         )}
       </div>
-
-      {/* AI Parsed Scenes */}
-      {(scenes.length > 0 && scenes.some(s => s.text)) && (
-        <div className="border-t px-2 py-2 overflow-y-auto scrollbar-thin max-h-64">
-          <div className="flex items-center justify-between mb-2 px-1">
-            <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              🤖 AI Sahneler ({scenes.length})
-            </h3>
-          </div>
-          {isAnalyzing && (
-            <div className="text-xs text-primary animate-pulse mb-2 px-1">
-              Sahneler oluşturuluyor...
-            </div>
-          )}
-          <div className="space-y-0.5">
-            {scenes.map(scene => (
-              <button
-                key={scene.id}
-                onClick={() => onSceneClick(scene.id)}
-                className={`w-full text-left rounded-md px-2 py-1.5 transition-colors ${
-                  activeSceneId === scene.id
-                    ? 'border border-primary bg-primary/5 text-primary'
-                    : 'hover:bg-muted/50 border border-transparent'
-                }`}
-              >
-                <div className="text-xs font-medium">{scene.title || `Sahne ${scene.number}`}</div>
-                <div className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">
-                  {(scene.text || '').substring(0, 60)}{(scene.text || '').length > 60 ? '...' : ''}
-                </div>
-                {scene.prompts.length > 0 && (
-                  <Badge variant="outline" className="text-[10px] mt-0.5 h-4 px-1">
-                    {scene.prompts.length} prompt
-                  </Badge>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Active Scene Preview (for manual scenes) */}
-      {activeScene && !activeScene.text && (
-        <div className="border-t p-3">
-          <p className="mb-1 text-xs font-medium text-muted-foreground">Aktif Sahne</p>
-          <div className="rounded-md bg-secondary p-2.5 text-xs leading-relaxed text-secondary-foreground">
-            {activeScene.segments[0]?.text.slice(0, 120)}...
-          </div>
-        </div>
-      )}
     </div>
   );
 }

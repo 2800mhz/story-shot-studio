@@ -37,6 +37,7 @@ export interface Scene {
   startIndex?: number;
   endIndex?: number;
   episodeTitle: string;
+  source?: 'ai' | 'manual';
   segments: TextSegment[];
   subjectReferences: TextSegment[];
   consistencyGroupIds: string[];
@@ -101,6 +102,7 @@ export interface PromptCard {
   label?: string; // "Prompt A", "Prompt B", "Prompt C"
   shotType: string;
   summary: string;
+  explanation?: string; // AI-generated explanation of what this prompt shows
   promptText: string;
   versions: string[];
 }
@@ -190,6 +192,8 @@ export type AppAction =
   | { type: 'REMOVE_CHARACTER_FROM_SCENE_CARD'; payload: { sceneId: string; characterId: string } }
   | { type: 'ADD_LOCATION_TO_SCENE_CARD'; payload: { sceneId: string; locationId: string } }
   | { type: 'REMOVE_LOCATION_FROM_SCENE_CARD'; payload: { sceneId: string; locationId: string } }
+  | { type: 'ADD_NEW_CHARACTER_TO_SCENE_CARD'; payload: { sceneId: string; character: Character } }
+  | { type: 'ADD_NEW_LOCATION_TO_SCENE_CARD'; payload: { sceneId: string; location: Location } }
   | { type: 'START_PROMPT_GENERATION'; payload: { sceneId: string } }
   | { type: 'FINISH_PROMPT_GENERATION'; payload: { sceneId: string; prompts: PromptCard[] } }
   | { type: 'DELETE_SCENE_CARD'; payload: string }

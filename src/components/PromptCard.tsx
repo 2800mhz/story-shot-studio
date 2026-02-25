@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Pencil, RefreshCw, ChevronLeft, Plus, Loader2, AlertTriangle, Trash2, Zap, ImageIcon, Link2, X, StickyNote, ChevronDown, ChevronRight, Layers } from 'lucide-react';
+import { Copy, Pencil, RefreshCw, ChevronLeft, Plus, Loader2, AlertTriangle, Trash2, Zap, Link2, X, StickyNote, ChevronDown, ChevronRight, Layers } from 'lucide-react';
 import type { PromptVariant, ConsistencyGroup, SubScene, ExtractedEntity } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,6 @@ interface PromptCardProps {
   onGenerate: () => void;
   onCancel?: () => void;
   onRevise: (promptId: string, instruction: string) => void;
-  onGenerateImage?: (promptId: string) => void;
   onRefreshAll: () => void;
   onDelete: () => void;
   onDeletePrompt?: (promptId: string) => void;
@@ -40,7 +39,6 @@ interface PromptCardProps {
   onRefreshSubScene?: (subSceneId: string) => void;
   onDeleteSubScenePrompt?: (subSceneId: string, promptId: string) => void;
   onSetSubSceneNote?: (subSceneId: string, note: string) => void;
-  onGenerateSubSceneImage?: (subSceneId: string, promptId: string) => void;
   onAddSubSceneToGroup?: (subSceneId: string, groupId: string | null) => void;
   onRemoveSubSceneFromGroup?: (subSceneId: string, groupId: string) => void;
   isActive: boolean;
@@ -51,12 +49,12 @@ export function PromptCard({
   sceneIndex, episodeTitle, sceneText, referenceText, prompts, status,
   consistencyGroups = [], allConsistencyGroups = [],
   consistencyWarning, note, subScenes = [], allEntities = [],
-  onGenerate, onCancel, onRevise, onRefreshAll, onDelete, onDeletePrompt, onRegenerateGroup, onGenerateImage,
+  onGenerate, onCancel, onRevise, onRefreshAll, onDelete, onDeletePrompt, onRegenerateGroup,
   onAttachEntity, onDetachEntity,
   onAddToGroup, onRemoveFromGroup, onSetNote,
   onAddSubScene, onRemoveSubScene, onGenerateSubScene, onReviseSubScene,
   onRefreshSubScene, onDeleteSubScenePrompt, onSetSubSceneNote,
-  onGenerateSubSceneImage, onAddSubSceneToGroup, onRemoveSubSceneFromGroup,
+  onAddSubSceneToGroup, onRemoveSubSceneFromGroup,
   isActive, onClick,
 }: PromptCardProps) {
   const [revisingId, setRevisingId] = useState<string | null>(null);
@@ -386,20 +384,6 @@ export function PromptCard({
               </p>
             </div>
 
-            {/* Image generation button + generated image */}
-            {onGenerateImage && (
-              <div className="px-3 pb-2">
-                <button
-                  onClick={(e) => { e.stopPropagation(); onGenerateImage(prompt.id); }}
-                  disabled={prompt.imageStatus === 'generating'}
-                  className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-50"
-                >
-                  {prompt.imageStatus === 'generating' ? <Loader2 className="h-3 w-3 animate-spin" /> : <ImageIcon className="h-3 w-3" />}
-                  {prompt.imageStatus === 'generating' ? 'Üretiliyor...' : 'Görüntü Üret'}
-                </button>
-              </div>
-            )}
-
             {prompt.imageUrl && (
               <div className="mx-3 mb-2 rounded-md overflow-hidden border border-border">
                 <img
@@ -541,7 +525,6 @@ export function PromptCard({
                     onDelete={() => onRemoveSubScene?.(ss.id)}
                     onDeletePrompt={onDeleteSubScenePrompt ? (promptId) => onDeleteSubScenePrompt(ss.id, promptId) : undefined}
                     onSetNote={(note) => onSetSubSceneNote?.(ss.id, note)}
-                    onGenerateImage={onGenerateSubSceneImage ? (promptId) => onGenerateSubSceneImage(ss.id, promptId) : undefined}
                     onAddToGroup={onAddSubSceneToGroup ? (groupId) => onAddSubSceneToGroup(ss.id, groupId) : undefined}
                     onRemoveFromGroup={onRemoveSubSceneFromGroup ? (groupId) => onRemoveSubSceneFromGroup(ss.id, groupId) : undefined}
                   />

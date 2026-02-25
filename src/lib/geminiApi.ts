@@ -273,44 +273,6 @@ export async function revisePrompt(
   return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || originalPrompt;
 }
 
-export async function generateImage(
-  promptText: string,
-  apiKey: string,
-  model: string,
-): Promise<string> {
-  const imagePrompt = `Generate a cinematic 16:9 aspect ratio documentary image based on this description. Ultra high resolution, photorealistic, ARRI Alexa 65 quality:\n\n${promptText}`;
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: imagePrompt }] }],
-      generationConfig: {
-        responseModalities: ['TEXT', 'IMAGE'],
-      },
-    }),
-  });
-
-  if (response.status === 429) throw new Error('RATE_LIMIT');
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Image API Error ${response.status}: ${err}`);
-  }
-
-  const data = await response.json();
-  const parts = data.candidates?.[0]?.content?.parts || [];
-  
-  for (const part of parts) {
-    if (part.inlineData) {
-      return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-    }
-  }
-
-  throw new Error('API yanıtında görüntü bulunamadı');
-}
-
 function parsePromptResponse(content: string, expected: number): { shotType: string; text: string; summary?: string }[] {
   // Try JSON format first
   try {

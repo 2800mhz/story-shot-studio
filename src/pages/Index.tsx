@@ -9,7 +9,7 @@ import { ExportModal } from '@/components/ExportModal';
 import { useAppState } from '@/hooks/useAppState';
 import { parseDocument } from '@/lib/documentParser';
 import { parseEpisodes } from '@/lib/contextDetection';
-import { generatePrompts, revisePrompt, generateImage, loadSystemPrompt } from '@/lib/geminiApi';
+import { generatePrompts, revisePrompt, loadSystemPrompt } from '@/lib/geminiApi';
 import { analyzeTextIntoScenes } from '@/lib/sceneAnalyzer';
 import { generatePromptsForScene } from '@/lib/promptGenerator';
 import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup } from '@/types';
@@ -318,34 +318,6 @@ const Index = () => {
     }
   }, [state, dispatch, getActiveKey]);
 
-  const handleGenerateSubSceneImage = useCallback(async (sceneId: string, subSceneId: string, promptId: string) => {
-    const imageKey = state.imageApiKeys[0];
-    if (!imageKey) { setSettingsOpen(true); return; }
-    const scene = state.scenes.find(s => s.id === sceneId);
-    if (!scene) return;
-    const subScene = (scene.subScenes || []).find(ss => ss.id === subSceneId);
-    if (!subScene) return;
-    const prompt = subScene.prompts.find(p => p.id === promptId);
-    if (!prompt) return;
-
-    dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, prompts: subScene.prompts.map(p => p.id === promptId ? { ...p, imageStatus: 'generating' as const } : p) } } });
-
-    try {
-      const imageUrl = await generateImage(prompt.text, imageKey, state.settings.imageModel);
-      const freshScene = state.scenes.find(s => s.id === sceneId);
-      const freshSub = (freshScene?.subScenes || []).find(ss => ss.id === subSceneId);
-      if (freshSub) {
-        dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...freshSub, prompts: freshSub.prompts.map(p => p.id === promptId ? { ...p, imageUrl, imageStatus: 'done' as const } : p) } } });
-      }
-    } catch {
-      const freshScene = state.scenes.find(s => s.id === sceneId);
-      const freshSub = (freshScene?.subScenes || []).find(ss => ss.id === subSceneId);
-      if (freshSub) {
-        dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...freshSub, prompts: freshSub.prompts.map(p => p.id === promptId ? { ...p, imageStatus: 'error' as const } : p) } } });
-      }
-    }
-  }, [state, dispatch]);
-
 
   const handleCancel = useCallback((sceneId: string) => {
     const controller = abortControllersRef.current.get(sceneId);
@@ -569,36 +541,6 @@ const Index = () => {
     await handleGenerate(sceneId);
   }, [handleGenerate]);
 
-  const handleGenerateImage = useCallback(async (sceneId: string, promptId: string) => {
-    const imageKey = state.imageApiKeys[0];
-    if (!imageKey) {
-      setSettingsOpen(true);
-      return;
-    }
-    const scene = state.scenes.find(s => s.id === sceneId);
-    if (!scene) return;
-    const prompt = scene.prompts.find(p => p.id === promptId);
-    if (!prompt) return;
-
-    const updatedPrompts = scene.prompts.map(p =>
-      p.id === promptId ? { ...p, imageStatus: 'generating' as const } : p
-    );
-    dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, prompts: updatedPrompts } });
-
-    try {
-      const imageUrl = await generateImage(prompt.text, imageKey, state.settings.imageModel);
-      const finalPrompts = scene.prompts.map(p =>
-        p.id === promptId ? { ...p, imageUrl, imageStatus: 'done' as const } : p
-      );
-      dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, prompts: finalPrompts } });
-    } catch (e: any) {
-      const errorPrompts = scene.prompts.map(p =>
-        p.id === promptId ? { ...p, imageStatus: 'error' as const } : p
-      );
-      dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, prompts: errorPrompts } });
-    }
-  }, [state.scenes, state.imageApiKeys, state.settings.imageModel, dispatch]);
-
   // ─── Two-stage AI workflow handlers ─────────────────────────────
   const handleAnalyzeText = useCallback(async (selectedText: string) => {
     const apiKey = getActiveKey();
@@ -660,6 +602,24 @@ const Index = () => {
       await new Promise(resolve => setTimeout(resolve, PROMPT_GENERATION_DELAY_MS));
     }
   }, [state.sceneCards, handleGeneratePromptsForScene]);
+
+  const handleAddNewCharacterToSceneCard = useCallback((sceneId: string, name: string) => {
+    const character = {
+      id: `char-${crypto.randomUUID()}`,
+      name,
+      description: '',
+    };
+    dispatch({ type: 'ADD_NEW_CHARACTER_TO_SCENE_CARD', payload: { sceneId, character } });
+  }, [dispatch]);
+
+  const handleAddNewLocationToSceneCard = useCallback((sceneId: string, name: string) => {
+    const location = {
+      id: `loc-${crypto.randomUUID()}`,
+      name,
+      description: '',
+    };
+    dispatch({ type: 'ADD_NEW_LOCATION_TO_SCENE_CARD', payload: { sceneId, location } });
+  }, [dispatch]);
 
   return (
     <div className="flex h-screen flex-col bg-background">
@@ -727,7 +687,6 @@ const Index = () => {
             isGeneratingAll={isGeneratingAll}
             onRevise={handleRevise}
             onRefreshAll={handleRefreshAll}
-            onGenerateImage={handleGenerateImage}
             onSetActiveScene={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
             onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
             onAddSceneToGroup={handleAddSceneToGroup}
@@ -744,7 +703,6 @@ const Index = () => {
             onRefreshSubScene={(sceneId, subSceneId) => handleGenerateSubScene(sceneId, subSceneId)}
             onDeleteSubScenePrompt={handleDeleteSubScenePrompt}
             onSetSubSceneNote={handleSetSubSceneNote}
-            onGenerateSubSceneImage={handleGenerateSubSceneImage}
             onAddSubSceneToGroup={handleAddSubSceneToGroup}
             onRemoveSubSceneFromGroup={handleRemoveSubSceneFromGroup}
             onReorderScenes={(reordered) => dispatch({ type: 'REORDER_SCENES', payload: reordered })}
@@ -758,6 +716,8 @@ const Index = () => {
             onUpdateSceneCardNote={(sceneId, note) => dispatch({ type: 'UPDATE_SCENE_CARD_NOTE', payload: { sceneId, note } })}
             onRemoveCharacterFromSceneCard={(sceneId, characterId) => dispatch({ type: 'REMOVE_CHARACTER_FROM_SCENE_CARD', payload: { sceneId, characterId } })}
             onRemoveLocationFromSceneCard={(sceneId, locationId) => dispatch({ type: 'REMOVE_LOCATION_FROM_SCENE_CARD', payload: { sceneId, locationId } })}
+            onAddCharacterToSceneCard={handleAddNewCharacterToSceneCard}
+            onAddLocationToSceneCard={handleAddNewLocationToSceneCard}
           />
         </div>
       </div>

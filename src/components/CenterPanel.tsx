@@ -304,12 +304,16 @@ export function CenterPanel({
                 </div>
 
                 {idx < scenes.length - 1 && (
-                  <div className="my-4 flex items-center gap-2">
-                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
-                    <div className="text-xs text-muted-foreground font-mono">
-                      Sahne {scene.number}
+                  <div className="my-6 flex items-center gap-3">
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-primary/40 to-primary/40" />
+                    <div className="flex items-center gap-2 text-xs font-mono text-primary">
+                      <span className="opacity-50">━━━━━━</span>
+                      <span className="font-semibold px-2 py-1 bg-primary/10 rounded">
+                        Sahne {scene.number}
+                      </span>
+                      <span className="opacity-50">━━━━━━</span>
                     </div>
-                    <div className="h-px flex-1 bg-gradient-to-r from-primary/30 via-transparent to-transparent" />
+                    <div className="h-px flex-1 bg-gradient-to-r from-primary/40 via-primary/40 to-transparent" />
                   </div>
                 )}
               </div>

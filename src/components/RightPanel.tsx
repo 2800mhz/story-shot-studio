@@ -18,7 +18,6 @@ interface RightPanelProps {
   isGeneratingAll?: boolean;
   onRevise: (sceneId: string, promptId: string, instruction: string) => void;
   onRefreshAll: (sceneId: string) => void;
-  onGenerateImage?: (sceneId: string, promptId: string) => void;
   onSetActiveScene: (id: string) => void;
   onRemoveScene: (id: string) => void;
   onRegenerateGroup?: (groupId: string) => void;
@@ -37,7 +36,6 @@ interface RightPanelProps {
   onRefreshSubScene?: (sceneId: string, subSceneId: string) => void;
   onDeleteSubScenePrompt?: (sceneId: string, subSceneId: string, promptId: string) => void;
   onSetSubSceneNote?: (sceneId: string, subSceneId: string, note: string) => void;
-  onGenerateSubSceneImage?: (sceneId: string, subSceneId: string, promptId: string) => void;
   onAddSubSceneToGroup?: (sceneId: string, subSceneId: string, groupId: string | null) => void;
   onRemoveSubSceneFromGroup?: (sceneId: string, subSceneId: string, groupId: string) => void;
   onReorderScenes?: (scenes: Scene[]) => void;
@@ -52,6 +50,8 @@ interface RightPanelProps {
   onUpdateSceneCardNote?: (sceneId: string, note: string) => void;
   onRemoveCharacterFromSceneCard?: (sceneId: string, characterId: string) => void;
   onRemoveLocationFromSceneCard?: (sceneId: string, locationId: string) => void;
+  onAddCharacterToSceneCard?: (sceneId: string, name: string) => void;
+  onAddLocationToSceneCard?: (sceneId: string, name: string) => void;
   onAddVariation?: (sceneId: string) => void;
   onRegenerateAllPrompts_?: (sceneId: string) => void;
   onRevisePrompt_?: (sceneId: string, promptId: string) => void;
@@ -105,16 +105,17 @@ function GroupNoteEditor({ group, onSave }: { group: ConsistencyGroup; onSave: (
 export function RightPanel({
   scenes, consistencyGroups, activeSceneId,
   extractedEntities, sceneAnalyses,
-  onGenerate, onCancel, onCancelAll, onGenerateAll, isGeneratingAll, onRevise, onRefreshAll, onGenerateImage,
+  onGenerate, onCancel, onCancelAll, onGenerateAll, isGeneratingAll, onRevise, onRefreshAll,
   onSetActiveScene, onRemoveScene, onRegenerateGroup,
   onAddSceneToGroup, onRemoveSceneFromGroup, onDeletePrompt, onAttachEntity, onDetachEntity, onSetSceneNote, onSetGroupNote,
   onAddSubScene, onRemoveSubScene, onGenerateSubScene, onReviseSubScene, onRefreshSubScene,
-  onDeleteSubScenePrompt, onSetSubSceneNote, onGenerateSubSceneImage,
+  onDeleteSubScenePrompt, onSetSubSceneNote,
   onAddSubSceneToGroup, onRemoveSubSceneFromGroup,
   onReorderScenes,
   sceneCards = [], characters = [], locations = [],
   isGeneratingPrompts, onGeneratePrompts, onGenerateAllPrompts, onDeleteSceneCard,
   onUpdateSceneCardNote, onRemoveCharacterFromSceneCard, onRemoveLocationFromSceneCard,
+  onAddCharacterToSceneCard, onAddLocationToSceneCard,
   onAddVariation, onRegenerateAllPrompts_, onRevisePrompt_, onDeletePrompt_,
 }: RightPanelProps) {
   const doneCount = scenes.filter(s => s.status === 'done').length;
@@ -243,7 +244,6 @@ export function RightPanel({
                 onAttachEntity={onAttachEntity ? (promptId, entityId) => onAttachEntity(scene.id, promptId, entityId) : undefined}
                 onDetachEntity={onDetachEntity ? (promptId, entityId) => onDetachEntity(scene.id, promptId, entityId) : undefined}
                 onRegenerateGroup={groups.length > 0 ? () => onRegenerateGroup?.(groups[0]!.id) : undefined}
-                onGenerateImage={onGenerateImage ? (promptId) => onGenerateImage(scene.id, promptId) : undefined}
                 onAddToGroup={onAddSceneToGroup ? (groupId) => onAddSceneToGroup(scene.id, groupId) : undefined}
                 onRemoveFromGroup={onRemoveSceneFromGroup ? (groupId) => onRemoveSceneFromGroup(scene.id, groupId) : undefined}
                 onSetNote={onSetSceneNote ? (note) => onSetSceneNote(scene.id, note) : undefined}
@@ -254,7 +254,6 @@ export function RightPanel({
                 onRefreshSubScene={onRefreshSubScene ? (subSceneId) => onRefreshSubScene(scene.id, subSceneId) : undefined}
                 onDeleteSubScenePrompt={onDeleteSubScenePrompt ? (subSceneId, promptId) => onDeleteSubScenePrompt(scene.id, subSceneId, promptId) : undefined}
                 onSetSubSceneNote={onSetSubSceneNote ? (subSceneId, note) => onSetSubSceneNote(scene.id, subSceneId, note) : undefined}
-                onGenerateSubSceneImage={onGenerateSubSceneImage ? (subSceneId, promptId) => onGenerateSubSceneImage(scene.id, subSceneId, promptId) : undefined}
                 onAddSubSceneToGroup={onAddSubSceneToGroup ? (subSceneId, groupId) => onAddSubSceneToGroup(scene.id, subSceneId, groupId) : undefined}
                 onRemoveSubSceneFromGroup={onRemoveSubSceneFromGroup ? (subSceneId, groupId) => onRemoveSubSceneFromGroup(scene.id, subSceneId, groupId) : undefined}
                 onClick={() => onSetActiveScene(scene.id)}
@@ -306,6 +305,8 @@ export function RightPanel({
                   onDeleteScene={onDeleteSceneCard || (() => {})}
                   onRemoveCharacter={onRemoveCharacterFromSceneCard || (() => {})}
                   onRemoveLocation={onRemoveLocationFromSceneCard || (() => {})}
+                  onAddCharacter={onAddCharacterToSceneCard}
+                  onAddLocation={onAddLocationToSceneCard}
                   onAddVariation={onAddVariation}
                   onRegenerateAll={onRegenerateAllPrompts_}
                   onRevisePrompt={onRevisePrompt_}
