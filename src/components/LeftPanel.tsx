@@ -10,6 +10,7 @@ interface LeftPanelProps {
   activeSceneId: string | null;
   selectionMode: SelectionMode;
   mainFileName: string;
+  isAnalyzing?: boolean;
   onEpisodeClick: (ep: Episode) => void;
   onSceneClick: (id: string) => void;
   onSetSelectionMode: (mode: SelectionMode) => void;
@@ -146,7 +147,7 @@ function EpisodeNode({
 
 export function LeftPanel({
   episodes, scenes, consistencyGroups, activeSceneId, selectionMode,
-  mainFileName, onEpisodeClick, onSceneClick, onSetSelectionMode,
+  mainFileName, isAnalyzing, onEpisodeClick, onSceneClick, onSetSelectionMode,
   onMoveEpisode, onReorderEpisodes,
 }: LeftPanelProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -303,8 +304,47 @@ export function LeftPanel({
         )}
       </div>
 
-      {/* Active Scene Preview */}
-      {activeScene && (
+      {/* AI Parsed Scenes */}
+      {(scenes.length > 0 && scenes.some(s => s.text)) && (
+        <div className="border-t px-2 py-2 overflow-y-auto scrollbar-thin max-h-64">
+          <div className="flex items-center justify-between mb-2 px-1">
+            <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              🤖 AI Sahneler ({scenes.length})
+            </h3>
+          </div>
+          {isAnalyzing && (
+            <div className="text-xs text-primary animate-pulse mb-2 px-1">
+              Sahneler oluşturuluyor...
+            </div>
+          )}
+          <div className="space-y-0.5">
+            {scenes.map(scene => (
+              <button
+                key={scene.id}
+                onClick={() => onSceneClick(scene.id)}
+                className={`w-full text-left rounded-md px-2 py-1.5 transition-colors ${
+                  activeSceneId === scene.id
+                    ? 'border border-primary bg-primary/5 text-primary'
+                    : 'hover:bg-muted/50 border border-transparent'
+                }`}
+              >
+                <div className="text-xs font-medium">{scene.title || `Sahne ${scene.number}`}</div>
+                <div className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">
+                  {(scene.text || '').substring(0, 60)}{(scene.text || '').length > 60 ? '...' : ''}
+                </div>
+                {scene.prompts.length > 0 && (
+                  <Badge variant="outline" className="text-[10px] mt-0.5 h-4 px-1">
+                    {scene.prompts.length} prompt
+                  </Badge>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Active Scene Preview (for manual scenes) */}
+      {activeScene && !activeScene.text && (
         <div className="border-t p-3">
           <p className="mb-1 text-xs font-medium text-muted-foreground">Aktif Sahne</p>
           <div className="rounded-md bg-secondary p-2.5 text-xs leading-relaxed text-secondary-foreground">

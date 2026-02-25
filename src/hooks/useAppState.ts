@@ -405,6 +405,10 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
     case 'SET_MASTER_PROMPT':
       localStorage.setItem('app_masterPrompt', JSON.stringify(action.payload));
       return { ...state, masterPrompt: action.payload };
+    case 'SET_ANALYZING':
+      return { ...state, isAnalyzing: action.payload };
+    case 'SET_SCENES':
+      return { ...state, scenes: action.payload };
     default:
       return state;
   }

@@ -12,6 +12,7 @@ import { parseEpisodes } from '@/lib/contextDetection';
 import { generatePrompts, revisePrompt, generateImage, loadSystemPrompt } from '@/lib/geminiApi';
 import { extractEntitiesFromText, analyzeScene, matchEntitiesToScene } from '@/lib/aiAnalyzer';
 import { analyzeTextIntoScenes } from '@/lib/sceneAnalyzer';
+import { parseTextIntoScenes } from '@/lib/sceneParser';
 import { generatePromptsForScene } from '@/lib/promptGenerator';
 import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup } from '@/types';
 
@@ -66,31 +67,53 @@ const Index = () => {
       // Trigger automatic AI analysis
       const apiKey = getActiveKey();
       if (apiKey) {
-        try {
-          const entities = await extractEntitiesFromText(text, apiKey, state.settings.model);
-          dispatch({ type: 'SET_EXTRACTED_ENTITIES', payload: entities });
+        dispatch({ type: 'SET_ANALYZING', payload: true });
 
-          // Analyze each existing scene using ref to avoid stale closure / circular deps
-          for (const scene of scenesRef.current) {
-            const sceneText = scene.segments.map(s => s.text).join('\n\n');
-            const analysisResult = await analyzeScene(sceneText, apiKey, state.settings.model);
-            const entityIds = matchEntitiesToScene(sceneText, entities);
-            dispatch({
-              type: 'SET_SCENE_ANALYSIS',
-              payload: {
-                sceneId: scene.id,
-                analysis: { ...analysisResult, sceneId: scene.id, entityReferences: entityIds },
-              },
-            });
+        try {
+          // 1. Parse text into scenes automatically
+          let parsedApiKey = apiKey;
+          let scenes: Scene[] = [];
+          try {
+            scenes = await parseTextIntoScenes(text, parsedApiKey, state.settings.model);
+            dispatch({ type: 'SET_SCENES', payload: scenes });
+            if (scenes.length > 0) {
+              dispatch({ type: 'SET_ACTIVE_SCENE', payload: scenes[0].id });
+            }
+          } catch (e) {
+            // Try key rotation on 403/429
+            const errMsg = e instanceof Error ? e.message : String(e);
+            if ((errMsg.includes('403') || errMsg.includes('429')) && state.apiKeys.length > 1) {
+              dispatch({ type: 'ROTATE_API_KEY' });
+              parsedApiKey = state.apiKeys[(state.currentKeyIndex + 1) % state.apiKeys.length];
+              try {
+                scenes = await parseTextIntoScenes(text, parsedApiKey, state.settings.model);
+                dispatch({ type: 'SET_SCENES', payload: scenes });
+                if (scenes.length > 0) {
+                  dispatch({ type: 'SET_ACTIVE_SCENE', payload: scenes[0].id });
+                }
+              } catch (e2) {
+                console.error('Scene parsing failed after key rotation', e2);
+              }
+            } else {
+              console.error('Scene parsing failed', e);
+            }
           }
-        } catch (e) {
-          console.error('AI analysis failed, continuing without it', e);
+
+          // 2. Extract entities
+          try {
+            const entities = await extractEntitiesFromText(text, parsedApiKey, state.settings.model);
+            dispatch({ type: 'SET_EXTRACTED_ENTITIES', payload: entities });
+          } catch (e) {
+            console.error('Entity extraction failed, continuing without it', e);
+          }
+        } finally {
+          dispatch({ type: 'SET_ANALYZING', payload: false });
         }
       }
     } catch (e) {
       console.error('Dosya okunamadı', e);
     }
-  }, [dispatch, getActiveKey, state.settings.model]);
+  }, [dispatch, getActiveKey, state.settings.model, state.apiKeys, state.currentKeyIndex]);
 
   const handleAddScene = useCallback((segment: TextSegment, episodeTitle: string) => {
     const scene: Scene = {
@@ -709,6 +732,7 @@ const Index = () => {
             activeSceneId={state.activeSceneId}
             selectionMode={state.selectionMode}
             mainFileName={state.mainFileName}
+            isAnalyzing={state.isAnalyzing}
             onEpisodeClick={(ep) => setScrollToIndex(ep.startIndex)}
             onSceneClick={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
             onSetSelectionMode={mode => dispatch({ type: 'SET_SELECTION_MODE', payload: mode })}
