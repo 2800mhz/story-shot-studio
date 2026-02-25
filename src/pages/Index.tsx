@@ -603,6 +603,45 @@ const Index = () => {
     }
   }, [state.sceneCards, handleGeneratePromptsForScene]);
 
+  const handleRegenerateAllPrompts = useCallback(async (sceneId: string) => {
+    await handleGeneratePromptsForScene(sceneId);
+  }, [handleGeneratePromptsForScene]);
+
+  const handleAddVariation = useCallback(async (sceneId: string) => {
+    const scene = state.sceneCards.find(s => s.id === sceneId);
+    if (!scene) return;
+
+    const apiKey = getActiveKey();
+    if (!apiKey) {
+      setSettingsOpen(true);
+      return;
+    }
+
+    const sceneCharacters = state.characters.filter(c => scene.characterIds.includes(c.id));
+    const sceneLocations = state.locations.filter(l => scene.locationIds.includes(l.id));
+    const existingPrompts = scene.prompts;
+
+    dispatch({ type: 'START_PROMPT_GENERATION', payload: { sceneId } });
+
+    try {
+      const newPrompts = await generatePromptsForScene(
+        scene,
+        sceneCharacters,
+        sceneLocations,
+        state.masterPrompt,
+        apiKey,
+        state.settings.model
+      );
+      dispatch({
+        type: 'FINISH_PROMPT_GENERATION',
+        payload: { sceneId, prompts: [...existingPrompts, ...newPrompts] },
+      });
+    } catch (error) {
+      console.error('Variation generation error:', error);
+      dispatch({ type: 'FINISH_PROMPT_GENERATION', payload: { sceneId, prompts: existingPrompts } });
+    }
+  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.settings.model, dispatch, getActiveKey]);
+
   const handleAddNewCharacterToSceneCard = useCallback((sceneId: string, name: string) => {
     const character = {
       id: `char-${crypto.randomUUID()}`,
@@ -709,6 +748,8 @@ const Index = () => {
             onRemoveLocationFromSceneCard={(sceneId, locationId) => dispatch({ type: 'REMOVE_LOCATION_FROM_SCENE_CARD', payload: { sceneId, locationId } })}
             onAddCharacterToSceneCard={handleAddNewCharacterToSceneCard}
             onAddLocationToSceneCard={handleAddNewLocationToSceneCard}
+            onAddVariation={handleAddVariation}
+            onRegenerateAllPrompts_={handleRegenerateAllPrompts}
           />
         </div>
       </div>
