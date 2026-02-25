@@ -1,7 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Sparkles, Zap, StickyNote, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { PromptCard } from './PromptCard';
 import type { Scene, ConsistencyGroup, ExtractedEntity, SceneAnalysis } from '@/types';
 
@@ -25,6 +24,8 @@ interface RightPanelProps {
   onAddSceneToGroup?: (sceneId: string, groupId: string | null) => void;
   onRemoveSceneFromGroup?: (sceneId: string, groupId: string) => void;
   onDeletePrompt?: (sceneId: string, promptId: string) => void;
+  onAttachEntity?: (sceneId: string, promptId: string, entityId: string) => void;
+  onDetachEntity?: (sceneId: string, promptId: string, entityId: string) => void;
   onSetSceneNote?: (sceneId: string, note: string) => void;
   onSetGroupNote?: (groupId: string, note: string) => void;
   // Sub-scene callbacks
@@ -90,7 +91,7 @@ export function RightPanel({
   extractedEntities, sceneAnalyses,
   onGenerate, onCancel, onCancelAll, onGenerateAll, isGeneratingAll, onRevise, onRefreshAll, onGenerateImage,
   onSetActiveScene, onRemoveScene, onRegenerateGroup,
-  onAddSceneToGroup, onRemoveSceneFromGroup, onDeletePrompt, onSetSceneNote, onSetGroupNote,
+  onAddSceneToGroup, onRemoveSceneFromGroup, onDeletePrompt, onAttachEntity, onDetachEntity, onSetSceneNote, onSetGroupNote,
   onAddSubScene, onRemoveSubScene, onGenerateSubScene, onReviseSubScene, onRefreshSubScene,
   onDeleteSubScenePrompt, onSetSubSceneNote, onGenerateSubSceneImage,
   onAddSubSceneToGroup, onRemoveSubSceneFromGroup,
@@ -184,8 +185,6 @@ export function RightPanel({
         ) : (
           scenes.map((scene, i) => {
             const groups = scene.consistencyGroupIds?.map(gId => consistencyGroups.find(g => g.id === gId)).filter(Boolean) as ConsistencyGroup[] || [];
-            const sceneEntities = extractedEntities?.filter(e => e.sceneIds.includes(scene.id)) ?? [];
-            const sceneAnalysis = sceneAnalyses?.[scene.id];
             return (
               <div
                 key={scene.id}
@@ -213,6 +212,7 @@ export function RightPanel({
                 allConsistencyGroups={consistencyGroups}
                 note={scene.note}
                 subScenes={scene.subScenes || []}
+                allEntities={extractedEntities || []}
                 isActive={activeSceneId === scene.id}
                 onGenerate={() => onGenerate(scene.id)}
                 onCancel={onCancel ? () => onCancel(scene.id) : undefined}
@@ -220,6 +220,8 @@ export function RightPanel({
                 onRefreshAll={() => onRefreshAll(scene.id)}
                 onDelete={() => onRemoveScene(scene.id)}
                 onDeletePrompt={onDeletePrompt ? (promptId) => onDeletePrompt(scene.id, promptId) : undefined}
+                onAttachEntity={onAttachEntity ? (promptId, entityId) => onAttachEntity(scene.id, promptId, entityId) : undefined}
+                onDetachEntity={onDetachEntity ? (promptId, entityId) => onDetachEntity(scene.id, promptId, entityId) : undefined}
                 onRegenerateGroup={groups.length > 0 ? () => onRegenerateGroup?.(groups[0]!.id) : undefined}
                 onGenerateImage={onGenerateImage ? (promptId) => onGenerateImage(scene.id, promptId) : undefined}
                 onAddToGroup={onAddSceneToGroup ? (groupId) => onAddSceneToGroup(scene.id, groupId) : undefined}
@@ -237,28 +239,6 @@ export function RightPanel({
                 onRemoveSubSceneFromGroup={onRemoveSubSceneFromGroup ? (subSceneId, groupId) => onRemoveSubSceneFromGroup(scene.id, subSceneId, groupId) : undefined}
                 onClick={() => onSetActiveScene(scene.id)}
               />
-              {sceneEntities.length > 0 && (
-                <div className="mt-2 p-2 bg-muted/30 rounded text-xs">
-                  <div className="font-semibold mb-1">🔍 Detected Entities:</div>
-                  <div className="flex flex-wrap gap-1">
-                    {sceneEntities.map(entity => (
-                      <Badge
-                        key={entity.id}
-                        variant={entity.type === 'character' ? 'default' : 'secondary'}
-                        className="text-xs"
-                      >
-                        {entity.type === 'character' ? '👤' : entity.type === 'location' ? '📍' : '🎭'} {entity.name}
-                      </Badge>
-                    ))}
-                  </div>
-                  {sceneAnalysis && (
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      <strong>AI Analysis:</strong> {sceneAnalysis.narrativeType} •{' '}
-                      {sceneAnalysis.suggestedPromptCount} prompts recommended
-                    </div>
-                  )}
-                </div>
-              )}
                   </div>
                 </div>
               </div>

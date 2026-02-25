@@ -250,6 +250,43 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
     }
     case 'ADD_CONSISTENCY_GROUP':
       return { ...state, consistencyGroups: [...state.consistencyGroups, action.payload] };
+    case 'ATTACH_ENTITY_TO_PROMPT': {
+      const { sceneId, promptId, entityId } = action.payload;
+      return {
+        ...state,
+        scenes: state.scenes.map(scene => {
+          if (scene.id !== sceneId) return scene;
+          return {
+            ...scene,
+            prompts: scene.prompts.map(p => {
+              if (p.id !== promptId) return p;
+              const attachedIds = p.attachedEntityIds || [];
+              if (attachedIds.includes(entityId)) return p;
+              return { ...p, attachedEntityIds: [...attachedIds, entityId] };
+            }),
+          };
+        }),
+      };
+    }
+    case 'DETACH_ENTITY_FROM_PROMPT': {
+      const { sceneId, promptId, entityId } = action.payload;
+      return {
+        ...state,
+        scenes: state.scenes.map(scene => {
+          if (scene.id !== sceneId) return scene;
+          return {
+            ...scene,
+            prompts: scene.prompts.map(p => {
+              if (p.id !== promptId) return p;
+              return {
+                ...p,
+                attachedEntityIds: (p.attachedEntityIds || []).filter(id => id !== entityId),
+              };
+            }),
+          };
+        }),
+      };
+    }
     case 'ADD_SCENE_TO_GROUP': {
       const updatedGroups = state.consistencyGroups.map(g =>
         g.id === action.payload.groupId

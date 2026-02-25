@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Copy, Pencil, RefreshCw, ChevronLeft, Plus, Loader2, AlertTriangle, Trash2, Zap, ImageIcon, Link2, X, StickyNote, ChevronDown, ChevronRight, Layers } from 'lucide-react';
-import type { PromptVariant, ConsistencyGroup, SubScene } from '@/types';
+import type { PromptVariant, ConsistencyGroup, SubScene, ExtractedEntity } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SubSceneCard } from './SubSceneCard';
@@ -17,6 +17,7 @@ interface PromptCardProps {
   consistencyWarning?: boolean;
   note?: string;
   subScenes?: SubScene[];
+  allEntities?: ExtractedEntity[];
   onGenerate: () => void;
   onCancel?: () => void;
   onRevise: (promptId: string, instruction: string) => void;
@@ -24,6 +25,8 @@ interface PromptCardProps {
   onRefreshAll: () => void;
   onDelete: () => void;
   onDeletePrompt?: (promptId: string) => void;
+  onAttachEntity?: (promptId: string, entityId: string) => void;
+  onDetachEntity?: (promptId: string, entityId: string) => void;
   onRegenerateGroup?: () => void;
   onAddToGroup?: (groupId: string | null) => void;
   onRemoveFromGroup?: (groupId: string) => void;
@@ -47,8 +50,9 @@ interface PromptCardProps {
 export function PromptCard({
   sceneIndex, episodeTitle, sceneText, referenceText, prompts, status,
   consistencyGroups = [], allConsistencyGroups = [],
-  consistencyWarning, note, subScenes = [],
+  consistencyWarning, note, subScenes = [], allEntities = [],
   onGenerate, onCancel, onRevise, onRefreshAll, onDelete, onDeletePrompt, onRegenerateGroup, onGenerateImage,
+  onAttachEntity, onDetachEntity,
   onAddToGroup, onRemoveFromGroup, onSetNote,
   onAddSubScene, onRemoveSubScene, onGenerateSubScene, onReviseSubScene,
   onRefreshSubScene, onDeleteSubScenePrompt, onSetSubSceneNote,
@@ -64,6 +68,7 @@ export function PromptCard({
   const [subScenesOpen, setSubScenesOpen] = useState(false);
   const [newSubSceneLabel, setNewSubSceneLabel] = useState('');
   const [showSubSceneInput, setShowSubSceneInput] = useState(false);
+  const [entityPickerId, setEntityPickerId] = useState<string | null>(null);
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -255,38 +260,135 @@ export function PromptCard({
           </div>
         )}
 
-        {prompts.map((prompt, pi) => (
-          <div key={prompt.id} className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-primary">🎬 PROMPT {pi + 1}</span>
-              <Badge variant="secondary" className="text-[10px]">{prompt.shotType}</Badge>
-              {onDeletePrompt && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onDeletePrompt(prompt.id); }}
-                  title="Promptu sil"
-                  className="ml-auto rounded p-0.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
+        {prompts.map((prompt, pi) => {
+          const attachedEntities = allEntities.filter(e => (prompt.attachedEntityIds || []).includes(e.id));
+          const availableEntities = allEntities.filter(e => !(prompt.attachedEntityIds || []).includes(e.id));
+          const attachedLocations = attachedEntities.filter(e => e.type === 'location');
+          const attachedCharacters = attachedEntities.filter(e => e.type === 'character');
+
+          return (
+          <div key={prompt.id} className="rounded-md border bg-card overflow-hidden">
+            {/* Prompt header: summary + shot type + actions */}
+            <div className="bg-primary/5 border-b px-3 py-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-xs text-foreground leading-snug">
+                    {prompt.summary || `Prompt ${pi + 1}`}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">{prompt.shotType}</div>
+                </div>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleCopy(prompt.text); }}
+                    title="Kopyala"
+                    className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  >
+                    <Copy className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setRevisingId(revisingId === prompt.id ? null : prompt.id); setRevisionText(''); }}
+                    title="Revize et"
+                    className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                  {onDeletePrompt && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onDeletePrompt(prompt.id); }}
+                      title="Promptu sil"
+                      className="rounded p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-            <p className="rounded-md bg-secondary/50 px-3 py-2 text-xs leading-relaxed text-foreground/85 font-mono">
-              {prompt.text}
-            </p>
-            <div className="flex items-center gap-1 flex-wrap">
-              <button
-                onClick={(e) => { e.stopPropagation(); setRevisingId(revisingId === prompt.id ? null : prompt.id); setRevisionText(''); }}
-                className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              >
-                <Pencil className="h-3 w-3" /> Revize
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); handleCopy(prompt.text); }}
-                className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              >
-                <Copy className="h-3 w-3" /> Kopyala
-              </button>
-              {onGenerateImage && (
+
+            {/* Entity badges section */}
+            {(allEntities.length > 0 || attachedEntities.length > 0) && (
+              <div className="border-b px-3 py-2 space-y-1.5 bg-muted/20">
+                {/* Locations */}
+                <div className="flex items-start gap-1.5">
+                  <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5 min-w-[52px]">📍 Mekan:</span>
+                  <div className="flex flex-wrap gap-1 flex-1">
+                    {attachedLocations.length === 0 && (
+                      <span className="text-[10px] text-muted-foreground italic">—</span>
+                    )}
+                    {attachedLocations.map(loc => (
+                      <Badge key={loc.id} variant="secondary" className="text-[10px] h-4 px-1 pr-0.5 gap-0.5">
+                        {loc.name}
+                        {onDetachEntity && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onDetachEntity(prompt.id, loc.id); }}
+                            className="ml-0.5 rounded hover:text-destructive"
+                          >
+                            <X className="h-2 w-2" />
+                          </button>
+                        )}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                {/* Characters */}
+                <div className="flex items-start gap-1.5">
+                  <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5 min-w-[52px]">👤 Karakter:</span>
+                  <div className="flex flex-wrap gap-1 flex-1">
+                    {attachedCharacters.length === 0 && (
+                      <span className="text-[10px] text-muted-foreground italic">—</span>
+                    )}
+                    {attachedCharacters.map(char => (
+                      <Badge key={char.id} variant="default" className="text-[10px] h-4 px-1 pr-0.5 gap-0.5">
+                        {char.name}
+                        {onDetachEntity && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onDetachEntity(prompt.id, char.id); }}
+                            className="ml-0.5 rounded hover:text-destructive/80"
+                          >
+                            <X className="h-2 w-2" />
+                          </button>
+                        )}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                {/* Add entity dropdown */}
+                {onAttachEntity && availableEntities.length > 0 && (
+                  <div className="relative pt-0.5">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEntityPickerId(entityPickerId === prompt.id ? null : prompt.id); }}
+                      className="flex items-center gap-1 rounded border border-dashed border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:border-primary/50 hover:text-primary"
+                    >
+                      <Plus className="h-2.5 w-2.5" /> Entity Ekle
+                    </button>
+                    {entityPickerId === prompt.id && (
+                      <div className="absolute left-0 top-full z-10 mt-1 min-w-[140px] rounded-md border bg-popover shadow-md">
+                        {availableEntities.map(entity => (
+                          <button
+                            key={entity.id}
+                            onClick={(e) => { e.stopPropagation(); onAttachEntity(prompt.id, entity.id); setEntityPickerId(null); }}
+                            className="flex w-full items-center gap-1.5 px-2 py-1.5 text-[11px] hover:bg-accent hover:text-accent-foreground"
+                          >
+                            {entity.type === 'character' ? '👤' : entity.type === 'location' ? '📍' : '🎭'} {entity.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Prompt text */}
+            <div className="px-3 py-2">
+              <p className="rounded bg-muted/30 px-2 py-1.5 text-[11px] leading-relaxed text-foreground/85 font-mono whitespace-pre-wrap">
+                {prompt.text}
+              </p>
+            </div>
+
+            {/* Image generation button + generated image */}
+            {onGenerateImage && (
+              <div className="px-3 pb-2">
                 <button
                   onClick={(e) => { e.stopPropagation(); onGenerateImage(prompt.id); }}
                   disabled={prompt.imageStatus === 'generating'}
@@ -295,20 +397,11 @@ export function PromptCard({
                   {prompt.imageStatus === 'generating' ? <Loader2 className="h-3 w-3 animate-spin" /> : <ImageIcon className="h-3 w-3" />}
                   {prompt.imageStatus === 'generating' ? 'Üretiliyor...' : 'Görüntü Üret'}
                 </button>
-              )}
-              {prompt.versions.length > 1 && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); setHistoryId(historyId === prompt.id ? null : prompt.id); }}
-                  className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                >
-                  <ChevronLeft className="h-3 w-3" /> Geçmiş ({prompt.versions.length})
-                </button>
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* Generated Image */}
             {prompt.imageUrl && (
-              <div className="mt-2 rounded-md overflow-hidden border border-border">
+              <div className="mx-3 mb-2 rounded-md overflow-hidden border border-border">
                 <img
                   src={prompt.imageUrl}
                   alt={`Sahne ${sceneIndex} - Prompt ${pi + 1}`}
@@ -318,15 +411,15 @@ export function PromptCard({
               </div>
             )}
 
+            {/* Revision editor */}
             {revisingId === prompt.id && (
-              <div className="animate-fade-in rounded-md border bg-muted/50 p-2.5 space-y-2">
+              <div className="animate-fade-in border-t bg-muted/50 px-3 py-2 space-y-2" onClick={e => e.stopPropagation()}>
                 <textarea
                   value={revisionText}
                   onChange={e => setRevisionText(e.target.value)}
                   placeholder="Revizyon isteği yazın..."
                   className="w-full rounded-md border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
                   rows={2}
-                  onClick={e => e.stopPropagation()}
                 />
                 <div className="flex gap-2">
                   <Button size="sm" className="h-7 text-xs bg-primary text-primary-foreground" onClick={(e) => { e.stopPropagation(); handleRevise(prompt.id); }}>
@@ -339,8 +432,20 @@ export function PromptCard({
               </div>
             )}
 
+            {/* Version history */}
+            {prompt.versions.length > 1 && (
+              <div className="border-t px-3 py-1.5">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setHistoryId(historyId === prompt.id ? null : prompt.id); }}
+                  className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+                >
+                  <ChevronLeft className="h-2.5 w-2.5" /> Geçmiş ({prompt.versions.length})
+                </button>
+              </div>
+            )}
+
             {historyId === prompt.id && (
-              <div className="animate-fade-in rounded-md border bg-muted/30 p-2.5 space-y-1.5 max-h-48 overflow-y-auto scrollbar-thin">
+              <div className="animate-fade-in border-t bg-muted/30 px-3 py-2 space-y-1.5 max-h-48 overflow-y-auto scrollbar-thin">
                 <p className="text-[10px] font-medium text-muted-foreground">Versiyon Geçmişi — tıkla geri dön</p>
                 {prompt.versions.map((v, vi) => {
                   const isCurrent = v === prompt.text;
@@ -365,7 +470,8 @@ export function PromptCard({
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
 
         {prompts.length > 0 && (
           <div className="flex gap-2 pt-1">

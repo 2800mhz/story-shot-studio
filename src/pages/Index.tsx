@@ -159,6 +159,14 @@ const Index = () => {
     dispatch({ type: 'REMOVE_PROMPT', payload: { sceneId, promptId } });
   }, [dispatch]);
 
+  const handleAttachEntity = useCallback((sceneId: string, promptId: string, entityId: string) => {
+    dispatch({ type: 'ATTACH_ENTITY_TO_PROMPT', payload: { sceneId, promptId, entityId } });
+  }, [dispatch]);
+
+  const handleDetachEntity = useCallback((sceneId: string, promptId: string, entityId: string) => {
+    dispatch({ type: 'DETACH_ENTITY_FROM_PROMPT', payload: { sceneId, promptId, entityId } });
+  }, [dispatch]);
+
   const handleSetSceneNote = useCallback((sceneId: string, note: string) => {
     dispatch({ type: 'SET_SCENE_NOTE', payload: { sceneId, note } });
   }, [dispatch]);
@@ -270,6 +278,8 @@ const Index = () => {
         id: `prompt-${Date.now()}-${i}`,
         shotType: r.shotType,
         text: r.text,
+        summary: r.summary,
+        attachedEntityIds: [],
         versions: [r.text],
         isRevising: false,
       }));
@@ -294,7 +304,7 @@ const Index = () => {
             });
             dispatch({ type: 'ROTATE_API_KEY' });
             const prompts2: PromptVariant[] = results2.map((r, i) => ({
-              id: `prompt-${Date.now()}-${i}`, shotType: r.shotType, text: r.text, versions: [r.text], isRevising: false,
+              id: `prompt-${Date.now()}-${i}`, shotType: r.shotType, text: r.text, summary: r.summary, attachedEntityIds: [], versions: [r.text], isRevising: false,
             }));
             dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, prompts: prompts2, status: 'done' } } });
             return;
@@ -419,6 +429,8 @@ const Index = () => {
           id: `prompt-${Date.now()}-${i}`,
           shotType: r.shotType,
           text: r.text,
+          summary: r.summary,
+          attachedEntityIds: [],
           versions: [r.text],
           isRevising: false,
         }));
@@ -497,6 +509,8 @@ const Index = () => {
             id: `prompt-${Date.now()}-${idx}`,
             shotType: r.shotType,
             text: r.text,
+            summary: r.summary,
+            attachedEntityIds: [],
             versions: [r.text],
             isRevising: false,
           }));
@@ -676,6 +690,8 @@ const Index = () => {
             onAddSceneToGroup={handleAddSceneToGroup}
             onRemoveSceneFromGroup={handleRemoveSceneFromGroup}
             onDeletePrompt={handleDeletePrompt}
+            onAttachEntity={handleAttachEntity}
+            onDetachEntity={handleDetachEntity}
             onSetSceneNote={handleSetSceneNote}
             onSetGroupNote={handleSetGroupNote}
             onAddSubScene={handleAddSubScene}
