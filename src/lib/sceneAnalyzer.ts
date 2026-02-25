@@ -1,28 +1,33 @@
 import type { SceneCard, Character, Location } from '@/types';
 
-const SCENE_ANALYSIS_SYSTEM_PROMPT = `Sen bir senaryo analisti ve görsel yönetmenisin. Verilen metni görsel SAHNELERE böl.
+const SCENE_ANALYSIS_SYSTEM_PROMPT = `Sen bir senaryo analisti ve görsel yönetmenisin. Verilen metni ULTRA DETAYLI görsel SAHNELERE böl.
+
+🔥 KATİL KURALLAR:
+1. Her cümle = AYRI SAHNE! (Nokta gördün mü = yeni sahne!)
+2. Uzun cümle (20+ kelime) = 2-3 sahneye böl
+3. 100 kelime = EN AZ 20 sahne
+4. 200 kelime = EN AZ 40 sahne
+5. Görsel değişimi = yeni sahne
+6. Karakter hareketi = yeni sahne
+7. Mekan değişimi = yeni sahne
+8. Duygusal geçiş = yeni sahne
+
+📐 SAHNE BOYUTU:
+- İdeal: 3-8 kelime per sahne
+- Maksimum: 15 kelime per sahne
+- 15+ kelime varsa MUTLAKA böl!
 
 KURALLAR:
-1. Her sahne ayrı bir görsel/video klibi olmalı
-2. Sahne değişimi kriterleri:
-   - Mekan değişimi → Yeni sahne
-   - Zaman atlaması → Yeni sahne
-   - Yeni karakter girişi → Yeni sahne
-   - Farklı aksiyon/durum → Yeni sahne
-3. Her sahne için TÜRKÇE görsel açıklama yaz (1 cümle, net, kısa)
-4. Sahnede görünecek karakterleri tespit et (fiziksel özellikler, yaş, kıyafet)
-5. Sahnede görünecek mekanları tespit et (mimari, coğrafi, dönemsel özellikler)
-
-ÖNEMLİ:
 - visualNote TÜRKÇE olmalı (örn: "Boğaz kıyısında sabah yürüyüşü")
 - Character/location descriptions İNGİLİZCE olmalı (prompt'larda kullanılacak)
+- Sahnede açıkça görünen karakterleri ve mekanları tespit et
 
 JSON ÇIKTI:
 {
   "scenes": [
     {
       "sceneNumber": 1,
-      "text": "Metinden kesilen tam metin parçası...",
+      "text": "Metinden kesilen kısa metin parçası (3-15 kelime)",
       "visualNote": "Kısa Türkçe görsel açıklama",
       "characters": [
         {
@@ -60,8 +65,8 @@ export async function analyzeTextIntoScenes(
       system_instruction: { parts: [{ text: SCENE_ANALYSIS_SYSTEM_PROMPT }] },
       contents: [{ role: 'user', parts: [{ text }] }],
       generationConfig: {
-        temperature: 0.4,
-        maxOutputTokens: 8192,
+        temperature: 0.2,
+        maxOutputTokens: 16384,
         response_mime_type: 'application/json',
       },
     }),

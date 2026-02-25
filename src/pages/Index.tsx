@@ -641,12 +641,10 @@ const Index = () => {
             scenes={state.scenes}
             consistencyGroups={state.consistencyGroups}
             activeSceneId={state.activeSceneId}
-            selectionMode={state.selectionMode}
             mainFileName={state.mainFileName}
             isAnalyzing={state.isAnalyzing}
             onEpisodeClick={(ep) => setScrollToIndex(ep.startIndex)}
             onSceneClick={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
-            onSetSelectionMode={mode => dispatch({ type: 'SET_SELECTION_MODE', payload: mode })}
             onMoveEpisode={(episodeId, newParentId) => dispatch({ type: 'MOVE_EPISODE', payload: { episodeId, newParentId } })}
             onReorderEpisodes={(eps) => dispatch({ type: 'REORDER_EPISODES', payload: eps })}
           />
@@ -655,17 +653,10 @@ const Index = () => {
         <div className="flex-1 min-w-0">
           <CenterPanel
             mainText={state.mainText}
-            episodes={state.episodes}
             scenes={state.scenes}
-            consistencyGroups={state.consistencyGroups}
             activeSceneId={state.activeSceneId}
-            selectionMode={state.selectionMode}
             scrollToIndex={scrollToIndex}
             onScrollComplete={() => setScrollToIndex(null)}
-            onAddScene={handleAddScene}
-            onAddReference={handleAddReference}
-            onAppendToLastScene={handleAppendToLastScene}
-            onAddConsistency={handleAddConsistency}
             onSetActiveScene={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
             onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
             onAnalyzeText={handleAnalyzeText}

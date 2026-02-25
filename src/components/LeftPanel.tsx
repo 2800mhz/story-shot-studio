@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronRight, ChevronDown, FileText, Clapperboard, User, Link2, Plus, GripVertical, Folder, FolderOpen } from 'lucide-react';
-import type { Episode, Scene, ConsistencyGroup, SelectionMode } from '@/types';
+import { ChevronRight, ChevronDown, FileText, GripVertical, Folder, FolderOpen } from 'lucide-react';
+import type { Episode, Scene, ConsistencyGroup } from '@/types';
 import { Badge } from '@/components/ui/badge';
 
 interface LeftPanelProps {
@@ -8,22 +8,13 @@ interface LeftPanelProps {
   scenes: Scene[];
   consistencyGroups: ConsistencyGroup[];
   activeSceneId: string | null;
-  selectionMode: SelectionMode;
   mainFileName: string;
   isAnalyzing?: boolean;
   onEpisodeClick: (ep: Episode) => void;
   onSceneClick: (id: string) => void;
-  onSetSelectionMode: (mode: SelectionMode) => void;
   onMoveEpisode: (episodeId: string, newParentId: string | null) => void;
   onReorderEpisodes: (episodes: Episode[]) => void;
 }
-
-const MODE_CONFIG: { mode: SelectionMode; icon: typeof Clapperboard; label: string; activeClass: string }[] = [
-  { mode: 'scene', icon: Clapperboard, label: 'Sahne', activeClass: 'border-primary bg-primary/15 text-primary' },
-  { mode: 'reference', icon: User, label: 'Referans', activeClass: 'border-accent bg-accent/15 text-accent' },
-  { mode: 'consistency', icon: Link2, label: 'Tutarlı', activeClass: 'border-blue-500 bg-blue-500/15 text-blue-400' },
-  { mode: 'append', icon: Plus, label: 'Ekle', activeClass: 'border-green-500 bg-green-500/15 text-green-400' },
-];
 
 interface EpisodeNodeProps {
   episode: Episode;
@@ -178,8 +169,8 @@ function EpisodeNode({
 }
 
 export function LeftPanel({
-  episodes, scenes, consistencyGroups, activeSceneId, selectionMode,
-  mainFileName, isAnalyzing, onEpisodeClick, onSceneClick, onSetSelectionMode,
+  episodes, scenes, consistencyGroups, activeSceneId,
+  mainFileName, isAnalyzing, onEpisodeClick, onSceneClick,
   onMoveEpisode, onReorderEpisodes,
 }: LeftPanelProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -255,27 +246,6 @@ export function LeftPanel({
 
   return (
     <div className="flex h-full flex-col border-r bg-card">
-      {/* Selection Mode Buttons */}
-      <div className="border-b p-3">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Aktif Mod</p>
-        <div className="grid grid-cols-2 gap-1.5">
-          {MODE_CONFIG.map(({ mode, icon: Icon, label, activeClass }) => (
-            <button
-              key={mode}
-              onClick={() => onSetSelectionMode(mode)}
-              className={`flex items-center gap-1.5 rounded-md border px-2.5 py-2 text-xs font-medium transition-colors ${
-                selectionMode === mode
-                  ? activeClass
-                  : 'border-border bg-secondary text-secondary-foreground hover:border-muted-foreground/30'
-              }`}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Episode Navigator Header */}
       <div className="border-b px-4 py-3">
         <div className="flex items-center justify-between">

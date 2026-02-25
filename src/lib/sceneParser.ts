@@ -1,37 +1,55 @@
 import type { Scene } from '@/types';
 
-const SCENE_PARSING_PROMPT = `Sen bir görsel story-board uzmanısın. Metni çok detaylı ve kısa sahnelere böl.
+const SCENE_PARSING_PROMPT = `Sen bir story-board uzmanısın. Metni ULTRA DETAYLI sahnelere böl!
 
-BU ÇOK ÖNEMLİ:
-- Her sahne MUTLAKA 1-2 CÜMLE olmalı (MAX 20-30 kelime)
-- 100 kelimelik metin = EN AZ 12-15 sahne
-- 500 kelimelik metin = EN AZ 50-60 sahne
-- Her görsel an = ayrı sahne
-- Karakter giriş/çıkışları = ayrı sahne
-- Mekan değişimi = ayrı sahne
-- Duygusal geçişler = ayrı sahne
-- Aksiyon değişimi = ayrı sahne
+🔥 KATİL KURALLAR (ÇOK ÖNEMLİ):
+1. Her cümle = AYRI SAHNE! (Nokta gördün mü = yeni sahne!)
+2. Uzun cümle (20+ kelime) = 2-3 sahneye böl
+3. 50 kelime = EN AZ 10 sahne
+4. 100 kelime = EN AZ 20 sahne
+5. 200 kelime = EN AZ 40 sahne
+6. Görsel değişimi = yeni sahne
+7. Karakter hareketi = yeni sahne
+8. Mekan değişimi = yeni sahne
+9. Duygusal geçiş = yeni sahne
+10. Zaman atlama = yeni sahne
 
-OUTPUT FORMAT (JSON):
+✅ DOĞRU ÖRNEK (her cümle ayrı sahne):
+INPUT: "1220'li yıllarda kara bulutlar ufkumda belirdi. Cengiz Han'ın Moğol orduları Türkistan'ı kasıp kavururken sıra bana, Ürgenç'e geldi."
+
+DOĞRU OUTPUT:
+{
+  "scenes": [
+    { "text": "1220'li yıllarda kara bulutlar ufkumda belirdi.", "reasoning": "Zaman damgası - tehdit bulutları" },
+    { "text": "Cengiz Han'ın Moğol orduları Türkistan'ı kasıp kavururken", "reasoning": "Moğol ordusu yağma sahnesi" },
+    { "text": "sıra bana, Ürgenç'e geldi.", "reasoning": "Ürgenç şehri görünümü" }
+  ]
+}
+
+🎯 HEDEF SAHNE SAYILARI:
+- 25 kelime = 5+ sahne
+- 50 kelime = 10+ sahne
+- 100 kelime = 20+ sahne
+- 150 kelime = 30+ sahne
+- 200 kelime = 40+ sahne
+- 500 kelime = 100+ sahne
+
+📐 SAHNE BOYUTU:
+- İdeal: 3-8 kelime per sahne
+- Maksimum: 15 kelime per sahne
+- 15+ kelime varsa = MUTLAKA böl!
+
+OUTPUT FORMAT:
 {
   "scenes": [
     {
-      "text": "The actual scene text from the document",
-      "reasoning": "Brief explanation why this is a scene"
+      "text": "Kısa cümle veya cümle parçası",
+      "reasoning": "Hangi görseli temsil ediyor? (1 cümle Türkçe açıklama)"
     }
   ]
 }
 
-KURALLAR:
-- Orijinal metni AYNEN koru (parafraz yapma)
-- 1 sahne = 1-2 cümle = 1 görsel an
-- Uzun cümleleri bile ayır (noktalı virgül veya bağlaç varsa böl)
-- Daha fazla sahne = daha iyi (50 sahne normal, 100 sahne mükemmel)
-- Karakter giriş/çıkışları = ayrı sahne
-- Mekan değişimi = ayrı sahne
-- Diyaloglar = ayrı sahne
-
-ŞİMDİ BU METNİ PARÇALA (mümkün olduğunca çok sahne üret):
+ŞİMDİ BU METNİ ULTRA DETAYLI PARÇALA (mümkün olduğunca çok sahne):
 `;
 
 export async function parseTextIntoScenes(
@@ -56,8 +74,8 @@ export async function parseTextIntoScenes(
             parts: [{ text: SCENE_PARSING_PROMPT + chunk }],
           }],
           generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 8192,
+            temperature: 0.2,
+            maxOutputTokens: 16384,
           },
         }),
       });
