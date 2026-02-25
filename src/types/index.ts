@@ -32,6 +32,10 @@ export interface SubScene {
 export interface Scene {
   id: string;
   number: number;
+  title?: string;
+  text?: string;
+  startIndex?: number;
+  endIndex?: number;
   episodeTitle: string;
   segments: TextSegment[];
   subjectReferences: TextSegment[];
@@ -187,4 +191,6 @@ export type AppAction =
   | { type: 'START_PROMPT_GENERATION'; payload: { sceneId: string } }
   | { type: 'FINISH_PROMPT_GENERATION'; payload: { sceneId: string; prompts: PromptCard[] } }
   | { type: 'DELETE_SCENE_CARD'; payload: string }
-  | { type: 'SET_MASTER_PROMPT'; payload: string };
+  | { type: 'SET_MASTER_PROMPT'; payload: string }
+  | { type: 'SET_ANALYZING'; payload: boolean }
+  | { type: 'SET_SCENES'; payload: Scene[] };

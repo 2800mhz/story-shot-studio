@@ -1,10 +1,7 @@
-import React, { useCallback, useRef, useMemo, useEffect, useState } from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
 import type { Scene, Episode, TextSegment, ConsistencyGroup, SelectionMode } from '@/types';
 import { FloatingToolbar } from './FloatingToolbar';
-import { Sparkles, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-
-const MIN_ANALYSIS_TEXT_LENGTH = 100;
+import { X } from 'lucide-react';
 
 const GROUP_COLORS: Record<string, string> = {
   A: 'border-l-blue-500',
@@ -38,173 +35,83 @@ export function CenterPanel({
   onAddScene, onAddReference, onAppendToLastScene, onAddConsistency, onSetActiveScene, onRemoveScene,
   onAnalyzeText, isAnalyzing,
 }: CenterPanelProps) {
-  const textRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [hasSelection, setHasSelection] = useState(false);
-  const [toolbar, setToolbar] = React.useState<{
-    visible: boolean;
-    position: { top: number; left: number };
-    text: string;
-    startIndex: number;
-    endIndex: number;
-  }>({ visible: false, position: { top: 0, left: 0 }, text: '', startIndex: 0, endIndex: 0 });
+  const activeSceneRef = useRef<HTMLDivElement>(null);
 
-  // Track text selection for "AI ile Analiz Et" button
+  // Check if scenes are AI-parsed (have text property) or manual (have segments)
+  const hasAiScenes = scenes.length > 0 && scenes.some(s => s.text);
+
+  // Scroll to active scene when it changes
   useEffect(() => {
-    if (!onAnalyzeText) return;
-    const handleSelectionChange = () => {
-      const sel = window.getSelection();
-      setHasSelection((sel?.toString().trim().length ?? 0) > MIN_ANALYSIS_TEXT_LENGTH);
-    };
-    document.addEventListener('selectionchange', handleSelectionChange);
-    return () => document.removeEventListener('selectionchange', handleSelectionChange);
-  }, [onAnalyzeText]);
+    if (activeSceneId && activeSceneRef.current && scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const el = activeSceneRef.current;
+      const containerRect = container.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const scrollTop = container.scrollTop + (elRect.top - containerRect.top) - 80;
+      container.scrollTo({ top: scrollTop, behavior: 'smooth' });
+    }
+  }, [activeSceneId]);
 
   // Scroll to episode position when scrollToIndex changes
   useEffect(() => {
-    if (scrollToIndex === null || !textRef.current || !scrollContainerRef.current) return;
+    if (scrollToIndex === null || !scrollContainerRef.current) return;
 
-    // Find the span element that contains the target character index using data attributes
-    const container = textRef.current;
-    const allSpans = container.querySelectorAll<HTMLElement>('[data-char-start]');
-    let targetEl: HTMLElement | null = null;
-
-    for (const span of allSpans) {
-      const start = parseInt(span.dataset.charStart || '0', 10);
-      const end = parseInt(span.dataset.charEnd || '0', 10);
-      if (scrollToIndex >= start && scrollToIndex < end) {
-        targetEl = span;
-        break;
+    // In AI scene mode, find the scene containing this index
+    if (hasAiScenes) {
+      const targetScene = scenes.find(
+        s => s.startIndex !== undefined && s.endIndex !== undefined &&
+             scrollToIndex >= s.startIndex && scrollToIndex < s.endIndex
+      );
+      if (targetScene) {
+        onSetActiveScene(targetScene.id);
       }
-    }
+    } else if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const allSpans = container.querySelectorAll<HTMLElement>('[data-char-start]');
+      let targetEl: HTMLElement | null = null;
 
-    // Fallback: find the closest span after scrollToIndex
-    if (!targetEl) {
-      let closestDist = Infinity;
       for (const span of allSpans) {
         const start = parseInt(span.dataset.charStart || '0', 10);
-        const dist = Math.abs(start - scrollToIndex);
-        if (dist < closestDist) {
-          closestDist = dist;
+        const end = parseInt(span.dataset.charEnd || '0', 10);
+        if (scrollToIndex >= start && scrollToIndex < end) {
           targetEl = span;
+          break;
         }
       }
-    }
 
-    if (targetEl) {
-      const containerRect = scrollContainerRef.current.getBoundingClientRect();
-      const elRect = targetEl.getBoundingClientRect();
-      const scrollTop = scrollContainerRef.current.scrollTop + (elRect.top - containerRect.top) - 60;
-      scrollContainerRef.current.scrollTo({ top: scrollTop, behavior: 'smooth' });
+      if (!targetEl) {
+        let closestDist = Infinity;
+        for (const span of allSpans) {
+          const start = parseInt(span.dataset.charStart || '0', 10);
+          const dist = Math.abs(start - scrollToIndex);
+          if (dist < closestDist) {
+            closestDist = dist;
+            targetEl = span;
+          }
+        }
+      }
 
-      // Flash highlight effect
-      targetEl.style.transition = 'background-color 0.3s';
-      targetEl.style.backgroundColor = 'hsl(36 90% 55% / 0.3)';
-      setTimeout(() => {
-        if (targetEl) targetEl.style.backgroundColor = '';
-      }, 1500);
+      if (targetEl) {
+        const containerRect = container.getBoundingClientRect();
+        const elRect = targetEl.getBoundingClientRect();
+        const scrollTop = container.scrollTop + (elRect.top - containerRect.top) - 60;
+        container.scrollTo({ top: scrollTop, behavior: 'smooth' });
+
+        targetEl.style.transition = 'background-color 0.3s';
+        targetEl.style.backgroundColor = 'hsl(36 90% 55% / 0.3)';
+        setTimeout(() => {
+          if (targetEl) targetEl.style.backgroundColor = '';
+        }, 1500);
+      }
     }
 
     onScrollComplete();
-  }, [scrollToIndex, onScrollComplete]);
+  }, [scrollToIndex, onScrollComplete, hasAiScenes, scenes, onSetActiveScene]);
 
-  const getCharOffsetFromNode = useCallback((container: HTMLElement, node: Node, offset: number): number => {
-    // Walk through container's child spans that have data-char-start/end attributes
-    // to find the actual character index in the original mainText
-    const spans = container.querySelectorAll<HTMLElement>('[data-char-start]');
-    for (const span of spans) {
-      if (span.contains(node)) {
-        const charStart = parseInt(span.dataset.charStart || '0', 10);
-        // We need to find the text offset within the actual text content of this span,
-        // excluding any badge/label elements
-        // Walk text nodes within span to calculate offset
-        let textOffset = 0;
-        const walker = document.createTreeWalker(span, NodeFilter.SHOW_TEXT);
-        let currentNode = walker.nextNode();
-        while (currentNode) {
-          if (currentNode === node) {
-            return charStart + textOffset + offset;
-          }
-          // Only count text nodes that are direct content (not inside badge elements)
-          const parent = currentNode.parentElement;
-          const isBadge = parent && parent !== span && parent.classList.contains('inline-flex');
-          if (!isBadge) {
-            textOffset += currentNode.textContent?.length || 0;
-          }
-          currentNode = walker.nextNode();
-        }
-        // Fallback: just use charStart + offset
-        return charStart + offset;
-      }
-    }
-    return 0;
-  }, []);
-
-  const handleMouseUp = useCallback(() => {
-    const selection = window.getSelection();
-    if (!selection || selection.isCollapsed || !selection.toString().trim()) return;
-    const text = selection.toString().trim();
-    if (text.length < 5) return;
-
-    const range = selection.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-    const container = textRef.current;
-    if (!container) return;
-
-    const startIndex = getCharOffsetFromNode(container, range.startContainer, range.startOffset);
-    const endIndex = getCharOffsetFromNode(container, range.endContainer, range.endOffset);
-
-    setToolbar({
-      visible: true,
-      position: { top: rect.top + window.scrollY, left: rect.left + (rect.width / 2) - 140 },
-      text,
-      startIndex,
-      endIndex,
-    });
-  }, [getCharOffsetFromNode]);
-
-  const dismissToolbar = useCallback(() => {
-    setToolbar(prev => ({ ...prev, visible: false }));
-    window.getSelection()?.removeAllRanges();
-  }, []);
-
-  const makeSegment = useCallback((): TextSegment => ({
-    id: `seg-${Date.now()}`,
-    text: toolbar.text,
-    startIndex: toolbar.startIndex,
-    endIndex: toolbar.endIndex,
-  }), [toolbar]);
-
-  const getCurrentEpisodeTitle = useCallback(() => {
-    const idx = toolbar.startIndex;
-    for (const ep of [...episodes].reverse()) {
-      if (idx >= ep.startIndex) return ep.title;
-    }
-    return episodes[0]?.title || 'Belge';
-  }, [episodes, toolbar.startIndex]);
-
-  const handleAddScene = useCallback(() => {
-    onAddScene(makeSegment(), getCurrentEpisodeTitle());
-    dismissToolbar();
-  }, [makeSegment, onAddScene, getCurrentEpisodeTitle, dismissToolbar]);
-
-  const handleAddReference = useCallback(() => {
-    onAddReference(makeSegment());
-    dismissToolbar();
-  }, [makeSegment, onAddReference, dismissToolbar]);
-
-  const handleAppend = useCallback(() => {
-    onAppendToLastScene(makeSegment());
-    dismissToolbar();
-  }, [makeSegment, onAppendToLastScene, dismissToolbar]);
-
-  const handleAddConsistency = useCallback((groupId: string | null) => {
-    onAddConsistency(makeSegment(), groupId);
-    dismissToolbar();
-  }, [makeSegment, onAddConsistency, dismissToolbar]);
-
-  // Build highlight ranges
+  // Build highlight ranges for manual scenes
   const highlights = useMemo(() => {
+    if (hasAiScenes) return [];
     const h: { start: number; end: number; type: 'scene' | 'reference' | 'done' | 'consistency'; sceneIndex: number; groupLabel?: string }[] = [];
     scenes.forEach((scene, si) => {
       scene.segments.forEach(seg => {
@@ -230,13 +137,12 @@ export function CenterPanel({
       }
     });
     return h.sort((a, b) => a.start - b.start);
-  }, [scenes, consistencyGroups]);
+  }, [scenes, consistencyGroups, hasAiScenes]);
 
   const renderHighlightedText = useMemo(() => {
     if (!mainText) return null;
     if (highlights.length === 0) return <span data-char-start="0" data-char-end={mainText.length}>{mainText}</span>;
 
-    // Deduplicate overlapping ranges — keep first occurrence
     const used = new Set<string>();
     const deduped = highlights.filter(h => {
       const key = `${h.start}-${h.end}-${h.type}`;
@@ -249,7 +155,7 @@ export function CenterPanel({
     let lastEnd = 0;
 
     deduped.forEach((h, i) => {
-      if (h.start < lastEnd) return; // skip overlapping
+      if (h.start < lastEnd) return;
       if (h.start > lastEnd) {
         parts.push(<span key={`t-${i}`} data-char-start={lastEnd} data-char-end={h.start}>{mainText.slice(lastEnd, h.start)}</span>);
       }
@@ -286,35 +192,80 @@ export function CenterPanel({
     return parts;
   }, [mainText, highlights]);
 
+  // ─── AI Scene View ────────────────────────────────────────────────
+  if (hasAiScenes) {
+    if (isAnalyzing) {
+      return (
+        <div className="flex h-full items-center justify-center bg-background">
+          <div className="text-center">
+            <div className="animate-spin text-4xl mb-4">🤖</div>
+            <p className="text-lg font-medium">AI Metin Analiz Ediyor...</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Karakterler, mekanlar ve sahneler tespit ediliyor
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex h-full flex-col bg-background">
+        <div className="border-b p-3 bg-muted/30 shrink-0">
+          <div className="text-sm font-medium">📄 Metin Görünümü</div>
+          <div className="text-xs text-muted-foreground">{scenes.length} sahne tespit edildi</div>
+        </div>
+
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin">
+          <div className="p-6 font-serif leading-relaxed">
+            {scenes.map((scene, idx) => (
+              <div key={scene.id}>
+                <div
+                  ref={activeSceneId === scene.id ? activeSceneRef : undefined}
+                  className={`whitespace-pre-wrap transition-all cursor-pointer rounded-sm ${
+                    activeSceneId === scene.id
+                      ? 'bg-primary/10 border-l-4 border-primary pl-3 py-2 -ml-1'
+                      : 'hover:bg-muted/30 py-1'
+                  }`}
+                  onClick={() => {
+                    onSetActiveScene(scene.id);
+                  }}
+                >
+                  {scene.text}
+                </div>
+
+                {idx < scenes.length - 1 && (
+                  <div className="my-4 flex items-center gap-2">
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+                    <div className="text-xs text-muted-foreground font-mono">
+                      Sahne {scene.number}
+                    </div>
+                    <div className="h-px flex-1 bg-gradient-to-r from-primary/30 via-transparent to-transparent" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Legacy Manual Selection View ────────────────────────────────
   return (
     <div className="flex h-full flex-col">
-      {/* AI Analysis banner: shown when text is selected and onAnalyzeText is provided */}
-      {onAnalyzeText && hasSelection && (
+      {isAnalyzing && (
         <div className="border-b bg-primary/10 px-4 py-3 flex items-center justify-between shrink-0">
           <div className="text-sm">
-            <span className="font-semibold">Metin seçildi</span>
+            <span className="font-semibold">AI Analiz Ediliyor...</span>
             <span className="text-xs text-muted-foreground ml-2">
-              AI ile sahnelere bölünmeye hazır
+              Sahneler oluşturuluyor
             </span>
           </div>
-          <Button
-            size="sm"
-            className="h-8 text-xs"
-            disabled={isAnalyzing}
-            onClick={() => {
-              const sel = window.getSelection()?.toString().trim();
-              if (sel) onAnalyzeText(sel);
-            }}
-          >
-            <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-            {isAnalyzing ? 'Analiz Ediliyor...' : '🤖 AI ile Analiz Et'}
-          </Button>
         </div>
       )}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-8 py-6" onMouseUp={handleMouseUp} onContextMenu={e => { if (window.getSelection()?.toString().trim()) e.preventDefault(); }}>
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-8 py-6">
         {mainText ? (
           <div
-            ref={textRef}
             className="font-serif text-[17px] leading-[1.8] text-foreground/90 selection:bg-primary/30"
             style={{ whiteSpace: 'pre-wrap' }}
           >
@@ -353,20 +304,6 @@ export function CenterPanel({
             ))}
           </div>
         </div>
-      )}
-
-      {toolbar.visible && (
-        <FloatingToolbar
-          position={toolbar.position}
-          selectionMode={selectionMode}
-          consistencyGroups={consistencyGroups}
-          onAddScene={handleAddScene}
-          onAddReference={handleAddReference}
-          onAddConsistency={handleAddConsistency}
-          onAppendToScene={handleAppend}
-          onDismiss={dismissToolbar}
-          hasScenes={scenes.length > 0}
-        />
       )}
     </div>
   );
