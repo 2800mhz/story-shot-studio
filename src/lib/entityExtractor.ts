@@ -1,20 +1,58 @@
 import type { Character, Location } from '@/types';
 
-const ENTITY_EXTRACTION_PROMPT = `Sen bir metin analiz AI'sın. Aşağıdaki sahne metnini analiz et ve karakterler ile mekanları çıkar.
+const ENTITY_EXTRACTION_PROMPT = `Sen bir görsel analiz AI'sın. Sahneden karakterleri ve mekanları çıkar.
 
-JSON ÇIKTI (SADECE JSON DÖN, başka hiçbir şey yazma):
+🚫 YASAKLI:
+- Yazı/metin nesneleri: "tabela", "kitap", "yazı", "duvar yazısı"
+- Soyut kavramlar: "umut", "değişim", "ses", "rüzgar"
+
+✅ ZORUNLU:
+- İNSAN karakterler (fiziksel özellikler: yaş, ırk, kıyafet, saç)
+- SOMUT mekanlar (mimari, doku, renk, malzeme)
+
+🔄 YAZI SAHNELERİNİ YENİDEN YORUMLA:
+
+ÖRNEK 1:
+INPUT: "Şehrin tabelasında 'Hive' adının belirmesi"
+
+❌ YANLIŞ:
+{
+  "characters": [],
+  "locations": [{ "name": "Şehir Tabelası", "description": "Yazı var" }]
+}
+
+✅ DOĞRU (İnsanlarla yeniden yorumla):
 {
   "characters": [
-    {
-      "name": "Karakter İsmi (Türkçe)",
-      "description": "Detailed English visual description for AI image generation: age, clothing, physical features, distinctive characteristics"
-    }
+    { "name": "Arap Tüccar", "description": "White turban, brown robe, long beard, 40s" },
+    { "name": "Çinli Yolcu", "description": "Silk kimono, bamboo hat, thin mustache" },
+    { "name": "Afrikalı Sanatkâr", "description": "Colorful tunic, young man" },
+    { "name": "Avrupalı Gezgin", "description": "Leather trousers, white shirt, blonde hair" },
+    { "name": "Hintli Baharat Tüccarı", "description": "Orange turban, green vest, dark complexion" }
   ],
   "locations": [
-    {
-      "name": "Mekan İsmi (Türkçe)",
-      "description": "Detailed English visual description: architectural style, atmosphere, color palette, lighting, time period"
-    }
+    { "name": "Şehir Meydanı Büyük Çeşmesi", "description": "Marble stone fountain, water flowing, 5 people from different cultures gathered around, colorful stalls" }
+  ]
+}
+
+ÖRNEK 2:
+INPUT: "Farklı dillerde 'Hey vah' kelimesinin evrimi, yazılı metinler"
+
+❌ YANLIŞ:
+{
+  "characters": [],
+  "locations": [{ "name": "Kütüphane", "description": "Books present" }]
+}
+
+✅ DOĞRU (İnsanlarla yeniden yorumla):
+{
+  "characters": [
+    { "name": "Yaşlı Âlim", "description": "Long white beard, brown robe, holding a book" },
+    { "name": "Genç Öğrenci", "description": "Simple clothing, holding notepad, listening" },
+    { "name": "Kadın Hikaye Anlatıcısı", "description": "Colorful headscarf, elderly, children around her" }
+  ],
+  "locations": [
+    { "name": "Eski Kütüphane", "description": "Wooden shelves, old bound books, candlelight, stone walls" }
   ]
 }
 
@@ -22,7 +60,7 @@ KURALLAR:
 - Sadece JSON döndür
 - Karakterlerin görsel tanımı prompt için kullanılacak (İngilizce)
 - Mekanlar için atmosfer ve stil önemli (İngilizce)
-- Metinde açıkça belirtilmeyen karakterleri/mekanları ekleme
+- Yazı/metin içeren sahneleri insanlar ve mekanlarla yeniden yorumla
 
 SAHNE METNİ:
 `;
