@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clapperboard, User, Link2, Plus, X } from 'lucide-react';
+import { Clapperboard, User, Link2, Plus, X, Bot } from 'lucide-react';
 import type { SelectionMode, ConsistencyGroup } from '@/types';
 
 interface FloatingToolbarProps {
@@ -12,11 +12,14 @@ interface FloatingToolbarProps {
   onAppendToScene: () => void;
   onDismiss: () => void;
   hasScenes: boolean;
+  onAnalyzeWithAI?: () => void;
+  isAnalyzing?: boolean;
 }
 
 export function FloatingToolbar({
   position, selectionMode, consistencyGroups,
   onAddScene, onAddReference, onAddConsistency, onAppendToScene, onDismiss, hasScenes,
+  onAnalyzeWithAI, isAnalyzing,
 }: FloatingToolbarProps) {
   const [showGroupPicker, setShowGroupPicker] = React.useState(false);
 
@@ -30,6 +33,16 @@ export function FloatingToolbar({
       style={{ top: position.top - 48, left: position.left }}
     >
       <div className="flex items-center gap-1">
+        {onAnalyzeWithAI && (
+          <button
+            onClick={onAnalyzeWithAI}
+            disabled={isAnalyzing}
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 disabled:opacity-60"
+          >
+            <Bot className="h-3.5 w-3.5" />
+            {isAnalyzing ? 'Analiz Ediliyor...' : '🤖 AI ile Analiz Et'}
+          </button>
+        )}
         <button
           onClick={onAddScene}
           className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${

@@ -52,6 +52,10 @@ interface RightPanelProps {
   onUpdateSceneCardNote?: (sceneId: string, note: string) => void;
   onRemoveCharacterFromSceneCard?: (sceneId: string, characterId: string) => void;
   onRemoveLocationFromSceneCard?: (sceneId: string, locationId: string) => void;
+  onAddVariation?: (sceneId: string) => void;
+  onRegenerateAllPrompts_?: (sceneId: string) => void;
+  onRevisePrompt_?: (sceneId: string, promptId: string) => void;
+  onDeletePrompt_?: (sceneId: string, promptId: string) => void;
 }
 
 function GroupNoteEditor({ group, onSave }: { group: ConsistencyGroup; onSave: (note: string) => void }) {
@@ -111,6 +115,7 @@ export function RightPanel({
   sceneCards = [], characters = [], locations = [],
   isGeneratingPrompts, onGeneratePrompts, onGenerateAllPrompts, onDeleteSceneCard,
   onUpdateSceneCardNote, onRemoveCharacterFromSceneCard, onRemoveLocationFromSceneCard,
+  onAddVariation, onRegenerateAllPrompts_, onRevisePrompt_, onDeletePrompt_,
 }: RightPanelProps) {
   const doneCount = scenes.filter(s => s.status === 'done').length;
   const pendingCount = scenes.filter(s => s.status === 'pending').length;
@@ -301,6 +306,10 @@ export function RightPanel({
                   onDeleteScene={onDeleteSceneCard || (() => {})}
                   onRemoveCharacter={onRemoveCharacterFromSceneCard || (() => {})}
                   onRemoveLocation={onRemoveLocationFromSceneCard || (() => {})}
+                  onAddVariation={onAddVariation}
+                  onRegenerateAll={onRegenerateAllPrompts_}
+                  onRevisePrompt={onRevisePrompt_}
+                  onDeletePrompt={onDeletePrompt_}
                 />
               );
             })}

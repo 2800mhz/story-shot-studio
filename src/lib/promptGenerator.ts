@@ -103,11 +103,17 @@ export async function generatePromptsForScene(
     throw new Error('Invalid prompt response format');
   }
 
-  return parsed.prompts.map((p: { shotType?: string; summary?: string; prompt?: string }, idx: number) => ({
-    id: `prompt-${scene.id}-${idx}`,
-    shotType: p.shotType || 'General',
-    summary: p.summary || scene.visualNote,
-    promptText: p.prompt || '',
-    versions: [p.prompt || ''],
-  }));
+  return parsed.prompts.map((p: { shotType?: string; summary?: string; prompt?: string }, idx: number) => {
+    const labels = ['Prompt A', 'Prompt B', 'Prompt C'];
+    const types: Array<'wide' | 'medium' | 'closeup'> = ['wide', 'medium', 'closeup'];
+    return {
+      id: `prompt-${scene.id}-${idx}`,
+      type: types[idx] ?? 'wide',
+      label: labels[idx] ?? `Prompt ${idx + 1}`,
+      shotType: p.shotType || 'General',
+      summary: p.summary || scene.visualNote,
+      promptText: p.prompt || '',
+      versions: [p.prompt || ''],
+    };
+  });
 }

@@ -10,9 +10,7 @@ import { useAppState } from '@/hooks/useAppState';
 import { parseDocument } from '@/lib/documentParser';
 import { parseEpisodes } from '@/lib/contextDetection';
 import { generatePrompts, revisePrompt, generateImage, loadSystemPrompt } from '@/lib/geminiApi';
-import { extractEntitiesFromText, analyzeScene, matchEntitiesToScene } from '@/lib/aiAnalyzer';
 import { analyzeTextIntoScenes } from '@/lib/sceneAnalyzer';
-import { parseTextIntoScenes } from '@/lib/sceneParser';
 import { generatePromptsForScene } from '@/lib/promptGenerator';
 import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup } from '@/types';
 
@@ -63,57 +61,10 @@ const Index = () => {
       dispatch({ type: 'SET_MAIN_TEXT', payload: { text, fileName: file.name } });
       const episodes = parseEpisodes(text);
       dispatch({ type: 'SET_EPISODES', payload: episodes });
-
-      // Trigger automatic AI analysis
-      const apiKey = getActiveKey();
-      if (apiKey) {
-        dispatch({ type: 'SET_ANALYZING', payload: true });
-
-        try {
-          // 1. Parse text into scenes automatically
-          let parsedApiKey = apiKey;
-          let scenes: Scene[] = [];
-          try {
-            scenes = await parseTextIntoScenes(text, parsedApiKey, state.settings.model);
-            dispatch({ type: 'SET_SCENES', payload: scenes });
-            if (scenes.length > 0) {
-              dispatch({ type: 'SET_ACTIVE_SCENE', payload: scenes[0].id });
-            }
-          } catch (e) {
-            // Try key rotation on 403/429
-            const errMsg = e instanceof Error ? e.message : String(e);
-            if ((errMsg.includes('403') || errMsg.includes('429')) && state.apiKeys.length > 1) {
-              dispatch({ type: 'ROTATE_API_KEY' });
-              parsedApiKey = state.apiKeys[(state.currentKeyIndex + 1) % state.apiKeys.length];
-              try {
-                scenes = await parseTextIntoScenes(text, parsedApiKey, state.settings.model);
-                dispatch({ type: 'SET_SCENES', payload: scenes });
-                if (scenes.length > 0) {
-                  dispatch({ type: 'SET_ACTIVE_SCENE', payload: scenes[0].id });
-                }
-              } catch (e2) {
-                console.error('Scene parsing failed after key rotation', e2);
-              }
-            } else {
-              console.error('Scene parsing failed', e);
-            }
-          }
-
-          // 2. Extract entities
-          try {
-            const entities = await extractEntitiesFromText(text, parsedApiKey, state.settings.model);
-            dispatch({ type: 'SET_EXTRACTED_ENTITIES', payload: entities });
-          } catch (e) {
-            console.error('Entity extraction failed, continuing without it', e);
-          }
-        } finally {
-          dispatch({ type: 'SET_ANALYZING', payload: false });
-        }
-      }
     } catch (e) {
       console.error('Dosya okunamadı', e);
     }
-  }, [dispatch, getActiveKey, state.settings.model, state.apiKeys, state.currentKeyIndex]);
+  }, [dispatch]);
 
   const handleAddScene = useCallback((segment: TextSegment, episodeTitle: string) => {
     const scene: Scene = {

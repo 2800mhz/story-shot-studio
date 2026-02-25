@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Edit2, Trash2, Check, X } from 'lucide-react';
-import type { SceneCard as SceneCardType, Character, Location } from '@/types';
+import { Sparkles, Edit2, Trash2, Check, X, Copy, RefreshCw, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import type { SceneCard as SceneCardType, Character, Location, PromptCard } from '@/types';
 
 interface SceneCardProps {
   scene: SceneCardType;
@@ -12,6 +12,83 @@ interface SceneCardProps {
   onDeleteScene: (sceneId: string) => void;
   onRemoveCharacter: (sceneId: string, characterId: string) => void;
   onRemoveLocation: (sceneId: string, locationId: string) => void;
+  onAddVariation?: (sceneId: string) => void;
+  onRegenerateAll?: (sceneId: string) => void;
+  onRevisePrompt?: (sceneId: string, promptId: string) => void;
+  onDeletePrompt?: (sceneId: string, promptId: string) => void;
+}
+
+function InlinePromptCard({
+  prompt,
+  sceneId,
+  onRevise,
+  onDelete,
+}: {
+  prompt: PromptCard;
+  sceneId: string;
+  onRevise?: (sceneId: string, promptId: string) => void;
+  onDelete?: (sceneId: string, promptId: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="border rounded-md p-2.5 my-2 bg-muted/10">
+      <div className="flex items-center justify-between mb-1">
+        <div>
+          <span className="text-xs font-bold text-primary">
+            {prompt.label || prompt.shotType}
+          </span>
+          {prompt.label && prompt.shotType && (
+            <span className="text-[10px] text-muted-foreground ml-1.5">({prompt.shotType})</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          {onRevise && (
+            <button
+              onClick={() => onRevise(sceneId, prompt.id)}
+              className="text-[10px] px-1.5 py-0.5 rounded border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+              title="Revize et"
+            >
+              revize
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={() => onDelete(sceneId, prompt.id)}
+              className="rounded p-0.5 text-muted-foreground hover:text-destructive"
+              title="Sil"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+          <button
+            onClick={() => navigator.clipboard.writeText(prompt.promptText)}
+            className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+            title="Kopyala"
+          >
+            <Copy className="h-3 w-3" />
+          </button>
+        </div>
+      </div>
+      {prompt.summary && (
+        <p className="text-[11px] text-muted-foreground mb-1 italic">{prompt.summary}</p>
+      )}
+      <div
+        className={`text-[11px] font-mono leading-relaxed text-foreground/80 bg-muted/20 rounded p-2 ${
+          expanded ? 'whitespace-pre-wrap' : 'line-clamp-2'
+        }`}
+      >
+        {prompt.promptText}
+      </div>
+      <button
+        onClick={() => setExpanded(p => !p)}
+        className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground hover:text-foreground"
+      >
+        {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        {expanded ? 'daralt' : 'genişlet'}
+      </button>
+    </div>
+  );
 }
 
 export function SceneCard({
@@ -23,6 +100,10 @@ export function SceneCard({
   onDeleteScene,
   onRemoveCharacter,
   onRemoveLocation,
+  onAddVariation,
+  onRegenerateAll,
+  onRevisePrompt,
+  onDeletePrompt,
 }: SceneCardProps) {
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [editedNote, setEditedNote] = useState(scene.visualNote);
@@ -158,28 +239,39 @@ export function SceneCard({
 
       {/* Prompts */}
       {hasPrompts ? (
-        <div className="p-3 space-y-2">
+        <div className="p-3">
           <div className="text-xs font-semibold text-muted-foreground mb-1">Üretilen Promptlar:</div>
           {scene.prompts.map(prompt => (
-            <div key={prompt.id} className="border rounded-md p-3 bg-muted/20">
-              <div className="flex items-start justify-between mb-1.5">
-                <div>
-                  <div className="text-xs font-semibold text-primary">{prompt.summary}</div>
-                  <div className="text-xs text-muted-foreground">{prompt.shotType}</div>
-                </div>
-                <button
-                  className="text-xs text-muted-foreground hover:text-foreground px-1"
-                  onClick={() => navigator.clipboard.writeText(prompt.promptText)}
-                  title="Kopyala"
-                >
-                  📋
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground font-mono bg-muted/30 p-2 rounded leading-relaxed">
-                {prompt.promptText}
-              </p>
-            </div>
+            <InlinePromptCard
+              key={prompt.id}
+              prompt={prompt}
+              sceneId={scene.id}
+              onRevise={onRevisePrompt}
+              onDelete={onDeletePrompt}
+            />
           ))}
+          <div className="flex gap-2 mt-3 pt-2 border-t">
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1 h-7 text-xs"
+              onClick={() => onAddVariation?.(scene.id)}
+              disabled={scene.status === 'generating'}
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              VARYASYON EKLE
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1 h-7 text-xs"
+              onClick={() => onRegenerateAll?.(scene.id)}
+              disabled={scene.status === 'generating'}
+            >
+              <RefreshCw className="h-3 w-3 mr-1" />
+              TÜMÜNÜ YENİDEN ÜRET
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="p-4 text-center">
