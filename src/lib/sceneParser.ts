@@ -1,12 +1,16 @@
 import type { Scene } from '@/types';
 
-const SCENE_PARSING_PROMPT = `You are a narrative structure analyst. Parse the following text into logical scenes for visual storytelling.
+const SCENE_PARSING_PROMPT = `Sen bir görsel story-board uzmanısın. Metni çok detaylı ve kısa sahnelere böl.
 
-A SCENE is a continuous narrative moment suitable for 1-3 images. Scenes should:
-- Be complete narrative units (not mid-sentence cuts)
-- Average 2-5 sentences each
-- Represent distinct visual moments
-- Have clear beginning and end
+BU ÇOK ÖNEMLİ:
+- Her sahne MUTLAKA 1-2 CÜMLE olmalı (MAX 20-30 kelime)
+- 100 kelimelik metin = EN AZ 12-15 sahne
+- 500 kelimelik metin = EN AZ 50-60 sahne
+- Her görsel an = ayrı sahne
+- Karakter giriş/çıkışları = ayrı sahne
+- Mekan değişimi = ayrı sahne
+- Duygusal geçişler = ayrı sahne
+- Aksiyon değişimi = ayrı sahne
 
 OUTPUT FORMAT (JSON):
 {
@@ -18,14 +22,16 @@ OUTPUT FORMAT (JSON):
   ]
 }
 
-RULES:
-- Preserve original text exactly (no paraphrasing)
-- Each scene should be 50-300 characters
-- Aim for 10-20 scenes per 1000 words
-- Dialogue can be separate scenes
-- Location/time changes = new scene
+KURALLAR:
+- Orijinal metni AYNEN koru (parafraz yapma)
+- 1 sahne = 1-2 cümle = 1 görsel an
+- Uzun cümleleri bile ayır (noktalı virgül veya bağlaç varsa böl)
+- Daha fazla sahne = daha iyi (50 sahne normal, 100 sahne mükemmel)
+- Karakter giriş/çıkışları = ayrı sahne
+- Mekan değişimi = ayrı sahne
+- Diyaloglar = ayrı sahne
 
-TEXT TO PARSE:
+ŞİMDİ BU METNİ PARÇALA (mümkün olduğunca çok sahne üret):
 `;
 
 export async function parseTextIntoScenes(

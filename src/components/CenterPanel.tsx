@@ -291,10 +291,10 @@ export function CenterPanel({
               <div key={scene.id}>
                 <div
                   ref={activeSceneId === scene.id ? activeSceneRef : undefined}
-                  className={`whitespace-pre-wrap transition-all cursor-pointer rounded-sm ${
+                  className={`whitespace-pre-wrap transition-all duration-200 cursor-pointer rounded-md py-3 px-4 my-1 ${
                     activeSceneId === scene.id
-                      ? 'bg-primary/10 border-l-4 border-primary pl-3 py-2 -ml-1'
-                      : 'hover:bg-muted/30 py-1'
+                      ? 'bg-yellow-200/70 dark:bg-yellow-500/30 border-l-4 border-yellow-500 font-medium shadow-sm'
+                      : 'hover:bg-muted/40 hover:border-l-2 hover:border-muted-foreground/30'
                   }`}
                   onClick={() => {
                     onSetActiveScene(scene.id);
@@ -304,16 +304,14 @@ export function CenterPanel({
                 </div>
 
                 {idx < scenes.length - 1 && (
-                  <div className="my-6 flex items-center gap-3">
-                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-primary/40 to-primary/40" />
-                    <div className="flex items-center gap-2 text-xs font-mono text-primary">
-                      <span className="opacity-50">━━━━━━</span>
-                      <span className="font-semibold px-2 py-1 bg-primary/10 rounded">
-                        Sahne {scene.number}
-                      </span>
-                      <span className="opacity-50">━━━━━━</span>
+                  <div className="my-4 flex items-center gap-3">
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-primary/30 to-primary/30" />
+                    <div className="flex items-center gap-2 text-xs font-mono text-primary/80 bg-primary/5 px-3 py-1 rounded-full border border-primary/20">
+                      <span className="opacity-50">━━━</span>
+                      <span className="font-semibold">Sahne {scene.number}</span>
+                      <span className="opacity-50">━━━</span>
                     </div>
-                    <div className="h-px flex-1 bg-gradient-to-r from-primary/40 via-primary/40 to-transparent" />
+                    <div className="h-px flex-1 bg-gradient-to-r from-primary/30 via-primary/30 to-transparent" />
                   </div>
                 )}
               </div>
