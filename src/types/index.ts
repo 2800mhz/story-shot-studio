@@ -9,6 +9,8 @@ export interface PromptVariant {
   id: string;
   shotType: string;
   text: string;
+  summary?: string;
+  attachedEntityIds?: string[];
   versions: string[];
   isRevising: boolean;
   imageUrl?: string;
@@ -132,4 +134,6 @@ export type AppAction =
   | { type: 'REMOVE_SUB_SCENE'; payload: { sceneId: string; subSceneId: string } }
   | { type: 'UPDATE_SUB_SCENE'; payload: { sceneId: string; subScene: SubScene } }
   | { type: 'SET_SUB_SCENE_NOTE'; payload: { sceneId: string; subSceneId: string; note: string } }
-  | { type: 'REMOVE_SUB_SCENE_PROMPT'; payload: { sceneId: string; subSceneId: string; promptId: string } };
+  | { type: 'REMOVE_SUB_SCENE_PROMPT'; payload: { sceneId: string; subSceneId: string; promptId: string } }
+  | { type: 'ATTACH_ENTITY_TO_PROMPT'; payload: { sceneId: string; promptId: string; entityId: string } }
+  | { type: 'DETACH_ENTITY_FROM_PROMPT'; payload: { sceneId: string; promptId: string; entityId: string } };

@@ -71,7 +71,7 @@ interface GenerateOptions {
   sceneAnalysis?: SceneAnalysis;
 }
 
-export async function generatePrompts(opts: GenerateOptions & { systemPrompt?: string; signal?: AbortSignal }): Promise<{ shotType: string; text: string }[]> {
+export async function generatePrompts(opts: GenerateOptions & { systemPrompt?: string; signal?: AbortSignal }): Promise<{ shotType: string; text: string; summary?: string }[]> {
   const { scene, apiKey, model, variantCount, temperature, consistencyGroups, allScenes, systemPrompt: customPrompt, subScene, parentScene, parentConsistencyGroups, sceneEntities, sceneAnalysis } = opts;
 
   const isSubScene = !!subScene && !!parentScene;
@@ -183,7 +183,21 @@ export async function generatePrompts(opts: GenerateOptions & { systemPrompt?: s
     userMessage += `SCENE TEXT:\n${sceneText}\n\n`;
   }
 
-  userMessage += `Generate ${variantCount} cinematic image prompts.`;
+  userMessage += `Generate ${variantCount} cinematic image prompts.
+
+IMPORTANT: Respond in this EXACT format (JSON):
+{
+  "prompts": [
+    {
+      "summary": "TURKISH 1-sentence description of the image (e.g., 'Boğaz kıyısında sabah manzarası')",
+      "shotType": "Shot type in English (e.g., 'Wide Shot', 'Close-up', 'Medium Shot')",
+      "prompt": "Full ENGLISH prompt text, 80-120 words with technical details"
+    }
+  ]
+}
+
+If you cannot use JSON format, use the pipe format instead:
+PROMPT_1: [shot type] | [prompt text]`;
 
   const basePrompt = customPrompt || loadSystemPrompt();
   const systemPrompt = basePrompt.replace('{N}', String(variantCount));
@@ -297,8 +311,24 @@ export async function generateImage(
   throw new Error('API yanıtında görüntü bulunamadı');
 }
 
-function parsePromptResponse(content: string, expected: number): { shotType: string; text: string }[] {
-  const results: { shotType: string; text: string }[] = [];
+function parsePromptResponse(content: string, expected: number): { shotType: string; text: string; summary?: string }[] {
+  // Try JSON format first
+  try {
+    const jsonMatch = content.match(/\{[\s\S]*"prompts"[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (Array.isArray(parsed.prompts) && parsed.prompts.length > 0) {
+        return parsed.prompts.map((p: { shotType?: string; prompt?: string; summary?: string }) => ({
+          shotType: p.shotType || 'General',
+          text: p.prompt || '',
+          summary: p.summary,
+        })).filter((p: { text: string }) => p.text);
+      }
+    }
+  } catch { /* fall through to pipe format */ }
+
+  // Fall back to pipe format
+  const results: { shotType: string; text: string; summary?: string }[] = [];
   const regex = /PROMPT_\d+:\s*([^|]+)\|\s*([\s\S]*?)(?=PROMPT_\d+:|$)/g;
   let match;
 
