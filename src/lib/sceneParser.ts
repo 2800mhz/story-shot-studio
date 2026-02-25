@@ -255,10 +255,17 @@ const BANNED_PATTERNS = [
   /\byankılan/gi,
   /\bbelirme\b/gi,
   // Text/writing concepts
-  /\byazı\b/gi,
-  /\bkelime\b/gi,
+  /\byazı/gi,
+  /\bkelime/gi,
+  /\badı\b/gi,
+  /\badın\b/gi,
   /\badının\b/gi,
-  /\btabela\b/gi,
+  /\bisim/gi,
+  /\btabela/gi,
+  /\bmetin\b/gi,
+  /\bmetni\b/gi,
+  /\byazıt\b/gi,
+  /\bharfler\b/gi,
 ];
 
 export async function parseTextIntoScenes(
