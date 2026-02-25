@@ -2,7 +2,8 @@ import React, { useState, useRef, useCallback } from 'react';
 import { Sparkles, Zap, StickyNote, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PromptCard } from './PromptCard';
-import type { Scene, ConsistencyGroup, ExtractedEntity, SceneAnalysis } from '@/types';
+import { SceneCard } from './SceneCard';
+import type { Scene, ConsistencyGroup, ExtractedEntity, SceneAnalysis, SceneCard as SceneCardType, Character, Location } from '@/types';
 
 interface RightPanelProps {
   scenes: Scene[];
@@ -40,6 +41,17 @@ interface RightPanelProps {
   onAddSubSceneToGroup?: (sceneId: string, subSceneId: string, groupId: string | null) => void;
   onRemoveSubSceneFromGroup?: (sceneId: string, subSceneId: string, groupId: string) => void;
   onReorderScenes?: (scenes: Scene[]) => void;
+  // Two-stage AI workflow
+  sceneCards?: SceneCardType[];
+  characters?: Character[];
+  locations?: Location[];
+  isGeneratingPrompts?: boolean;
+  onGeneratePrompts?: (sceneId: string) => void;
+  onGenerateAllPrompts?: () => void;
+  onDeleteSceneCard?: (sceneId: string) => void;
+  onUpdateSceneCardNote?: (sceneId: string, note: string) => void;
+  onRemoveCharacterFromSceneCard?: (sceneId: string, characterId: string) => void;
+  onRemoveLocationFromSceneCard?: (sceneId: string, locationId: string) => void;
 }
 
 function GroupNoteEditor({ group, onSave }: { group: ConsistencyGroup; onSave: (note: string) => void }) {
@@ -96,6 +108,9 @@ export function RightPanel({
   onDeleteSubScenePrompt, onSetSubSceneNote, onGenerateSubSceneImage,
   onAddSubSceneToGroup, onRemoveSubSceneFromGroup,
   onReorderScenes,
+  sceneCards = [], characters = [], locations = [],
+  isGeneratingPrompts, onGeneratePrompts, onGenerateAllPrompts, onDeleteSceneCard,
+  onUpdateSceneCardNote, onRemoveCharacterFromSceneCard, onRemoveLocationFromSceneCard,
 }: RightPanelProps) {
   const doneCount = scenes.filter(s => s.status === 'done').length;
   const pendingCount = scenes.filter(s => s.status === 'pending').length;
@@ -246,6 +261,52 @@ export function RightPanel({
           })
         )}
       </div>
+
+      {/* Two-stage AI workflow: Scene Cards section */}
+      {sceneCards.length > 0 && (
+        <>
+          <div className="border-t border-b px-4 py-3 bg-muted/20 flex items-center justify-between shrink-0">
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                AI Sahneleri ({sceneCards.length})
+              </h2>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {sceneCards.filter(sc => sc.prompts.length > 0).length} sahne hazır
+              </p>
+            </div>
+            {onGenerateAllPrompts && (
+              <Button
+                size="sm"
+                className="h-7 text-xs"
+                disabled={isGeneratingPrompts}
+                onClick={onGenerateAllPrompts}
+              >
+                <Sparkles className="mr-1 h-3 w-3" />
+                Tümü İçin Prompt Üret
+              </Button>
+            )}
+          </div>
+          <div className="flex-1 overflow-y-auto scrollbar-thin p-3">
+            {sceneCards.map(sc => {
+              const sceneChars = characters.filter(c => sc.characterIds.includes(c.id));
+              const sceneLocs = locations.filter(l => sc.locationIds.includes(l.id));
+              return (
+                <SceneCard
+                  key={sc.id}
+                  scene={sc}
+                  characters={sceneChars}
+                  locations={sceneLocs}
+                  onUpdateNote={onUpdateSceneCardNote || (() => {})}
+                  onGeneratePrompts={onGeneratePrompts || (() => {})}
+                  onDeleteScene={onDeleteSceneCard || (() => {})}
+                  onRemoveCharacter={onRemoveCharacterFromSceneCard || (() => {})}
+                  onRemoveLocation={onRemoveLocationFromSceneCard || (() => {})}
+                />
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }

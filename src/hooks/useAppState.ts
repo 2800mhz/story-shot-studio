@@ -35,13 +35,27 @@ const initialState: AppState = {
   },
   imageApiKeys: loadKeys('gemini_image_api_keys'),
   mainFileName: loadJson('app_mainFileName', ''),
+  sceneCards: loadJson('app_sceneCards', []),
+  characters: loadJson('app_characters', []),
+  locations: loadJson('app_locations', []),
+  masterPrompt: loadJson('app_masterPrompt', ''),
+  isAnalyzing: false,
+  isGeneratingPrompts: false,
 };
 
 // Actions that should NOT push to undo history (transient / settings)
 const NON_UNDOABLE = new Set<string>([
   'SET_ACTIVE_SCENE', 'SET_SELECTION_MODE', 'SET_CURRENT_KEY_INDEX',
   'ROTATE_API_KEY', 'SET_API_KEYS', 'SET_IMAGE_API_KEYS', 'SET_SETTINGS',
+  'START_ANALYSIS', 'START_PROMPT_GENERATION',
 ]);
+
+// Merge two arrays by id, preferring existing items
+function mergeById<T extends { id: string }>(existing: T[], incoming: T[]): T[] {
+  const map = new Map(existing.map(item => [item.id, item]));
+  incoming.forEach(item => { if (!map.has(item.id)) map.set(item.id, item); });
+  return Array.from(map.values());
+}
 
 type InternalAction = AppAction | { type: '__RESTORE__'; payload: AppState };
 
@@ -65,6 +79,10 @@ function persistState(s: AppState) {
     localStorage.setItem('app_sceneAnalyses', JSON.stringify(s.sceneAnalyses));
     localStorage.setItem('app_consistencyGroups', JSON.stringify(s.consistencyGroups));
     localStorage.setItem('app_mainFileName', JSON.stringify(s.mainFileName));
+    localStorage.setItem('app_sceneCards', JSON.stringify(s.sceneCards));
+    localStorage.setItem('app_characters', JSON.stringify(s.characters));
+    localStorage.setItem('app_locations', JSON.stringify(s.locations));
+    localStorage.setItem('app_masterPrompt', JSON.stringify(s.masterPrompt));
   } catch { /* storage full — silently ignore */ }
 }
 
@@ -311,6 +329,82 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       );
       return { ...state, consistencyGroups: groups, scenes };
     }
+    // Two-stage AI workflow
+    case 'START_ANALYSIS':
+      return { ...state, isAnalyzing: true };
+    case 'FINISH_ANALYSIS':
+      return {
+        ...state,
+        isAnalyzing: false,
+        sceneCards: [...state.sceneCards, ...action.payload.sceneCards],
+        characters: mergeById(state.characters, action.payload.characters),
+        locations: mergeById(state.locations, action.payload.locations),
+      };
+    case 'UPDATE_SCENE_CARD_NOTE':
+      return {
+        ...state,
+        sceneCards: state.sceneCards.map(sc =>
+          sc.id === action.payload.sceneId ? { ...sc, visualNote: action.payload.note } : sc
+        ),
+      };
+    case 'ADD_CHARACTER_TO_SCENE_CARD':
+      return {
+        ...state,
+        sceneCards: state.sceneCards.map(sc =>
+          sc.id === action.payload.sceneId
+            ? { ...sc, characterIds: sc.characterIds.includes(action.payload.characterId) ? sc.characterIds : [...sc.characterIds, action.payload.characterId] }
+            : sc
+        ),
+      };
+    case 'REMOVE_CHARACTER_FROM_SCENE_CARD':
+      return {
+        ...state,
+        sceneCards: state.sceneCards.map(sc =>
+          sc.id === action.payload.sceneId
+            ? { ...sc, characterIds: sc.characterIds.filter(id => id !== action.payload.characterId) }
+            : sc
+        ),
+      };
+    case 'ADD_LOCATION_TO_SCENE_CARD':
+      return {
+        ...state,
+        sceneCards: state.sceneCards.map(sc =>
+          sc.id === action.payload.sceneId
+            ? { ...sc, locationIds: sc.locationIds.includes(action.payload.locationId) ? sc.locationIds : [...sc.locationIds, action.payload.locationId] }
+            : sc
+        ),
+      };
+    case 'REMOVE_LOCATION_FROM_SCENE_CARD':
+      return {
+        ...state,
+        sceneCards: state.sceneCards.map(sc =>
+          sc.id === action.payload.sceneId
+            ? { ...sc, locationIds: sc.locationIds.filter(id => id !== action.payload.locationId) }
+            : sc
+        ),
+      };
+    case 'START_PROMPT_GENERATION':
+      return {
+        ...state,
+        sceneCards: state.sceneCards.map(sc =>
+          sc.id === action.payload.sceneId ? { ...sc, status: 'generating' } : sc
+        ),
+      };
+    case 'FINISH_PROMPT_GENERATION':
+      return {
+        ...state,
+        sceneCards: state.sceneCards.map(sc =>
+          sc.id === action.payload.sceneId ? { ...sc, prompts: action.payload.prompts, status: 'ready' } : sc
+        ),
+      };
+    case 'DELETE_SCENE_CARD':
+      return {
+        ...state,
+        sceneCards: state.sceneCards.filter(sc => sc.id !== action.payload),
+      };
+    case 'SET_MASTER_PROMPT':
+      localStorage.setItem('app_masterPrompt', JSON.stringify(action.payload));
+      return { ...state, masterPrompt: action.payload };
     default:
       return state;
   }

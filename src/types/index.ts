@@ -79,6 +79,38 @@ export interface SceneAnalysis {
   reasoning?: string;
 }
 
+export interface Character {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface Location {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface PromptCard {
+  id: string;
+  shotType: string;
+  summary: string;
+  promptText: string;
+  versions: string[];
+}
+
+export interface SceneCard {
+  id: string;
+  sceneNumber: number;
+  text: string;
+  visualNote: string;
+  characterIds: string[];
+  locationIds: string[];
+  prompts: PromptCard[];
+  status: 'analyzed' | 'generating' | 'ready';
+  noteEditable: boolean;
+}
+
 export interface AppState {
   mainText: string;
   episodes: Episode[];
@@ -99,6 +131,13 @@ export interface AppState {
   };
   imageApiKeys: string[];
   mainFileName: string;
+  // Two-stage AI workflow
+  sceneCards: SceneCard[];
+  characters: Character[];
+  locations: Location[];
+  masterPrompt: string;
+  isAnalyzing: boolean;
+  isGeneratingPrompts: boolean;
 }
 
 export type AppAction =
@@ -136,4 +175,16 @@ export type AppAction =
   | { type: 'SET_SUB_SCENE_NOTE'; payload: { sceneId: string; subSceneId: string; note: string } }
   | { type: 'REMOVE_SUB_SCENE_PROMPT'; payload: { sceneId: string; subSceneId: string; promptId: string } }
   | { type: 'ATTACH_ENTITY_TO_PROMPT'; payload: { sceneId: string; promptId: string; entityId: string } }
-  | { type: 'DETACH_ENTITY_FROM_PROMPT'; payload: { sceneId: string; promptId: string; entityId: string } };
+  | { type: 'DETACH_ENTITY_FROM_PROMPT'; payload: { sceneId: string; promptId: string; entityId: string } }
+  // Two-stage AI workflow actions
+  | { type: 'START_ANALYSIS' }
+  | { type: 'FINISH_ANALYSIS'; payload: { sceneCards: SceneCard[]; characters: Character[]; locations: Location[] } }
+  | { type: 'UPDATE_SCENE_CARD_NOTE'; payload: { sceneId: string; note: string } }
+  | { type: 'ADD_CHARACTER_TO_SCENE_CARD'; payload: { sceneId: string; characterId: string } }
+  | { type: 'REMOVE_CHARACTER_FROM_SCENE_CARD'; payload: { sceneId: string; characterId: string } }
+  | { type: 'ADD_LOCATION_TO_SCENE_CARD'; payload: { sceneId: string; locationId: string } }
+  | { type: 'REMOVE_LOCATION_FROM_SCENE_CARD'; payload: { sceneId: string; locationId: string } }
+  | { type: 'START_PROMPT_GENERATION'; payload: { sceneId: string } }
+  | { type: 'FINISH_PROMPT_GENERATION'; payload: { sceneId: string; prompts: PromptCard[] } }
+  | { type: 'DELETE_SCENE_CARD'; payload: string }
+  | { type: 'SET_MASTER_PROMPT'; payload: string };

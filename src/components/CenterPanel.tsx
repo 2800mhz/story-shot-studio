@@ -1,7 +1,10 @@
-import React, { useCallback, useRef, useMemo, useEffect } from 'react';
+import React, { useCallback, useRef, useMemo, useEffect, useState } from 'react';
 import type { Scene, Episode, TextSegment, ConsistencyGroup, SelectionMode } from '@/types';
 import { FloatingToolbar } from './FloatingToolbar';
-import { X } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
+const MIN_ANALYSIS_TEXT_LENGTH = 100;
 
 const GROUP_COLORS: Record<string, string> = {
   A: 'border-l-blue-500',
@@ -25,15 +28,19 @@ interface CenterPanelProps {
   onAddConsistency: (segment: TextSegment, groupId: string | null) => void;
   onSetActiveScene: (id: string | null) => void;
   onRemoveScene: (id: string) => void;
+  onAnalyzeText?: (text: string) => void;
+  isAnalyzing?: boolean;
 }
 
 export function CenterPanel({
   mainText, episodes, scenes, consistencyGroups, activeSceneId, selectionMode,
   scrollToIndex, onScrollComplete,
   onAddScene, onAddReference, onAppendToLastScene, onAddConsistency, onSetActiveScene, onRemoveScene,
+  onAnalyzeText, isAnalyzing,
 }: CenterPanelProps) {
   const textRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [hasSelection, setHasSelection] = useState(false);
   const [toolbar, setToolbar] = React.useState<{
     visible: boolean;
     position: { top: number; left: number };
@@ -41,6 +48,17 @@ export function CenterPanel({
     startIndex: number;
     endIndex: number;
   }>({ visible: false, position: { top: 0, left: 0 }, text: '', startIndex: 0, endIndex: 0 });
+
+  // Track text selection for "AI ile Analiz Et" button
+  useEffect(() => {
+    if (!onAnalyzeText) return;
+    const handleSelectionChange = () => {
+      const sel = window.getSelection();
+      setHasSelection((sel?.toString().trim().length ?? 0) > MIN_ANALYSIS_TEXT_LENGTH);
+    };
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, [onAnalyzeText]);
 
   // Scroll to episode position when scrollToIndex changes
   useEffect(() => {
@@ -270,6 +288,29 @@ export function CenterPanel({
 
   return (
     <div className="flex h-full flex-col">
+      {/* AI Analysis banner: shown when text is selected and onAnalyzeText is provided */}
+      {onAnalyzeText && hasSelection && (
+        <div className="border-b bg-primary/10 px-4 py-3 flex items-center justify-between shrink-0">
+          <div className="text-sm">
+            <span className="font-semibold">Metin seçildi</span>
+            <span className="text-xs text-muted-foreground ml-2">
+              AI ile sahnelere bölünmeye hazır
+            </span>
+          </div>
+          <Button
+            size="sm"
+            className="h-8 text-xs"
+            disabled={isAnalyzing}
+            onClick={() => {
+              const sel = window.getSelection()?.toString().trim();
+              if (sel) onAnalyzeText(sel);
+            }}
+          >
+            <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+            {isAnalyzing ? 'Analiz Ediliyor...' : '🤖 AI ile Analiz Et'}
+          </Button>
+        </div>
+      )}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-8 py-6" onMouseUp={handleMouseUp} onContextMenu={e => { if (window.getSelection()?.toString().trim()) e.preventDefault(); }}>
         {mainText ? (
           <div

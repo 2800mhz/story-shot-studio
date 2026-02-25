@@ -11,10 +11,14 @@ import { parseDocument } from '@/lib/documentParser';
 import { parseEpisodes } from '@/lib/contextDetection';
 import { generatePrompts, revisePrompt, generateImage, loadSystemPrompt } from '@/lib/geminiApi';
 import { extractEntitiesFromText, analyzeScene, matchEntitiesToScene } from '@/lib/aiAnalyzer';
+import { analyzeTextIntoScenes } from '@/lib/sceneAnalyzer';
+import { generatePromptsForScene } from '@/lib/promptGenerator';
 import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup } from '@/types';
 
 
 const GROUP_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+const PROMPT_GENERATION_DELAY_MS = 2000;
 
 const Index = () => {
   const { state, dispatch, undo, redo } = useAppState();
@@ -621,6 +625,68 @@ const Index = () => {
     }
   }, [state.scenes, state.imageApiKeys, state.settings.imageModel, dispatch]);
 
+  // ─── Two-stage AI workflow handlers ─────────────────────────────
+  const handleAnalyzeText = useCallback(async (selectedText: string) => {
+    const apiKey = getActiveKey();
+    if (!apiKey) {
+      setSettingsOpen(true);
+      return;
+    }
+
+    dispatch({ type: 'START_ANALYSIS' });
+
+    try {
+      const result = await analyzeTextIntoScenes(selectedText, apiKey, state.settings.model);
+      dispatch({ type: 'FINISH_ANALYSIS', payload: result });
+    } catch (error) {
+      console.error('Scene analysis error:', error);
+      dispatch({ type: 'FINISH_ANALYSIS', payload: { sceneCards: [], characters: [], locations: [] } });
+    }
+  }, [dispatch, getActiveKey, state.settings.model]);
+
+  const handleGeneratePromptsForScene = useCallback(async (sceneId: string) => {
+    const scene = state.sceneCards.find(s => s.id === sceneId);
+    if (!scene) return;
+
+    const apiKey = getActiveKey();
+    if (!apiKey) {
+      setSettingsOpen(true);
+      return;
+    }
+
+    const sceneCharacters = state.characters.filter(c => scene.characterIds.includes(c.id));
+    const sceneLocations = state.locations.filter(l => scene.locationIds.includes(l.id));
+
+    dispatch({ type: 'START_PROMPT_GENERATION', payload: { sceneId } });
+
+    try {
+      const prompts = await generatePromptsForScene(
+        scene,
+        sceneCharacters,
+        sceneLocations,
+        state.masterPrompt,
+        apiKey,
+        state.settings.model
+      );
+      dispatch({ type: 'FINISH_PROMPT_GENERATION', payload: { sceneId, prompts } });
+    } catch (error) {
+      console.error('Prompt generation error:', error);
+      // Revert status to analyzed on error
+      dispatch({
+        type: 'FINISH_PROMPT_GENERATION',
+        payload: { sceneId, prompts: [] },
+      });
+    }
+  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.settings.model, dispatch, getActiveKey]);
+
+  const handleGenerateAllPrompts = useCallback(async () => {
+    const scenesWithoutPrompts = state.sceneCards.filter(s => s.prompts.length === 0 && s.status !== 'generating');
+    for (const scene of scenesWithoutPrompts) {
+      await handleGeneratePromptsForScene(scene.id);
+      await new Promise(resolve => setTimeout(resolve, PROMPT_GENERATION_DELAY_MS));
+    }
+  }, [state.sceneCards, handleGeneratePromptsForScene]);
+
   return (
     <div className="flex h-screen flex-col bg-background">
       <Header
@@ -667,6 +733,8 @@ const Index = () => {
             onAddConsistency={handleAddConsistency}
             onSetActiveScene={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
             onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
+            onAnalyzeText={handleAnalyzeText}
+            isAnalyzing={state.isAnalyzing}
           />
         </div>
 
@@ -705,6 +773,16 @@ const Index = () => {
             onAddSubSceneToGroup={handleAddSubSceneToGroup}
             onRemoveSubSceneFromGroup={handleRemoveSubSceneFromGroup}
             onReorderScenes={(reordered) => dispatch({ type: 'REORDER_SCENES', payload: reordered })}
+            sceneCards={state.sceneCards}
+            characters={state.characters}
+            locations={state.locations}
+            isGeneratingPrompts={state.isGeneratingPrompts}
+            onGeneratePrompts={handleGeneratePromptsForScene}
+            onGenerateAllPrompts={handleGenerateAllPrompts}
+            onDeleteSceneCard={id => dispatch({ type: 'DELETE_SCENE_CARD', payload: id })}
+            onUpdateSceneCardNote={(sceneId, note) => dispatch({ type: 'UPDATE_SCENE_CARD_NOTE', payload: { sceneId, note } })}
+            onRemoveCharacterFromSceneCard={(sceneId, characterId) => dispatch({ type: 'REMOVE_CHARACTER_FROM_SCENE_CARD', payload: { sceneId, characterId } })}
+            onRemoveLocationFromSceneCard={(sceneId, locationId) => dispatch({ type: 'REMOVE_LOCATION_FROM_SCENE_CARD', payload: { sceneId, locationId } })}
           />
         </div>
       </div>
