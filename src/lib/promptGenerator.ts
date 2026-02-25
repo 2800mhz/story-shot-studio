@@ -27,16 +27,19 @@ JSON ÇIKTI:
     {
       "shotType": "Wide Shot",
       "summary": "Sahnenin Türkçe notu (aynen kopyala)",
+      "explanation": "Bu görselin ne gösterdiğinin Türkçe açıklaması (1 cümle, 'Bu görsel...' formatında)",
       "prompt": "Detailed English prompt, 80-120 words, technical specifications included"
     },
     {
       "shotType": "Medium Shot",
       "summary": "Sahnenin Türkçe notu (aynen kopyala)",
+      "explanation": "Bu görselin ne gösterdiğinin Türkçe açıklaması (1 cümle)",
       "prompt": "Different angle/composition, 80-120 words"
     },
     {
       "shotType": "Close-up",
       "summary": "Sahnenin Türkçe notu (aynen kopyala)",
+      "explanation": "Bu görselin ne gösterdiğinin Türkçe açıklaması (1 cümle)",
       "prompt": "Intimate detail shot, 80-120 words"
     }
   ]
@@ -103,7 +106,7 @@ export async function generatePromptsForScene(
     throw new Error('Invalid prompt response format');
   }
 
-  return parsed.prompts.map((p: { shotType?: string; summary?: string; prompt?: string }, idx: number) => {
+  return parsed.prompts.map((p: { shotType?: string; summary?: string; explanation?: string; prompt?: string }, idx: number) => {
     const labels = ['Prompt A', 'Prompt B', 'Prompt C'];
     const types: Array<'wide' | 'medium' | 'closeup'> = ['wide', 'medium', 'closeup'];
     return {
@@ -112,6 +115,7 @@ export async function generatePromptsForScene(
       label: labels[idx] ?? `Prompt ${idx + 1}`,
       shotType: p.shotType || 'General',
       summary: p.summary || scene.visualNote,
+      explanation: p.explanation || '',
       promptText: p.prompt || '',
       versions: [p.prompt || ''],
     };

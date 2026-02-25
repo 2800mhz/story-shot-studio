@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Pencil, RefreshCw, ChevronLeft, Loader2, Trash2, Zap, ImageIcon, X, StickyNote, Plus, Link2 } from 'lucide-react';
+import { Copy, Pencil, RefreshCw, ChevronLeft, Loader2, Trash2, Zap, X, StickyNote, Plus, Link2 } from 'lucide-react';
 import type { SubScene, PromptVariant, ConsistencyGroup } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,6 @@ interface SubSceneCardProps {
   onDelete: () => void;
   onDeletePrompt?: (promptId: string) => void;
   onSetNote: (note: string) => void;
-  onGenerateImage?: (promptId: string) => void;
   onAddToGroup?: (groupId: string | null) => void;
   onRemoveFromGroup?: (groupId: string) => void;
 }
@@ -25,7 +24,7 @@ export function SubSceneCard({
   subScene, sceneIndex, parentEpisodeTitle,
   consistencyGroups, allConsistencyGroups,
   onGenerate, onRevise, onRefreshAll, onDelete, onDeletePrompt, onSetNote,
-  onGenerateImage, onAddToGroup, onRemoveFromGroup,
+  onAddToGroup, onRemoveFromGroup,
 }: SubSceneCardProps) {
   const [revisingId, setRevisingId] = useState<string | null>(null);
   const [revisionText, setRevisionText] = useState('');
@@ -199,16 +198,6 @@ export function SubSceneCard({
               >
                 <Copy className="h-2.5 w-2.5" /> Kopyala
               </button>
-              {onGenerateImage && (
-                <button
-                  onClick={() => onGenerateImage(prompt.id)}
-                  disabled={prompt.imageStatus === 'generating'}
-                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50"
-                >
-                  {prompt.imageStatus === 'generating' ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <ImageIcon className="h-2.5 w-2.5" />}
-                  Görüntü
-                </button>
-              )}
               {prompt.versions.length > 1 && (
                 <button
                   onClick={() => setHistoryId(historyId === prompt.id ? null : prompt.id)}

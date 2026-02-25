@@ -12,6 +12,8 @@ interface SceneCardProps {
   onDeleteScene: (sceneId: string) => void;
   onRemoveCharacter: (sceneId: string, characterId: string) => void;
   onRemoveLocation: (sceneId: string, locationId: string) => void;
+  onAddCharacter?: (sceneId: string, name: string) => void;
+  onAddLocation?: (sceneId: string, name: string) => void;
   onAddVariation?: (sceneId: string) => void;
   onRegenerateAll?: (sceneId: string) => void;
   onRevisePrompt?: (sceneId: string, promptId: string) => void;
@@ -73,6 +75,11 @@ function InlinePromptCard({
       {prompt.summary && (
         <p className="text-[11px] text-muted-foreground mb-1 italic">{prompt.summary}</p>
       )}
+      {prompt.explanation && (
+        <div className="text-[11px] text-muted-foreground italic border-l-2 border-primary/30 pl-2 mb-1">
+          "{prompt.explanation}"
+        </div>
+      )}
       <div
         className={`text-[11px] font-mono leading-relaxed text-foreground/80 bg-muted/20 rounded p-2 ${
           expanded ? 'whitespace-pre-wrap' : 'line-clamp-2'
@@ -100,6 +107,8 @@ export function SceneCard({
   onDeleteScene,
   onRemoveCharacter,
   onRemoveLocation,
+  onAddCharacter,
+  onAddLocation,
   onAddVariation,
   onRegenerateAll,
   onRevisePrompt,
@@ -107,6 +116,8 @@ export function SceneCard({
 }: SceneCardProps) {
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [editedNote, setEditedNote] = useState(scene.visualNote);
+  const [addingCharacter, setAddingCharacter] = useState(false);
+  const [addingLocation, setAddingLocation] = useState(false);
 
   const handleSaveNote = () => {
     onUpdateNote(scene.id, editedNote);
@@ -195,7 +206,7 @@ export function SceneCard({
         <div>
           <div className="text-xs font-semibold mb-1 text-muted-foreground">👤 Karakterler:</div>
           <div className="flex flex-wrap gap-1">
-            {characters.length === 0 ? (
+            {characters.length === 0 && !addingCharacter ? (
               <span className="text-xs text-muted-foreground italic">Henüz karakter yok</span>
             ) : (
               characters.map(char => (
@@ -211,13 +222,38 @@ export function SceneCard({
                 </span>
               ))
             )}
+            {addingCharacter ? (
+              <input
+                autoFocus
+                placeholder="Karakter adı..."
+                className="h-6 w-32 rounded border bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                onBlur={() => setAddingCharacter(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                    onAddCharacter?.(scene.id, e.currentTarget.value.trim());
+                    setAddingCharacter(false);
+                  } else if (e.key === 'Escape') {
+                    setAddingCharacter(false);
+                  }
+                }}
+              />
+            ) : (
+              onAddCharacter && (
+                <button
+                  onClick={() => setAddingCharacter(true)}
+                  className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-primary/40 px-2 py-0.5 text-xs text-primary/70 hover:border-primary hover:text-primary transition-colors"
+                >
+                  <Plus className="h-2.5 w-2.5" /> Ekle
+                </button>
+              )
+            )}
           </div>
         </div>
 
         <div>
           <div className="text-xs font-semibold mb-1 text-muted-foreground">📍 Mekanlar:</div>
           <div className="flex flex-wrap gap-1">
-            {locations.length === 0 ? (
+            {locations.length === 0 && !addingLocation ? (
               <span className="text-xs text-muted-foreground italic">Henüz mekan yok</span>
             ) : (
               locations.map(loc => (
@@ -232,6 +268,31 @@ export function SceneCard({
                   </button>
                 </span>
               ))
+            )}
+            {addingLocation ? (
+              <input
+                autoFocus
+                placeholder="Mekan adı..."
+                className="h-6 w-32 rounded border bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                onBlur={() => setAddingLocation(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                    onAddLocation?.(scene.id, e.currentTarget.value.trim());
+                    setAddingLocation(false);
+                  } else if (e.key === 'Escape') {
+                    setAddingLocation(false);
+                  }
+                }}
+              />
+            ) : (
+              onAddLocation && (
+                <button
+                  onClick={() => setAddingLocation(true)}
+                  className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-secondary-foreground/30 px-2 py-0.5 text-xs text-muted-foreground hover:border-foreground/50 hover:text-foreground transition-colors"
+                >
+                  <Plus className="h-2.5 w-2.5" /> Ekle
+                </button>
+              )
             )}
           </div>
         </div>
