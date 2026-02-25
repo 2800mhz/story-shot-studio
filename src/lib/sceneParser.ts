@@ -2,6 +2,39 @@ import type { Scene } from '@/types';
 
 const SCENE_PARSING_PROMPT = `Sen bir story-board uzmanısın. Her sahne = 1 STATIK FOTOĞRAF KARESI!
 
+⚠️ KRİTİK: YASAKLI KELİMELER (ASLA KULLANMA!):
+
+🚫 HAREKETLİ EKLER (-ması/-mesi/-ışı/-işi/-uşu/-üşü):
+- YASAK: "fışkırması", "dağılışı", "koşuşu", "kuruşu", "dönüşümü", "akışı", "yükselişi"
+- YERİNE: "fışkıran su anı (high-speed freeze)", "havada asılı kum (slow-motion freeze)", "koşan adam, ayaklar havada (mid-stride dondurulmuş)"
+
+🚫 ZAMAN ATLAMASI TERİMLERİ (YASAK):
+- "hızlandırılmış çekim"
+- "time-lapse"
+- "zaman atlaması"
+- "yavaş çekim" → yerine: "slow-motion freeze" ✅
+
+🚫 SÜREÇ KELİMELERİ (YASAK):
+- "dönüşüm", "dönüşümü"
+- "evrim", "evrimi"
+- "geçiş", "geçişi"
+- "değişim", "değişimi"
+- YERİNE: her dönüşümü → 5 AYRI SAHNEYE BÖL!
+
+🚫 SOYUT KONSEPTLER (YASAK):
+- "ses dalgaları"
+- "soyut oluşum"
+- "yankılanma", "yankı"
+- "belirme", "beliriyor"
+
+🚫 YAZI/METİN (YASAK):
+- "yazı", "kelime"
+- "ad", "adı", "adının"
+- "tabela", "kitap sayfası"
+- YERİNE: 5 farklı kültürden insanı bir mekanda göster!
+
+---
+
 🎯 KRİTİK KURALLAR:
 
 1. **STATIK FOTOĞRAF KARELERİ** (Hareketli değil!)
@@ -9,156 +42,181 @@ const SCENE_PARSING_PROMPT = `Sen bir story-board uzmanısın. Her sahne = 1 STA
    ✅ KULLAN: "fışkıran su anı (dondurulmuş)", "koşarken donmuş adam", "yarı-çadır yarı-ev"
 
    ÖRNEKLER:
-   - ❌ "Suyun aniden fışkırması" → Çok dinamik!
+   - ❌ "Suyun aniden fışkırması" → YASAK (-ması eki!)
    - ✅ "Topraktan fışkıran su anı, damlacıklar havada asılı (splash dondurulmuş)"
 
-   - ❌ "Kumların hızla dağılması" → Animasyon!
-   - ✅ "Havada asılı kum tanecikleri (slow-motion etkisi)"
+   - ❌ "Kumların hızla dağılışı" → YASAK (-ışı eki!)
+   - ✅ "Havada asılı kum tanecikleri (slow-motion freeze)"
 
-   - ❌ "Atın koşması" → Video!
-   - ✅ "Dörtnala koşan at, 4 ayak havada (dondurulmuş)"
+   - ❌ "Adamın koşuşu" → YASAK (-uşu eki!)
+   - ✅ "Koşan adam, ayaklar havada (mid-stride dondurulmuş)"
+
+   - ❌ "Çadırları kuruşu" → YASAK (-uşu eki!)
+   - ✅ "İnsanlar çadır kurarken donmuş (eller ipe tutunmuş, dondurulmuş)"
 
 2. **ZAMAN ATLAMALARINI PARÇALA!** (ÇOK ÖNEMLİ!)
 
-   Bir "dönüşüm/evrim" gördüğün yerde → **5-6 AYRI SAHNEYE BÖL!**
+   Bir "dönüşüm/evrim/geçiş" gördüğün yerde → **EN AZ 5 AYRI SAHNEYE BÖL!**
 
    **ÖRNEK 1: Şehir Gelişimi**
    INPUT: "Çadırlar yavaşça şehre dönüştü."
 
    ❌ YANLIŞ (1 sahne):
-   - "Çadırların şehre dönüşümü"
+   - "Çadırların şehre dönüşümü" → YASAK (dönüşüm kelimesi!)
 
    ✅ DOĞRU (6 sahne):
-   - Sahne 1: "Kuyu çevresinde 2 kişi, 1 eski çadır"
-   - Sahne 2: "Kuyu çevresinde 7-8 çadır, küçük oba görünümü"
-   - Sahne 3: "15-20 çadır, bazı taş duvar başlangıçları"
-   - Sahne 4: "Taş evler, ahşap kapılar, küçük pazar yeri"
-   - Sahne 5: "2 katlı binalar, düzenli sokaklar, kervansaray"
+   - Sahne 1: "Kuyu çevresinde 2-3 eski çadır (havadan geniş açı)"
+   - Sahne 2: "Kuyu çevresinde 8-10 çadır, küçük oba düzeni (havadan)"
+   - Sahne 3: "15 çadır + 2-3 yarı-kerpiç yapı (hibrit görünüm, havadan)"
+   - Sahne 4: "Çoğunlukla kerpiç evler, 3-4 çadır hala var (havadan)"
+   - Sahne 5: "Tamamen kerpiç evler, ahşap kapılar, düzenli sokaklar"
    - Sahne 6: "Görkemli şehir, kubbe yapılar, kalabalık meydan"
 
    **ÖRNEK 2: İnsan Yaşlanması**
    INPUT: "Genç adam yıllar içinde bilge oldu."
 
    ❌ YANLIŞ (1 sahne):
-   - "Adamın yaşlanma süreci"
+   - "Adamın yaşlanma evrimi" → YASAK (evrim kelimesi!)
 
-   ✅ DOĞRU (4 sahne):
-   - Sahne 1: "20 yaşlarında genç adam portresi, pürüzsüz cilt"
-   - Sahne 2: "35 yaşlarında adam, hafif kırışıklıklar, kısa sakal"
-   - Sahne 3: "50 yaşlarında adam, gri saçlar, derin kırışıklıklar"
-   - Sahne 4: "70 yaşlarında bilge adam, uzun beyaz sakal"
+   ✅ DOĞRU (5 sahne):
+   - Sahne 1: "20 yaşlarında genç adam portresi, pürüzsüz cilt, kısa saç"
+   - Sahne 2: "30 yaşlarında adam portresi, hafif kırışıklıklar, sakal başlamış"
+   - Sahne 3: "45 yaşlarında adam portresi, derin kırışıklıklar, gri saçlar"
+   - Sahne 4: "60 yaşlarında adam portresi, uzun beyaz sakal, yaşlı gözler"
+   - Sahne 5: "75 yaşlarında bilge adam, uzun beyaz sakal, derin kırışıklıklar"
 
    **ÖRNEK 3: Savaş → Barış**
    INPUT: "Savaş bitince barış geldi."
 
    ❌ YANLIŞ (2 sahne):
-   - "Savaş sahnesi"
-   - "Barış sahnesi"
+   - "Savaş geçişi" → YASAK (geçiş kelimesi!)
 
    ✅ DOĞRU (5 sahne):
    - Sahne 1: "2 asker kılıç sallarken (dondurulmuş aksiyon)"
    - Sahne 2: "Yere düşmüş kılıçlar ve kalkanlar"
-   - Sahne 3: "İki komutan el sıkışıyor"
-   - Sahne 4: "Askerler çadırlara dönüyor (geniş açı)"
-   - Sahne 5: "Boş savaş alanında yeni çiçekler"
+   - Sahne 3: "İki komutan el sıkışıyor (statik)"
+   - Sahne 4: "Askerler çadırlara dönüyor (geniş açı, durağan)"
+   - Sahne 5: "Boş savaş alanında yeni çiçekler (geniş manzara)"
+
+   **ÖRNEK 4: Su Fışkırması**
+   INPUT: "Genç adam toprağı kazınca su fışkırdı."
+
+   ❌ YANLIŞ:
+   - "Suyun fışkırması" → YASAK (-ması eki!)
+
+   ✅ DOĞRU (5 sahne):
+   - Sahne 1: "Genç adam elleriyle toprağı kazıyor (eller yarı gömülü, dondurulmuş)"
+   - Sahne 2: "Topraktan ilk ıslak nokta görünüyor (yakın çekim)"
+   - Sahne 3: "Topraktan küçük su damlacıkları yükseliyor (slow-motion freeze)"
+   - Sahne 4: "Topraktan fışkıran su anı, splash 30cm yüksekte (high-speed freeze)"
+   - Sahne 5: "Su havada parçalanmış damlacıklar halinde (ultra slow-mo freeze)"
 
 3. **YAZI KULLANMA! İNSAN VE MEKAN KULLAN!**
 
    ❌ YASAKLI:
-   - "Şehir tabelasında 'Hive' yazısı"
-   - "Kitap sayfasında 'Hey vah' kelimesi"
-   - "Duvar yazıları"
+   - "Şehir tabelasında 'Hive' adının belirmesi" → YASAK (adı + belirme!)
+   - "Kitap sayfasında 'Hey vah' kelimesinin evrimi" → YASAK (kelime + evrim!)
+   - "'Hive' adının belirginleşmesi" → YASAK (adı!)
 
    ✅ YERİNE YAP:
-   - "5 farklı kıyafetli insan şehir meydanında çeşme çevresinde su içiyor"
-   - "Yaşlı bilge kitap okurken, genç öğrenci dinliyor"
-   - "Saray duvarında işlemeli desenler"
+   - "5 farklı ırktan insan (Arap beyaz sarık, Çinli ipek kimono, Afrikalı renkli kumaş, Avrupalı deri pantolon, Hintli turuncu turban) şehir meydanında büyük çeşme çevresinde su içiyor"
+   - "Şehir pazarında tüccarlar farklı dillerde konuşurken (ağızlar açık, el hareketleri dondurulmuş)"
+   - "Saray duvarında işlemeli desenler (yakın çekim)"
 
 4. **SOMUT GÖRSEL** (Soyut Kavramlar Yok!)
 
    ❌ YASAKLI:
-   - "Umut ışığı beliriyor"
-   - "Değişim rüzgarı esiyor"
-   - "Korkunun gölgesi"
+   - "Umut ışığı beliriyor" → YASAK (belirme + soyut!)
+   - "Ses dalgaları yankılanıyor" → YASAK (ses dalgaları + yankı!)
+   - "Soyut bir isim oluşumu" → YASAK (soyut + oluşum!)
 
    ✅ SOMUTLAŞTIR:
-   - "Gökyüzünde altın renkli güneş ışınları bulutların arasından"
-   - "Güçlü rüzgar, adamın cübbesini savuruyor"
-   - "Adamın yüzünde korku ifadesi, gölgeler yüzünde"
+   - "Gökyüzünde altın renkli güneş ışınları bulutların arasından (geniş açı)"
+   - "Çöl üzerinde kuşbakışı görünüm, kuyunun etrafında toplanmış insanlar (sessiz manzara)"
+   - "Adamın yüzünde korku ifadesi, gölgeler yüzünde (close-up)"
 
 5. **BASİT AKSIYONLAR** (img2vid için)
 
    ❌ ÇOOOK KARMAŞIK:
    - "100 kişilik ordu çarpışması"
-   - "Kalabalık pazar yeri kaos"
 
    ✅ BASİT:
-   - "2-3 asker kılıç sallarken (dondurulmuş)"
+   - "3-4 asker kılıç sallarken (dondurulmuş)"
    - "5-6 tüccar duran tezgahların önünde"
 
 ---
 
 🎬 FOTOĞRAF KARE TİPLERİ:
 
-**TİP 1: DONMUŞ AKSİYON** (Action frozen mid-motion)
+**TİP 1: DONMUŞ AKSİYON** (High-speed freeze)
 - "Zıplayan at, 4 ayak havada (dondurulmuş)"
-- "Havada asılı su damlacıkları (splash effect)"
-- "Kılıç sallarken donmuş asker"
+- "Topraktan fışkıran su anı, splash havada asılı damlacıklar (high-speed freeze)"
+- "Kılıç sallarken donmuş asker (blade mid-swing)"
+- "Koşan adamlar, ayaklar yerde değil (mid-stride)"
 
 **TİP 2: STATİK POZ** (Still pose)
-- "Düşünen adam heykeli gibi"
-- "Elinde kitap tutan bilge"
-- "Ufka bakan kervan lideri"
+- "Düşünen derviş heykeli gibi duruyor"
+- "Elinde baston tutan yaşlı adam (statik)"
+- "Kuyunun başında duran 3 kişi (statik grup portresi)"
+- "Ufka bakan kervan lideri (durağan)"
 
 **TİP 3: GENİŞ MANZARA** (Wide landscape)
-- "Çöl ufku, güneş batımında"
-- "Şehir kuşbakışı görünümü"
-- "Kervan çöl ortasında (drone açısı)"
+- "Çöl ufku, güneş batımında (durağan manzara)"
+- "Şehir kuşbakışı görünümü (havadan, statik)"
+- "Kervan çöl ortasında (drone açısı, dondurulmuş)"
 
 **TİP 4: YAKIN ÇEKİM** (Close-up detail)
 - "Çatlamış dudaklar (extreme close-up)"
-- "Yaşlı ellerde eski harita"
-- "Gözlerde yansıyan ateş"
+- "Yaşlı ellerde eski harita (statik)"
+- "Gözlerde yansıyan ateş ışığı (close-up)"
 
-**TİP 5: TIME-LAPSE ADIMI** (Single step in evolution)
+**TİP 5: TIME-LAPSE ADIMI** (Snapshot in progression)
+Zaman atlamasını adımlara böl! Her adım = 1 statik kare!
 - "Kuyu çevresinde 7-8 çadır" (Adım 2/6)
-- "35 yaşındaki adam portresi" (Adım 2/4)
-- "Taş evler yeni yükseliyor" (Adım 3/6)
+- "35 yaşındaki adam portresi" (Adım 2/5)
+- "Kerpiç evler, ahşap kapılar" (Adım 4/6)
 
 ---
 
 🚫 YASAKLI KONSEPTLER:
 
 1. **Yazı/Metin Nesneleri:**
-   - Tabelalar, kitap sayfaları, duvar yazıları
+   - Tabelalar, kitap sayfaları, duvar yazıları, "kelime", "ad", "adı"
    - **Çözüm:** İnsanlar ve aksiyonla anlat!
 
 2. **Soyut Kavramlar:**
-   - "Umut", "korku", "değişim", "zaman", "ses"
+   - "ses dalgaları", "yankılanma", "belirme", "soyut oluşum"
    - **Çözüm:** Somut nesneler ve ifadeler!
 
 3. **Süreç İfadeleri:**
-   - "-mesi", "-ması", "-yor", "-iyor" ekleri
-   - **Çözüm:** "... anı", "... durumu", "dondurulmuş ..."
+   - "-ması/-mesi/-ışı/-işi/-uşu/-üşü" ekleri, "dönüşüm", "evrim", "geçiş"
+   - **Çözüm:** "dondurulmuş an", adımlara böl!
 
-4. **Çok Karmaşık Kalabalık:**
+4. **Zaman Atlaması Terimleri:**
+   - "hızlandırılmış çekim", "time-lapse", "zaman atlaması"
+   - **Çözüm:** Her adımı ayrı sahne olarak ver!
+
+5. **Çok Karmaşık Kalabalık:**
    - "100 kişi çarpışıyor"
    - **Çözüm:** "2-3 kişi ana aksiyonda"
 
 ---
 
 🎯 HEDEF SAHNE SAYILARI:
-- Basit metin (100 kelime) = 20-25 sahne
-- Orta metin (200 kelime) = 40-50 sahne
-- Karmaşık metin (500 kelime) = 100+ sahne
-- **Her dönüşüm/evrim = 5-6 AYRI SAHNE!**
-- **Her zaman atlaması = 4-5 AYRI SAHNE!**
+- Basit metin (100 kelime) = 25+ sahne
+- Orta metin (200 kelime) = 50+ sahne
+- Karmaşık metin (500 kelime) = 120+ sahne
+- **Her dönüşüm/evrim/geçiş = EN AZ 5 AYRI SAHNE!**
+- **Her hareket = Dondurulmuş an!**
+- **Yazı YOK, insanlarla anlat!**
 
-SON HATIRLATMA:
-- Hareketli ifade gördün mü → "dondurulmuş" ekle!
-- "Dönüşüm" gördün mü → 5-6 adıma böl!
-- Yazı gördün mü → İnsan ve mekana çevir!
-- Soyut kavram gördün mü → Somutlaştır!
+KONTROL LİSTESİ (Her sahne için zorunlu):
+- "-ması/-mesi/-ışı/-işi/-uşu/-üşü" eki YOK mu?
+- "dönüşüm/evrim/geçiş/değişim" kelimesi YOK mu?
+- "hızlandırılmış/time-lapse" YOK mu?
+- Yazı/kelime/ad konsepti YOK mu?
+- Soyut kavram/ses dalgaları/yankı YOK mu?
+- Dondurulmuş an veya statik durum belirtilmiş mi?
 
 OUTPUT FORMAT:
 {
@@ -172,6 +230,36 @@ OUTPUT FORMAT:
 
 ŞİMDİ BU METNİ PARÇALA:
 `;
+
+// Patterns that indicate a scene uses dynamic/motion expressions instead of static frozen shots
+const BANNED_PATTERNS = [
+  // Turkish verbal noun suffixes indicating motion/process
+  /\w+ması\b/gi,
+  /\w+mesi\b/gi,
+  /\w+ışı\b/gi,
+  /\w+işi\b/gi,
+  /\w+uşu\b/gi,
+  /\w+üşü\b/gi,
+  // Time-lapse / slow-motion terms
+  /hızlandırılmış\s+çekim/gi,
+  /time-?lapse/gi,
+  /zaman\s+atlaması/gi,
+  // Process/transformation words
+  /\bdönüşüm/gi,
+  /\bevrim\b/gi,
+  /\bgeçiş\b/gi,
+  /\bdeğişim\b/gi,
+  // Abstract concepts
+  /ses\s+dalgaları/gi,
+  /soyut.*oluşum/gi,
+  /\byankılan/gi,
+  /\bbelirme\b/gi,
+  // Text/writing concepts
+  /\byazı\b/gi,
+  /\bkelime\b/gi,
+  /\badının\b/gi,
+  /\btabela\b/gi,
+];
 
 export async function parseTextIntoScenes(
   fullText: string,
@@ -217,6 +305,17 @@ export async function parseTextIntoScenes(
         for (const s of parsed.scenes) {
           const sceneText = s.text?.trim();
           if (!sceneText) continue;
+
+          // Post-processing: reject scenes containing banned dynamic/abstract patterns
+          const violatingPattern = BANNED_PATTERNS.find(pattern => {
+            pattern.lastIndex = 0;
+            return pattern.test(sceneText);
+          });
+          if (violatingPattern) {
+            console.warn(`⚠️ SAHNE REDDEDİLDİ: "${sceneText}" - Yasaklı ifade: ${violatingPattern}`);
+            continue;
+          }
+
           const startIndex = fullText.indexOf(sceneText);
 
           if (startIndex !== -1) {
