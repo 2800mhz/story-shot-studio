@@ -97,6 +97,8 @@ export interface Location {
 
 export interface PromptCard {
   id: string;
+  type?: 'wide' | 'medium' | 'closeup';
+  label?: string; // "Prompt A", "Prompt B", "Prompt C"
   shotType: string;
   summary: string;
   promptText: string;

@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useEffect } from 'react';
+import React, { useRef, useMemo, useEffect, useState, useCallback } from 'react';
 import type { Scene, Episode, TextSegment, ConsistencyGroup, SelectionMode } from '@/types';
 import { FloatingToolbar } from './FloatingToolbar';
 import { X } from 'lucide-react';
@@ -37,6 +37,11 @@ export function CenterPanel({
 }: CenterPanelProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const activeSceneRef = useRef<HTMLDivElement>(null);
+  const [toolbar, setToolbar] = useState<{
+    position: { top: number; left: number };
+    selectedText: string;
+    segment: TextSegment | null;
+  } | null>(null);
 
   // Check if scenes are AI-parsed (have text property) or manual (have segments)
   const hasAiScenes = scenes.length > 0 && scenes.some(s => s.text);
@@ -108,6 +113,71 @@ export function CenterPanel({
 
     onScrollComplete();
   }, [scrollToIndex, onScrollComplete, hasAiScenes, scenes, onSetActiveScene]);
+
+  // Handle text selection for floating toolbar
+  const handleMouseUp = useCallback(() => {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !selection.toString().trim()) {
+      return;
+    }
+    const selectedText = selection.toString().trim();
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+
+    // Compute segment start/end in fullText
+    let startIndex = -1;
+    let endIndex = -1;
+    if (mainText) {
+      startIndex = mainText.indexOf(selectedText);
+      if (startIndex !== -1) endIndex = startIndex + selectedText.length;
+    }
+
+    const segment: TextSegment | null = startIndex !== -1
+      ? { id: `sel-${Date.now()}`, text: selectedText, startIndex, endIndex }
+      : null;
+
+    setToolbar({
+      position: { top: rect.top + window.scrollY, left: Math.max(8, rect.left + window.scrollX) },
+      selectedText,
+      segment,
+    });
+  }, [mainText]);
+
+  const dismissToolbar = useCallback(() => {
+    setToolbar(null);
+    window.getSelection()?.removeAllRanges();
+  }, []);
+
+  const handleAddSceneFromSelection = useCallback(() => {
+    if (!toolbar?.segment) return;
+    const ep = episodes.find(e => toolbar.segment!.startIndex >= e.startIndex && toolbar.segment!.startIndex < e.endIndex);
+    onAddScene(toolbar.segment, ep?.title || 'Manuel Seçim');
+    dismissToolbar();
+  }, [toolbar, episodes, onAddScene, dismissToolbar]);
+
+  const handleAddReferenceFromSelection = useCallback(() => {
+    if (!toolbar?.segment) return;
+    onAddReference(toolbar.segment);
+    dismissToolbar();
+  }, [toolbar, onAddReference, dismissToolbar]);
+
+  const handleAppendFromSelection = useCallback(() => {
+    if (!toolbar?.segment) return;
+    onAppendToLastScene(toolbar.segment);
+    dismissToolbar();
+  }, [toolbar, onAppendToLastScene, dismissToolbar]);
+
+  const handleAddConsistencyFromSelection = useCallback((groupId: string | null) => {
+    if (!toolbar?.segment) return;
+    onAddConsistency(toolbar.segment, groupId);
+    dismissToolbar();
+  }, [toolbar, onAddConsistency, dismissToolbar]);
+
+  const handleAnalyzeFromSelection = useCallback(() => {
+    if (!toolbar?.selectedText || !onAnalyzeText) return;
+    onAnalyzeText(toolbar.selectedText);
+    dismissToolbar();
+  }, [toolbar, onAnalyzeText, dismissToolbar]);
 
   // Build highlight ranges for manual scenes
   const highlights = useMemo(() => {
@@ -263,7 +333,7 @@ export function CenterPanel({
           </div>
         </div>
       )}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-8 py-6">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-8 py-6" onMouseUp={handleMouseUp}>
         {mainText ? (
           <div
             className="font-serif text-[17px] leading-[1.8] text-foreground/90 selection:bg-primary/30"
@@ -277,6 +347,23 @@ export function CenterPanel({
           </div>
         )}
       </div>
+
+      {/* Floating Toolbar for text selection */}
+      {toolbar && (
+        <FloatingToolbar
+          position={toolbar.position}
+          selectionMode={selectionMode}
+          consistencyGroups={consistencyGroups}
+          onAddScene={handleAddSceneFromSelection}
+          onAddReference={handleAddReferenceFromSelection}
+          onAddConsistency={handleAddConsistencyFromSelection}
+          onAppendToScene={handleAppendFromSelection}
+          onDismiss={dismissToolbar}
+          hasScenes={scenes.length > 0}
+          onAnalyzeWithAI={onAnalyzeText ? handleAnalyzeFromSelection : undefined}
+          isAnalyzing={isAnalyzing}
+        />
+      )}
 
       {/* Scene Strip */}
       {scenes.length > 0 && (
