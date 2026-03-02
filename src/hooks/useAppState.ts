@@ -394,7 +394,13 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       return {
         ...state,
         sceneCards: state.sceneCards.map(sc =>
-          sc.id === action.payload.sceneId ? { ...sc, prompts: action.payload.prompts, status: 'ready' } : sc
+          sc.id === action.payload.sceneId ? { 
+            ...sc, 
+            prompts: action.payload.prompts, 
+            status: 'ready',
+            analysis: action.payload.analysis,
+            optimizations: action.payload.optimizations,
+          } : sc
         ),
       };
     case 'DELETE_SCENE_CARD':

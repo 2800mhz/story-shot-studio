@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Trash2, Plus, Check, Copy, RotateCcw } from 'lucide-react';
 import { DEFAULT_SYSTEM_PROMPT_DISPLAY, loadSystemPrompt, saveSystemPrompt } from '@/lib/geminiApi';
 import { toast } from 'sonner';
@@ -27,9 +28,11 @@ interface SettingsModalProps {
   onSaveKeys: (keys: string[]) => void;
   onSaveImageKeys: (keys: string[]) => void;
   onSaveSettings: (settings: { model: string; thinkingMode: boolean; variantCount: 1 | 2 | 3; temperature: number; imageModel: string }) => void;
+  aspectRatio: '16:9' | '4:3' | '1:1' | '9:16';
+  onAspectRatioChange: (value: '16:9' | '4:3' | '1:1' | '9:16') => void;
 }
 
-export function SettingsModal({ open, onClose, apiKeys, imageApiKeys, settings, onSaveKeys, onSaveImageKeys, onSaveSettings }: SettingsModalProps) {
+export function SettingsModal({ open, onClose, apiKeys, imageApiKeys, settings, onSaveKeys, onSaveImageKeys, onSaveSettings, aspectRatio, onAspectRatioChange }: SettingsModalProps) {
   const [localKeys, setLocalKeys] = useState<string[]>(apiKeys);
   const [localImageKeys, setLocalImageKeys] = useState<string[]>(imageApiKeys);
   const [newKey, setNewKey] = useState('');
@@ -245,6 +248,36 @@ export function SettingsModal({ open, onClose, apiKeys, imageApiKeys, settings, 
               <p className="text-[11px] text-muted-foreground leading-relaxed">
                 💡 <strong>Model ayarları kalıcıdır</strong> — Tarayıcıyı kapatsanız bile korunur.
               </p>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Aspect Ratio</Label>
+              <RadioGroup value={aspectRatio} onValueChange={(v) => onAspectRatioChange(v as '16:9' | '4:3' | '1:1' | '9:16')}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="16:9" id="ar-16-9" />
+                  <Label htmlFor="ar-16-9" className="cursor-pointer text-sm font-normal">
+                    16:9 - Widescreen (Cinematic, YouTube)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="4:3" id="ar-4-3" />
+                  <Label htmlFor="ar-4-3" className="cursor-pointer text-sm font-normal">
+                    4:3 - Classic Film
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="1:1" id="ar-1-1" />
+                  <Label htmlFor="ar-1-1" className="cursor-pointer text-sm font-normal">
+                    1:1 - Square (Instagram)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="9:16" id="ar-9-16" />
+                  <Label htmlFor="ar-9-16" className="cursor-pointer text-sm font-normal">
+                    9:16 - Vertical (TikTok, Stories)
+                  </Label>
+                </div>
+              </RadioGroup>
             </div>
           </TabsContent>
 
