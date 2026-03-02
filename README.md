@@ -50,6 +50,30 @@ npm run dev
 - Click on "New codespace" to launch a new Codespace environment.
 - Edit files directly within the Codespace and commit and push your changes once you're done.
 
+## Supabase Setup
+
+1. Create a Supabase project at https://supabase.com
+2. Copy your project URL and anon key
+3. Create a `.env` file based on `.env.example`
+4. Run the migration:
+   ```bash
+   # Install Supabase CLI
+   npm install -g supabase
+
+   # Login to Supabase
+   supabase login
+
+   # Link your project
+   supabase link --project-ref your-project-ref
+
+   # Run migrations
+   supabase db push
+   ```
+5. Enable Google OAuth in Supabase Dashboard:
+   - Go to Authentication > Providers
+   - Enable Google
+   - Add your OAuth credentials
+
 ## What technologies are used for this project?
 
 This project is built with:
