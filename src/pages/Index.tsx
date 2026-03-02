@@ -645,23 +645,24 @@ const Index = () => {
     dispatch({ type: 'START_PROMPT_GENERATION', payload: { sceneId } });
 
     try {
-      const newPrompts = await generatePromptsForScene(
+      const result = await generatePromptsForScene(
         scene,
         sceneCharacters,
         sceneLocations,
         state.masterPrompt,
         apiKey,
-        state.settings.model
+        state.settings.model,
+        aspectRatio
       );
       dispatch({
         type: 'FINISH_PROMPT_GENERATION',
-        payload: { sceneId, prompts: [...existingPrompts, ...newPrompts] },
+        payload: { sceneId, prompts: [...existingPrompts, ...result.prompts] },
       });
     } catch (error) {
       console.error('Variation generation error:', error);
       dispatch({ type: 'FINISH_PROMPT_GENERATION', payload: { sceneId, prompts: existingPrompts } });
     }
-  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.settings.model, dispatch, getActiveKey]);
+  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.settings.model, dispatch, getActiveKey, aspectRatio]);
 
   const handleAddNewCharacterToSceneCard = useCallback((sceneId: string, name: string) => {
     const character = {
