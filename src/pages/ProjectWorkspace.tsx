@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Film, Trash2, FileText } from 'lucide-react';
+import { ArrowLeft, Plus, Film, Trash2, FileText, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchProject, fetchEpisodes, createEpisode, deleteEpisode } from '@/lib/supabaseQueries';
+import { fetchProject, fetchEpisodes, createEpisode, deleteEpisode, updateEpisode } from '@/lib/supabaseQueries';
 
 interface Episode {
   id: string;
@@ -29,6 +30,8 @@ export default function ProjectWorkspace() {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
 
   useEffect(() => {
     if (projectId) {
@@ -71,6 +74,21 @@ export default function ProjectWorkspace() {
       setEpisodes(prev => prev.filter(ep => ep.id !== episodeId));
     } catch (error) {
       console.error('Error deleting episode:', error);
+    }
+  }
+
+  async function handleRenameEpisode(episodeId: string, newTitle: string) {
+    if (!newTitle.trim()) {
+      setEditingId(null);
+      return;
+    }
+    try {
+      await updateEpisode(episodeId, { title: newTitle.trim() });
+      setEpisodes(prev => prev.map(ep => ep.id === episodeId ? { ...ep, title: newTitle.trim() } : ep));
+    } catch (error) {
+      console.error('Error renaming episode:', error);
+    } finally {
+      setEditingId(null);
     }
   }
 
@@ -141,18 +159,55 @@ export default function ProjectWorkspace() {
                       Episode {episode.episode_number}
                     </span>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    onClick={(e) => handleDeleteEpisode(episode.id, e)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingId(episode.id);
+                        setEditValue(episode.title);
+                      }}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => handleDeleteEpisode(episode.id, e)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <h3 className="text-lg font-semibold line-clamp-2">
-                  {episode.title}
-                </h3>
+                {editingId === episode.id ? (
+                  <Input
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={() => handleRenameEpisode(episode.id, editValue)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleRenameEpisode(episode.id, editValue);
+                      if (e.key === 'Escape') setEditingId(null);
+                      e.stopPropagation();
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="text-lg font-semibold"
+                  />
+                ) : (
+                  <h3
+                    className="text-lg font-semibold line-clamp-2 cursor-pointer hover:text-primary"
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setEditingId(episode.id);
+                      setEditValue(episode.title);
+                    }}
+                  >
+                    {episode.title}
+                  </h3>
+                )}
                 <p className="text-xs text-muted-foreground mt-2">
                   {new Date(episode.created_at).toLocaleDateString()}
                 </p>

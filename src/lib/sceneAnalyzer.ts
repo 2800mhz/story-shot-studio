@@ -1,4 +1,5 @@
 import type { SceneCard, Character, Location } from '@/types';
+import { aiProvider } from './aiProvider';
 
 const SCENE_ANALYSIS_SYSTEM_PROMPT = `Sen bir senaryo analisti ve görsel yönetmenisin. Verilen metni ULTRA DETAYLI görsel SAHNELERE böl.
 
@@ -65,35 +66,14 @@ function cleanJsonResponse(text: string): string {
 
 export async function analyzeTextIntoScenes(
   text: string,
-  apiKey: string,
-  model: string
+  _apiKey?: string,
+  _model?: string
 ): Promise<{
   sceneCards: SceneCard[];
   characters: Character[];
   locations: Location[];
 }> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: SCENE_ANALYSIS_SYSTEM_PROMPT }] },
-      contents: [{ role: 'user', parts: [{ text }] }],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 16384,
-        response_mime_type: 'application/json',
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`AI analysis failed: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+  const content = await aiProvider.generateContent(text, SCENE_ANALYSIS_SYSTEM_PROMPT);
 
   console.log('🤖 Raw Gemini response:', content.substring(0, 200));
 

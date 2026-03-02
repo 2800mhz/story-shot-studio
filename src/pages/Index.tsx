@@ -17,6 +17,8 @@ import { analyzeTextIntoScenes } from '@/lib/sceneAnalyzer';
 import { generatePromptsForScene } from '@/lib/promptGenerator';
 import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, savePrompts, updateEpisode } from '@/lib/supabaseQueries';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { aiProvider } from '@/lib/aiProvider';
 import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis } from '@/types';
 
 
@@ -30,11 +32,21 @@ const Index = () => {
   const navigate = useNavigate();
   const { state, dispatch, undo, redo } = useAppState();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [loadingData, setLoadingData] = useState(false);
   const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [project, setProject] = useState<{ title: string; master_prompt?: string } | null>(null);
   const [episode, setEpisode] = useState<{ title: string; document_text?: string } | null>(null);
+
+  // Initialize AI provider with database keys
+  useEffect(() => {
+    if (user?.id) {
+      aiProvider.initialize(user.id).catch(err => {
+        console.error('Failed to initialize AI provider:', err);
+      });
+    }
+  }, [user]);
 
   // Load episode data from Supabase
   useEffect(() => {
@@ -709,32 +721,25 @@ const Index = () => {
 
   // ─── Two-stage AI workflow handlers ─────────────────────────────
   const handleAnalyzeText = useCallback(async (selectedText: string) => {
-    const apiKey = getActiveKey();
-    if (!apiKey) {
-      setSettingsOpen(true);
-      return;
-    }
-
     dispatch({ type: 'START_ANALYSIS' });
 
     try {
-      const result = await analyzeTextIntoScenes(selectedText, apiKey, state.settings.model);
+      const result = await analyzeTextIntoScenes(selectedText);
       dispatch({ type: 'FINISH_ANALYSIS', payload: result });
     } catch (error) {
       console.error('Scene analysis error:', error);
+      toast({
+        title: 'Analysis failed',
+        description: error instanceof Error ? error.message : 'Failed to analyze text',
+        variant: 'destructive'
+      });
       dispatch({ type: 'FINISH_ANALYSIS', payload: { sceneCards: [], characters: [], locations: [] } });
     }
-  }, [dispatch, getActiveKey, state.settings.model]);
+  }, [dispatch, toast]);
 
   const handleGeneratePromptsForScene = useCallback(async (sceneId: string) => {
     const scene = state.sceneCards.find(s => s.id === sceneId);
     if (!scene) return;
-
-    const apiKey = getActiveKey();
-    if (!apiKey) {
-      setSettingsOpen(true);
-      return;
-    }
 
     const sceneCharacters = state.characters.filter(c => scene.characterIds.includes(c.id));
     const sceneLocations = state.locations.filter(l => scene.locationIds.includes(l.id));
@@ -747,8 +752,8 @@ const Index = () => {
         sceneCharacters,
         sceneLocations,
         state.masterPrompt,
-        apiKey,
-        state.settings.model,
+        undefined,
+        undefined,
         aspectRatio
       );
       dispatch({ 
@@ -768,7 +773,7 @@ const Index = () => {
         payload: { sceneId, prompts: [] },
       });
     }
-  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.settings.model, dispatch, getActiveKey, aspectRatio]);
+  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, dispatch, aspectRatio]);
 
   const handleGenerateAllPrompts = useCallback(async () => {
     const scenesWithoutPrompts = state.sceneCards.filter(s => s.prompts.length === 0 && s.status !== 'generating');
@@ -786,12 +791,6 @@ const Index = () => {
     const scene = state.sceneCards.find(s => s.id === sceneId);
     if (!scene) return;
 
-    const apiKey = getActiveKey();
-    if (!apiKey) {
-      setSettingsOpen(true);
-      return;
-    }
-
     const sceneCharacters = state.characters.filter(c => scene.characterIds.includes(c.id));
     const sceneLocations = state.locations.filter(l => scene.locationIds.includes(l.id));
     const existingPrompts = scene.prompts;
@@ -804,8 +803,8 @@ const Index = () => {
         sceneCharacters,
         sceneLocations,
         state.masterPrompt,
-        apiKey,
-        state.settings.model,
+        undefined,
+        undefined,
         aspectRatio
       );
       dispatch({
@@ -816,7 +815,7 @@ const Index = () => {
       console.error('Variation generation error:', error);
       dispatch({ type: 'FINISH_PROMPT_GENERATION', payload: { sceneId, prompts: existingPrompts } });
     }
-  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.settings.model, dispatch, getActiveKey, aspectRatio]);
+  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, dispatch, aspectRatio]);
 
   const handleAddNewCharacterToSceneCard = useCallback((sceneId: string, name: string) => {
     const character = {

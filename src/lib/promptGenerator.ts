@@ -1,4 +1,5 @@
 import type { SceneCard, Character, Location, PromptCard, PromptAnalysis, GenerationResult } from '@/types';
+import { aiProvider } from './aiProvider';
 
 const PROMPT_GENERATION_SYSTEM_PROMPT = `Sen sinematik görsel prompt üreticisisin. AI görsel üretim araçları için (Midjourney, DALL-E, Runway) detaylı prompt'lar yazıyorsun.
 
@@ -168,12 +169,10 @@ export async function generatePromptsForScene(
   characters: Character[],
   locations: Location[],
   masterPrompt: string,
-  apiKey: string,
-  model: string,
+  _apiKey?: string,
+  _model?: string,
   aspectRatio: '16:9' | '4:3' | '1:1' | '9:16' = '16:9'
 ): Promise<GenerationResult> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
   let userMessage = `SAHNE METNİ:\n${scene.text}\n\n`;
   userMessage += `TÜRKÇE GÖRSEL NOT: "${scene.visualNote}"\n\n`;
 
@@ -204,34 +203,15 @@ export async function generatePromptsForScene(
 
   userMessage += `3 farklı açıdan sinematik prompt üret. Her prompt'ta "${scene.visualNote}" notunun ruhunu koru. Her prompt sonuna "--ar ${aspectRatio} --v 6" ekle.`;
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: PROMPT_GENERATION_SYSTEM_PROMPT }] },
-      contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-      generationConfig: {
-        temperature: 0.85,
-        maxOutputTokens: 8192,
-        response_mime_type: 'application/json',
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Prompt generation failed: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-
+  const content = await aiProvider.generateContent(userMessage, PROMPT_GENERATION_SYSTEM_PROMPT);
   let parsed: {
     prompts?: Array<{ shotType?: string; summary?: string; explanation?: string; prompt?: string }>;
     analysis?: Partial<PromptAnalysis>;
     optimizations?: string[];
   };
+  const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   try {
-    parsed = JSON.parse(content);
+    parsed = JSON.parse(cleaned);
   } catch {
     throw new Error('Invalid JSON in prompt response');
   }
