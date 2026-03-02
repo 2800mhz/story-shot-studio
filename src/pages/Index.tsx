@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { LeftPanel } from '@/components/LeftPanel';
 import { CenterPanel } from '@/components/CenterPanel';
@@ -20,7 +21,15 @@ const GROUP_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 const PROMPT_GENERATION_DELAY_MS = 2000;
 
 const Index = () => {
+  const { id: projectId } = useParams<{ id: string }>();
   const { state, dispatch, undo, redo } = useAppState();
+
+  // TODO: Fetch project data from Supabase using projectId
+  // useEffect(() => {
+  //   if (projectId) {
+  //     // Fetch project, episodes, scenes from Supabase
+  //   }
+  // }, [projectId]);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [infoOpen, setInfoOpen] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
