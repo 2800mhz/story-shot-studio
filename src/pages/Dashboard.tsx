@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Film, Plus, LogOut, Folder, Clock } from 'lucide-react';
+import { Film, Plus, LogOut, Folder, Clock, Settings as SettingsIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
@@ -85,10 +85,15 @@ export default function Dashboard() {
               <p className="text-sm text-muted-foreground">{user?.email}</p>
             </div>
           </div>
-          <Button variant="ghost" onClick={signOut}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign Out
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
+              <SettingsIcon className="h-5 w-5" />
+            </Button>
+            <Button variant="ghost" onClick={signOut}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out
+            </Button>
+          </div>
         </div>
       </header>
 

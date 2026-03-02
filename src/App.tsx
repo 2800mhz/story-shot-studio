@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import Index from "./pages/Index";
 import ProjectWorkspace from "./pages/ProjectWorkspace";
 import MotionPrompt from "./pages/MotionPrompt";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,11 @@ const App = () => (
             <Route path="/motion-prompt" element={
               <ProtectedRoute>
                 <MotionPrompt />
+              </ProtectedRoute>
+            } />
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <Settings />
               </ProtectedRoute>
             } />
 
