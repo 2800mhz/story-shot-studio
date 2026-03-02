@@ -50,12 +50,38 @@ npm run dev
 - Click on "New codespace" to launch a new Codespace environment.
 - Edit files directly within the Codespace and commit and push your changes once you're done.
 
-## Supabase Setup
+## 🔧 Setup
 
-1. Create a Supabase project at https://supabase.com
-2. Copy your project URL and anon key
-3. Create a `.env` file based on `.env.example`
-4. Run the migration:
+### Prerequisites
+- Node.js 18+
+- A Supabase account (free tier works)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/2800mhz/story-shot-studio.git
+   cd story-shot-studio
+   npm install
+   ```
+
+2. **Create a Supabase project**
+   - Go to https://supabase.com
+   - Click "New Project"
+   - Note your project URL and anon key
+
+3. **Run the database migration**
+
+   **Option A: Using Supabase Dashboard (Recommended)**
+   - Go to your Supabase project dashboard
+   - Click "SQL Editor" in the left sidebar
+   - Click "New Query"
+   - Copy the entire content from `supabase/migrations/001_initial_schema.sql`
+   - Paste into the SQL editor
+   - Click "Run" button
+   - Wait for "Success" message
+
+   **Option B: Using Supabase CLI**
    ```bash
    # Install Supabase CLI
    npm install -g supabase
@@ -63,16 +89,53 @@ npm run dev
    # Login to Supabase
    supabase login
 
-   # Link your project
+   # Link your project (get project-ref from dashboard URL)
    supabase link --project-ref your-project-ref
 
-   # Run migrations
+   # Push migration
    supabase db push
    ```
-5. Enable Google OAuth in Supabase Dashboard:
-   - Go to Authentication > Providers
-   - Enable Google
-   - Add your OAuth credentials
+
+4. **Enable Google OAuth**
+   - Go to Authentication > Providers in Supabase Dashboard
+   - Enable "Google" provider
+   - Add your Google OAuth credentials (Client ID & Secret)
+   - Add authorized redirect URL: `http://localhost:5173/auth/callback`
+
+5. **Configure environment variables**
+   ```bash
+   cp .env.example .env
+   ```
+
+   Edit `.env` and add your Supabase credentials:
+   ```env
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-key
+   ```
+
+6. **Run the development server**
+   ```bash
+   npm run dev
+   ```
+
+7. **Configure Gemini API (In-App)**
+   - Open the app at http://localhost:5173
+   - Sign in with Google
+   - Go to Settings (⚙️ icon)
+   - Add your Gemini API key(s)
+   - Get API keys from: https://aistudio.google.com/app/apikey
+
+### Database Schema
+
+The app uses the following tables:
+- `projects` - User projects
+- `episodes` - Project episodes
+- `global_characters` - Reusable character definitions
+- `global_locations` - Reusable location definitions
+- `scenes` - Individual scenes
+- `prompts` - Generated prompts
+
+See `supabase/migrations/001_initial_schema.sql` for the complete schema.
 
 ## What technologies are used for this project?
 

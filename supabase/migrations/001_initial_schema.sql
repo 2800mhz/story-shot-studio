@@ -1,3 +1,25 @@
+-- ============================================
+-- Story Shot Studio - Database Schema
+-- ============================================
+--
+-- INSTALLATION INSTRUCTIONS:
+--
+-- Option 1: Supabase Dashboard (Recommended)
+-- 1. Go to your Supabase project dashboard
+-- 2. Click "SQL Editor" in left sidebar
+-- 3. Click "New Query"
+-- 4. Copy this ENTIRE file and paste it
+-- 5. Click "Run" button
+-- 6. Wait for "Success. No rows returned" message
+--
+-- Option 2: Supabase CLI
+-- 1. Install CLI: npm install -g supabase
+-- 2. Login: supabase login
+-- 3. Link project: supabase link --project-ref YOUR_PROJECT_REF
+-- 4. Push migration: supabase db push
+--
+-- ============================================
+
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
