@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Header } from '@/components/Header';
 import { LeftPanel } from '@/components/LeftPanel';
 import { CenterPanel } from '@/components/CenterPanel';
@@ -13,6 +15,7 @@ import { parseEpisodes } from '@/lib/contextDetection';
 import { generatePrompts, revisePrompt, loadSystemPrompt } from '@/lib/geminiApi';
 import { analyzeTextIntoScenes } from '@/lib/sceneAnalyzer';
 import { generatePromptsForScene } from '@/lib/promptGenerator';
+import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, savePrompts } from '@/lib/supabaseQueries';
 import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis } from '@/types';
 
 
@@ -21,15 +24,104 @@ const GROUP_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 const PROMPT_GENERATION_DELAY_MS = 2000;
 
 const Index = () => {
-  const { id: projectId } = useParams<{ id: string }>();
+  const { id: projectId, episodeId } = useParams<{ id: string; episodeId: string }>();
+  const navigate = useNavigate();
   const { state, dispatch, undo, redo } = useAppState();
+  const [loadingData, setLoadingData] = useState(false);
 
-  // TODO: Fetch project data from Supabase using projectId
-  // useEffect(() => {
-  //   if (projectId) {
-  //     // Fetch project, episodes, scenes from Supabase
-  //   }
-  // }, [projectId]);
+  // Load episode data from Supabase
+  useEffect(() => {
+    if (projectId && episodeId) {
+      loadEpisodeData();
+    }
+  }, [projectId, episodeId]);
+
+  async function loadEpisodeData() {
+    setLoadingData(true);
+    try {
+      const [projectData, episodeData, scenesData] = await Promise.all([
+        fetchProject(projectId!),
+        fetchEpisode(episodeId!),
+        fetchScenes(episodeId!)
+      ]);
+
+      // Load master prompt from project
+      if (projectData.master_prompt) {
+        dispatch({ type: 'SET_MASTER_PROMPT', payload: projectData.master_prompt });
+      }
+
+      // Load scenes into state
+      if (scenesData.length > 0) {
+        const mappedScenes = scenesData.map((scene: any) => ({
+          id: scene.id,
+          sceneNumber: scene.scene_number,
+          text: scene.text,
+          visualNote: scene.visual_note,
+          characterIds: scene.character_ids || [],
+          locationIds: scene.location_ids || [],
+          prompts: [],
+          status: 'ready' as const,
+          noteEditable: false,
+          analysis: scene.analysis,
+          optimizations: scene.optimizations || []
+        }));
+
+        dispatch({ type: 'FINISH_ANALYSIS', payload: { sceneCards: mappedScenes, characters: [], locations: [] } });
+
+        // Load prompts for each scene
+        for (const scene of scenesData) {
+          const prompts = await fetchPrompts(scene.id);
+          if (prompts.length > 0) {
+            const mappedPrompts = prompts.map((p: any) => ({
+              id: p.id,
+              type: p.type,
+              label: p.label,
+              shotType: p.shot_type,
+              summary: p.summary,
+              explanation: p.explanation,
+              promptText: p.prompt_text,
+              aspectRatio: p.aspect_ratio,
+              versions: [p.prompt_text]
+            }));
+            dispatch({
+              type: 'FINISH_PROMPT_GENERATION',
+              payload: { sceneId: scene.id, prompts: mappedPrompts }
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading episode data:', error);
+    } finally {
+      setLoadingData(false);
+    }
+  }
+
+  // Auto-save scenes to Supabase whenever sceneCards change
+  useEffect(() => {
+    if (!loadingData && state.sceneCards.length > 0 && episodeId) {
+      const saveData = async () => {
+        try {
+          const savedScenes = await saveScenes(episodeId, state.sceneCards);
+          if (savedScenes) {
+            await Promise.all(
+              state.sceneCards.map(async (scene, i) => {
+                const savedScene = savedScenes[i];
+                if (scene.prompts.length > 0 && savedScene) {
+                  await savePrompts(savedScene.id, scene.prompts);
+                }
+              })
+            );
+          }
+        } catch (error) {
+          console.error('Error saving scenes:', error);
+        }
+      };
+
+      const timeoutId = setTimeout(saveData, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [state.sceneCards, episodeId, loadingData]);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [infoOpen, setInfoOpen] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
@@ -693,6 +785,18 @@ const Index = () => {
 
   return (
     <div className="flex h-screen flex-col bg-background">
+      {projectId && episodeId && (
+        <div className="flex items-center gap-2 border-b bg-card px-4 py-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate(`/project/${projectId}`)}
+          >
+            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            Back to Project
+          </Button>
+        </div>
+      )}
       <Header
         onUploadMain={() => mainFileRef.current?.click()}
         onExport={() => setExportOpen(true)}

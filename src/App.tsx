@@ -9,6 +9,7 @@ import Landing from "./pages/Landing";
 import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
 import Index from "./pages/Index";
+import ProjectWorkspace from "./pages/ProjectWorkspace";
 import MotionPrompt from "./pages/MotionPrompt";
 import NotFound from "./pages/NotFound";
 
@@ -33,6 +34,11 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/project/:id" element={
+              <ProtectedRoute>
+                <ProjectWorkspace />
+              </ProtectedRoute>
+            } />
+            <Route path="/project/:id/episode/:episodeId" element={
               <ProtectedRoute>
                 <Index />
               </ProtectedRoute>

@@ -23,13 +23,13 @@ export default function Landing() {
           <div className="flex items-center justify-center gap-3">
             <Film className="h-16 w-16 text-primary" />
             <h1 className="font-serif text-6xl font-bold text-white tracking-wide">
-              Story Shot Studio
+              Prompt Forge
             </h1>
           </div>
 
           {/* Tagline */}
           <p className="text-2xl text-slate-300">
-            AI-powered cinematic prompt generator for documentary filmmaking
+            Forge cinematic prompts with AI precision
           </p>
 
           {/* Description */}
