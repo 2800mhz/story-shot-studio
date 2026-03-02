@@ -16,12 +16,12 @@ function loadJson<T>(key: string, fallback: T): T {
 }
 
 const initialState: AppState = {
-  mainText: loadJson('app_mainText', ''),
-  episodes: loadJson('app_episodes', []),
-  scenes: loadJson('app_scenes', []),
-  extractedEntities: loadJson('app_extractedEntities', []),
-  sceneAnalyses: loadJson('app_sceneAnalyses', {}),
-  consistencyGroups: loadJson('app_consistencyGroups', []),
+  mainText: '',
+  episodes: [],
+  scenes: [],
+  extractedEntities: [],
+  sceneAnalyses: {},
+  consistencyGroups: [],
   activeSceneId: null,
   selectionMode: 'scene',
   apiKeys: loadKeys('gemini_api_keys'),
@@ -34,11 +34,11 @@ const initialState: AppState = {
     imageModel: localStorage.getItem('gemini_image_model') || 'gemini-2.0-flash-exp',
   },
   imageApiKeys: loadKeys('gemini_image_api_keys'),
-  mainFileName: loadJson('app_mainFileName', ''),
-  sceneCards: loadJson('app_sceneCards', []),
-  characters: loadJson('app_characters', []),
-  locations: loadJson('app_locations', []),
-  masterPrompt: loadJson('app_masterPrompt', ''),
+  mainFileName: '',
+  sceneCards: [],
+  characters: [],
+  locations: [],
+  masterPrompt: '',
   isAnalyzing: false,
   isGeneratingPrompts: false,
 };
@@ -72,17 +72,12 @@ function reducer(state: AppState, action: InternalAction): AppState {
 
 function persistState(s: AppState) {
   try {
-    localStorage.setItem('app_mainText', JSON.stringify(s.mainText));
-    localStorage.setItem('app_episodes', JSON.stringify(s.episodes));
-    localStorage.setItem('app_scenes', JSON.stringify(s.scenes));
-    localStorage.setItem('app_extractedEntities', JSON.stringify(s.extractedEntities));
-    localStorage.setItem('app_sceneAnalyses', JSON.stringify(s.sceneAnalyses));
-    localStorage.setItem('app_consistencyGroups', JSON.stringify(s.consistencyGroups));
-    localStorage.setItem('app_mainFileName', JSON.stringify(s.mainFileName));
-    localStorage.setItem('app_sceneCards', JSON.stringify(s.sceneCards));
-    localStorage.setItem('app_characters', JSON.stringify(s.characters));
-    localStorage.setItem('app_locations', JSON.stringify(s.locations));
-    localStorage.setItem('app_masterPrompt', JSON.stringify(s.masterPrompt));
+    // Only persist user preferences (API keys, settings) — not project-specific data.
+    // Project data is stored in Supabase per-episode to avoid cross-project data leakage.
+    localStorage.setItem('gemini_api_keys', JSON.stringify(s.apiKeys));
+    localStorage.setItem('gemini_image_api_keys', JSON.stringify(s.imageApiKeys));
+    localStorage.setItem('gemini_model', s.settings.model);
+    if (s.settings.imageModel) localStorage.setItem('gemini_image_model', s.settings.imageModel);
   } catch { /* storage full — silently ignore */ }
 }
 
@@ -433,7 +428,6 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       };
     }
     case 'SET_MASTER_PROMPT':
-      localStorage.setItem('app_masterPrompt', JSON.stringify(action.payload));
       return { ...state, masterPrompt: action.payload };
     case 'SET_ANALYZING':
       return { ...state, isAnalyzing: action.payload };

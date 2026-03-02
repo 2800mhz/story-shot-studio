@@ -81,7 +81,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-3">
             <Film className="h-8 w-8 text-primary" />
             <div>
-              <h1 className="text-2xl font-serif font-semibold">Story Shot Studio</h1>
+              <h1 className="text-2xl font-serif font-semibold">Prompt Forge</h1>
               <p className="text-sm text-muted-foreground">{user?.email}</p>
             </div>
           </div>
