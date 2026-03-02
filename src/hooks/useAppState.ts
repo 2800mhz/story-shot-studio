@@ -17,6 +17,7 @@ function loadJson<T>(key: string, fallback: T): T {
 
 const initialState: AppState = {
   mainText: '',
+  documentText: '',
   episodes: [],
   scenes: [],
   extractedEntities: [],
@@ -431,8 +432,10 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       return { ...state, masterPrompt: action.payload };
     case 'SET_ANALYZING':
       return { ...state, isAnalyzing: action.payload };
+    case 'SET_DOCUMENT_TEXT':
+      return { ...state, documentText: action.payload };
     case 'SET_SCENES':
-      return { ...state, scenes: action.payload };
+      return { ...state, sceneCards: action.payload };
     default:
       return state;
   }

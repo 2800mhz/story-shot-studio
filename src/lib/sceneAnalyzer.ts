@@ -47,6 +47,22 @@ JSON ÇIKTI:
 
 METİN:`;
 
+function cleanJsonResponse(text: string): string {
+  // Remove markdown code blocks
+  text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+  // Remove control characters but keep valid JSON escapes
+  text = text.replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, '');
+
+  // Fix common issues with newlines in strings
+  // Matches JSON strings and escapes any literal newlines/tabs within them
+  text = text.replace(/"([^"\\]*(\\.[^"\\]*)*)"/g, (match) => {
+    return match.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
+  });
+
+  return text;
+}
+
 export async function analyzeTextIntoScenes(
   text: string,
   apiKey: string,
@@ -78,13 +94,33 @@ export async function analyzeTextIntoScenes(
 
   const data = await response.json();
   const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-  const parsed = JSON.parse(content);
+
+  console.log('🤖 Raw Gemini response:', content.substring(0, 200));
+
+  let cleanedContent: string;
+  try {
+    cleanedContent = cleanJsonResponse(content);
+    console.log('🧹 Cleaned JSON:', cleanedContent.substring(0, 200));
+  } catch {
+    cleanedContent = content;
+  }
+
+  let parsed: { scenes?: { sceneNumber?: number; text?: string; visualNote?: string; characters?: { name: string; description: string }[]; locations?: { name: string; description: string }[] }[] };
+  try {
+    parsed = JSON.parse(cleanedContent);
+  } catch (error) {
+    console.error('❌ Scene analysis JSON parse error:', error);
+    if (error instanceof SyntaxError) {
+      throw new Error(`JSON parsing failed: ${error.message}. Check Gemini API response format.`);
+    }
+    throw error;
+  }
 
   const characterMap = new Map<string, Character>();
   const locationMap = new Map<string, Location>();
   const sceneCards: SceneCard[] = [];
 
-  parsed.scenes?.forEach((scene: { sceneNumber?: number; text?: string; visualNote?: string; characters?: { name: string; description: string }[]; locations?: { name: string; description: string }[] }, idx: number) => {
+  parsed.scenes?.forEach((scene, idx: number) => {
     const sceneId = `scene-${Date.now()}-${idx}`;
     const characterIds: string[] = [];
     const locationIds: string[] = [];

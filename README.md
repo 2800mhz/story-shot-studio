@@ -137,6 +137,20 @@ The app uses the following tables:
 
 See `supabase/migrations/001_initial_schema.sql` for the complete schema.
 
+### Running Migrations
+
+If you have an existing Supabase project:
+
+1. Go to Supabase Dashboard → SQL Editor
+2. Run migration files in order:
+   - `supabase/migrations/001_initial_schema.sql`
+   - `supabase/migrations/002_fix_character_location_ids.sql`
+
+Or use Supabase CLI:
+```bash
+supabase db push
+```
+
 ## What technologies are used for this project?
 
 This project is built with:

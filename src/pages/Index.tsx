@@ -15,19 +15,26 @@ import { parseEpisodes } from '@/lib/contextDetection';
 import { generatePrompts, revisePrompt, loadSystemPrompt } from '@/lib/geminiApi';
 import { analyzeTextIntoScenes } from '@/lib/sceneAnalyzer';
 import { generatePromptsForScene } from '@/lib/promptGenerator';
-import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, savePrompts } from '@/lib/supabaseQueries';
+import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, savePrompts, updateEpisode } from '@/lib/supabaseQueries';
+import { useToast } from '@/hooks/use-toast';
 import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis } from '@/types';
 
 
 const GROUP_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
 const PROMPT_GENERATION_DELAY_MS = 2000;
+const AUTO_SAVE_DEBOUNCE_MS = 2000;
 
 const Index = () => {
   const { id: projectId, episodeId } = useParams<{ id: string; episodeId: string }>();
   const navigate = useNavigate();
   const { state, dispatch, undo, redo } = useAppState();
+  const { toast } = useToast();
   const [loadingData, setLoadingData] = useState(false);
+  const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [project, setProject] = useState<{ title: string; master_prompt?: string } | null>(null);
+  const [episode, setEpisode] = useState<{ title: string; document_text?: string } | null>(null);
 
   // Load episode data from Supabase
   useEffect(() => {
@@ -39,15 +46,31 @@ const Index = () => {
   async function loadEpisodeData() {
     setLoadingData(true);
     try {
+      console.log('📥 Loading episode data:', episodeId);
+
       const [projectData, episodeData, scenesData] = await Promise.all([
         fetchProject(projectId!),
         fetchEpisode(episodeId!),
         fetchScenes(episodeId!)
       ]);
 
+      console.log('✅ Loaded:', {
+        project: projectData.title,
+        episode: episodeData.title,
+        scenes: scenesData.length
+      });
+
+      setProject(projectData);
+      setEpisode(episodeData);
+
       // Load master prompt from project
       if (projectData.master_prompt) {
         dispatch({ type: 'SET_MASTER_PROMPT', payload: projectData.master_prompt });
+      }
+
+      // Load document text
+      if (episodeData.document_text) {
+        dispatch({ type: 'SET_DOCUMENT_TEXT', payload: episodeData.document_text });
       }
 
       // Load scenes into state
@@ -56,7 +79,7 @@ const Index = () => {
           id: scene.id,
           sceneNumber: scene.scene_number,
           text: scene.text,
-          visualNote: scene.visual_note,
+          visualNote: scene.visual_note || '',
           characterIds: scene.character_ids || [],
           locationIds: scene.location_ids || [],
           prompts: [],
@@ -66,7 +89,7 @@ const Index = () => {
           optimizations: scene.optimizations || []
         }));
 
-        dispatch({ type: 'FINISH_ANALYSIS', payload: { sceneCards: mappedScenes, characters: [], locations: [] } });
+        dispatch({ type: 'SET_SCENES', payload: mappedScenes });
 
         // Load prompts for each scene
         for (const scene of scenesData) {
@@ -91,7 +114,12 @@ const Index = () => {
         }
       }
     } catch (error) {
-      console.error('Error loading episode data:', error);
+      console.error('❌ Error loading episode data:', error);
+      toast({
+        title: "Error loading episode",
+        description: error instanceof Error ? error.message : "Failed to load episode data",
+        variant: "destructive"
+      });
     } finally {
       setLoadingData(false);
     }
@@ -102,26 +130,51 @@ const Index = () => {
     if (!loadingData && state.sceneCards.length > 0 && episodeId) {
       const saveData = async () => {
         try {
-          const savedScenes = await saveScenes(episodeId, state.sceneCards);
-          if (savedScenes) {
-            await Promise.all(
-              state.sceneCards.map(async (scene, i) => {
-                const savedScene = savedScenes[i];
-                if (scene.prompts.length > 0 && savedScene) {
-                  await savePrompts(savedScene.id, scene.prompts);
-                }
-              })
-            );
+          setSavingStatus('saving');
+          console.log('💾 Auto-saving scenes...');
+
+          // Save document text first
+          if (state.documentText && episode) {
+            await updateEpisode(episodeId, {
+              document_text: state.documentText
+            });
           }
+
+          // Save scenes
+          const savedScenes = await saveScenes(episodeId, state.sceneCards);
+
+          // Save prompts for each scene
+          for (let i = 0; i < state.sceneCards.length; i++) {
+            const scene = state.sceneCards[i];
+            const savedScene = savedScenes[i];
+
+            if (scene.prompts.length > 0 && savedScene) {
+              await savePrompts(savedScene.id, scene.prompts);
+            }
+          }
+
+          setSavingStatus('saved');
+          setLastSavedAt(new Date());
+          console.log('✅ Auto-save complete');
+
+          // Reset to idle after 2 seconds
+          setTimeout(() => setSavingStatus('idle'), 2000);
         } catch (error) {
-          console.error('Error saving scenes:', error);
+          console.error('❌ Error saving scenes:', error);
+          setSavingStatus('error');
+          toast({
+            title: "Save failed",
+            description: error instanceof Error ? error.message : "Failed to save changes",
+            variant: "destructive"
+          });
         }
       };
 
-      const timeoutId = setTimeout(saveData, 1000);
+      // Debounce saves
+      const timeoutId = setTimeout(saveData, AUTO_SAVE_DEBOUNCE_MS);
       return () => clearTimeout(timeoutId);
     }
-  }, [state.sceneCards, episodeId, loadingData]);
+  }, [state.sceneCards, state.documentText, episodeId, loadingData, episode]);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [infoOpen, setInfoOpen] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
@@ -786,15 +839,48 @@ const Index = () => {
   return (
     <div className="flex h-screen flex-col bg-background">
       {projectId && episodeId && (
-        <div className="flex items-center gap-2 border-b bg-card px-4 py-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate(`/project/${projectId}`)}
-          >
-            <ArrowLeft className="mr-1.5 h-4 w-4" />
-            Back to Project
-          </Button>
+        <div className="flex items-center justify-between border-b bg-card px-4 py-2">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate(`/project/${projectId}`)}
+            >
+              <ArrowLeft className="mr-1.5 h-4 w-4" />
+              Back to Project
+            </Button>
+            {episode && (
+              <div>
+                <span className="text-sm font-medium">{episode.title}</span>
+                {project && (
+                  <span className="text-xs text-muted-foreground ml-2">{project.title}</span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Save Status Indicator */}
+          <div className="flex items-center gap-2 text-sm">
+            {savingStatus === 'saving' && (
+              <span className="text-yellow-600 flex items-center gap-2">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-yellow-600"></div>
+                Saving...
+              </span>
+            )}
+            {savingStatus === 'saved' && (
+              <span className="text-green-600 flex items-center gap-2">
+                ✓ Saved
+                {lastSavedAt && (
+                  <span className="text-xs text-muted-foreground">
+                    {lastSavedAt.toLocaleTimeString()}
+                  </span>
+                )}
+              </span>
+            )}
+            {savingStatus === 'error' && (
+              <span className="text-red-600">✗ Save failed</span>
+            )}
+          </div>
         </div>
       )}
       <Header

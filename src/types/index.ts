@@ -141,6 +141,7 @@ export interface SceneCard {
 
 export interface AppState {
   mainText: string;
+  documentText: string;
   episodes: Episode[];
   scenes: Scene[];
   extractedEntities: ExtractedEntity[];
@@ -227,4 +228,5 @@ export type AppAction =
   | { type: 'DELETE_SCENE_CARD'; payload: string }
   | { type: 'SET_MASTER_PROMPT'; payload: string }
   | { type: 'SET_ANALYZING'; payload: boolean }
-  | { type: 'SET_SCENES'; payload: Scene[] };
+  | { type: 'SET_DOCUMENT_TEXT'; payload: string }
+  | { type: 'SET_SCENES'; payload: SceneCard[] };
