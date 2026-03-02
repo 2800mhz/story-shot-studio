@@ -131,33 +131,63 @@ export async function fetchScenes(episodeId: string) {
 }
 
 export async function saveScenes(episodeId: string, scenes: any[]) {
-  const { error: deleteError } = await supabase
-    .from('scenes')
-    .delete()
-    .eq('episode_id', episodeId);
+  try {
+    console.log('💾 Saving scenes for episode:', episodeId, 'Count:', scenes.length);
 
-  if (deleteError) throw deleteError;
+    const { error: deleteError } = await supabase
+      .from('scenes')
+      .delete()
+      .eq('episode_id', episodeId);
 
-  if (scenes.length === 0) return [];
+    if (deleteError) {
+      console.error('❌ Delete error:', deleteError);
+      throw deleteError;
+    }
 
-  const scenesToInsert = scenes.map((scene, idx) => ({
-    episode_id: episodeId,
-    scene_number: idx + 1,
-    text: scene.text,
-    visual_note: scene.visualNote,
-    character_ids: scene.characterIds || [],
-    location_ids: scene.locationIds || [],
-    analysis: scene.analysis || null,
-    optimizations: scene.optimizations || []
-  }));
+    if (scenes.length === 0) {
+      console.log('✅ No scenes to save');
+      return [];
+    }
 
-  const { data, error } = await supabase
-    .from('scenes')
-    .insert(scenesToInsert)
-    .select();
+    const scenesToInsert = scenes.map((scene, idx) => {
+      const characterIds = Array.isArray(scene.characterIds)
+        ? scene.characterIds.filter((id: unknown) => typeof id === 'string')
+        : [];
 
-  if (error) throw error;
-  return data;
+      const locationIds = Array.isArray(scene.locationIds)
+        ? scene.locationIds.filter((id: unknown) => typeof id === 'string')
+        : [];
+
+      return {
+        episode_id: episodeId,
+        scene_number: idx + 1,
+        text: scene.text || '',
+        visual_note: scene.visualNote || null,
+        character_ids: characterIds,
+        location_ids: locationIds,
+        analysis: scene.analysis || null,
+        optimizations: scene.optimizations || []
+      };
+    });
+
+    console.log('📤 Inserting scenes:', scenesToInsert.length);
+
+    const { data, error } = await supabase
+      .from('scenes')
+      .insert(scenesToInsert)
+      .select();
+
+    if (error) {
+      console.error('❌ Insert error:', error);
+      throw error;
+    }
+
+    console.log('✅ Scenes saved successfully:', data?.length);
+    return data || [];
+  } catch (error) {
+    console.error('❌ saveScenes error:', error);
+    throw error;
+  }
 }
 
 // ============================================
@@ -165,33 +195,53 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
 // ============================================
 
 export async function savePrompts(sceneId: string, prompts: any[]) {
-  const { error: deleteError } = await supabase
-    .from('prompts')
-    .delete()
-    .eq('scene_id', sceneId);
+  try {
+    console.log('💾 Saving prompts for scene:', sceneId, 'Count:', prompts.length);
 
-  if (deleteError) throw deleteError;
+    const { error: deleteError } = await supabase
+      .from('prompts')
+      .delete()
+      .eq('scene_id', sceneId);
 
-  if (prompts.length === 0) return [];
+    if (deleteError) {
+      console.error('❌ Delete prompts error:', deleteError);
+      throw deleteError;
+    }
 
-  const promptsToInsert = prompts.map(prompt => ({
-    scene_id: sceneId,
-    type: prompt.type,
-    label: prompt.label,
-    shot_type: prompt.shotType,
-    summary: prompt.summary,
-    explanation: prompt.explanation,
-    prompt_text: prompt.promptText,
-    aspect_ratio: prompt.aspectRatio || '16:9'
-  }));
+    if (prompts.length === 0) {
+      console.log('✅ No prompts to save');
+      return [];
+    }
 
-  const { data, error } = await supabase
-    .from('prompts')
-    .insert(promptsToInsert)
-    .select();
+    const promptsToInsert = prompts.map(prompt => ({
+      scene_id: sceneId,
+      type: prompt.type || null,
+      label: prompt.label || null,
+      shot_type: prompt.shotType || 'establishing',
+      summary: prompt.summary || null,
+      explanation: prompt.explanation || null,
+      prompt_text: prompt.promptText || prompt.prompt_text || '',
+      aspect_ratio: prompt.aspectRatio || '16:9'
+    }));
 
-  if (error) throw error;
-  return data;
+    console.log('📤 Inserting prompts:', promptsToInsert.length);
+
+    const { data, error } = await supabase
+      .from('prompts')
+      .insert(promptsToInsert)
+      .select();
+
+    if (error) {
+      console.error('❌ Insert prompts error:', error);
+      throw error;
+    }
+
+    console.log('✅ Prompts saved successfully:', data?.length);
+    return data || [];
+  } catch (error) {
+    console.error('❌ savePrompts error:', error);
+    throw error;
+  }
 }
 
 export async function fetchPrompts(sceneId: string) {
