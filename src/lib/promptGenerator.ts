@@ -21,13 +21,36 @@ TEKNİK ÖZELLİKLER:
 - Renk paleti: cinematic color grading
 - Kompozisyon: rule of thirds, depth of field
 
-OPTİMİZASYON KURALLARI (Zorlu sahneler için):
-- Kalabalık (5+ kişi): wide shot + silhouette staging + atmospheric haze kullan
-- Transformasyon sahnesi: her aşama için ayrı statik kare veya illustrated style öner
-- Mimari detay: atmospheric perspective + soft detail tercih et
-- Tarihsel figür: illustrated/miniature style kullan, photorealistic'ten kaçın
+📊 ÖNCE ANALİZ YAP:
+1. Sahne karmaşıklığı (minimal/low/medium/high/extreme)
+2. Kalabalık var mı? (5+ kişi)
+3. Transformasyon/time-lapse var mı?
+4. Mimari detay var mı?
+5. Tarihsel figür var mı?
 
-JSON ÇIKTI FORMATI:
+⚡ OPTİMİZASYON KURALLARI:
+
+🚫 KALABALIK SAHNELER (5+ kişi):
+→ Wide/extreme wide shot kullan
+→ "Silhouetted figures" veya "backlit crowd"
+→ "Atmospheric haze" ekle
+→ Örnek: "Wide shot of silhouetted crowd in courtyard, backlit by warm ambient glow"
+
+🏛️ MİMARİ DETAY:
+→ Mimari stil belirt (Ottoman, Byzantine, Modern)
+→ "Atmospheric perspective" kullan
+→ Örnek: "Ottoman mosque in atmospheric evening light"
+
+🔄 TRANSFORMASYON/MORPH:
+→ SPLIT into multiple static scenes
+→ VEYA illustrated/schematic style kullan
+→ AVOID: "transforming", "changing", "morphing"
+
+👑 TARİHSEL FİGÜR:
+→ "Illustrated style" veya "Ottoman miniature painting"
+→ AVOID: photorealistic close-ups
+
+📝 RESPONSE FORMAT (JSON):
 {
   "analysis": {
     "complexity": "low|medium|high|extreme",
@@ -36,8 +59,8 @@ JSON ÇIKTI FORMATI:
     "hasArchitecture": boolean,
     "hasTransformation": boolean,
     "hasHistoricalFigure": boolean,
-    "recommendedStyle": "string",
-    "productionNotes": ["string"]
+    "recommendedStyle": "cinematic|illustrated|minimalist",
+    "productionNotes": ["note1", ...]
   },
   "prompts": [
     {
@@ -59,7 +82,7 @@ JSON ÇIKTI FORMATI:
       "prompt": "Intimate detail shot, 80-120 words"
     }
   ],
-  "optimizations": ["Applied optimization 1", "Applied optimization 2"]
+  "optimizations": ["Applied optimization", ...]
 }`;
 
 const ASPECT_RATIO_HINTS: Record<string, string> = {
@@ -67,6 +90,20 @@ const ASPECT_RATIO_HINTS: Record<string, string> = {
   '4:3': 'Classic 4:3 ratio composition. Balanced framing, centered subjects, traditional cinematic feel.',
   '1:1': 'Square 1:1 composition. Centered subject, symmetrical framing, social-media-friendly crop.',
   '9:16': 'Vertical portrait composition (9:16). Fill frame vertically, subject-forward, mobile-optimized framing.',
+};
+
+const aspectRatioGuide: Record<string, string> = {
+  '16:9': 'widescreen cinematic format (landscape)',
+  '4:3': 'classic film format (landscape)',
+  '1:1': 'square format (social media)',
+  '9:16': 'vertical format (mobile/TikTok/Instagram Stories)',
+};
+
+const compositionHints: Record<string, string> = {
+  '16:9': 'Use horizontal composition, emphasize width, panoramic views',
+  '4:3': 'Balanced composition, classic framing',
+  '1:1': 'Centered composition, symmetrical framing',
+  '9:16': 'Vertical composition, emphasize height, portrait orientation',
 };
 
 const DEFAULT_ANALYSIS: PromptAnalysis = {
@@ -83,12 +120,12 @@ const DEFAULT_ANALYSIS: PromptAnalysis = {
 export function analyzeSceneComplexity(
   sceneText: string,
   visualNote: string,
-  characters: Character[]
-): PromptAnalysis {
+  characterCount: number
+): Partial<PromptAnalysis> {
   const text = (sceneText + ' ' + visualNote).toLowerCase();
 
-  const hasCrowd = characters.length >= 5 ||
-    /kalabal[ıi]k|crowd|kitle|topluluk|ordu|asker|halk|izleyici/.test(text);
+  const hasCrowd = characterCount >= 5 ||
+    /kalabalık|crowd|group of people|çok kişi|insanlar|topluluk/.test(text);
 
   const hasArchitecture = /saray|kale|cami|kilise|bina|köprü|kule|palace|castle|mosque|church|building|bridge|tower|architecture/.test(text);
 
@@ -96,31 +133,23 @@ export function analyzeSceneComplexity(
 
   const hasHistoricalFigure = /sultan|padişah|hükümdar|kral|kraliçe|imparator|vezir|paşa|king|queen|emperor|historical|tarihsel/.test(text);
 
-  let difficultyScore = 1;
-  if (hasCrowd) difficultyScore += 2;
-  if (hasArchitecture) difficultyScore += 1;
-  if (hasTransformation) difficultyScore += 3;
-  if (hasHistoricalFigure) difficultyScore += 1;
-  if (characters.length > 3) difficultyScore += 1;
+  let difficultyScore = 2;
+  if (hasCrowd) difficultyScore += 3;
+  if (hasTransformation) difficultyScore += 4;
+  if (hasArchitecture) difficultyScore += 2;
+  if (hasHistoricalFigure) difficultyScore += 2;
   difficultyScore = Math.min(difficultyScore, 10);
 
   let complexity: PromptAnalysis['complexity'] = 'low';
-  if (difficultyScore >= 9) complexity = 'extreme';
-  else if (difficultyScore >= 7) complexity = 'high';
-  else if (difficultyScore >= 5) complexity = 'medium';
-  else if (difficultyScore >= 3) complexity = 'low';
-  else complexity = 'minimal';
-
-  let recommendedStyle = 'cinematic photorealistic';
-  if (hasHistoricalFigure) recommendedStyle = 'illustrated miniature style';
-  else if (hasTransformation) recommendedStyle = 'illustrated stylized sequence';
-  else if (hasCrowd) recommendedStyle = 'wide cinematic with atmospheric haze';
+  if (difficultyScore >= 8) complexity = 'extreme';
+  else if (difficultyScore >= 6) complexity = 'high';
+  else if (difficultyScore >= 4) complexity = 'medium';
 
   const productionNotes: string[] = [];
-  if (hasCrowd) productionNotes.push('Use wide shot with silhouette staging and atmospheric haze for crowd scenes');
-  if (hasTransformation) productionNotes.push('Split transformation into multiple static frames or use illustrated style');
-  if (hasArchitecture) productionNotes.push('Apply atmospheric perspective and soft detail for architectural elements');
-  if (hasHistoricalFigure) productionNotes.push('Avoid photorealistic style for historical figures; prefer illustrated or miniature style');
+  if (hasCrowd) productionNotes.push('⚠️ Kalabalık sahne tespit edildi: Wide shot + silhouette önerilir');
+  if (hasTransformation) productionNotes.push('⚠️ Transformasyon tespit edildi: Multiple static scenes önerilir');
+  if (hasArchitecture) productionNotes.push('🏛️ Mimari detay: Atmospheric haze kullanılabilir');
+  if (hasHistoricalFigure) productionNotes.push('👑 Tarihsel figür: Illustrated/miniature style önerilir');
 
   return {
     complexity,
@@ -129,7 +158,7 @@ export function analyzeSceneComplexity(
     hasArchitecture,
     hasTransformation,
     hasHistoricalFigure,
-    recommendedStyle,
+    recommendedStyle: hasHistoricalFigure || hasTransformation ? 'illustrated' : 'cinematic',
     productionNotes,
   };
 }
@@ -169,7 +198,9 @@ export async function generatePromptsForScene(
   }
 
   const compositionHint = ASPECT_RATIO_HINTS[aspectRatio] ?? ASPECT_RATIO_HINTS['16:9'];
-  userMessage += `ASPECT RATIO: ${aspectRatio}\nKOMPOZİSYON İPUCU: ${compositionHint}\n\n`;
+  userMessage += `🎬 ASPECT RATIO: ${aspectRatio} (${aspectRatioGuide[aspectRatio] ?? aspectRatioGuide['16:9']})\n`;
+  userMessage += `COMPOSITION HINT: ${compositionHints[aspectRatio] ?? compositionHints['16:9']}\n`;
+  userMessage += `KOMPOZİSYON İPUCU: ${compositionHint}\n\n`;
 
   userMessage += `3 farklı açıdan sinematik prompt üret. Her prompt'ta "${scene.visualNote}" notunun ruhunu koru. Her prompt sonuna "--ar ${aspectRatio} --v 6" ekle.`;
 
@@ -181,7 +212,7 @@ export async function generatePromptsForScene(
       contents: [{ role: 'user', parts: [{ text: userMessage }] }],
       generationConfig: {
         temperature: 0.85,
-        maxOutputTokens: 4096,
+        maxOutputTokens: 8192,
         response_mime_type: 'application/json',
       },
     }),
