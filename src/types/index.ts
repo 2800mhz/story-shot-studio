@@ -105,6 +105,24 @@ export interface PromptCard {
   explanation?: string; // AI-generated explanation of what this prompt shows
   promptText: string;
   versions: string[];
+  aspectRatio?: '16:9' | '4:3' | '1:1' | '9:16';
+}
+
+export interface PromptAnalysis {
+  complexity: 'minimal' | 'low' | 'medium' | 'high' | 'extreme';
+  difficultyScore: number;
+  hasCrowd: boolean;
+  hasArchitecture: boolean;
+  hasTransformation: boolean;
+  hasHistoricalFigure: boolean;
+  recommendedStyle: string;
+  productionNotes: string[];
+}
+
+export interface GenerationResult {
+  prompts: PromptCard[];
+  analysis: PromptAnalysis;
+  optimizations: string[];
 }
 
 export interface SceneCard {

@@ -576,7 +576,7 @@ const Index = () => {
     dispatch({ type: 'START_PROMPT_GENERATION', payload: { sceneId } });
 
     try {
-      const prompts = await generatePromptsForScene(
+      const result = await generatePromptsForScene(
         scene,
         sceneCharacters,
         sceneLocations,
@@ -584,7 +584,7 @@ const Index = () => {
         apiKey,
         state.settings.model
       );
-      dispatch({ type: 'FINISH_PROMPT_GENERATION', payload: { sceneId, prompts } });
+      dispatch({ type: 'FINISH_PROMPT_GENERATION', payload: { sceneId, prompts: result.prompts } });
     } catch (error) {
       console.error('Prompt generation error:', error);
       // Revert status to analyzed on error
