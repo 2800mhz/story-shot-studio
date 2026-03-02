@@ -12,7 +12,7 @@ import { parseEpisodes } from '@/lib/contextDetection';
 import { generatePrompts, revisePrompt, loadSystemPrompt } from '@/lib/geminiApi';
 import { analyzeTextIntoScenes } from '@/lib/sceneAnalyzer';
 import { generatePromptsForScene } from '@/lib/promptGenerator';
-import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup } from '@/types';
+import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis } from '@/types';
 
 
 const GROUP_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
@@ -29,11 +29,23 @@ const Index = () => {
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const bulkAbortRef = useRef<AbortController | null>(null);
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
+  const [aspectRatio, setAspectRatio] = useState<'16:9' | '4:3' | '1:1' | '9:16'>('16:9');
   // Use a ref to access current scenes without adding them as a callback dependency
   const scenesRef = useRef(state.scenes);
   scenesRef.current = state.scenes;
 
   // Ctrl+Z / Ctrl+Y global keyboard shortcuts
+  useEffect(() => {
+    const savedAspectRatio = localStorage.getItem('aspectRatio');
+    if (savedAspectRatio) {
+      setAspectRatio(savedAspectRatio as '16:9' | '4:3' | '1:1' | '9:16');
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('aspectRatio', aspectRatio);
+  }, [aspectRatio]);
+
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
@@ -582,9 +594,18 @@ const Index = () => {
         sceneLocations,
         state.masterPrompt,
         apiKey,
-        state.settings.model
+        state.settings.model,
+        aspectRatio
       );
-      dispatch({ type: 'FINISH_PROMPT_GENERATION', payload: { sceneId, prompts: result.prompts } });
+      dispatch({ 
+        type: 'FINISH_PROMPT_GENERATION', 
+        payload: { 
+          sceneId, 
+          prompts: result.prompts,
+          analysis: result.analysis,
+          optimizations: result.optimizations,
+        } 
+      });
     } catch (error) {
       console.error('Prompt generation error:', error);
       // Revert status to analyzed on error
@@ -593,7 +614,7 @@ const Index = () => {
         payload: { sceneId, prompts: [] },
       });
     }
-  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.settings.model, dispatch, getActiveKey]);
+  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.settings.model, dispatch, getActiveKey, aspectRatio]);
 
   const handleGenerateAllPrompts = useCallback(async () => {
     const scenesWithoutPrompts = state.sceneCards.filter(s => s.prompts.length === 0 && s.status !== 'generating');
@@ -763,6 +784,8 @@ const Index = () => {
         onSaveKeys={keys => dispatch({ type: 'SET_API_KEYS', payload: keys })}
         onSaveImageKeys={keys => dispatch({ type: 'SET_IMAGE_API_KEYS', payload: keys })}
         onSaveSettings={s => dispatch({ type: 'SET_SETTINGS', payload: s })}
+        aspectRatio={aspectRatio}
+        onAspectRatioChange={setAspectRatio}
       />
 
       <ExportModal

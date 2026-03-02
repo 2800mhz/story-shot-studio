@@ -135,6 +135,8 @@ export interface SceneCard {
   prompts: PromptCard[];
   status: 'analyzed' | 'generating' | 'ready';
   noteEditable: boolean;
+  analysis?: PromptAnalysis;
+  optimizations?: string[];
 }
 
 export interface AppState {
@@ -213,7 +215,15 @@ export type AppAction =
   | { type: 'ADD_NEW_CHARACTER_TO_SCENE_CARD'; payload: { sceneId: string; character: Character } }
   | { type: 'ADD_NEW_LOCATION_TO_SCENE_CARD'; payload: { sceneId: string; location: Location } }
   | { type: 'START_PROMPT_GENERATION'; payload: { sceneId: string } }
-  | { type: 'FINISH_PROMPT_GENERATION'; payload: { sceneId: string; prompts: PromptCard[] } }
+  | { 
+      type: 'FINISH_PROMPT_GENERATION'; 
+      payload: { 
+        sceneId: string; 
+        prompts: PromptCard[];
+        analysis?: PromptAnalysis;
+        optimizations?: string[];
+      } 
+    }
   | { type: 'DELETE_SCENE_CARD'; payload: string }
   | { type: 'SET_MASTER_PROMPT'; payload: string }
   | { type: 'SET_ANALYZING'; payload: boolean }

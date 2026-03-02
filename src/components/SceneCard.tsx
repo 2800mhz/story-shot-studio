@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Edit2, Trash2, Check, X, Copy, RefreshCw, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Sparkles, Edit2, Trash2, Check, X, Copy, RefreshCw, Plus, ChevronDown, ChevronUp, AlertCircle, CheckCircle2 } from 'lucide-react';
 import type { SceneCard as SceneCardType, Character, Location, PromptCard } from '@/types';
 
 interface SceneCardProps {
@@ -42,6 +44,11 @@ function InlinePromptCard({
           </span>
           {prompt.label && prompt.shotType && (
             <span className="text-[10px] text-muted-foreground ml-1.5">({prompt.shotType})</span>
+          )}
+          {prompt.aspectRatio && (
+            <Badge variant="secondary" className="text-xs ml-1.5">
+              {prompt.aspectRatio}
+            </Badge>
           )}
         </div>
         <div className="flex items-center gap-1">
@@ -299,6 +306,58 @@ export function SceneCard({
       </div>
 
       {/* Prompts */}
+      {/* Analysis Section */}
+      {scene.analysis && (
+        <div className="p-3 bg-muted/50 rounded-lg space-y-2 border mb-4 mx-3 mt-3">
+          {/* Complexity Badges */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge 
+              variant={
+                scene.analysis.complexity === 'extreme' ? 'destructive' :
+                scene.analysis.complexity === 'high' ? 'destructive' :
+                scene.analysis.complexity === 'medium' ? 'secondary' :
+                'default'
+              }
+              className="text-xs font-medium"
+            >
+              {scene.analysis.complexity.toUpperCase()}
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              Zorluk: <span className="font-medium">{scene.analysis.difficultyScore}/10</span>
+            </span>
+            <Badge variant="outline" className="text-xs">
+              {scene.analysis.recommendedStyle}
+            </Badge>
+          </div>
+
+          {/* Production Notes */}
+          {scene.analysis.productionNotes.length > 0 && (
+            <Alert className="py-2 bg-amber-50 border-amber-200">
+              <AlertCircle className="h-3 w-3 text-amber-600" />
+              <AlertDescription className="text-xs text-amber-900">
+                <ul className="space-y-1 mt-1 ml-2">
+                  {scene.analysis.productionNotes.map((note) => (
+                    <li key={note} className="list-disc">
+                      {note}
+                    </li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Optimizations Applied */}
+          {scene.optimizations && scene.optimizations.length > 0 && (
+            <Alert className="py-2 bg-green-50 border-green-200">
+              <CheckCircle2 className="h-3 w-3 text-green-600" />
+              <AlertDescription className="text-xs text-green-800">
+                <strong>Uygulanan Optimizasyonlar:</strong> {scene.optimizations.join(' • ')}
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+      )}
+
       {hasPrompts ? (
         <div className="p-3">
           <div className="text-xs font-semibold text-muted-foreground mb-1">Üretilen Promptlar:</div>
