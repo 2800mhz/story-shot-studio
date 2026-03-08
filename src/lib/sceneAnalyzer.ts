@@ -74,7 +74,8 @@ JSON ÇIKTI:
           "atmosphere": "sacred, grand, peaceful",
           "description": "The Blue Mosque, an iconic Ottoman imperial mosque"
         }
-      ]
+      ],
+      "timeContextLabel": "17. yüzyıl Osmanlı - Gündüz"
     }
   ],
   "timeContexts": [
@@ -92,6 +93,7 @@ JSON ÇIKTI:
 
 NOT: timeContexts alanı opsiyoneldir. Metinde açık bir tarihsel dönem veya bağlam yoksa timeContexts'i JSON'a ekleme.
 Birden fazla farklı dönem veya gün/gece ayrımı varsa her biri için ayrı bir timeContext nesnesi ekle (örn: gündüz sahneleri ve gece sahneleri için ayrı girdiler).
+Her sahne için, o sahneye uyan timeContext'in label'ını `timeContextLabel` alanında belirt. Uygun bir timeContext yoksa bu alanı ekleme.
 
 METİN:`;
 
@@ -157,6 +159,7 @@ type SceneRaw = {
   sceneNumber?: number;
   text?: string;
   visualNote?: string;
+  timeContextLabel?: string;
   characters?: {
     name: string;
     description?: string;
@@ -197,7 +200,8 @@ function buildResultFromScenes(
   scenes: SceneRaw[],
   sceneNumberOffset: number,
   characterMap: Map<string, Character>,
-  locationMap: Map<string, Location>
+  locationMap: Map<string, Location>,
+  timeContextLabelMap: Map<string, string>
 ): SceneCard[] {
   // Build a normalized-name → existing-id lookup for locations (deduplication)
   const locationNormalizedIndex = new Map<string, string>();
@@ -268,6 +272,10 @@ function buildResultFromScenes(
       status: 'analyzed',
       noteEditable: true,
     });
+
+    if (scene.timeContextLabel) {
+      timeContextLabelMap.set(sceneId, scene.timeContextLabel);
+    }
   });
 
   return sceneCards;
@@ -333,6 +341,7 @@ export async function analyzeTextIntoScenes(
   const characterMap = new Map<string, Character>();
   const locationMap = new Map<string, Location>();
   const allSceneCards: SceneCard[] = [];
+  const timeContextLabelMap = new Map<string, string>(); // sceneId → timeContextLabel
   let sceneNumberOffset = 0;
   let suggestedTimeContexts: TimeContext[] = [];
 
@@ -340,7 +349,7 @@ export async function analyzeTextIntoScenes(
     console.log(`🔍 Analyzing chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
     const parsed = await analyzeChunk(chunks[i]);
     const scenes = parsed.scenes ?? [];
-    const cards = buildResultFromScenes(scenes, sceneNumberOffset, characterMap, locationMap);
+    const cards = buildResultFromScenes(scenes, sceneNumberOffset, characterMap, locationMap, timeContextLabelMap);
     allSceneCards.push(...cards);
     sceneNumberOffset += scenes.length;
 
@@ -366,6 +375,20 @@ export async function analyzeTextIntoScenes(
       }));
 
     suggestedTimeContexts = mergeTimeContextsByLabel(suggestedTimeContexts, chunkTimeContexts);
+  }
+
+  // Post-process: assign timeContextIds to scene cards based on timeContextLabel
+  const labelToId = new Map(suggestedTimeContexts.map(tc => [tc.label, tc.id]));
+  for (const card of allSceneCards) {
+    const label = timeContextLabelMap.get(card.id);
+    if (label) {
+      const tcId = labelToId.get(label);
+      if (tcId) {
+        card.timeContextIds = [tcId];
+      } else {
+        console.warn(`⚠️ timeContextLabel "${label}" for scene ${card.id} did not match any time context`);
+      }
+    }
   }
 
   return {
