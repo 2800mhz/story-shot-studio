@@ -517,12 +517,12 @@ const Index = () => {
 
     // Determine effective variant count based on scene analysis
     const sceneAnalysis = state.sceneAnalyses[sceneId];
-    let effectiveVariantCount = state.settings.variantCount;
+    let effectiveVariantCount: number = state.settings.variantCount;
     if (sceneAnalysis) {
       if (sceneAnalysis.narrativeType === 'timelapse') {
-        effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, state.settings.variantCount), 5) as 1 | 2 | 3;
+        effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, state.settings.variantCount), 5);
       } else if (sceneAnalysis.narrativeType === 'sequence') {
-        effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, state.settings.variantCount), 4) as 1 | 2 | 3;
+        effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, state.settings.variantCount), 4);
       }
     }
 
@@ -591,12 +591,12 @@ const Index = () => {
 
       // Determine effective variant count based on scene analysis
       const sceneAnalysis = state.sceneAnalyses[sceneRef.id];
-      let effectiveVariantCount = state.settings.variantCount;
+      let effectiveVariantCount: number = state.settings.variantCount;
       if (sceneAnalysis) {
         if (sceneAnalysis.narrativeType === 'timelapse') {
-          effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, state.settings.variantCount), 5) as 1 | 2 | 3;
+          effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, state.settings.variantCount), 5);
         } else if (sceneAnalysis.narrativeType === 'sequence') {
-          effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, state.settings.variantCount), 4) as 1 | 2 | 3;
+          effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, state.settings.variantCount), 4);
         }
       }
 

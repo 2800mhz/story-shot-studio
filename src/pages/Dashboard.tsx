@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Film, Plus, LogOut, Folder, Clock, Settings as SettingsIcon, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
@@ -203,11 +202,6 @@ export default function Dashboard() {
                   <p className="text-sm text-muted-foreground">
                     {project.episode_count || 0} bölüm
                   </p>
-                  {project.episode_count > 0 && (
-                    <Badge variant="secondary" className="text-xs">
-                      {project.episode_count} bölüm
-                    </Badge>
-                  )}
                 </div>
               </Card>
             ))}
