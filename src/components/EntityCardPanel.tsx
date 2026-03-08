@@ -6,6 +6,46 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Character, Location, TimeContext } from '@/types';
 
+// ── Normalization helpers ────────────────────────────────────────────────────
+
+function normalizeCharName(name: string): string {
+  let n = name.toLocaleLowerCase('tr-TR').trim();
+  n = n.replace(/(.{3,})(lar|ler)$/, '$1');
+  n = n.replace(/\s+/g, ' ');
+  return n;
+}
+
+/** Returns a Set of character IDs that have a similar-named counterpart. */
+function computeDuplicateCharIds(characters: Character[]): Set<string> {
+  const normToIds = new Map<string, string[]>();
+  characters.forEach(char => {
+    const norm = normalizeCharName(char.name);
+    const existing = normToIds.get(norm) ?? [];
+    existing.push(char.id);
+    normToIds.set(norm, existing);
+  });
+
+  const duplicateIds = new Set<string>();
+  const norms = Array.from(normToIds.keys());
+
+  norms.forEach(norm => {
+    const ids = normToIds.get(norm)!;
+    // Exact-match duplicates
+    if (ids.length > 1) {
+      ids.forEach(id => duplicateIds.add(id));
+    }
+    // Prefix-match duplicates (e.g. "sultan" ↔ "sultan ahmet")
+    norms.forEach(other => {
+      if (other !== norm && (other.startsWith(norm + ' ') || norm.startsWith(other + ' '))) {
+        ids.forEach(id => duplicateIds.add(id));
+        (normToIds.get(other) ?? []).forEach(id => duplicateIds.add(id));
+      }
+    });
+  });
+
+  return duplicateIds;
+}
+
 interface EntityCardPanelProps {
   characters: Character[];
   locations: Location[];
@@ -368,74 +408,86 @@ export function EntityCardPanel({
         </CardHeader>
         {openSections.has('characters') && (
           <CardContent className="px-3 pb-3 space-y-2">
-            {characters.filter(c => !c.isCrowd).map(char => (
-              <div key={char.id}>
-                {editingCharId === char.id ? (
-                  <CharacterEditor
-                    initial={char}
-                    onSave={c => { onUpsertCharacter(c); setEditingCharId(null); }}
-                    onCancel={() => setEditingCharId(null)}
-                  />
-                ) : (
-                  <div className="group flex items-start justify-between gap-2 p-2 rounded-lg border border-amber-800/30 bg-amber-950/20 hover:border-amber-700/50 transition-colors">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xs font-medium text-amber-200">{char.name}</span>
-                        {char.role && <span className="text-xs text-amber-400/70">({char.role})</span>}
-                        {char.age && <span className="text-xs text-muted-foreground">{char.age}</span>}
-                      </div>
-                      {(char.ethnicity || char.clothing) && (
-                        <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                          {[char.ethnicity, char.clothing].filter(Boolean).join(' · ')}
+            {(() => {
+              const duplicateCharIds = computeDuplicateCharIds(characters);
+              return characters.filter(c => !c.isCrowd).map(char => (
+                <div key={char.id}>
+                  {editingCharId === char.id ? (
+                    <CharacterEditor
+                      initial={char}
+                      onSave={c => { onUpsertCharacter(c); setEditingCharId(null); }}
+                      onCancel={() => setEditingCharId(null)}
+                    />
+                  ) : (
+                    <div className={`group flex items-start justify-between gap-2 p-2 rounded-lg border transition-colors ${duplicateCharIds.has(char.id) ? 'border-yellow-600/50 bg-yellow-950/20 hover:border-yellow-500/60' : 'border-amber-800/30 bg-amber-950/20 hover:border-amber-700/50'}`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-medium text-amber-200">{char.name}</span>
+                          {char.role && <span className="text-xs text-amber-400/70">({char.role})</span>}
+                          {char.age && <span className="text-xs text-muted-foreground">{char.age}</span>}
+                          {duplicateCharIds.has(char.id) && (
+                            <span
+                              className="text-[10px] px-1 py-0.5 rounded bg-yellow-900/50 text-yellow-400 border border-yellow-700/50"
+                              title="Benzer isimli karakter mevcut"
+                              aria-label="Benzer isimli karakter mevcut"
+                            >
+                              ⚠ benzer
+                            </span>
+                          )}
                         </div>
-                      )}
-                      {char.physicalFeatures && (
-                        <div className="text-xs text-muted-foreground/70 truncate">{char.physicalFeatures}</div>
-                      )}
-                    </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 w-6 p-0 text-amber-400 hover:text-amber-200 hover:bg-amber-900/40"
-                        onClick={() => setEditingCharId(char.id)}
-                      >
-                        ✏️
-                      </Button>
-                      {confirmDeleteId === char.id ? (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 text-xs text-red-400 hover:text-red-300 hover:bg-red-900/30 px-1"
-                            onClick={() => { onDeleteCharacter(char.id); setConfirmDeleteId(null); }}
-                          >
-                            Sil
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 text-xs px-1"
-                            onClick={() => setConfirmDeleteId(null)}
-                          >
-                            ✕
-                          </Button>
-                        </>
-                      ) : (
+                        {(char.ethnicity || char.clothing) && (
+                          <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                            {[char.ethnicity, char.clothing].filter(Boolean).join(' · ')}
+                          </div>
+                        )}
+                        {char.physicalFeatures && (
+                          <div className="text-xs text-muted-foreground/70 truncate">{char.physicalFeatures}</div>
+                        )}
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-6 w-6 p-0 text-red-400/60 hover:text-red-400 hover:bg-red-900/30"
-                          onClick={() => setConfirmDeleteId(char.id)}
+                          className="h-6 w-6 p-0 text-amber-400 hover:text-amber-200 hover:bg-amber-900/40"
+                          onClick={() => setEditingCharId(char.id)}
                         >
-                          🗑
+                          ✏️
                         </Button>
-                      )}
+                        {confirmDeleteId === char.id ? (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 text-xs text-red-400 hover:text-red-300 hover:bg-red-900/30 px-1"
+                              onClick={() => { onDeleteCharacter(char.id); setConfirmDeleteId(null); }}
+                            >
+                              Sil
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 text-xs px-1"
+                              onClick={() => setConfirmDeleteId(null)}
+                            >
+                              ✕
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0 text-red-400/60 hover:text-red-400 hover:bg-red-900/30"
+                            onClick={() => setConfirmDeleteId(char.id)}
+                          >
+                            🗑
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              ));
+            })()}
             {editingCharId === '__new__' ? (
               <CharacterEditor
                 initial={newBlankCharacter()}

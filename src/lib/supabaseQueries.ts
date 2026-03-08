@@ -171,6 +171,10 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
         ? scene.locationIds.filter((id: unknown) => typeof id === 'string')
         : [];
 
+      const timeContextIds = Array.isArray(scene.timeContextIds)
+        ? scene.timeContextIds.filter((id: unknown) => typeof id === 'string')
+        : [];
+
       return {
         episode_id: episodeId,
         scene_number: idx + 1,
@@ -178,6 +182,7 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
         visual_note: scene.visualNote || null,
         character_ids: characterIds,
         location_ids: locationIds,
+        time_context_ids: timeContextIds,
         analysis: scene.analysis || null,
         optimizations: scene.optimizations || []
       };
