@@ -24,6 +24,10 @@ KURALLAR:
 - Sahnede açıkça görünen karakterleri ve mekanları tespit et
 - Metinde tarihsel dönem/çağ tespit edilirse timeContext alanını doldur
 
+👥 KALABALIK KURALI:
+- "Şehir Halkı", "Cemaat", "Kalabalık", "Farklı İnsanlar", "Topluluk", "Halk", "Ordu", "Askerler" gibi grup ifadeleri için isCrowd: true döndür
+- Bireysel karakterler için isCrowd: false (varsayılan)
+
 JSON ÇIKTI:
 {
   "scenes": [
@@ -33,14 +37,34 @@ JSON ÇIKTI:
       "visualNote": "Kısa Türkçe görsel açıklama (maks 10 kelime)",
       "characters": [
         {
-          "name": "Karakter adı (Türkçe)",
-          "description": "Short English visual description: age, clothing, key features (max 30 words)"
+          "name": "Sultan I. Ahmed",
+          "role": "Ottoman Sultan",
+          "age": "young adult, early 20s",
+          "ethnicity": "Ottoman Turkish",
+          "clothing": "imperial kaftan with gold embroidery, turban",
+          "physicalFeatures": "dark beard, regal posture",
+          "description": "A young powerful Ottoman Sultan",
+          "isCrowd": false
+        },
+        {
+          "name": "Şehir Halkı",
+          "role": "crowd",
+          "age": "mixed ages",
+          "ethnicity": "Ottoman Turkish",
+          "clothing": "traditional Ottoman commoner dress",
+          "physicalFeatures": "diverse crowd of men, women, children",
+          "description": "A large crowd of Ottoman city dwellers",
+          "isCrowd": true
         }
       ],
       "locations": [
         {
-          "name": "Mekan adı (Türkçe)",
-          "description": "Short English visual description: style, period, atmosphere (max 30 words)"
+          "name": "Sultanahmet Camii",
+          "period": "17th century Ottoman",
+          "geography": "Istanbul, Bosphorus coast",
+          "architecture": "six minarets, large central dome, Byzantine-influenced Ottoman architecture, blue Iznik tile interior",
+          "atmosphere": "sacred, grand, peaceful",
+          "description": "The Blue Mosque, an iconic Ottoman imperial mosque"
         }
       ]
     }
@@ -120,9 +144,41 @@ type SceneRaw = {
   sceneNumber?: number;
   text?: string;
   visualNote?: string;
-  characters?: { name: string; description: string }[];
-  locations?: { name: string; description: string }[];
+  characters?: {
+    name: string;
+    description?: string;
+    role?: string;
+    age?: string;
+    ethnicity?: string;
+    clothing?: string;
+    physicalFeatures?: string;
+    isCrowd?: boolean;
+  }[];
+  locations?: {
+    name: string;
+    description?: string;
+    period?: string;
+    geography?: string;
+    architecture?: string;
+    atmosphere?: string;
+  }[];
 };
+
+/**
+ * Normalize a Turkish location name for deduplication.
+ * Lowercases using Turkish locale, removes common suffixes, and normalizes whitespace.
+ */
+function normalizeTurkishLocationName(name: string): string {
+  let n = name.toLocaleLowerCase('tr-TR').trim();
+  // Remove Turkish plural suffixes only when they follow at least 3 characters
+  // (avoids stripping from short words or non-Turkish words like "solar")
+  n = n.replace(/(.{3,})(lar|ler)$/, '$1');
+  // Normalize cami/camii variants
+  n = n.replace(/camii$/, 'cami');
+  // Collapse multiple spaces
+  n = n.replace(/\s+/g, ' ');
+  return n;
+}
 
 function buildResultFromScenes(
   scenes: SceneRaw[],
@@ -130,6 +186,12 @@ function buildResultFromScenes(
   characterMap: Map<string, Character>,
   locationMap: Map<string, Location>
 ): SceneCard[] {
+  // Build a normalized-name → existing-id lookup for locations (deduplication)
+  const locationNormalizedIndex = new Map<string, string>();
+  locationMap.forEach((loc, id) => {
+    locationNormalizedIndex.set(normalizeTurkishLocationName(loc.name), id);
+  });
+
   const sceneCards: SceneCard[] = [];
 
   scenes.forEach((scene, idx: number) => {
@@ -141,17 +203,44 @@ function buildResultFromScenes(
     scene.characters?.forEach((char) => {
       const charId = `char-${char.name.replace(/\s+/g, '-').toLocaleLowerCase('tr-TR')}`;
       if (!characterMap.has(charId)) {
-        characterMap.set(charId, { id: charId, name: char.name, description: char.description });
+        characterMap.set(charId, {
+          id: charId,
+          name: char.name,
+          description: char.description,
+          role: char.role,
+          age: char.age,
+          ethnicity: char.ethnicity,
+          clothing: char.clothing,
+          physicalFeatures: char.physicalFeatures,
+          isCrowd: char.isCrowd ?? false,
+        });
       }
       characterIds.push(charId);
     });
 
     scene.locations?.forEach((loc) => {
-      const locId = `loc-${loc.name.replace(/\s+/g, '-').toLocaleLowerCase('tr-TR')}`;
-      if (!locationMap.has(locId)) {
-        locationMap.set(locId, { id: locId, name: loc.name, description: loc.description });
+      const normalizedName = normalizeTurkishLocationName(loc.name);
+      // Check if a location with the same normalized name already exists
+      const existingId = locationNormalizedIndex.get(normalizedName);
+      if (existingId) {
+        // Reuse the existing location id (deduplication)
+        if (!locationIds.includes(existingId)) locationIds.push(existingId);
+      } else {
+        const locId = `loc-${loc.name.replace(/\s+/g, '-').toLocaleLowerCase('tr-TR')}`;
+        if (!locationMap.has(locId)) {
+          locationMap.set(locId, {
+            id: locId,
+            name: loc.name,
+            description: loc.description,
+            period: loc.period,
+            geography: loc.geography,
+            architecture: loc.architecture,
+            atmosphere: loc.atmosphere,
+          });
+          locationNormalizedIndex.set(normalizedName, locId);
+        }
+        if (!locationIds.includes(locId)) locationIds.push(locId);
       }
-      locationIds.push(locId);
     });
 
     sceneCards.push({
@@ -161,6 +250,7 @@ function buildResultFromScenes(
       visualNote: scene.visualNote || `Sahne ${globalIdx + 1}`,
       characterIds,
       locationIds,
+      timeContextIds: [],
       prompts: [],
       status: 'analyzed',
       noteEditable: true,

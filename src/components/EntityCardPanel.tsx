@@ -361,14 +361,14 @@ export function EntityCardPanel({
           <CardTitle className="text-sm text-amber-400 flex items-center gap-2">
             🧑 Karakterler
             <span className="inline-flex items-center justify-center rounded-full bg-amber-900/50 text-amber-300 text-xs px-2 py-0.5 font-normal">
-              {characters.length}
+              {characters.filter(c => !c.isCrowd).length}
             </span>
           </CardTitle>
           <span className="text-xs text-muted-foreground">{openSections.has('characters') ? '▲' : '▼'}</span>
         </CardHeader>
         {openSections.has('characters') && (
           <CardContent className="px-3 pb-3 space-y-2">
-            {characters.map(char => (
+            {characters.filter(c => !c.isCrowd).map(char => (
               <div key={char.id}>
                 {editingCharId === char.id ? (
                   <CharacterEditor
@@ -452,6 +452,82 @@ export function EntityCardPanel({
                 ➕ Yeni Karakter
               </Button>
             )}
+
+            {/* ── Crowd Characters subsection ── */}
+            {characters.some(c => c.isCrowd) && (
+              <>
+                <div className="pt-1 border-t border-amber-800/20">
+                  <div className="text-xs font-semibold text-amber-400/70 mb-1.5 flex items-center gap-1">
+                    👥 Kalabalıklar
+                    <span className="inline-flex items-center justify-center rounded-full bg-amber-900/40 text-amber-300 text-xs px-1.5 py-0.5 font-normal">
+                      {characters.filter(c => c.isCrowd).length}
+                    </span>
+                  </div>
+                  {characters.filter(c => c.isCrowd).map(char => (
+                    <div key={char.id} className="mb-1.5">
+                      {editingCharId === char.id ? (
+                        <CharacterEditor
+                          initial={char}
+                          onSave={c => { onUpsertCharacter(c); setEditingCharId(null); }}
+                          onCancel={() => setEditingCharId(null)}
+                        />
+                      ) : (
+                        <div className="group flex items-start justify-between gap-2 p-2 rounded-lg border border-amber-700/40 bg-amber-900/20 hover:border-amber-600/50 transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-medium text-amber-300">👥 {char.name}</span>
+                              {char.ethnicity && <span className="text-xs text-amber-500/70">{char.ethnicity}</span>}
+                            </div>
+                            {char.clothing && (
+                              <div className="text-xs text-muted-foreground/70 truncate">{char.clothing}</div>
+                            )}
+                          </div>
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0 text-amber-400 hover:text-amber-200 hover:bg-amber-900/40"
+                              onClick={() => setEditingCharId(char.id)}
+                            >
+                              ✏️
+                            </Button>
+                            {confirmDeleteId === char.id ? (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 text-xs text-red-400 hover:text-red-300 hover:bg-red-900/30 px-1"
+                                  onClick={() => { onDeleteCharacter(char.id); setConfirmDeleteId(null); }}
+                                >
+                                  Sil
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 text-xs px-1"
+                                  onClick={() => setConfirmDeleteId(null)}
+                                >
+                                  ✕
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0 text-red-400/60 hover:text-red-400 hover:bg-red-900/30"
+                                onClick={() => setConfirmDeleteId(char.id)}
+                              >
+                                🗑
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </CardContent>
         )}
       </Card>
@@ -472,73 +548,107 @@ export function EntityCardPanel({
         </CardHeader>
         {openSections.has('locations') && (
           <CardContent className="px-3 pb-3 space-y-2">
-            {locations.map(loc => (
-              <div key={loc.id}>
-                {editingLocId === loc.id ? (
-                  <LocationEditor
-                    initial={loc}
-                    onSave={l => { onUpsertLocation(l); setEditingLocId(null); }}
-                    onCancel={() => setEditingLocId(null)}
-                  />
-                ) : (
-                  <div className="group flex items-start justify-between gap-2 p-2 rounded-lg border border-blue-800/30 bg-blue-950/20 hover:border-blue-700/50 transition-colors">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xs font-medium text-blue-200">{loc.name}</span>
-                        {loc.period && <span className="text-xs text-blue-400/70">({loc.period})</span>}
-                      </div>
-                      {(loc.geography || loc.architecture) && (
-                        <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                          {[loc.geography, loc.architecture].filter(Boolean).join(' · ')}
+            {(() => {
+              // Compute duplicate location set: locations whose normalized root name appears more than once
+              const normalizeLocName = (name: string) => {
+                let n = name.toLocaleLowerCase('tr-TR').trim();
+                n = n.replace(/(.{3,})(lar|ler)$/, '$1');
+                n = n.replace(/camii$/, 'cami');
+                n = n.replace(/\s+/g, ' ');
+                return n;
+              };
+              const normalizedCounts = new Map<string, number>();
+              locations.forEach(loc => {
+                const norm = normalizeLocName(loc.name);
+                normalizedCounts.set(norm, (normalizedCounts.get(norm) ?? 0) + 1);
+              });
+              // Flag locations whose normalized name exactly matches another (count > 1),
+              // OR whose normalized name is a prefix of another (shorter name first, e.g. "cami" prefix of "cami avlusu")
+              const isDuplicate = (loc: Location) => {
+                const norm = normalizeLocName(loc.name);
+                if ((normalizedCounts.get(norm) ?? 0) > 1) return true;
+                const otherNorms = Array.from(normalizedCounts.keys()).filter(k => k !== norm);
+                // Flag if this name is a prefix of another (e.g. "cami" → "cami avlusu")
+                // or another is a prefix of this name (e.g. "cami avlusu" → "cami")
+                return otherNorms.some(k => k.startsWith(norm + ' ') || norm.startsWith(k + ' '));
+              };
+              return locations.map(loc => (
+                <div key={loc.id}>
+                  {editingLocId === loc.id ? (
+                    <LocationEditor
+                      initial={loc}
+                      onSave={l => { onUpsertLocation(l); setEditingLocId(null); }}
+                      onCancel={() => setEditingLocId(null)}
+                    />
+                  ) : (
+                    <div className={`group flex items-start justify-between gap-2 p-2 rounded-lg border transition-colors ${isDuplicate(loc) ? 'border-yellow-600/50 bg-yellow-950/20 hover:border-yellow-500/60' : 'border-blue-800/30 bg-blue-950/20 hover:border-blue-700/50'}`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-medium text-blue-200">{loc.name}</span>
+                          {loc.period && <span className="text-xs text-blue-400/70">({loc.period})</span>}
+                          {isDuplicate(loc) && (
+                            <span
+                              className="text-[10px] px-1 py-0.5 rounded bg-yellow-900/50 text-yellow-400 border border-yellow-700/50"
+                              title="Benzer isimli mekan mevcut"
+                              aria-label="Benzer isimli mekan mevcut"
+                            >
+                              ⚠ benzer
+                            </span>
+                          )}
                         </div>
-                      )}
-                      {loc.atmosphere && (
-                        <div className="text-xs text-muted-foreground/70 truncate">{loc.atmosphere}</div>
-                      )}
-                    </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 w-6 p-0 text-blue-400 hover:text-blue-200 hover:bg-blue-900/40"
-                        onClick={() => setEditingLocId(loc.id)}
-                      >
-                        ✏️
-                      </Button>
-                      {confirmDeleteId === loc.id ? (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 text-xs text-red-400 hover:text-red-300 hover:bg-red-900/30 px-1"
-                            onClick={() => { onDeleteLocation(loc.id); setConfirmDeleteId(null); }}
-                          >
-                            Sil
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 text-xs px-1"
-                            onClick={() => setConfirmDeleteId(null)}
-                          >
-                            ✕
-                          </Button>
-                        </>
-                      ) : (
+                        {(loc.geography || loc.architecture) && (
+                          <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                            {[loc.geography, loc.architecture].filter(Boolean).join(' · ')}
+                          </div>
+                        )}
+                        {loc.atmosphere && (
+                          <div className="text-xs text-muted-foreground/70 truncate">{loc.atmosphere}</div>
+                        )}
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-6 w-6 p-0 text-red-400/60 hover:text-red-400 hover:bg-red-900/30"
-                          onClick={() => setConfirmDeleteId(loc.id)}
+                          className="h-6 w-6 p-0 text-blue-400 hover:text-blue-200 hover:bg-blue-900/40"
+                          onClick={() => setEditingLocId(loc.id)}
                         >
-                          🗑
+                          ✏️
                         </Button>
-                      )}
+                        {confirmDeleteId === loc.id ? (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 text-xs text-red-400 hover:text-red-300 hover:bg-red-900/30 px-1"
+                              onClick={() => { onDeleteLocation(loc.id); setConfirmDeleteId(null); }}
+                            >
+                              Sil
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 text-xs px-1"
+                              onClick={() => setConfirmDeleteId(null)}
+                            >
+                              ✕
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0 text-red-400/60 hover:text-red-400 hover:bg-red-900/30"
+                            onClick={() => setConfirmDeleteId(loc.id)}
+                          >
+                            🗑
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              ));
+            })()}
             {editingLocId === '__new__' ? (
               <LocationEditor
                 initial={newBlankLocation()}
