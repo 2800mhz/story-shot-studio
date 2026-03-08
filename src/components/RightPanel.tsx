@@ -57,6 +57,9 @@ interface RightPanelProps {
   onRegenerateAllPrompts_?: (sceneId: string) => void;
   onRevisePrompt_?: (sceneId: string, promptId: string) => void;
   onDeletePrompt_?: (sceneId: string, promptId: string) => void;
+  isBulkGeneratingPrompts?: boolean;
+  bulkPromptsProgress?: { done: number; total: number };
+  onCancelBulkPrompts?: () => void;
 }
 
 function GroupNoteEditor({ group, onSave }: { group: ConsistencyGroup; onSave: (note: string) => void }) {
@@ -118,11 +121,15 @@ export function RightPanel({
   onUpdateSceneCardNote, onRemoveCharacterFromSceneCard, onRemoveLocationFromSceneCard,
   onAddCharacterToSceneCard, onAddLocationToSceneCard,
   onAddVariation, onRegenerateAllPrompts_, onRevisePrompt_, onDeletePrompt_,
+  isBulkGeneratingPrompts, bulkPromptsProgress, onCancelBulkPrompts,
 }: RightPanelProps) {
   const doneCount = scenes.filter(s => s.status === 'done').length;
   const pendingCount = scenes.filter(s => s.status === 'pending').length;
   const generatingCount = scenes.filter(s => s.status === 'generating').length;
   const totalScenes = scenes.length;
+  const bulkPromptsPercent = bulkPromptsProgress && bulkPromptsProgress.total > 0
+    ? Math.round((bulkPromptsProgress.done / bulkPromptsProgress.total) * 100)
+    : 0;
 
   // Drag-and-drop state
   const dragIndexRef = useRef<number | null>(null);
@@ -232,15 +239,35 @@ export function RightPanel({
               Tümünü Üret ({pendingCount})
             </Button>
           ) : onGenerateAllPrompts && sceneCards.length > 0 ? (
-            <Button
-              size="sm"
-              className="h-7 text-xs"
-              disabled={isGeneratingPrompts}
-              onClick={onGenerateAllPrompts}
-            >
-              <Sparkles className="mr-1 h-3 w-3" />
-              Tümü İçin Prompt Üret
-            </Button>
+            isBulkGeneratingPrompts ? (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 bg-secondary rounded-md px-3 h-7 min-w-[120px]">
+                  <div className="relative flex-1 bg-background rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="absolute left-0 top-0 h-full bg-primary rounded-full transition-all duration-300"
+                      style={{ width: `${bulkPromptsPercent}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-muted-foreground shrink-0">
+                    {bulkPromptsProgress?.done ?? 0}/{bulkPromptsProgress?.total ?? 0}
+                  </span>
+                </div>
+                <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={onCancelBulkPrompts}>
+                  <span className="mr-1">✕</span>
+                  İptal
+                </Button>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                className="h-7 text-xs"
+                disabled={isGeneratingPrompts}
+                onClick={onGenerateAllPrompts}
+              >
+                <Sparkles className="mr-1 h-3 w-3" />
+                Tümü İçin Prompt Üret
+              </Button>
+            )
           ) : null}
         </div>
       </div>

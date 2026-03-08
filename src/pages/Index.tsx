@@ -100,8 +100,26 @@ const Index = () => {
         dispatch({ type: 'SET_DOCUMENT_TEXT', payload: episodeData.document_text });
       }
 
-      // Load global characters and locations from Supabase
-      if (globalChars.length > 0) {
+      // Load characters: prefer episode-specific character_data (preserves exact IDs
+      // used by scene cards) over global_characters table.
+      if (episodeData.character_data) {
+        try {
+          dispatch({ type: 'SET_CHARACTERS', payload: JSON.parse(episodeData.character_data) });
+        } catch (e) {
+          console.warn('Failed to parse character_data, falling back to global characters:', e);
+          if (globalChars.length > 0) {
+            dispatch({
+              type: 'SET_CHARACTERS',
+              payload: globalChars.map((c: { id: string; name: string; description?: string | null; base_prompt?: string | null }) => ({
+                id: c.id,
+                name: c.name,
+                description: c.description || '',
+                basePrompt: c.base_prompt || '',
+              }))
+            });
+          }
+        }
+      } else if (globalChars.length > 0) {
         dispatch({
           type: 'SET_CHARACTERS',
           payload: globalChars.map((c: { id: string; name: string; description?: string | null; base_prompt?: string | null }) => ({
@@ -112,7 +130,26 @@ const Index = () => {
           }))
         });
       }
-      if (globalLocs.length > 0) {
+
+      // Load locations: prefer episode-specific location_data over global_locations table.
+      if (episodeData.location_data) {
+        try {
+          dispatch({ type: 'SET_LOCATIONS', payload: JSON.parse(episodeData.location_data) });
+        } catch (e) {
+          console.warn('Failed to parse location_data, falling back to global locations:', e);
+          if (globalLocs.length > 0) {
+            dispatch({
+              type: 'SET_LOCATIONS',
+              payload: globalLocs.map((l: { id: string; name: string; description?: string | null; base_prompt?: string | null }) => ({
+                id: l.id,
+                name: l.name,
+                description: l.description || '',
+                basePrompt: l.base_prompt || '',
+              }))
+            });
+          }
+        }
+      } else if (globalLocs.length > 0) {
         dispatch({
           type: 'SET_LOCATIONS',
           payload: globalLocs.map((l: { id: string; name: string; description?: string | null; base_prompt?: string | null }) => ({
@@ -184,11 +221,21 @@ const Index = () => {
           setSavingStatus('saving');
           console.log('💾 Auto-saving scenes...');
 
-          // Save document text first
-          if (state.documentText && episode) {
-            await updateEpisode(episodeId, {
-              document_text: state.documentText
-            });
+          // Save document text and character/location data
+          if (episode) {
+            try {
+              await updateEpisode(episodeId, {
+                document_text: state.documentText || undefined,
+                character_data: JSON.stringify(state.characters),
+                location_data: JSON.stringify(state.locations),
+              });
+            } catch (err) {
+              console.warn('Failed to save character/location data to episode:', err);
+              // Fallback: save only document_text
+              if (state.documentText) {
+                await updateEpisode(episodeId, { document_text: state.documentText });
+              }
+            }
           }
 
           // Save scenes
@@ -225,7 +272,7 @@ const Index = () => {
       const timeoutId = setTimeout(saveData, AUTO_SAVE_DEBOUNCE_MS);
       return () => clearTimeout(timeoutId);
     }
-  }, [state.sceneCards, state.documentText, episodeId, loadingData, episode]);
+  }, [state.sceneCards, state.documentText, state.characters, state.locations, episodeId, loadingData, episode]);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [infoOpen, setInfoOpen] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
@@ -234,6 +281,9 @@ const Index = () => {
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const bulkAbortRef = useRef<AbortController | null>(null);
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
+  const [isBulkGeneratingPrompts, setIsBulkGeneratingPrompts] = useState(false);
+  const [bulkPromptsProgress, setBulkPromptsProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
+  const bulkPromptsAbortRef = useRef<AbortController | null>(null);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '4:3' | '1:1' | '9:16'>('16:9');
   // Use a ref to access current scenes without adding them as a callback dependency
   const scenesRef = useRef(state.scenes);
@@ -795,12 +845,36 @@ const Index = () => {
   }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, dispatch, aspectRatio]);
 
   const handleGenerateAllPrompts = useCallback(async () => {
+    if (isBulkGeneratingPrompts) return;
+
     const scenesWithoutPrompts = state.sceneCards.filter(s => s.prompts.length === 0 && s.status !== 'generating');
-    for (const scene of scenesWithoutPrompts) {
-      await handleGeneratePromptsForScene(scene.id);
-      await new Promise(resolve => setTimeout(resolve, PROMPT_GENERATION_DELAY_MS));
+    if (scenesWithoutPrompts.length === 0) return;
+
+    const controller = new AbortController();
+    bulkPromptsAbortRef.current = controller;
+    setIsBulkGeneratingPrompts(true);
+    setBulkPromptsProgress({ done: 0, total: scenesWithoutPrompts.length });
+
+    try {
+      for (let i = 0; i < scenesWithoutPrompts.length; i++) {
+        if (controller.signal.aborted) break;
+        const scene = scenesWithoutPrompts[i];
+        await handleGeneratePromptsForScene(scene.id);
+        setBulkPromptsProgress({ done: i + 1, total: scenesWithoutPrompts.length });
+        if (i < scenesWithoutPrompts.length - 1 && !controller.signal.aborted) {
+          await new Promise(resolve => setTimeout(resolve, PROMPT_GENERATION_DELAY_MS));
+        }
+      }
+    } finally {
+      setIsBulkGeneratingPrompts(false);
+      bulkPromptsAbortRef.current = null;
+      setBulkPromptsProgress({ done: 0, total: 0 });
     }
-  }, [state.sceneCards, handleGeneratePromptsForScene]);
+  }, [isBulkGeneratingPrompts, state.sceneCards, handleGeneratePromptsForScene]);
+
+  const handleCancelBulkPrompts = useCallback(() => {
+    bulkPromptsAbortRef.current?.abort();
+  }, []);
 
   const handleRegenerateAllPrompts = useCallback(async (sceneId: string) => {
     await handleGeneratePromptsForScene(sceneId);
@@ -1029,6 +1103,9 @@ const Index = () => {
             onAddLocationToSceneCard={handleAddNewLocationToSceneCard}
             onAddVariation={handleAddVariation}
             onRegenerateAllPrompts_={handleRegenerateAllPrompts}
+            isBulkGeneratingPrompts={isBulkGeneratingPrompts}
+            bulkPromptsProgress={bulkPromptsProgress}
+            onCancelBulkPrompts={handleCancelBulkPrompts}
           />
         </div>
       </div>
