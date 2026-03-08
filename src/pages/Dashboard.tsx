@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Film, Plus, LogOut, Folder, Clock, Settings as SettingsIcon } from 'lucide-react';
+import { Film, Plus, LogOut, Folder, Clock, Settings as SettingsIcon, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
@@ -19,9 +20,11 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeKeyCount, setActiveKeyCount] = useState<number | null>(null);
 
   useEffect(() => {
     fetchProjects();
+    fetchKeyCount();
   }, []);
 
   async function fetchProjects() {
@@ -51,13 +54,29 @@ export default function Dashboard() {
     }
   }
 
+  async function fetchKeyCount() {
+    try {
+      const { count, error } = await supabase
+        .from('api_keys')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user?.id)
+        .eq('is_active', true);
+
+      if (!error) {
+        setActiveKeyCount(count ?? 0);
+      }
+    } catch {
+      // Silently ignore
+    }
+  }
+
   async function createNewProject() {
     try {
       const { data, error } = await supabase
         .from('projects')
         .insert({
           user_id: user?.id,
-          title: `Untitled Project ${new Date().toLocaleDateString()}`,
+          title: `Yeni Proje ${new Date().toLocaleDateString('tr-TR')}`,
           style_guide: '',
           master_prompt: ''
         })
@@ -91,24 +110,57 @@ export default function Dashboard() {
             </Button>
             <Button variant="ghost" onClick={signOut}>
               <LogOut className="mr-2 h-4 w-4" />
-              Sign Out
+              Çıkış
             </Button>
           </div>
         </div>
       </header>
 
+      {/* API Key Status Banner */}
+      {activeKeyCount !== null && (
+        <div className={`px-6 py-2 border-b text-sm ${
+          activeKeyCount === 0
+            ? 'bg-yellow-50 border-yellow-200'
+            : 'bg-green-50 border-green-200'
+        }`}>
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            {activeKeyCount === 0 ? (
+              <span className="text-yellow-800 flex items-center gap-2">
+                <Key className="h-4 w-4" />
+                ⚠️ API anahtarı eklenmemiş. Ayarlar sayfasına gidin.
+              </span>
+            ) : (
+              <span className="text-green-800 flex items-center gap-2">
+                <Key className="h-4 w-4" />
+                ✅ {activeKeyCount} aktif API anahtarı
+              </span>
+            )}
+            {activeKeyCount === 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-yellow-400 text-yellow-800 hover:bg-yellow-100 h-7 text-xs"
+                onClick={() => navigate('/settings')}
+              >
+                Ayarlara Git
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-12">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-3xl font-bold">My Projects</h2>
+            <h2 className="text-3xl font-bold">Projelerim</h2>
             <p className="text-muted-foreground mt-1">
-              {projects.length} {projects.length === 1 ? 'project' : 'projects'}
+              {projects.length} {projects.length === 1 ? 'proje' : 'proje'}
             </p>
           </div>
           <Button onClick={createNewProject} size="lg">
             <Plus className="mr-2 h-5 w-5" />
-            New Project
+            Yeni Proje
           </Button>
         </div>
 
@@ -120,13 +172,13 @@ export default function Dashboard() {
         ) : projects.length === 0 ? (
           <Card className="p-16 text-center">
             <Folder className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No projects yet</h3>
+            <h3 className="text-xl font-semibold mb-2">Henüz proje yok</h3>
             <p className="text-muted-foreground mb-6">
-              Create your first project to start generating prompts
+              Prompt üretmeye başlamak için ilk projenizi oluşturun
             </p>
             <Button onClick={createNewProject}>
               <Plus className="mr-2 h-4 w-4" />
-              Create Project
+              Proje Oluştur
             </Button>
           </Card>
         ) : (
@@ -141,15 +193,22 @@ export default function Dashboard() {
                   <Film className="h-8 w-8 text-primary" />
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />
-                    {new Date(project.updated_at).toLocaleDateString()}
+                    {new Date(project.updated_at).toLocaleDateString('tr-TR')}
                   </div>
                 </div>
                 <h3 className="text-xl font-semibold mb-2 line-clamp-1">
                   {project.title}
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  {project.episode_count || 0} {project.episode_count === 1 ? 'episode' : 'episodes'}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-muted-foreground">
+                    {project.episode_count || 0} bölüm
+                  </p>
+                  {project.episode_count > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      {project.episode_count} bölüm
+                    </Badge>
+                  )}
+                </div>
               </Card>
             ))}
           </div>

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Sparkles, Zap, StickyNote, GripVertical } from 'lucide-react';
+import { Sparkles, Zap, StickyNote, GripVertical, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { PromptCard } from './PromptCard';
 import { SceneCard } from './SceneCard';
 import type { Scene, ConsistencyGroup, ExtractedEntity, SceneAnalysis, SceneCard as SceneCardType, Character, Location } from '@/types';
@@ -120,6 +121,8 @@ export function RightPanel({
 }: RightPanelProps) {
   const doneCount = scenes.filter(s => s.status === 'done').length;
   const pendingCount = scenes.filter(s => s.status === 'pending').length;
+  const generatingCount = scenes.filter(s => s.status === 'generating').length;
+  const totalScenes = scenes.length;
 
   // Drag-and-drop state
   const dragIndexRef = useRef<number | null>(null);
@@ -160,6 +163,41 @@ export function RightPanel({
     dragIndexRef.current = null;
   }, []);
 
+  const handleExportAll = useCallback(() => {
+    // Collect prompts from scenes (old workflow)
+    const lines: string[] = [];
+
+    scenes.forEach((scene, idx) => {
+      if (scene.prompts.length > 0) {
+        lines.push(`=== Sahne ${idx + 1} ===`);
+        scene.prompts.forEach((p, pi) => {
+          lines.push(`[${p.shotType}] ${p.text}`);
+          if (pi < scene.prompts.length - 1) lines.push('');
+        });
+        lines.push('');
+      }
+    });
+
+    // Also include sceneCards prompts (new workflow)
+    sceneCards.forEach((sc, idx) => {
+      if (sc.prompts.length > 0) {
+        lines.push(`=== SceneCard ${idx + 1}: ${sc.visualNote} ===`);
+        sc.prompts.forEach((p, pi) => {
+          lines.push(`[${p.shotType}] ${p.promptText}`);
+          if (pi < sc.prompts.length - 1) lines.push('');
+        });
+        lines.push('');
+      }
+    });
+
+    if (lines.length === 0) return;
+
+    navigator.clipboard.writeText(lines.join('\n')).then(() => {
+      // Simple feedback via console
+      console.log('✅ Tüm promptlar kopyalandı');
+    });
+  }, [scenes, sceneCards]);
+
   return (
     <div className="flex h-full flex-col border-l bg-card">
       <div className="flex items-center justify-between border-b px-4 py-3">
@@ -170,6 +208,19 @@ export function RightPanel({
           )}
         </div>
         <div className="flex gap-1.5">
+          {/* Export all prompts */}
+          {(doneCount > 0 || sceneCards.some(sc => sc.prompts.length > 0)) && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={handleExportAll}
+              title="Tüm promptları panoya kopyala"
+            >
+              <Download className="mr-1 h-3 w-3" />
+              Dışa Aktar
+            </Button>
+          )}
           {isGeneratingAll ? (
             <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={onCancelAll}>
               <span className="mr-1">✕</span>
@@ -194,6 +245,25 @@ export function RightPanel({
         </div>
       </div>
 
+      {/* Bulk generation progress */}
+      {isGeneratingAll && totalScenes > 0 && (
+        <div className="border-b px-4 py-2 bg-primary/5">
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span className="text-primary font-medium">
+              ⚡ {doneCount}/{totalScenes} sahne işlendi
+              {generatingCount > 0 && ` · ${generatingCount} üretiliyor`}
+            </span>
+            <span className="text-muted-foreground">{Math.round((doneCount / totalScenes) * 100)}%</span>
+          </div>
+          <div className="w-full bg-secondary rounded-full h-1.5">
+            <div
+              className="bg-primary h-1.5 rounded-full transition-all"
+              style={{ width: `${(doneCount / totalScenes) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Consistency Group Notes */}
       {consistencyGroups.length > 0 && onSetGroupNote && (
         <div className="border-b px-3 py-2.5 space-y-1.5">
@@ -217,6 +287,7 @@ export function RightPanel({
           <>
             {scenes.map((scene, i) => {
               const groups = scene.consistencyGroupIds?.map(gId => consistencyGroups.find(g => g.id === gId)).filter(Boolean) as ConsistencyGroup[] || [];
+              const analysis = sceneAnalyses?.[scene.id];
               return (
                 <div
                   key={scene.id}
@@ -227,6 +298,26 @@ export function RightPanel({
                   onDragEnd={handleDragEnd}
                   className={`relative transition-all ${dragOverIndex === i ? 'border-t-2 border-primary pt-1' : ''}`}
                 >
+                  {/* Narrative type badge */}
+                  {analysis && analysis.narrativeType !== 'static' && (
+                    <div className="flex gap-1 mb-1 ml-5">
+                      {analysis.narrativeType === 'timelapse' && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-amber-700 border-amber-300 bg-amber-50">
+                          🎬 Timelapse
+                        </Badge>
+                      )}
+                      {analysis.narrativeType === 'sequence' && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-blue-700 border-blue-300 bg-blue-50">
+                          📽️ Dizi
+                        </Badge>
+                      )}
+                      {analysis.suggestedPromptCount > 1 && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-purple-700 border-purple-300 bg-purple-50">
+                          🎬 {analysis.suggestedPromptCount} kare önerildi
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                   <div className="flex gap-1">
                     <div className="flex items-start pt-3 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors">
                       <GripVertical className="h-4 w-4" />

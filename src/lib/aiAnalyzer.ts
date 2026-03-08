@@ -1,31 +1,18 @@
 import { ENTITY_EXTRACTION_PROMPT, SCENE_ANALYSIS_PROMPT } from './analysisPrompts';
+import { aiProvider } from './aiProvider';
 import type { ExtractedEntity, SceneAnalysis } from '@/types';
 
 export async function extractEntitiesFromText(
   text: string,
-  apiKey: string,
-  model: string
+  _apiKey?: string,
+  _model?: string
 ): Promise<ExtractedEntity[]> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
   const chunks = splitTextIntoChunks(text, 30000);
   const allEntities: ExtractedEntity[] = [];
   let entityCounter = 0;
 
   for (const chunk of chunks) {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: ENTITY_EXTRACTION_PROMPT + chunk }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
-      }),
-    });
-
-    if (!response.ok) throw new Error('Entity extraction failed');
-
-    const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const content = await aiProvider.generateContent(ENTITY_EXTRACTION_PROMPT + chunk);
 
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -80,24 +67,10 @@ export async function extractEntitiesFromText(
 
 export async function analyzeScene(
   sceneText: string,
-  apiKey: string,
-  model: string
+  _apiKey?: string,
+  _model?: string
 ): Promise<Omit<SceneAnalysis, 'sceneId'>> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: SCENE_ANALYSIS_PROMPT + sceneText }] }],
-      generationConfig: { temperature: 0.3, maxOutputTokens: 1024 },
-    }),
-  });
-
-  if (!response.ok) throw new Error('Scene analysis failed');
-
-  const data = await response.json();
-  const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const content = await aiProvider.generateContent(SCENE_ANALYSIS_PROMPT + sceneText);
 
   try {
     const jsonMatch = content.match(/\{[\s\S]*\}/);

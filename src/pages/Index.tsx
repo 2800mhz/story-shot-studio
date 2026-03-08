@@ -38,15 +38,28 @@ const Index = () => {
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [project, setProject] = useState<{ title: string; master_prompt?: string } | null>(null);
   const [episode, setEpisode] = useState<{ title: string; document_text?: string } | null>(null);
+  const [noKeysWarning, setNoKeysWarning] = useState(false);
 
   // Initialize AI provider with database keys
   useEffect(() => {
     if (user?.id) {
-      aiProvider.initialize(user.id).catch(err => {
-        console.error('Failed to initialize AI provider:', err);
-      });
+      aiProvider.initialize(user.id)
+        .then(() => {
+          // Sync model from settings
+          aiProvider.setModel(state.settings.model);
+          setNoKeysWarning(!aiProvider.hasKeys());
+        })
+        .catch(err => {
+          console.error('Failed to initialize AI provider:', err);
+        });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Sync model to aiProvider whenever settings change
+  useEffect(() => {
+    aiProvider.setModel(state.settings.model);
+  }, [state.settings.model]);
 
   // Load episode data from Supabase
   useEffect(() => {
@@ -228,11 +241,6 @@ const Index = () => {
     return () => window.removeEventListener('keydown', handleKey);
   }, [undo, redo]);
 
-  const getActiveKey = useCallback(() => {
-    if (state.apiKeys.length === 0) return null;
-    return state.apiKeys[state.currentKeyIndex % state.apiKeys.length];
-  }, [state.apiKeys, state.currentKeyIndex]);
-
   const handleFileUpload = useCallback(async (file: File) => {
     try {
       const text = await parseDocument(file);
@@ -401,8 +409,10 @@ const Index = () => {
   }, [dispatch, state.scenes]);
 
   const handleGenerateSubScene = useCallback(async (sceneId: string, subSceneId: string) => {
-    const apiKey = getActiveKey();
-    if (!apiKey) { setSettingsOpen(true); return; }
+    if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
+      setNoKeysWarning(true);
+      return;
+    }
     const scene = state.scenes.find(s => s.id === sceneId);
     if (!scene) return;
     const subScene = (scene.subScenes || []).find(ss => ss.id === subSceneId);
@@ -417,7 +427,7 @@ const Index = () => {
     try {
       const results = await generatePrompts({
         scene,
-        apiKey,
+        apiKey: '',
         model: state.settings.model,
         variantCount: state.settings.variantCount,
         temperature: state.settings.temperature,
@@ -427,8 +437,8 @@ const Index = () => {
         subScene,
         parentScene: scene,
         parentConsistencyGroups: parentGroups.length > 0 ? parentGroups : undefined,
+        generateFn: aiProvider.generateContent.bind(aiProvider),
       });
-      dispatch({ type: 'ROTATE_API_KEY' });
 
       const prompts: PromptVariant[] = results.map((r, i) => ({
         id: `prompt-${Date.now()}-${i}`,
@@ -441,42 +451,12 @@ const Index = () => {
       }));
       dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, prompts, status: 'done' } } });
     } catch (e: any) {
-      if (e.message === 'RATE_LIMIT') {
-        // Retry with key rotation, max attempts = total keys
-        const totalKeys = state.apiKeys.length;
-        let triedKeys = 1;
-        dispatch({ type: 'ROTATE_API_KEY' });
-        while (triedKeys < totalKeys) {
-          await new Promise(r => setTimeout(r, 2000));
-          const nextKey = state.apiKeys[(state.currentKeyIndex + triedKeys) % totalKeys];
-          try {
-            const results2 = await generatePrompts({
-              scene, apiKey: nextKey, model: state.settings.model,
-              variantCount: state.settings.variantCount, temperature: state.settings.temperature,
-              consistencyGroups: subGroups.length > 0 ? subGroups : undefined,
-              allScenes: state.scenes, systemPrompt: loadSystemPrompt(),
-              subScene, parentScene: scene,
-              parentConsistencyGroups: parentGroups.length > 0 ? parentGroups : undefined,
-            });
-            dispatch({ type: 'ROTATE_API_KEY' });
-            const prompts2: PromptVariant[] = results2.map((r, i) => ({
-              id: `prompt-${Date.now()}-${i}`, shotType: r.shotType, text: r.text, summary: r.summary, attachedEntityIds: [], versions: [r.text], isRevising: false,
-            }));
-            dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, prompts: prompts2, status: 'done' } } });
-            return;
-          } catch (e2: any) {
-            if (e2.message === 'RATE_LIMIT') { triedKeys++; dispatch({ type: 'ROTATE_API_KEY' }); }
-            else break;
-          }
-        }
-      }
+      console.error('Sub-scene generation failed:', e);
       dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, status: 'error' } } });
     }
-  }, [state, dispatch, getActiveKey]);
+  }, [state, dispatch]);
 
   const handleReviseSubScene = useCallback(async (sceneId: string, subSceneId: string, promptId: string, instruction: string) => {
-    const apiKey = getActiveKey();
-    if (!apiKey) return;
     const scene = state.scenes.find(s => s.id === sceneId);
     if (!scene) return;
     const subScene = (scene.subScenes || []).find(ss => ss.id === subSceneId);
@@ -484,17 +464,26 @@ const Index = () => {
     const prompt = subScene.prompts.find(p => p.id === promptId);
     if (!prompt) return;
 
+    // Version restore — no API call needed
+    if (instruction.startsWith('__RESTORE__::')) {
+      const restored = instruction.slice('__RESTORE__::'.length);
+      const updatedPrompts = subScene.prompts.map(p =>
+        p.id === promptId ? { ...p, text: restored, versions: [...p.versions, restored] } : p
+      );
+      dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, prompts: updatedPrompts } } });
+      return;
+    }
+
     try {
-      const revised = await revisePrompt(prompt.text, instruction, apiKey, state.settings.model, state.settings.temperature);
-      dispatch({ type: 'ROTATE_API_KEY' });
+      const revised = await revisePrompt(prompt.text, instruction, '', state.settings.model, state.settings.temperature);
       const updatedPrompts = subScene.prompts.map(p =>
         p.id === promptId ? { ...p, text: revised, versions: [...p.versions, revised] } : p
       );
       dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, prompts: updatedPrompts } } });
     } catch (e: any) {
-      if (e.message === 'RATE_LIMIT' && state.apiKeys.length > 1) dispatch({ type: 'ROTATE_API_KEY' });
+      console.error('Sub-scene revizyon başarısız', e);
     }
-  }, [state, dispatch, getActiveKey]);
+  }, [state, dispatch]);
 
 
   const handleCancel = useCallback((sceneId: string) => {
@@ -510,8 +499,9 @@ const Index = () => {
   }, [state.scenes, dispatch]);
 
   const handleGenerate = useCallback(async (sceneId: string) => {
-    if (state.apiKeys.length === 0) {
-      setSettingsOpen(true);
+    if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
+      setNoKeysWarning(true);
+      setSettingsOpen(false);
       return;
     }
     const scene = state.scenes.find(s => s.id === sceneId);
@@ -524,66 +514,62 @@ const Index = () => {
     dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'generating' } });
 
     const groups = state.consistencyGroups.filter(g => scene.consistencyGroupIds?.includes(g.id));
-    const totalKeys = state.apiKeys.length;
-    let triedKeys = 0;
 
-    while (triedKeys < totalKeys) {
+    // Determine effective variant count based on scene analysis
+    const sceneAnalysis = state.sceneAnalyses[sceneId];
+    let effectiveVariantCount = state.settings.variantCount;
+    if (sceneAnalysis) {
+      if (sceneAnalysis.narrativeType === 'timelapse') {
+        effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, state.settings.variantCount), 5) as 1 | 2 | 3;
+      } else if (sceneAnalysis.narrativeType === 'sequence') {
+        effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, state.settings.variantCount), 4) as 1 | 2 | 3;
+      }
+    }
+
+    try {
       if (controller.signal.aborted) {
         abortControllersRef.current.delete(sceneId);
         return;
       }
-      const apiKey = state.apiKeys[(state.currentKeyIndex + triedKeys) % totalKeys];
-      try {
-        const sceneEntities = {
-          characters: state.extractedEntities.filter(e => e.type === 'character' && e.sceneIds.includes(sceneId)),
-          locations: state.extractedEntities.filter(e => e.type === 'location' && e.sceneIds.includes(sceneId)),
-        };
-        const results = await generatePrompts({
-          scene,
-          apiKey,
-          model: state.settings.model,
-          variantCount: state.settings.variantCount,
-          temperature: state.settings.temperature,
-          consistencyGroups: groups.length > 0 ? groups : undefined,
-          allScenes: state.scenes,
-          systemPrompt: loadSystemPrompt(),
-          sceneEntities: (sceneEntities.characters.length > 0 || sceneEntities.locations.length > 0) ? sceneEntities : undefined,
-          sceneAnalysis: state.sceneAnalyses[sceneId],
-          signal: controller.signal,
-        });
-        dispatch({ type: 'ROTATE_API_KEY' });
+      const sceneEntities = {
+        characters: state.extractedEntities.filter(e => e.type === 'character' && e.sceneIds.includes(sceneId)),
+        locations: state.extractedEntities.filter(e => e.type === 'location' && e.sceneIds.includes(sceneId)),
+      };
+      const results = await generatePrompts({
+        scene,
+        apiKey: '',
+        model: state.settings.model,
+        variantCount: effectiveVariantCount,
+        temperature: state.settings.temperature,
+        consistencyGroups: groups.length > 0 ? groups : undefined,
+        allScenes: state.scenes,
+        systemPrompt: loadSystemPrompt(),
+        sceneEntities: (sceneEntities.characters.length > 0 || sceneEntities.locations.length > 0) ? sceneEntities : undefined,
+        sceneAnalysis: sceneAnalysis,
+        signal: controller.signal,
+        generateFn: aiProvider.generateContent.bind(aiProvider),
+      });
 
-        const prompts: PromptVariant[] = results.map((r, i) => ({
-          id: `prompt-${Date.now()}-${i}`,
-          shotType: r.shotType,
-          text: r.text,
-          summary: r.summary,
-          attachedEntityIds: [],
-          versions: [r.text],
-          isRevising: false,
-        }));
-        dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, prompts, status: 'done' } });
+      const prompts: PromptVariant[] = results.map((r, i) => ({
+        id: `prompt-${Date.now()}-${i}`,
+        shotType: r.shotType,
+        text: r.text,
+        summary: r.summary,
+        attachedEntityIds: [],
+        versions: [r.text],
+        isRevising: false,
+      }));
+      dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, prompts, status: 'done' } });
+      abortControllersRef.current.delete(sceneId);
+    } catch (e: any) {
+      if (e.name === 'AbortError') {
         abortControllersRef.current.delete(sceneId);
         return;
-      } catch (e: any) {
-        if (e.name === 'AbortError') {
-          abortControllersRef.current.delete(sceneId);
-          return;
-        }
-        if (e.message === 'RATE_LIMIT') {
-          triedKeys++;
-          dispatch({ type: 'ROTATE_API_KEY' });
-          await new Promise(r => setTimeout(r, 2000));
-        } else {
-          dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'error' } });
-          abortControllersRef.current.delete(sceneId);
-          return;
-        }
       }
+      console.error('Generation failed:', e);
+      dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'error' } });
+      abortControllersRef.current.delete(sceneId);
     }
-    // All keys exhausted
-    dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'error' } });
-    abortControllersRef.current.delete(sceneId);
   }, [state, dispatch]);
 
   const handleGenerateAll = useCallback(async () => {
@@ -602,66 +588,59 @@ const Index = () => {
       dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'generating' } });
 
       const groups = state.consistencyGroups.filter(g => sceneRef.consistencyGroupIds?.includes(g.id));
-      let success = false;
-      let triedKeys = 0;
-      const totalKeys = state.apiKeys.length;
 
-      while (!success && triedKeys < totalKeys) {
-        if (bulkController.signal.aborted) {
-          dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'pending' } });
-          break;
-        }
-        const apiKey = state.apiKeys[(state.currentKeyIndex + triedKeys) % totalKeys];
-        if (!apiKey) break;
-
-        try {
-          const sceneEntitiesAll = {
-            characters: state.extractedEntities.filter(e => e.type === 'character' && e.sceneIds.includes(sceneRef.id)),
-            locations: state.extractedEntities.filter(e => e.type === 'location' && e.sceneIds.includes(sceneRef.id)),
-          };
-          const results = await generatePrompts({
-            scene: sceneRef,
-            apiKey,
-            model: state.settings.model,
-            variantCount: state.settings.variantCount,
-            temperature: state.settings.temperature,
-            consistencyGroups: groups.length > 0 ? groups : undefined,
-            allScenes: state.scenes,
-            systemPrompt: loadSystemPrompt(),
-            sceneEntities: (sceneEntitiesAll.characters.length > 0 || sceneEntitiesAll.locations.length > 0) ? sceneEntitiesAll : undefined,
-            sceneAnalysis: state.sceneAnalyses[sceneRef.id],
-            signal: bulkController.signal,
-          });
-
-          const prompts: PromptVariant[] = results.map((r, idx) => ({
-            id: `prompt-${Date.now()}-${idx}`,
-            shotType: r.shotType,
-            text: r.text,
-            summary: r.summary,
-            attachedEntityIds: [],
-            versions: [r.text],
-            isRevising: false,
-          }));
-          dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, prompts, status: 'done' } });
-          dispatch({ type: 'ROTATE_API_KEY' });
-          success = true;
-        } catch (e: any) {
-          if (e.name === 'AbortError') {
-            dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'pending' } });
-            break;
-          }
-          if (e.message === 'RATE_LIMIT') {
-            triedKeys++;
-            dispatch({ type: 'ROTATE_API_KEY' });
-            await new Promise(r => setTimeout(r, 2000));
-          } else {
-            dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'error' } });
-            success = true;
-          }
+      // Determine effective variant count based on scene analysis
+      const sceneAnalysis = state.sceneAnalyses[sceneRef.id];
+      let effectiveVariantCount = state.settings.variantCount;
+      if (sceneAnalysis) {
+        if (sceneAnalysis.narrativeType === 'timelapse') {
+          effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, state.settings.variantCount), 5) as 1 | 2 | 3;
+        } else if (sceneAnalysis.narrativeType === 'sequence') {
+          effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, state.settings.variantCount), 4) as 1 | 2 | 3;
         }
       }
 
-      if (!success && !bulkController.signal.aborted) {
+      if (bulkController.signal.aborted) {
+        dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'pending' } });
+        break;
+      }
+
+      try {
+        const sceneEntitiesAll = {
+          characters: state.extractedEntities.filter(e => e.type === 'character' && e.sceneIds.includes(sceneRef.id)),
+          locations: state.extractedEntities.filter(e => e.type === 'location' && e.sceneIds.includes(sceneRef.id)),
+        };
+        const results = await generatePrompts({
+          scene: sceneRef,
+          apiKey: '',
+          model: state.settings.model,
+          variantCount: effectiveVariantCount,
+          temperature: state.settings.temperature,
+          consistencyGroups: groups.length > 0 ? groups : undefined,
+          allScenes: state.scenes,
+          systemPrompt: loadSystemPrompt(),
+          sceneEntities: (sceneEntitiesAll.characters.length > 0 || sceneEntitiesAll.locations.length > 0) ? sceneEntitiesAll : undefined,
+          sceneAnalysis: sceneAnalysis,
+          signal: bulkController.signal,
+          generateFn: aiProvider.generateContent.bind(aiProvider),
+        });
+
+        const prompts: PromptVariant[] = results.map((r, idx) => ({
+          id: `prompt-${Date.now()}-${idx}`,
+          shotType: r.shotType,
+          text: r.text,
+          summary: r.summary,
+          attachedEntityIds: [],
+          versions: [r.text],
+          isRevising: false,
+        }));
+        dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, prompts, status: 'done' } });
+      } catch (e: any) {
+        if (e.name === 'AbortError') {
+          dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'pending' } });
+          break;
+        }
+        console.error('Bulk generation error:', e);
         dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'error' } });
       }
 
@@ -691,16 +670,23 @@ const Index = () => {
   }, [state.scenes, dispatch]);
 
   const handleRevise = useCallback(async (sceneId: string, promptId: string, instruction: string) => {
-    const apiKey = getActiveKey();
-    if (!apiKey) return;
     const scene = state.scenes.find(s => s.id === sceneId);
     if (!scene) return;
     const prompt = scene.prompts.find(p => p.id === promptId);
     if (!prompt) return;
 
+    // Version restore — no API call needed
+    if (instruction.startsWith('__RESTORE__::')) {
+      const restored = instruction.slice('__RESTORE__::'.length);
+      const updatedPrompts = scene.prompts.map(p =>
+        p.id === promptId ? { ...p, text: restored, versions: [...p.versions, restored] } : p
+      );
+      dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, prompts: updatedPrompts } });
+      return;
+    }
+
     try {
-      const revised = await revisePrompt(prompt.text, instruction, apiKey, state.settings.model, state.settings.temperature);
-      dispatch({ type: 'ROTATE_API_KEY' });
+      const revised = await revisePrompt(prompt.text, instruction, '', state.settings.model, state.settings.temperature);
       const updatedPrompts = scene.prompts.map(p =>
         p.id === promptId
           ? { ...p, text: revised, versions: [...p.versions, revised] }
@@ -708,12 +694,9 @@ const Index = () => {
       );
       dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, prompts: updatedPrompts } });
     } catch (e: any) {
-      if (e.message === 'RATE_LIMIT' && state.apiKeys.length > 1) {
-        dispatch({ type: 'ROTATE_API_KEY' });
-      }
       console.error('Revizyon başarısız', e);
     }
-  }, [state, dispatch, getActiveKey]);
+  }, [state, dispatch]);
 
   const handleRefreshAll = useCallback(async (sceneId: string) => {
     await handleGenerate(sceneId);
@@ -889,6 +872,31 @@ const Index = () => {
         onInfo={() => setInfoOpen(true)}
         mainFileName={state.mainFileName}
       />
+
+      {/* No API keys banner */}
+      {noKeysWarning && (
+        <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 flex items-center justify-between text-sm">
+          <span className="text-yellow-800">
+            ⚠️ API anahtarı bulunamadı. Gemini API anahtarlarınızı ekleyin.
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs border-yellow-400 text-yellow-800 hover:bg-yellow-100"
+              onClick={() => navigate('/settings')}
+            >
+              Ayarlar Sayfasına Git
+            </Button>
+            <button
+              className="text-yellow-600 hover:text-yellow-800 text-xs"
+              onClick={() => setNoKeysWarning(false)}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       <input ref={mainFileRef} type="file" accept=".docx,.txt" className="hidden"
         onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
