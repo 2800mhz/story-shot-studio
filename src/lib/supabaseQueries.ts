@@ -94,6 +94,8 @@ export async function createEpisode(projectId: string, title: string) {
 export async function updateEpisode(episodeId: string, updates: {
   title?: string;
   document_text?: string;
+  character_data?: string;
+  location_data?: string;
 }) {
   const { data, error } = await supabase
     .from('episodes')
