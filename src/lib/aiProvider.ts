@@ -17,6 +17,7 @@ class AIProviderManager {
   private currentKeyIndex = 0;
   private keys: Map<AIProvider, APIKey[]> = new Map();
   private initialized = false;
+  private model = 'gemini-2.0-flash';
 
   async initialize(userId: string) {
     const { data, error } = await supabase
@@ -45,6 +46,16 @@ class AIProviderManager {
       openai: this.keys.get('openai')?.length || 0,
       anthropic: this.keys.get('anthropic')?.length || 0
     });
+  }
+
+  setModel(model: string) {
+    if (model && model.trim()) {
+      this.model = model.trim();
+    }
+  }
+
+  getModel(): string {
+    return this.model;
   }
 
   async generateContent(prompt: string, systemInstruction?: string): Promise<string> {
@@ -128,7 +139,7 @@ class AIProviderManager {
         if (systemInstruction) {
           body.system_instruction = { parts: [{ text: systemInstruction }] };
         }
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${decryptedKey}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${decryptedKey}`;
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -140,7 +151,13 @@ class AIProviderManager {
           throw err;
         }
         const data = await response.json();
-        return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        // Handle SAFETY blocks gracefully
+        const candidate = data.candidates?.[0];
+        if (candidate?.finishReason === 'SAFETY') {
+          console.warn('⚠️ Gemini blocked response due to safety filters.');
+          return '[İçerik güvenlik filtresine takıldı. Lütfen sahne metnini gözden geçirin.]';
+        }
+        return candidate?.content?.parts?.[0]?.text || '';
       }
 
       case 'openai': {
@@ -219,6 +236,13 @@ class AIProviderManager {
 
   isInitialized(): boolean {
     return this.initialized;
+  }
+
+  hasKeys(): boolean {
+    for (const keys of this.keys.values()) {
+      if (keys.length > 0) return true;
+    }
+    return false;
   }
 }
 

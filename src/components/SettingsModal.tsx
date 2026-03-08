@@ -9,9 +9,10 @@ import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Trash2, Plus, Check, Copy, RotateCcw } from 'lucide-react';
+import { Copy, RotateCcw, ExternalLink } from 'lucide-react';
 import { DEFAULT_SYSTEM_PROMPT_DISPLAY, loadSystemPrompt, saveSystemPrompt } from '@/lib/geminiApi';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 interface SettingsModalProps {
   open: boolean;
@@ -33,10 +34,9 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ open, onClose, apiKeys, imageApiKeys, settings, onSaveKeys, onSaveImageKeys, onSaveSettings, aspectRatio, onAspectRatioChange }: SettingsModalProps) {
+  const navigate = useNavigate();
   const [localKeys, setLocalKeys] = useState<string[]>(apiKeys);
   const [localImageKeys, setLocalImageKeys] = useState<string[]>(imageApiKeys);
-  const [newKey, setNewKey] = useState('');
-  const [newImageKey, setNewImageKey] = useState('');
   const [localSettings, setLocalSettings] = useState(settings);
   const [systemPrompt, setSystemPrompt] = useState('');
 
@@ -48,26 +48,6 @@ export function SettingsModal({ open, onClose, apiKeys, imageApiKeys, settings, 
       setSystemPrompt(loadSystemPrompt());
     }
   }, [open, apiKeys, imageApiKeys, settings]);
-
-  const addKey = () => {
-    if (!newKey.trim()) return;
-    setLocalKeys(prev => [...prev, newKey.trim()]);
-    setNewKey('');
-  };
-
-  const removeKey = (index: number) => {
-    setLocalKeys(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const addImageKey = () => {
-    if (!newImageKey.trim()) return;
-    setLocalImageKeys(prev => [...prev, newImageKey.trim()]);
-    setNewImageKey('');
-  };
-
-  const removeImageKey = (index: number) => {
-    setLocalImageKeys(prev => prev.filter((_, i) => i !== index));
-  };
 
   const handleSave = () => {
     onSaveKeys(localKeys);
@@ -83,6 +63,11 @@ export function SettingsModal({ open, onClose, apiKeys, imageApiKeys, settings, 
     toast.info('Sistem prompt varsayılana sıfırlandı');
   };
 
+  const goToSettings = () => {
+    onClose();
+    navigate('/settings');
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="bg-card border-border sm:max-w-lg max-h-[85vh] overflow-y-auto">
@@ -90,107 +75,33 @@ export function SettingsModal({ open, onClose, apiKeys, imageApiKeys, settings, 
           <DialogTitle className="text-foreground">Ayarlar</DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="keys" className="pt-2">
-          <TabsList className="grid w-full grid-cols-4 bg-secondary">
-            <TabsTrigger value="keys" className="text-xs">Prompt API</TabsTrigger>
-            <TabsTrigger value="imagekeys" className="text-xs">Görüntü API</TabsTrigger>
+        <Tabs defaultValue="model" className="pt-2">
+          <TabsList className="grid w-full grid-cols-3 bg-secondary">
+            <TabsTrigger value="apikeys" className="text-xs">API Anahtarları</TabsTrigger>
             <TabsTrigger value="model" className="text-xs">Model</TabsTrigger>
             <TabsTrigger value="prompt" className="text-xs">Sistem Prompt</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="keys" className="space-y-3 pt-3">
-            <div className="flex gap-2">
-              <Input
-                type="password"
-                value={newKey}
-                onChange={e => setNewKey(e.target.value)}
-                placeholder="AIza... (Google AI Studio key)"
-                className="bg-secondary border-border text-foreground text-xs"
-                onKeyDown={e => e.key === 'Enter' && addKey()}
-              />
-              <Button size="sm" onClick={addKey} className="shrink-0 bg-primary text-primary-foreground">
-                <Plus className="h-3.5 w-3.5" />
+          {/* API Keys — redirect to /settings page */}
+          <TabsContent value="apikeys" className="space-y-4 pt-4">
+            <div className="rounded-md border border-border bg-secondary/50 p-4 text-center space-y-3">
+              <p className="text-sm font-medium">API Anahtarı Yönetimi</p>
+              <p className="text-xs text-muted-foreground">
+                Gemini, OpenAI ve Anthropic API anahtarlarınızı güvenli biçimde yönetmek için
+                Ayarlar sayfasını kullanın.
+              </p>
+              <Button
+                onClick={goToSettings}
+                className="w-full bg-primary text-primary-foreground"
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Ayarlar Sayfasına Git
               </Button>
             </div>
-
-            {localKeys.length === 0 && (
-              <p className="text-xs text-muted-foreground py-4 text-center">Henüz API anahtarı eklenmedi</p>
-            )}
-
-            <div className="space-y-1.5 max-h-40 overflow-y-auto scrollbar-thin">
-              {localKeys.map((key, i) => (
-                <div key={i} className="flex items-center gap-2 rounded-md border bg-secondary px-3 py-2">
-                  <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                  <span className="flex-1 text-xs text-foreground font-mono truncate">
-                    Key {i + 1}: {key.slice(0, 8)}...{key.slice(-4)}
-                  </span>
-                  <button onClick={() => removeKey(i)} className="text-muted-foreground hover:text-destructive">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            {localKeys.length > 1 && (
-              <p className="text-[11px] text-muted-foreground">
-                {localKeys.length} anahtar aktif — otomatik rotasyon ile kullanılacak
-              </p>
-            )}
-
-            <div className="rounded-md border border-border bg-secondary/50 p-3 mt-2">
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                💡 <strong>API Anahtarları kalıcıdır</strong> — Tarayıcıyı kapatsanız bile silinmez.
-                Birden fazla anahtar eklerseniz rate-limit durumunda otomatik olarak sonrakine geçilir.
-              </p>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="imagekeys" className="space-y-3 pt-3">
-            <div className="flex gap-2">
-              <Input
-                type="password"
-                value={newImageKey}
-                onChange={e => setNewImageKey(e.target.value)}
-                placeholder="AIza... (Görüntü üretimi için API key)"
-                className="bg-secondary border-border text-foreground text-xs"
-                onKeyDown={e => e.key === 'Enter' && addImageKey()}
-              />
-              <Button size="sm" onClick={addImageKey} className="shrink-0 bg-primary text-primary-foreground">
-                <Plus className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-
-            {localImageKeys.length === 0 && (
-              <p className="text-xs text-muted-foreground py-4 text-center">Henüz görüntü API anahtarı eklenmedi</p>
-            )}
-
-            <div className="space-y-1.5 max-h-40 overflow-y-auto scrollbar-thin">
-              {localImageKeys.map((key, i) => (
-                <div key={i} className="flex items-center gap-2 rounded-md border bg-secondary px-3 py-2">
-                  <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                  <span className="flex-1 text-xs text-foreground font-mono truncate">
-                    Key {i + 1}: {key.slice(0, 8)}...{key.slice(-4)}
-                  </span>
-                  <button onClick={() => removeImageKey(i)} className="text-muted-foreground hover:text-destructive">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Görüntü Modeli</Label>
-              <Input
-                value={localSettings.imageModel}
-                onChange={e => setLocalSettings(s => ({ ...s, imageModel: e.target.value }))}
-                placeholder="Örn: gemini-2.0-flash-exp, imagen-3.0-generate-002..."
-                className="bg-secondary border-border text-foreground text-sm font-mono"
-              />
-            </div>
-
             <div className="rounded-md border border-border bg-secondary/50 p-3">
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                💡 <strong>Görüntü API anahtarları ayrı tutulur</strong> — Prompt üretimi ve görüntü üretimi için farklı Gemini modelleri/projeleri kullanabilirsiniz.
+                💡 Ayarlar sayfasında toplu anahtar ekleme (30 anahtar bir seferde), aktif/pasif yönetimi,
+                rate-limit durumu ve kullanım istatistiklerini görebilirsiniz.
               </p>
             </div>
           </TabsContent>
@@ -256,25 +167,25 @@ export function SettingsModal({ open, onClose, apiKeys, imageApiKeys, settings, 
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="16:9" id="ar-16-9" />
                   <Label htmlFor="ar-16-9" className="cursor-pointer text-sm font-normal">
-                    16:9 - Widescreen (Cinematic, YouTube)
+                    16:9 - Widescreen (Sinematik, YouTube)
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="4:3" id="ar-4-3" />
                   <Label htmlFor="ar-4-3" className="cursor-pointer text-sm font-normal">
-                    4:3 - Classic Film
+                    4:3 - Klasik Film
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="1:1" id="ar-1-1" />
                   <Label htmlFor="ar-1-1" className="cursor-pointer text-sm font-normal">
-                    1:1 - Square (Instagram)
+                    1:1 - Kare (Instagram)
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="9:16" id="ar-9-16" />
                   <Label htmlFor="ar-9-16" className="cursor-pointer text-sm font-normal">
-                    9:16 - Vertical (TikTok, Stories)
+                    9:16 - Dikey (TikTok, Hikayeler)
                   </Label>
                 </div>
               </RadioGroup>

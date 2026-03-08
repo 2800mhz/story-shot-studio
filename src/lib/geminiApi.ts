@@ -69,10 +69,12 @@ interface GenerateOptions {
   // AI-extracted entity context
   sceneEntities?: { characters: ExtractedEntity[]; locations: ExtractedEntity[] };
   sceneAnalysis?: SceneAnalysis;
+  // Optional: pass an aiProvider-style generateContent function to bypass direct API calls
+  generateFn?: (prompt: string, systemPrompt: string) => Promise<string>;
 }
 
 export async function generatePrompts(opts: GenerateOptions & { systemPrompt?: string; signal?: AbortSignal }): Promise<{ shotType: string; text: string; summary?: string }[]> {
-  const { scene, apiKey, model, variantCount, temperature, consistencyGroups, allScenes, systemPrompt: customPrompt, subScene, parentScene, parentConsistencyGroups, sceneEntities, sceneAnalysis } = opts;
+  const { scene, apiKey, model, variantCount, temperature, consistencyGroups, allScenes, systemPrompt: customPrompt, subScene, parentScene, parentConsistencyGroups, sceneEntities, sceneAnalysis, generateFn } = opts;
 
   const isSubScene = !!subScene && !!parentScene;
 
@@ -202,33 +204,42 @@ PROMPT_1: [shot type] | [prompt text]`;
   const basePrompt = customPrompt || loadSystemPrompt();
   const systemPrompt = basePrompt.replace('{N}', String(variantCount));
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  let content: string;
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    signal: opts.signal,
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-      generationConfig: {
-        temperature,
-        maxOutputTokens: 8192,
-      },
-    }),
-  });
+  if (generateFn) {
+    // Use aiProvider (Supabase-managed keys, automatic rotation)
+    content = await generateFn(userMessage, systemPrompt);
+  } else {
+    // Legacy direct fetch path (localStorage keys)
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-  if (response.status === 429 || response.status === 403) {
-    throw new Error('RATE_LIMIT');
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: opts.signal,
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+        generationConfig: {
+          temperature,
+          maxOutputTokens: 8192,
+        },
+      }),
+    });
+
+    if (response.status === 429 || response.status === 403) {
+      throw new Error('RATE_LIMIT');
+    }
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`API Error ${response.status}: ${err}`);
+    }
+
+    const data = await response.json();
+    content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
   }
 
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`API Error ${response.status}: ${err}`);
-  }
-
-  const data = await response.json();
-  const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
   return parsePromptResponse(content, variantCount);
 }
 
@@ -249,6 +260,18 @@ export async function revisePrompt(
     return revisionInstruction.slice('__RESTORE__::'.length);
   }
 
+  const revisionPrompt = `Original prompt:\n${originalPrompt}\n\nRevision instruction:\n${revisionInstruction}\n\nOutput the revised prompt only.`;
+  const systemMsg = 'You are a cinematographer revising image generation prompts. Apply the revision to the prompt while maintaining the same format and quality. Output ONLY the revised prompt text, nothing else.';
+
+  // Prefer aiProvider if available
+  const { aiProvider: provider } = await import('./aiProvider');
+  if (provider.isInitialized() && provider.hasKeys()) {
+    return await provider.generateContent(revisionPrompt, systemMsg) || originalPrompt;
+  }
+
+  // Fallback to direct fetch with provided key
+  if (!apiKey) return originalPrompt;
+
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   const response = await fetch(url, {
@@ -256,11 +279,11 @@ export async function revisePrompt(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       system_instruction: {
-        parts: [{ text: 'You are a cinematographer revising image generation prompts. Apply the revision to the prompt while maintaining the same format and quality. Output ONLY the revised prompt text, nothing else.' }],
+        parts: [{ text: systemMsg }],
       },
       contents: [{
         role: 'user',
-        parts: [{ text: `Original prompt:\n${originalPrompt}\n\nRevision instruction:\n${revisionInstruction}\n\nOutput the revised prompt only.` }],
+        parts: [{ text: revisionPrompt }],
       }],
       generationConfig: { temperature: 0.5, maxOutputTokens: 1024 },
     }),
