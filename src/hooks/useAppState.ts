@@ -85,7 +85,7 @@ function persistState(s: AppState) {
 function reducerCore(state: AppState, action: InternalAction): AppState {
   switch (action.type) {
     case 'SET_MAIN_TEXT':
-      return { ...state, mainText: action.payload.text, mainFileName: action.payload.fileName };
+      return { ...state, mainText: action.payload.text, documentText: action.payload.text, mainFileName: action.payload.fileName };
     case 'SET_EXTRACTED_ENTITIES':
       return { ...state, extractedEntities: action.payload };
     case 'ADD_EXTRACTED_ENTITY':
@@ -433,9 +433,13 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
     case 'SET_ANALYZING':
       return { ...state, isAnalyzing: action.payload };
     case 'SET_DOCUMENT_TEXT':
-      return { ...state, documentText: action.payload };
+      return { ...state, documentText: action.payload, mainText: action.payload };
     case 'SET_SCENES':
       return { ...state, sceneCards: action.payload };
+    case 'SET_CHARACTERS':
+      return { ...state, characters: action.payload };
+    case 'SET_LOCATIONS':
+      return { ...state, locations: action.payload };
     default:
       return state;
   }

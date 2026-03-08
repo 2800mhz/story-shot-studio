@@ -87,13 +87,15 @@ export interface SceneAnalysis {
 export interface Character {
   id: string;
   name: string;
-  description: string;
+  description?: string;
+  basePrompt?: string;
 }
 
 export interface Location {
   id: string;
   name: string;
-  description: string;
+  description?: string;
+  basePrompt?: string;
 }
 
 export interface PromptCard {
@@ -229,4 +231,6 @@ export type AppAction =
   | { type: 'SET_MASTER_PROMPT'; payload: string }
   | { type: 'SET_ANALYZING'; payload: boolean }
   | { type: 'SET_DOCUMENT_TEXT'; payload: string }
-  | { type: 'SET_SCENES'; payload: SceneCard[] };
+  | { type: 'SET_SCENES'; payload: SceneCard[] }
+  | { type: 'SET_CHARACTERS'; payload: Character[] }
+  | { type: 'SET_LOCATIONS'; payload: Location[] };

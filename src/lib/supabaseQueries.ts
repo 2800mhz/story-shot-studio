@@ -287,6 +287,24 @@ export async function saveGlobalCharacter(projectId: string, character: {
   return data;
 }
 
+export async function upsertGlobalCharacter(projectId: string, character: {
+  name: string;
+  description?: string;
+  base_prompt?: string;
+}) {
+  const { data, error } = await supabase
+    .from('global_characters')
+    .upsert(
+      { project_id: projectId, ...character },
+      { onConflict: 'project_id,name', ignoreDuplicates: false }
+    )
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 // ============================================
 // LOCATION QUERIES
 // ============================================
@@ -312,6 +330,24 @@ export async function saveGlobalLocation(projectId: string, location: {
       project_id: projectId,
       ...location
     })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function upsertGlobalLocation(projectId: string, location: {
+  name: string;
+  description?: string;
+  base_prompt?: string;
+}) {
+  const { data, error } = await supabase
+    .from('global_locations')
+    .upsert(
+      { project_id: projectId, ...location },
+      { onConflict: 'project_id,name', ignoreDuplicates: false }
+    )
     .select()
     .single();
 

@@ -15,7 +15,7 @@ import { parseEpisodes } from '@/lib/contextDetection';
 import { generatePrompts, revisePrompt, loadSystemPrompt } from '@/lib/geminiApi';
 import { analyzeTextIntoScenes } from '@/lib/sceneAnalyzer';
 import { generatePromptsForScene } from '@/lib/promptGenerator';
-import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, savePrompts, updateEpisode } from '@/lib/supabaseQueries';
+import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation } from '@/lib/supabaseQueries';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
@@ -73,10 +73,12 @@ const Index = () => {
     try {
       console.log('📥 Loading episode data:', episodeId);
 
-      const [projectData, episodeData, scenesData] = await Promise.all([
+      const [projectData, episodeData, scenesData, globalChars, globalLocs] = await Promise.all([
         fetchProject(projectId!),
         fetchEpisode(episodeId!),
-        fetchScenes(episodeId!)
+        fetchScenes(episodeId!),
+        fetchGlobalCharacters(projectId!),
+        fetchGlobalLocations(projectId!)
       ]);
 
       console.log('✅ Loaded:', {
@@ -93,9 +95,33 @@ const Index = () => {
         dispatch({ type: 'SET_MASTER_PROMPT', payload: projectData.master_prompt });
       }
 
-      // Load document text
+      // Load document text — sync both mainText and documentText
       if (episodeData.document_text) {
         dispatch({ type: 'SET_DOCUMENT_TEXT', payload: episodeData.document_text });
+      }
+
+      // Load global characters and locations from Supabase
+      if (globalChars.length > 0) {
+        dispatch({
+          type: 'SET_CHARACTERS',
+          payload: globalChars.map((c: { id: string; name: string; description?: string | null; base_prompt?: string | null }) => ({
+            id: c.id,
+            name: c.name,
+            description: c.description || '',
+            basePrompt: c.base_prompt || '',
+          }))
+        });
+      }
+      if (globalLocs.length > 0) {
+        dispatch({
+          type: 'SET_LOCATIONS',
+          payload: globalLocs.map((l: { id: string; name: string; description?: string | null; base_prompt?: string | null }) => ({
+            id: l.id,
+            name: l.name,
+            description: l.description || '',
+            basePrompt: l.base_prompt || '',
+          }))
+        });
       }
 
       // Load scenes into state
@@ -247,10 +273,19 @@ const Index = () => {
       dispatch({ type: 'SET_MAIN_TEXT', payload: { text, fileName: file.name } });
       const episodes = parseEpisodes(text);
       dispatch({ type: 'SET_EPISODES', payload: episodes });
+
+      // Immediately persist the document text to Supabase so it survives page refresh
+      if (episodeId) {
+        try {
+          await updateEpisode(episodeId, { document_text: text });
+        } catch (saveErr) {
+          console.error('Failed to save document text:', saveErr);
+        }
+      }
     } catch (e) {
       console.error('Dosya okunamadı', e);
     }
-  }, [dispatch]);
+  }, [dispatch, episodeId]);
 
   const handleAddScene = useCallback((segment: TextSegment, episodeTitle: string) => {
     const scene: Scene = {
@@ -737,7 +772,8 @@ const Index = () => {
         state.masterPrompt,
         undefined,
         undefined,
-        aspectRatio
+        aspectRatio,
+        state.sceneAnalyses[sceneId]
       );
       dispatch({ 
         type: 'FINISH_PROMPT_GENERATION', 
@@ -756,7 +792,7 @@ const Index = () => {
         payload: { sceneId, prompts: [] },
       });
     }
-  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, dispatch, aspectRatio]);
+  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, dispatch, aspectRatio]);
 
   const handleGenerateAllPrompts = useCallback(async () => {
     const scenesWithoutPrompts = state.sceneCards.filter(s => s.prompts.length === 0 && s.status !== 'generating');
@@ -788,7 +824,8 @@ const Index = () => {
         state.masterPrompt,
         undefined,
         undefined,
-        aspectRatio
+        aspectRatio,
+        state.sceneAnalyses[sceneId]
       );
       dispatch({
         type: 'FINISH_PROMPT_GENERATION',
@@ -798,7 +835,7 @@ const Index = () => {
       console.error('Variation generation error:', error);
       dispatch({ type: 'FINISH_PROMPT_GENERATION', payload: { sceneId, prompts: existingPrompts } });
     }
-  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, dispatch, aspectRatio]);
+  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, dispatch, aspectRatio]);
 
   const handleAddNewCharacterToSceneCard = useCallback((sceneId: string, name: string) => {
     const character = {
@@ -807,7 +844,14 @@ const Index = () => {
       description: '',
     };
     dispatch({ type: 'ADD_NEW_CHARACTER_TO_SCENE_CARD', payload: { sceneId, character } });
-  }, [dispatch]);
+
+    // Persist to Supabase so the character survives page refresh
+    if (projectId) {
+      upsertGlobalCharacter(projectId, { name, description: '' }).catch(err => {
+        console.error('Failed to save character to Supabase:', err);
+      });
+    }
+  }, [dispatch, projectId]);
 
   const handleAddNewLocationToSceneCard = useCallback((sceneId: string, name: string) => {
     const location = {
@@ -816,7 +860,14 @@ const Index = () => {
       description: '',
     };
     dispatch({ type: 'ADD_NEW_LOCATION_TO_SCENE_CARD', payload: { sceneId, location } });
-  }, [dispatch]);
+
+    // Persist to Supabase so the location survives page refresh
+    if (projectId) {
+      upsertGlobalLocation(projectId, { name, description: '' }).catch(err => {
+        console.error('Failed to save location to Supabase:', err);
+      });
+    }
+  }, [dispatch, projectId]);
 
   return (
     <div className="flex h-screen flex-col bg-background">
