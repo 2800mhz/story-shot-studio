@@ -312,11 +312,11 @@ export function SceneCard({
         </div>
 
         {/* Time Contexts */}
-        {(timeContexts.length > 0 || (scene.timeContextIds && scene.timeContextIds.length > 0)) && (
+        {scene.timeContextIds && scene.timeContextIds.length > 0 && (
           <div>
             <div className="text-xs font-semibold mb-1 text-muted-foreground">⏰ Zaman Bağlamı:</div>
             <div className="flex flex-wrap gap-1">
-              {scene.timeContextIds?.map(tcId => {
+              {scene.timeContextIds.map(tcId => {
                 const tc = timeContexts.find(t => t.id === tcId);
                 if (!tc) return null;
                 return (
@@ -334,43 +334,43 @@ export function SceneCard({
                   </span>
                 );
               })}
-              {onAddTimeContext && timeContexts.length > 0 && (
-                <div className="relative">
-                  {showTimeContextPicker ? (
-                    <div className="absolute z-10 left-0 top-6 bg-popover border rounded shadow-lg p-1 min-w-[160px]">
-                      {timeContexts
-                        .filter(tc => !scene.timeContextIds?.includes(tc.id))
-                        .map(tc => (
-                          <button
-                            key={tc.id}
-                            className="block w-full text-left px-2 py-1 text-xs hover:bg-accent rounded"
-                            onClick={() => { onAddTimeContext(scene.id, tc.id); setShowTimeContextPicker(false); }}
-                          >
-                            ⏰ {tc.label}
-                            {tc.era && <span className="text-muted-foreground ml-1">({tc.era})</span>}
-                          </button>
-                        ))}
-                      {timeContexts.filter(tc => !scene.timeContextIds?.includes(tc.id)).length === 0 && (
-                        <span className="block px-2 py-1 text-xs text-muted-foreground">Tümü eklenmiş</span>
-                      )}
-                      <button
-                        className="block w-full text-left px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-                        onClick={() => setShowTimeContextPicker(false)}
-                      >
-                        ✕ Kapat
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setShowTimeContextPicker(true)}
-                      className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-purple-500/30 px-2 py-0.5 text-xs text-purple-400/70 hover:border-purple-400 hover:text-purple-400 transition-colors"
-                    >
-                      <Plus className="h-2.5 w-2.5" /> Ekle
-                    </button>
-                  )}
-                </div>
-              )}
             </div>
+          </div>
+        )}
+        {onAddTimeContext && timeContexts.length > 0 && (
+          <div className="relative">
+            {showTimeContextPicker ? (
+              <div className="absolute z-10 left-0 top-6 bg-popover border rounded shadow-lg p-1 min-w-[160px]">
+                {timeContexts
+                  .filter(tc => !scene.timeContextIds?.includes(tc.id))
+                  .map(tc => (
+                    <button
+                      key={tc.id}
+                      className="block w-full text-left px-2 py-1 text-xs hover:bg-accent rounded"
+                      onClick={() => { onAddTimeContext(scene.id, tc.id); setShowTimeContextPicker(false); }}
+                    >
+                      ⏰ {tc.label}
+                      {tc.era && <span className="text-muted-foreground ml-1">({tc.era})</span>}
+                    </button>
+                  ))}
+                {timeContexts.filter(tc => !scene.timeContextIds?.includes(tc.id)).length === 0 && (
+                  <span className="block px-2 py-1 text-xs text-muted-foreground">Tümü eklenmiş</span>
+                )}
+                <button
+                  className="block w-full text-left px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowTimeContextPicker(false)}
+                >
+                  ✕ Kapat
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowTimeContextPicker(true)}
+                className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-purple-500/30 px-2 py-0.5 text-xs text-purple-400/70 hover:border-purple-400 hover:text-purple-400 transition-colors"
+              >
+                <Plus className="h-2.5 w-2.5" /> Ekle
+              </button>
+            )}
           </div>
         )}
       </div>

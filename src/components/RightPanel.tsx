@@ -400,13 +400,19 @@ export function RightPanel({
             {sceneCards.map(sc => {
               const sceneChars = characters.filter(c => sc.characterIds.includes(c.id));
               const sceneLocs = locations.filter(l => sc.locationIds.includes(l.id));
+              // Pass only the scene's own time contexts for label display.
+              // Fall back to the full list when none are assigned so the picker
+              // can still offer all available choices to the user.
+              const sceneTimeContexts = sc.timeContextIds && sc.timeContextIds.length > 0
+                ? timeContexts.filter(tc => sc.timeContextIds!.includes(tc.id))
+                : timeContexts;
               return (
                 <SceneCard
                   key={sc.id}
                   scene={sc}
                   characters={sceneChars}
                   locations={sceneLocs}
-                  timeContexts={timeContexts}
+                  timeContexts={sceneTimeContexts}
                   onUpdateNote={onUpdateSceneCardNote || (() => {})}
                   onGeneratePrompts={onGeneratePrompts || (() => {})}
                   onDeleteScene={onDeleteSceneCard || (() => {})}
