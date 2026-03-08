@@ -1,4 +1,4 @@
-import type { SceneCard, Character, Location } from '@/types';
+import type { SceneCard, Character, Location, TimeContext } from '@/types';
 import { aiProvider } from './aiProvider';
 
 const SCENE_ANALYSIS_SYSTEM_PROMPT = `Sen bir senaryo analisti ve görsel yönetmenisin. Verilen metni görsel SAHNELERE böl.
@@ -22,6 +22,7 @@ KURALLAR:
 - visualNote TÜRKÇE olmalı (örn: "Boğaz kıyısında sabah yürüyüşü") — maks 10 kelime
 - Character/location descriptions İNGİLİZCE olmalı — maks 30 kelime
 - Sahnede açıkça görünen karakterleri ve mekanları tespit et
+- Metinde tarihsel dönem/çağ tespit edilirse timeContext alanını doldur
 
 JSON ÇIKTI:
 {
@@ -43,8 +44,17 @@ JSON ÇIKTI:
         }
       ]
     }
-  ]
+  ],
+  "timeContext": {
+    "label": "Dönem adı (Türkçe, örn: Selçuklu Dönemi)",
+    "era": "Tarihsel dönem (örn: 1100-1200 AD)",
+    "season": "Mevsim (opsiyonel)",
+    "timeOfDay": "Günün saati (opsiyonel)",
+    "historicalNotes": "Tarihsel notlar (opsiyonel, İngilizce)"
+  }
 }
+
+NOT: timeContext alanı opsiyoneldir. Metinde açık bir tarihsel dönem veya bağlam yoksa timeContext'i JSON'a ekleme.
 
 METİN:`;
 
@@ -162,7 +172,7 @@ function buildResultFromScenes(
 
 async function analyzeChunk(
   chunk: string
-): Promise<{ scenes?: SceneRaw[] }> {
+): Promise<{ scenes?: SceneRaw[]; timeContext?: { label?: string; era?: string; season?: string; timeOfDay?: string; lighting?: string; weather?: string; historicalNotes?: string } }> {
   const content = await aiProvider.generateContent(chunk, SCENE_ANALYSIS_SYSTEM_PROMPT);
 
   console.log('🤖 Raw Gemini response:', content.substring(0, 200));
@@ -176,14 +186,14 @@ async function analyzeChunk(
   }
 
   try {
-    return JSON.parse(cleanedContent) as { scenes?: SceneRaw[] };
+    return JSON.parse(cleanedContent) as { scenes?: SceneRaw[]; timeContext?: { label?: string; era?: string; season?: string; timeOfDay?: string; lighting?: string; weather?: string; historicalNotes?: string } };
   } catch (error) {
     console.error('❌ Scene analysis JSON parse error:', error);
     // Last-resort recovery attempt
     try {
       const recovered = recoverTruncatedJson(cleanedContent);
       console.warn('⚠️ Recovered truncated JSON for chunk');
-      return JSON.parse(recovered) as { scenes?: SceneRaw[] };
+      return JSON.parse(recovered) as { scenes?: SceneRaw[]; timeContext?: { label?: string; era?: string; season?: string; timeOfDay?: string; lighting?: string; weather?: string; historicalNotes?: string } };
     } catch {
       if (error instanceof SyntaxError) {
         throw new Error(`JSON parsing failed: ${error.message}. Check Gemini API response format.`);
@@ -201,6 +211,7 @@ export async function analyzeTextIntoScenes(
   sceneCards: SceneCard[];
   characters: Character[];
   locations: Location[];
+  suggestedTimeContext?: TimeContext;
 }> {
   const chunks = splitTextIntoChunks(text);
   console.log(`📦 Splitting text into ${chunks.length} chunk(s) for analysis`);
@@ -209,6 +220,7 @@ export async function analyzeTextIntoScenes(
   const locationMap = new Map<string, Location>();
   const allSceneCards: SceneCard[] = [];
   let sceneNumberOffset = 0;
+  let suggestedTimeContext: TimeContext | undefined;
 
   for (let i = 0; i < chunks.length; i++) {
     console.log(`🔍 Analyzing chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
@@ -217,11 +229,26 @@ export async function analyzeTextIntoScenes(
     const cards = buildResultFromScenes(scenes, sceneNumberOffset, characterMap, locationMap);
     allSceneCards.push(...cards);
     sceneNumberOffset += scenes.length;
+
+    // Use the first detected time context (from first chunk only to avoid duplicates)
+    if (!suggestedTimeContext && parsed.timeContext?.label) {
+      suggestedTimeContext = {
+        id: `tc-${crypto.randomUUID()}`,
+        label: parsed.timeContext.label,
+        era: parsed.timeContext.era,
+        season: parsed.timeContext.season,
+        timeOfDay: parsed.timeContext.timeOfDay,
+        lighting: parsed.timeContext.lighting,
+        weather: parsed.timeContext.weather,
+        historicalNotes: parsed.timeContext.historicalNotes,
+      };
+    }
   }
 
   return {
     sceneCards: allSceneCards,
     characters: Array.from(characterMap.values()),
     locations: Array.from(locationMap.values()),
+    suggestedTimeContext,
   };
 }

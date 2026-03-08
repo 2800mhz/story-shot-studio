@@ -39,6 +39,7 @@ const initialState: AppState = {
   sceneCards: [],
   characters: [],
   locations: [],
+  timeContexts: [],
   masterPrompt: '',
   isAnalyzing: false,
   isGeneratingPrompts: false,
@@ -328,14 +329,20 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
     // Two-stage AI workflow
     case 'START_ANALYSIS':
       return { ...state, isAnalyzing: true };
-    case 'FINISH_ANALYSIS':
+    case 'FINISH_ANALYSIS': {
+      const { sceneCards: newCards, characters: newChars, locations: newLocs, suggestedTimeContext } = action.payload;
+      const updatedTimeContexts = suggestedTimeContext && state.timeContexts.length === 0
+        ? [...state.timeContexts, suggestedTimeContext]
+        : state.timeContexts;
       return {
         ...state,
         isAnalyzing: false,
-        sceneCards: [...state.sceneCards, ...action.payload.sceneCards],
-        characters: mergeById(state.characters, action.payload.characters),
-        locations: mergeById(state.locations, action.payload.locations),
+        sceneCards: [...state.sceneCards, ...newCards],
+        characters: mergeById(state.characters, newChars),
+        locations: mergeById(state.locations, newLocs),
+        timeContexts: updatedTimeContexts,
       };
+    }
     case 'UPDATE_SCENE_CARD_NOTE':
       return {
         ...state,
@@ -440,6 +447,51 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       return { ...state, characters: action.payload };
     case 'SET_LOCATIONS':
       return { ...state, locations: action.payload };
+    case 'UPSERT_CHARACTER': {
+      const exists = state.characters.some(c => c.id === action.payload.id);
+      return {
+        ...state,
+        characters: exists
+          ? state.characters.map(c => c.id === action.payload.id ? action.payload : c)
+          : [...state.characters, action.payload],
+      };
+    }
+    case 'DELETE_CHARACTER':
+      return {
+        ...state,
+        characters: state.characters.filter(c => c.id !== action.payload),
+        sceneCards: state.sceneCards.map(sc => ({
+          ...sc,
+          characterIds: sc.characterIds.filter(id => id !== action.payload),
+        })),
+      };
+    case 'UPSERT_LOCATION': {
+      const exists = state.locations.some(l => l.id === action.payload.id);
+      return {
+        ...state,
+        locations: exists
+          ? state.locations.map(l => l.id === action.payload.id ? action.payload : l)
+          : [...state.locations, action.payload],
+      };
+    }
+    case 'DELETE_LOCATION':
+      return {
+        ...state,
+        locations: state.locations.filter(l => l.id !== action.payload),
+        sceneCards: state.sceneCards.map(sc => ({
+          ...sc,
+          locationIds: sc.locationIds.filter(id => id !== action.payload),
+        })),
+      };
+    case 'ADD_TIME_CONTEXT':
+      return { ...state, timeContexts: [...state.timeContexts, action.payload] };
+    case 'UPDATE_TIME_CONTEXT':
+      return {
+        ...state,
+        timeContexts: state.timeContexts.map(tc => tc.id === action.payload.id ? action.payload : tc),
+      };
+    case 'DELETE_TIME_CONTEXT':
+      return { ...state, timeContexts: state.timeContexts.filter(tc => tc.id !== action.payload) };
     default:
       return state;
   }

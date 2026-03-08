@@ -9,6 +9,7 @@ import { RightPanel } from '@/components/RightPanel';
 import { SettingsModal } from '@/components/SettingsModal';
 import { InfoModal } from '@/components/InfoModal';
 import { ExportModal } from '@/components/ExportModal';
+import { EntityCardPanel } from '@/components/EntityCardPanel';
 import { useAppState } from '@/hooks/useAppState';
 import { parseDocument } from '@/lib/documentParser';
 import { parseEpisodes } from '@/lib/contextDetection';
@@ -276,6 +277,7 @@ const Index = () => {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [infoOpen, setInfoOpen] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
+  const [showEntityPanel, setShowEntityPanel] = useState(false);
   const [scrollToIndex, setScrollToIndex] = useState<number | null>(null);
   const mainFileRef = useRef<HTMLInputElement>(null);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
@@ -823,7 +825,8 @@ const Index = () => {
         undefined,
         undefined,
         aspectRatio,
-        state.sceneAnalyses[sceneId]
+        state.sceneAnalyses[sceneId],
+        state.timeContexts
       );
       dispatch({ 
         type: 'FINISH_PROMPT_GENERATION', 
@@ -842,7 +845,7 @@ const Index = () => {
         payload: { sceneId, prompts: [] },
       });
     }
-  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, dispatch, aspectRatio]);
+  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, dispatch, aspectRatio]);
 
   const handleGenerateAllPrompts = useCallback(async () => {
     if (isBulkGeneratingPrompts) return;
@@ -899,7 +902,8 @@ const Index = () => {
         undefined,
         undefined,
         aspectRatio,
-        state.sceneAnalyses[sceneId]
+        state.sceneAnalyses[sceneId],
+        state.timeContexts
       );
       dispatch({
         type: 'FINISH_PROMPT_GENERATION',
@@ -909,7 +913,7 @@ const Index = () => {
       console.error('Variation generation error:', error);
       dispatch({ type: 'FINISH_PROMPT_GENERATION', payload: { sceneId, prompts: existingPrompts } });
     }
-  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, dispatch, aspectRatio]);
+  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, dispatch, aspectRatio]);
 
   const handleAddNewCharacterToSceneCard = useCallback((sceneId: string, name: string) => {
     const character = {
@@ -997,6 +1001,16 @@ const Index = () => {
         onInfo={() => setInfoOpen(true)}
         mainFileName={state.mainFileName}
       />
+      <div className="flex items-center gap-2 px-4 py-1 border-b border-border bg-card/50">
+        <Button
+          size="sm"
+          variant={showEntityPanel ? 'default' : 'outline'}
+          className="h-7 text-xs"
+          onClick={() => setShowEntityPanel(v => !v)}
+        >
+          🎭 Varlıklar
+        </Button>
+      </div>
 
       {/* No API keys banner */}
       {noKeysWarning && (
@@ -1055,6 +1069,27 @@ const Index = () => {
             isAnalyzing={state.isAnalyzing}
           />
         </div>
+
+        {showEntityPanel && (
+          <div className="w-[320px] shrink-0 border-l border-border overflow-y-auto">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-card">
+              <span className="text-sm font-medium">🎭 Varlıklar</span>
+              <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={() => setShowEntityPanel(false)}>✕</Button>
+            </div>
+            <EntityCardPanel
+              characters={state.characters}
+              locations={state.locations}
+              timeContexts={state.timeContexts}
+              onUpsertCharacter={(c) => dispatch({ type: 'UPSERT_CHARACTER', payload: c })}
+              onDeleteCharacter={(id) => dispatch({ type: 'DELETE_CHARACTER', payload: id })}
+              onUpsertLocation={(l) => dispatch({ type: 'UPSERT_LOCATION', payload: l })}
+              onDeleteLocation={(id) => dispatch({ type: 'DELETE_LOCATION', payload: id })}
+              onAddTimeContext={(t) => dispatch({ type: 'ADD_TIME_CONTEXT', payload: t })}
+              onUpdateTimeContext={(t) => dispatch({ type: 'UPDATE_TIME_CONTEXT', payload: t })}
+              onDeleteTimeContext={(id) => dispatch({ type: 'DELETE_TIME_CONTEXT', payload: id })}
+            />
+          </div>
+        )}
 
         <div className="w-[380px] shrink-0">
           <RightPanel
