@@ -147,6 +147,7 @@ export interface Database {
           visual_note: string | null
           character_ids: string[]
           location_ids: string[]
+          time_context_ids: string[]
           analysis: unknown | null
           optimizations: string[]
           created_at: string
@@ -159,6 +160,7 @@ export interface Database {
           visual_note?: string | null
           character_ids?: string[]
           location_ids?: string[]
+          time_context_ids?: string[]
           analysis?: unknown | null
           optimizations?: string[]
           created_at?: string
@@ -171,6 +173,7 @@ export interface Database {
           visual_note?: string | null
           character_ids?: string[]
           location_ids?: string[]
+          time_context_ids?: string[]
           analysis?: unknown | null
           optimizations?: string[]
           created_at?: string
