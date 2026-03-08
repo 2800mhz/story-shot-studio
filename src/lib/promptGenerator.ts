@@ -248,23 +248,6 @@ export async function generatePromptsForScene(
 
   if (entityContext) {
     userMessage += entityContext;
-  } else {
-    // Fallback to simple format for backward compatibility
-    if (characters.length > 0) {
-      userMessage += `KARAKTERLER:\n`;
-      characters.forEach(char => {
-        userMessage += `- ${char.name}: ${char.description}\n`;
-      });
-      userMessage += '\n';
-    }
-
-    if (locations.length > 0) {
-      userMessage += `MEKANLAR:\n`;
-      locations.forEach(loc => {
-        userMessage += `- ${loc.name}: ${loc.description}\n`;
-      });
-      userMessage += '\n';
-    }
   }
 
   if (masterPrompt) {
