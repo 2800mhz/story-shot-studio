@@ -223,6 +223,27 @@ const Index = () => {
     }
   }
 
+  // Auto-save episode-level data (document text, characters, locations, time contexts) independently
+  // of sceneCards so that time contexts added before analysis are never lost on refresh.
+  useEffect(() => {
+    if (!loadingData && episodeId && episode) {
+      const saveEpisodeData = async () => {
+        try {
+          await updateEpisode(episodeId, {
+            document_text: state.documentText || undefined,
+            character_data: JSON.stringify(state.characters),
+            location_data: JSON.stringify(state.locations),
+          });
+          await saveTimeContexts(episodeId, state.timeContexts);
+        } catch (err) {
+          console.warn('Failed to save episode-level data:', err);
+        }
+      };
+      const id = setTimeout(saveEpisodeData, AUTO_SAVE_DEBOUNCE_MS);
+      return () => clearTimeout(id);
+    }
+  }, [state.documentText, state.characters, state.locations, state.timeContexts, episodeId, loadingData, episode]);
+
   // Auto-save scenes to Supabase whenever sceneCards change
   useEffect(() => {
     if (!loadingData && state.sceneCards.length > 0 && episodeId) {
@@ -230,30 +251,6 @@ const Index = () => {
         try {
           setSavingStatus('saving');
           console.log('💾 Auto-saving scenes...');
-
-          // Save document text and character/location data
-          if (episode) {
-            try {
-              await updateEpisode(episodeId, {
-                document_text: state.documentText || undefined,
-                character_data: JSON.stringify(state.characters),
-                location_data: JSON.stringify(state.locations),
-              });
-            } catch (err) {
-              console.warn('Failed to save character/location data to episode:', err);
-              // Fallback: save only document_text
-              if (state.documentText) {
-                await updateEpisode(episodeId, { document_text: state.documentText });
-              }
-            }
-          }
-
-          // Save time contexts to Supabase
-          try {
-            await saveTimeContexts(episodeId, state.timeContexts);
-          } catch (err) {
-            console.warn('Failed to save time contexts to Supabase:', err);
-          }
 
           // Save scenes
           const savedScenes = await saveScenes(episodeId, state.sceneCards);
@@ -289,7 +286,7 @@ const Index = () => {
       const timeoutId = setTimeout(saveData, AUTO_SAVE_DEBOUNCE_MS);
       return () => clearTimeout(timeoutId);
     }
-  }, [state.sceneCards, state.documentText, state.characters, state.locations, state.timeContexts, episodeId, loadingData, episode]);
+  }, [state.sceneCards, episodeId, loadingData]);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [infoOpen, setInfoOpen] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);

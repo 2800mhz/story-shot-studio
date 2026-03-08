@@ -87,8 +87,6 @@ function persistState(s: AppState) {
     localStorage.setItem('gemini_image_api_keys', JSON.stringify(s.imageApiKeys));
     localStorage.setItem('gemini_model', s.settings.model);
     if (s.settings.imageModel) localStorage.setItem('gemini_image_model', s.settings.imageModel);
-    // Persist time contexts to localStorage as a fallback (primary store is Supabase episodes table)
-    localStorage.setItem('time_contexts', JSON.stringify(s.timeContexts));
   } catch { /* storage full — silently ignore */ }
 }
 
