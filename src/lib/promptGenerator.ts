@@ -1,4 +1,4 @@
-import type { SceneCard, Character, Location, PromptCard, PromptAnalysis, GenerationResult } from '@/types';
+import type { SceneCard, Character, Location, PromptCard, PromptAnalysis, GenerationResult, SceneAnalysis } from '@/types';
 import { aiProvider } from './aiProvider';
 
 const PROMPT_GENERATION_SYSTEM_PROMPT = `Sen sinematik görsel prompt üreticisisin. AI görsel üretim araçları için (Midjourney, DALL-E, Runway) detaylı prompt'lar yazıyorsun.
@@ -21,6 +21,27 @@ TEKNİK ÖZELLİKLER:
 - Işık: soft/hard, direction, color temperature
 - Renk paleti: cinematic color grading
 - Kompozisyon: rule of thirds, depth of field
+
+ANIMATION-FRIENDLY COMPOSITION:
+- Maximum 3 subjects per frame
+- Prefer static or slow single-direction movement
+- Avoid: complex crowd scenes, flowing water/fabric, particle effects
+- Use shallow depth of field to isolate subjects
+- Simple geometric backgrounds preferred
+
+HISTORICAL ACCURACY:
+- Include specific era (century, dynasty, geographic region)
+- Specify ethnic phenotype based on geographic region
+- Reference architectural style specific to time period (Ottoman, Byzantine, Seljuk, etc.)
+- Use period-accurate costume and material descriptions
+
+TIMELAPSE / TEMPORAL SEQUENCES:
+- If hasTransformation=true in scene analysis: show clear visual progression between the 3 prompts
+  * Prompt 1 (Wide Shot): Beginning state — establish the scene before transformation
+  * Prompt 2 (Medium Shot): Mid-transition state — capture the moment of change
+  * Prompt 3 (Close-up): Final/transformed state — reveal the result
+- Each prompt must be visually distinct but narratively connected
+- Do NOT use motion verbs like "transforming", "changing", "morphing" — describe static moments
 
 📊 ÖNCE ANALİZ YAP:
 1. Sahne karmaşıklığı (minimal/low/medium/high/extreme)
@@ -171,7 +192,8 @@ export async function generatePromptsForScene(
   masterPrompt: string,
   _apiKey?: string,
   _model?: string,
-  aspectRatio: '16:9' | '4:3' | '1:1' | '9:16' = '16:9'
+  aspectRatio: '16:9' | '4:3' | '1:1' | '9:16' = '16:9',
+  sceneAnalysis?: SceneAnalysis
 ): Promise<GenerationResult> {
   let userMessage = `SAHNE METNİ:\n${scene.text}\n\n`;
   userMessage += `TÜRKÇE GÖRSEL NOT: "${scene.visualNote}"\n\n`;
@@ -200,6 +222,19 @@ export async function generatePromptsForScene(
   userMessage += `🎬 ASPECT RATIO: ${aspectRatio} (${aspectRatioGuide[aspectRatio] ?? aspectRatioGuide['16:9']})\n`;
   userMessage += `COMPOSITION HINT: ${compositionHints[aspectRatio] ?? compositionHints['16:9']}\n`;
   userMessage += `KOMPOZİSYON İPUCU: ${compositionHint}\n\n`;
+
+  // Pass scene analysis hints from sceneAnalyzer if available
+  if (sceneAnalysis) {
+    userMessage += `🔍 SAHNE ANALİZİ (sceneAnalyzer sonucu):\n`;
+    userMessage += `- narrativeType: ${sceneAnalysis.narrativeType}\n`;
+    userMessage += `- temporalComplexity: ${sceneAnalysis.temporalComplexity}\n`;
+    if (sceneAnalysis.narrativeType === 'timelapse') {
+      userMessage += `- ⚠️ TIMELAPSE DETECTED: Her prompt farklı bir zaman dilimini göstermeli (başlangıç → geçiş → son durum)\n`;
+    } else if (sceneAnalysis.narrativeType === 'sequence') {
+      userMessage += `- ℹ️ SEQUENCE DETECTED: Prompts should show sequential stages of the event\n`;
+    }
+    userMessage += '\n';
+  }
 
   userMessage += `3 farklı açıdan sinematik prompt üret. Her prompt'ta "${scene.visualNote}" notunun ruhunu koru. Her prompt sonuna "--ar ${aspectRatio} --v 6" ekle.`;
 
