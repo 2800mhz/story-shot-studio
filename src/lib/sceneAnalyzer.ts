@@ -22,11 +22,19 @@ KURALLAR:
 - visualNote TÜRKÇE olmalı (örn: "Boğaz kıyısında sabah yürüyüşü") — maks 10 kelime
 - Character/location descriptions İNGİLİZCE olmalı — maks 30 kelime
 - Sahnede açıkça görünen karakterleri ve mekanları tespit et
-- Metinde tarihsel dönem/çağ tespit edilirse timeContext alanını doldur
+- Metinde tarihsel dönem/çağ tespit edilirse timeContexts alanını doldur
 
 👥 KALABALIK KURALI:
 - "Şehir Halkı", "Cemaat", "Kalabalık", "Farklı İnsanlar", "Topluluk", "Halk", "Ordu", "Askerler" gibi grup ifadeleri için isCrowd: true döndür
 - Bireysel karakterler için isCrowd: false (varsayılan)
+
+🏛️ MEKAN KURALI:
+- SADECE gerçek, fiziksel, fotoğraflanabilir mekanları ekle (çarşı, saray, bozkır, cami avlusu, şehir kapısı, atölye, kütüphane içi vb.)
+- YASAKLI mekan isimleri — bunları asla locations'a ekleme:
+  * Soyut kavramlar: "teknolojik gelişim", "ekran birliği", "takvim", "ses yansımaları", "soyut uzam", "kavramsal alan", "zaman geçişi", "dönüşüm", "evrim", "iletişim", "bilgi", "kültür", "medeniyet"
+  * "-ması/-mesi/-ışı/-işi/-uşu/-üşü" fiilimsi ekleriyle biten isimler (örn: "gelişimi", "yayılması", "birleşmesi", "dönüşümü")
+  * Soyut fikirler, buluşlar veya süreçler
+- KURAL: Bir mekanı gerçek bir kamera ile fotoğraflayabilir misin? Hayırsa, ekleme!
 
 JSON ÇIKTI:
 {
@@ -69,16 +77,21 @@ JSON ÇIKTI:
       ]
     }
   ],
-  "timeContext": {
-    "label": "Dönem adı (Türkçe, örn: Selçuklu Dönemi)",
-    "era": "Tarihsel dönem (örn: 1100-1200 AD)",
-    "season": "Mevsim (opsiyonel)",
-    "timeOfDay": "Günün saati (opsiyonel)",
-    "historicalNotes": "Tarihsel notlar (opsiyonel, İngilizce)"
-  }
+  "timeContexts": [
+    {
+      "label": "Dönem adı (Türkçe, örn: 16. yüzyıl Osmanlı - Gündüz)",
+      "era": "Tarihsel dönem (örn: 1500-1600 AD)",
+      "season": "Mevsim (opsiyonel)",
+      "timeOfDay": "gündüz veya gece veya sabah veya akşam (opsiyonel)",
+      "lighting": "Işık tanımı (opsiyonel, İngilizce)",
+      "weather": "Hava durumu (opsiyonel)",
+      "historicalNotes": "Tarihsel notlar (opsiyonel, İngilizce)"
+    }
+  ]
 }
 
-NOT: timeContext alanı opsiyoneldir. Metinde açık bir tarihsel dönem veya bağlam yoksa timeContext'i JSON'a ekleme.
+NOT: timeContexts alanı opsiyoneldir. Metinde açık bir tarihsel dönem veya bağlam yoksa timeContexts'i JSON'a ekleme.
+Birden fazla farklı dönem veya gün/gece ayrımı varsa her biri için ayrı bir timeContext nesnesi ekle (örn: gündüz sahneleri ve gece sahneleri için ayrı girdiler).
 
 METİN:`;
 
@@ -260,9 +273,11 @@ function buildResultFromScenes(
   return sceneCards;
 }
 
+type TimeContextRaw = Omit<TimeContext, 'id'>;
+
 async function analyzeChunk(
   chunk: string
-): Promise<{ scenes?: SceneRaw[]; timeContext?: { label?: string; era?: string; season?: string; timeOfDay?: string; lighting?: string; weather?: string; historicalNotes?: string } }> {
+): Promise<{ scenes?: SceneRaw[]; timeContexts?: TimeContextRaw[]; timeContext?: TimeContextRaw }> {
   const content = await aiProvider.generateContent(chunk, SCENE_ANALYSIS_SYSTEM_PROMPT);
 
   console.log('🤖 Raw Gemini response:', content.substring(0, 200));
@@ -276,14 +291,14 @@ async function analyzeChunk(
   }
 
   try {
-    return JSON.parse(cleanedContent) as { scenes?: SceneRaw[]; timeContext?: { label?: string; era?: string; season?: string; timeOfDay?: string; lighting?: string; weather?: string; historicalNotes?: string } };
+    return JSON.parse(cleanedContent) as { scenes?: SceneRaw[]; timeContexts?: TimeContextRaw[]; timeContext?: TimeContextRaw };
   } catch (error) {
     console.error('❌ Scene analysis JSON parse error:', error);
     // Last-resort recovery attempt
     try {
       const recovered = recoverTruncatedJson(cleanedContent);
       console.warn('⚠️ Recovered truncated JSON for chunk');
-      return JSON.parse(recovered) as { scenes?: SceneRaw[]; timeContext?: { label?: string; era?: string; season?: string; timeOfDay?: string; lighting?: string; weather?: string; historicalNotes?: string } };
+      return JSON.parse(recovered) as { scenes?: SceneRaw[]; timeContexts?: TimeContextRaw[]; timeContext?: TimeContextRaw };
     } catch {
       if (error instanceof SyntaxError) {
         throw new Error(`JSON parsing failed: ${error.message}. Check Gemini API response format.`);
@@ -291,6 +306,15 @@ async function analyzeChunk(
       throw error;
     }
   }
+}
+
+/**
+ * Merge two TimeContext arrays by label, preferring existing items.
+ */
+function mergeTimeContextsByLabel(existing: TimeContext[], incoming: TimeContext[]): TimeContext[] {
+  const map = new Map(existing.map(tc => [tc.label, tc]));
+  incoming.forEach(tc => { if (!map.has(tc.label)) map.set(tc.label, tc); });
+  return Array.from(map.values());
 }
 
 export async function analyzeTextIntoScenes(
@@ -301,7 +325,7 @@ export async function analyzeTextIntoScenes(
   sceneCards: SceneCard[];
   characters: Character[];
   locations: Location[];
-  suggestedTimeContext?: TimeContext;
+  suggestedTimeContexts: TimeContext[];
 }> {
   const chunks = splitTextIntoChunks(text);
   console.log(`📦 Splitting text into ${chunks.length} chunk(s) for analysis`);
@@ -310,7 +334,7 @@ export async function analyzeTextIntoScenes(
   const locationMap = new Map<string, Location>();
   const allSceneCards: SceneCard[] = [];
   let sceneNumberOffset = 0;
-  let suggestedTimeContext: TimeContext | undefined;
+  let suggestedTimeContexts: TimeContext[] = [];
 
   for (let i = 0; i < chunks.length; i++) {
     console.log(`🔍 Analyzing chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
@@ -320,25 +344,34 @@ export async function analyzeTextIntoScenes(
     allSceneCards.push(...cards);
     sceneNumberOffset += scenes.length;
 
-    // Use the first detected time context (from first chunk only to avoid duplicates)
-    if (!suggestedTimeContext && parsed.timeContext?.label) {
-      suggestedTimeContext = {
+    // Normalize time contexts from this chunk (support both array and legacy single object)
+    const rawContexts: typeof parsed.timeContexts =
+      Array.isArray(parsed.timeContexts) && parsed.timeContexts.length > 0
+        ? parsed.timeContexts
+        : parsed.timeContext?.label
+          ? [parsed.timeContext]
+          : [];
+
+    const chunkTimeContexts: TimeContext[] = (rawContexts ?? [])
+      .filter(tc => tc.label)
+      .map(tc => ({
         id: `tc-${crypto.randomUUID()}`,
-        label: parsed.timeContext.label,
-        era: parsed.timeContext.era,
-        season: parsed.timeContext.season,
-        timeOfDay: parsed.timeContext.timeOfDay,
-        lighting: parsed.timeContext.lighting,
-        weather: parsed.timeContext.weather,
-        historicalNotes: parsed.timeContext.historicalNotes,
-      };
-    }
+        label: tc.label!,
+        era: tc.era,
+        season: tc.season,
+        timeOfDay: tc.timeOfDay,
+        lighting: tc.lighting,
+        weather: tc.weather,
+        historicalNotes: tc.historicalNotes,
+      }));
+
+    suggestedTimeContexts = mergeTimeContextsByLabel(suggestedTimeContexts, chunkTimeContexts);
   }
 
   return {
     sceneCards: allSceneCards,
     characters: Array.from(characterMap.values()),
     locations: Array.from(locationMap.values()),
-    suggestedTimeContext,
+    suggestedTimeContexts,
   };
 }

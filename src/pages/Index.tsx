@@ -16,7 +16,7 @@ import { parseEpisodes } from '@/lib/contextDetection';
 import { generatePrompts, revisePrompt, loadSystemPrompt } from '@/lib/geminiApi';
 import { analyzeTextIntoScenes } from '@/lib/sceneAnalyzer';
 import { generatePromptsForScene } from '@/lib/promptGenerator';
-import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation } from '@/lib/supabaseQueries';
+import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts } from '@/lib/supabaseQueries';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
@@ -203,6 +203,14 @@ const Index = () => {
           }
         }
       }
+
+      // Load time contexts from Supabase (backward compatible: if column missing treat as [])
+      const storedTimeContexts = Array.isArray(episodeData.time_contexts) && episodeData.time_contexts.length > 0
+        ? episodeData.time_contexts
+        : null;
+      if (storedTimeContexts) {
+        dispatch({ type: 'SET_TIME_CONTEXTS', payload: storedTimeContexts });
+      }
     } catch (error) {
       console.error('❌ Error loading episode data:', error);
       toast({
@@ -240,6 +248,13 @@ const Index = () => {
             }
           }
 
+          // Save time contexts to Supabase
+          try {
+            await saveTimeContexts(episodeId, state.timeContexts);
+          } catch (err) {
+            console.warn('Failed to save time contexts to Supabase:', err);
+          }
+
           // Save scenes
           const savedScenes = await saveScenes(episodeId, state.sceneCards);
 
@@ -274,7 +289,7 @@ const Index = () => {
       const timeoutId = setTimeout(saveData, AUTO_SAVE_DEBOUNCE_MS);
       return () => clearTimeout(timeoutId);
     }
-  }, [state.sceneCards, state.documentText, state.characters, state.locations, episodeId, loadingData, episode]);
+  }, [state.sceneCards, state.documentText, state.characters, state.locations, state.timeContexts, episodeId, loadingData, episode]);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [infoOpen, setInfoOpen] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);

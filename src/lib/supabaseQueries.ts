@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import type { TimeContext } from '@/types';
 
 // ============================================
 // PROJECT QUERIES
@@ -96,6 +97,7 @@ export async function updateEpisode(episodeId: string, updates: {
   document_text?: string;
   character_data?: string;
   location_data?: string;
+  time_contexts?: TimeContext[];
 }) {
   const { data, error } = await supabase
     .from('episodes')
@@ -112,6 +114,15 @@ export async function deleteEpisode(episodeId: string) {
   const { error } = await supabase
     .from('episodes')
     .delete()
+    .eq('id', episodeId);
+
+  if (error) throw error;
+}
+
+export async function saveTimeContexts(episodeId: string, timeContexts: TimeContext[]): Promise<void> {
+  const { error } = await supabase
+    .from('episodes')
+    .update({ time_contexts: timeContexts })
     .eq('id', episodeId);
 
   if (error) throw error;

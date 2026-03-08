@@ -55,6 +55,9 @@ export interface Database {
           episode_number: number
           title: string
           document_text: string | null
+          character_data: string | null
+          location_data: string | null
+          time_contexts: unknown
           created_at: string
         }
         Insert: {
@@ -63,6 +66,9 @@ export interface Database {
           episode_number: number
           title: string
           document_text?: string | null
+          character_data?: string | null
+          location_data?: string | null
+          time_contexts?: unknown
           created_at?: string
         }
         Update: {
@@ -71,6 +77,9 @@ export interface Database {
           episode_number?: number
           title?: string
           document_text?: string | null
+          character_data?: string | null
+          location_data?: string | null
+          time_contexts?: unknown
           created_at?: string
         }
       }

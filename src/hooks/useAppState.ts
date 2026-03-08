@@ -59,6 +59,13 @@ function mergeById<T extends { id: string }>(existing: T[], incoming: T[]): T[] 
   return Array.from(map.values());
 }
 
+// Merge two TimeContext arrays by label, preferring existing items (keeps existing IDs)
+function mergeTimeContextsByLabel<T extends { id: string; label: string }>(existing: T[], incoming: T[]): T[] {
+  const map = new Map(existing.map(item => [item.label, item]));
+  incoming.forEach(item => { if (!map.has(item.label)) map.set(item.label, item); });
+  return Array.from(map.values());
+}
+
 type InternalAction = AppAction | { type: '__RESTORE__'; payload: AppState };
 
 function reducer(state: AppState, action: InternalAction): AppState {
@@ -80,8 +87,7 @@ function persistState(s: AppState) {
     localStorage.setItem('gemini_image_api_keys', JSON.stringify(s.imageApiKeys));
     localStorage.setItem('gemini_model', s.settings.model);
     if (s.settings.imageModel) localStorage.setItem('gemini_image_model', s.settings.imageModel);
-    // Persist time contexts (no Supabase table yet — localStorage fallback)
-    // TODO: Migrate time_contexts to Supabase episodes table (add time_contexts JSONB column)
+    // Persist time contexts to localStorage as a fallback (primary store is Supabase episodes table)
     localStorage.setItem('time_contexts', JSON.stringify(s.timeContexts));
   } catch { /* storage full — silently ignore */ }
 }
@@ -333,19 +339,35 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
     case 'START_ANALYSIS':
       return { ...state, isAnalyzing: true };
     case 'FINISH_ANALYSIS': {
-      const { sceneCards: newCards, characters: newChars, locations: newLocs, suggestedTimeContext } = action.payload;
-      const updatedTimeContexts = suggestedTimeContext && state.timeContexts.length === 0
-        ? [...state.timeContexts, suggestedTimeContext]
+      const { sceneCards: newCards, characters: newChars, locations: newLocs, suggestedTimeContexts } = action.payload;
+      // Merge incoming time contexts by label (dedup), preferring existing entries
+      const mergedTimeContexts = suggestedTimeContexts?.length
+        ? mergeTimeContextsByLabel(state.timeContexts, suggestedTimeContexts)
         : state.timeContexts;
+      // Determine which time context IDs correspond to the detected contexts
+      // (resolved from merged result so existing IDs are reused when labels match)
+      const incomingLabels = new Set(suggestedTimeContexts?.map(tc => tc.label) ?? []);
+      const timeContextIdsToAssign = mergedTimeContexts
+        .filter(tc => incomingLabels.has(tc.label))
+        .map(tc => tc.id);
+      // Auto-assign detected time context IDs to all newly created scene cards (Bug 4)
+      const updatedNewCards = timeContextIdsToAssign.length > 0
+        ? newCards.map(sc => ({
+            ...sc,
+            timeContextIds: [...new Set([...(sc.timeContextIds ?? []), ...timeContextIdsToAssign])],
+          }))
+        : newCards;
       return {
         ...state,
         isAnalyzing: false,
-        sceneCards: [...state.sceneCards, ...newCards],
+        sceneCards: [...state.sceneCards, ...updatedNewCards],
         characters: mergeById(state.characters, newChars),
         locations: mergeById(state.locations, newLocs),
-        timeContexts: updatedTimeContexts,
+        timeContexts: mergedTimeContexts,
       };
     }
+    case 'SET_TIME_CONTEXTS':
+      return { ...state, timeContexts: action.payload };
     case 'UPDATE_SCENE_CARD_NOTE':
       return {
         ...state,
