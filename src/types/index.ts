@@ -232,7 +232,8 @@ export type AppAction =
   | { type: 'DETACH_ENTITY_FROM_PROMPT'; payload: { sceneId: string; promptId: string; entityId: string } }
   // Two-stage AI workflow actions
   | { type: 'START_ANALYSIS' }
-  | { type: 'FINISH_ANALYSIS'; payload: { sceneCards: SceneCard[]; characters: Character[]; locations: Location[]; suggestedTimeContext?: TimeContext } }
+  | { type: 'FINISH_ANALYSIS'; payload: { sceneCards: SceneCard[]; characters: Character[]; locations: Location[]; suggestedTimeContexts?: TimeContext[] } }
+  | { type: 'SET_TIME_CONTEXTS'; payload: TimeContext[] }
   | { type: 'UPDATE_SCENE_CARD_NOTE'; payload: { sceneId: string; note: string } }
   | { type: 'ADD_CHARACTER_TO_SCENE_CARD'; payload: { sceneId: string; characterId: string } }
   | { type: 'REMOVE_CHARACTER_FROM_SCENE_CARD'; payload: { sceneId: string; characterId: string } }

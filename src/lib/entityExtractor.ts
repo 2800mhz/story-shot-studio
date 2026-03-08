@@ -7,6 +7,12 @@ const ENTITY_EXTRACTION_PROMPT = `Sen bir görsel analiz AI'sın. Sahneden karak
 - Soyut kavramlar: "ses dalgaları", "yankı", "soyut oluşum", "belirme", "dönüşüm", "evrim"
 - Hareketli süreç ifadeleri: "-ması/-mesi/-ışı/-işi/-uşu/-üşü" ekleri
 
+🏛️ MEKAN YASAKLARI — Bu tür isimleri asla locations'a ekleme:
+- Soyut/kavramsal mekanlar: "teknolojik gelişim", "ekran birliği", "takvim", "ses yansımaları", "soyut uzam", "kavramsal alan", "zaman geçişi", "dönüşüm", "evrim", "iletişim", "bilgi", "kültür"
+- "-ması/-mesi/-ışı/-işi/-uşu/-üşü" fiilimsi ekleriyle biten mekan isimleri
+- Soyut fikirler, buluşlar veya süreçler mekan olarak gösterilemez
+- KURAL: Yalnızca gerçek, fiziksel, bir kamerayla fotoğraflanabilir mekanlar kabul edilir (çarşı, saray, cami avlusu, atölye, kütüphane, şehir kapısı, vb.)
+
 ✅ ZORUNLU:
 - İNSAN karakterler (fiziksel özellikler: yaş, ırk, kıyafet, saç)
 - SOMUT mekanlar (mimari, doku, renk, malzeme)
