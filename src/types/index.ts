@@ -94,6 +94,7 @@ export interface Character {
   clothing?: string;
   physicalFeatures?: string;
   role?: string;
+  isCrowd?: boolean;
 }
 
 export interface Location {
@@ -154,6 +155,7 @@ export interface SceneCard {
   visualNote: string;
   characterIds: string[];
   locationIds: string[];
+  timeContextIds: string[];
   prompts: PromptCard[];
   status: 'analyzed' | 'generating' | 'ready';
   noteEditable: boolean;
@@ -261,4 +263,6 @@ export type AppAction =
   | { type: 'DELETE_LOCATION'; payload: string }
   | { type: 'ADD_TIME_CONTEXT'; payload: TimeContext }
   | { type: 'UPDATE_TIME_CONTEXT'; payload: TimeContext }
-  | { type: 'DELETE_TIME_CONTEXT'; payload: string };
+  | { type: 'DELETE_TIME_CONTEXT'; payload: string }
+  | { type: 'ADD_TIME_CONTEXT_TO_SCENE_CARD'; payload: { sceneId: string; timeContextId: string } }
+  | { type: 'REMOVE_TIME_CONTEXT_FROM_SCENE_CARD'; payload: { sceneId: string; timeContextId: string } };

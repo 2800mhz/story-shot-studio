@@ -206,12 +206,20 @@ export async function generatePromptsForScene(
     entityContext += 'CHARACTERS IN THIS SCENE:\n';
     characters.forEach(char => {
       let charDesc = `- ${char.name}`;
-      if (char.role) charDesc += ` (${char.role})`;
-      if (char.age) charDesc += `, ${char.age}`;
-      if (char.ethnicity) charDesc += `, ethnicity: ${char.ethnicity}`;
-      if (char.clothing) charDesc += `, wearing: ${char.clothing}`;
-      if (char.physicalFeatures) charDesc += `, appearance: ${char.physicalFeatures}`;
-      if (char.description) charDesc += `. ${char.description}`;
+      if (char.isCrowd) {
+        // Use crowd format for group/crowd entities
+        charDesc = `- a crowd of ${char.name.toLocaleLowerCase('tr-TR')}`;
+        if (char.ethnicity) charDesc += ` (${char.ethnicity})`;
+        if (char.clothing) charDesc += ` wearing ${char.clothing}`;
+        if (char.description) charDesc += `. ${char.description}`;
+      } else {
+        if (char.role) charDesc += ` (${char.role})`;
+        if (char.age) charDesc += `, ${char.age}`;
+        if (char.ethnicity) charDesc += `, ethnicity: ${char.ethnicity}`;
+        if (char.clothing) charDesc += `, wearing: ${char.clothing}`;
+        if (char.physicalFeatures) charDesc += `, appearance: ${char.physicalFeatures}`;
+        if (char.description) charDesc += `. ${char.description}`;
+      }
       entityContext += charDesc + '\n';
     });
     entityContext += '\n';

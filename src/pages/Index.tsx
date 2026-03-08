@@ -171,6 +171,7 @@ const Index = () => {
           visualNote: scene.visual_note || '',
           characterIds: scene.character_ids || [],
           locationIds: scene.location_ids || [],
+          timeContextIds: scene.time_context_ids || [],
           prompts: [],
           status: 'ready' as const,
           noteEditable: false,
@@ -813,6 +814,10 @@ const Index = () => {
 
     const sceneCharacters = state.characters.filter(c => scene.characterIds.includes(c.id));
     const sceneLocations = state.locations.filter(l => scene.locationIds.includes(l.id));
+    // Use scene-specific time contexts if attached; fall back to all time contexts
+    const sceneTimeContexts = scene.timeContextIds && scene.timeContextIds.length > 0
+      ? state.timeContexts.filter(tc => scene.timeContextIds.includes(tc.id))
+      : state.timeContexts;
 
     dispatch({ type: 'START_PROMPT_GENERATION', payload: { sceneId } });
 
@@ -826,7 +831,7 @@ const Index = () => {
         undefined,
         aspectRatio,
         state.sceneAnalyses[sceneId],
-        state.timeContexts
+        sceneTimeContexts
       );
       dispatch({ 
         type: 'FINISH_PROMPT_GENERATION', 
@@ -889,6 +894,9 @@ const Index = () => {
 
     const sceneCharacters = state.characters.filter(c => scene.characterIds.includes(c.id));
     const sceneLocations = state.locations.filter(l => scene.locationIds.includes(l.id));
+    const sceneTimeContexts = scene.timeContextIds && scene.timeContextIds.length > 0
+      ? state.timeContexts.filter(tc => scene.timeContextIds.includes(tc.id))
+      : state.timeContexts;
     const existingPrompts = scene.prompts;
 
     dispatch({ type: 'START_PROMPT_GENERATION', payload: { sceneId } });
@@ -903,7 +911,7 @@ const Index = () => {
         undefined,
         aspectRatio,
         state.sceneAnalyses[sceneId],
-        state.timeContexts
+        sceneTimeContexts
       );
       dispatch({
         type: 'FINISH_PROMPT_GENERATION',
@@ -1127,6 +1135,7 @@ const Index = () => {
             sceneCards={state.sceneCards}
             characters={state.characters}
             locations={state.locations}
+            timeContexts={state.timeContexts}
             isGeneratingPrompts={state.isGeneratingPrompts}
             onGeneratePrompts={handleGeneratePromptsForScene}
             onGenerateAllPrompts={handleGenerateAllPrompts}
@@ -1136,6 +1145,8 @@ const Index = () => {
             onRemoveLocationFromSceneCard={(sceneId, locationId) => dispatch({ type: 'REMOVE_LOCATION_FROM_SCENE_CARD', payload: { sceneId, locationId } })}
             onAddCharacterToSceneCard={handleAddNewCharacterToSceneCard}
             onAddLocationToSceneCard={handleAddNewLocationToSceneCard}
+            onAddTimeContextToSceneCard={(sceneId, timeContextId) => dispatch({ type: 'ADD_TIME_CONTEXT_TO_SCENE_CARD', payload: { sceneId, timeContextId } })}
+            onRemoveTimeContextFromSceneCard={(sceneId, timeContextId) => dispatch({ type: 'REMOVE_TIME_CONTEXT_FROM_SCENE_CARD', payload: { sceneId, timeContextId } })}
             onAddVariation={handleAddVariation}
             onRegenerateAllPrompts_={handleRegenerateAllPrompts}
             isBulkGeneratingPrompts={isBulkGeneratingPrompts}

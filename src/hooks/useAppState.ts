@@ -39,7 +39,7 @@ const initialState: AppState = {
   sceneCards: [],
   characters: [],
   locations: [],
-  timeContexts: [],
+  timeContexts: loadJson('time_contexts', []),
   masterPrompt: '',
   isAnalyzing: false,
   isGeneratingPrompts: false,
@@ -80,6 +80,9 @@ function persistState(s: AppState) {
     localStorage.setItem('gemini_image_api_keys', JSON.stringify(s.imageApiKeys));
     localStorage.setItem('gemini_model', s.settings.model);
     if (s.settings.imageModel) localStorage.setItem('gemini_image_model', s.settings.imageModel);
+    // Persist time contexts (no Supabase table yet — localStorage fallback)
+    // TODO: Migrate time_contexts to Supabase episodes table (add time_contexts JSONB column)
+    localStorage.setItem('time_contexts', JSON.stringify(s.timeContexts));
   } catch { /* storage full — silently ignore */ }
 }
 
@@ -491,7 +494,32 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
         timeContexts: state.timeContexts.map(tc => tc.id === action.payload.id ? action.payload : tc),
       };
     case 'DELETE_TIME_CONTEXT':
-      return { ...state, timeContexts: state.timeContexts.filter(tc => tc.id !== action.payload) };
+      return {
+        ...state,
+        timeContexts: state.timeContexts.filter(tc => tc.id !== action.payload),
+        sceneCards: state.sceneCards.map(sc => ({
+          ...sc,
+          timeContextIds: sc.timeContextIds.filter(id => id !== action.payload),
+        })),
+      };
+    case 'ADD_TIME_CONTEXT_TO_SCENE_CARD':
+      return {
+        ...state,
+        sceneCards: state.sceneCards.map(sc =>
+          sc.id === action.payload.sceneId
+            ? { ...sc, timeContextIds: sc.timeContextIds.includes(action.payload.timeContextId) ? sc.timeContextIds : [...sc.timeContextIds, action.payload.timeContextId] }
+            : sc
+        ),
+      };
+    case 'REMOVE_TIME_CONTEXT_FROM_SCENE_CARD':
+      return {
+        ...state,
+        sceneCards: state.sceneCards.map(sc =>
+          sc.id === action.payload.sceneId
+            ? { ...sc, timeContextIds: sc.timeContextIds.filter(id => id !== action.payload.timeContextId) }
+            : sc
+        ),
+      };
     default:
       return state;
   }

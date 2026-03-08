@@ -3,12 +3,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Sparkles, Edit2, Trash2, Check, X, Copy, RefreshCw, Plus, ChevronDown, ChevronUp, AlertCircle, CheckCircle2 } from 'lucide-react';
-import type { SceneCard as SceneCardType, Character, Location, PromptCard } from '@/types';
+import type { SceneCard as SceneCardType, Character, Location, TimeContext, PromptCard } from '@/types';
 
 interface SceneCardProps {
   scene: SceneCardType;
   characters: Character[];
   locations: Location[];
+  timeContexts?: TimeContext[];
   onUpdateNote: (sceneId: string, note: string) => void;
   onGeneratePrompts: (sceneId: string) => void;
   onDeleteScene: (sceneId: string) => void;
@@ -16,6 +17,8 @@ interface SceneCardProps {
   onRemoveLocation: (sceneId: string, locationId: string) => void;
   onAddCharacter?: (sceneId: string, name: string) => void;
   onAddLocation?: (sceneId: string, name: string) => void;
+  onAddTimeContext?: (sceneId: string, timeContextId: string) => void;
+  onRemoveTimeContext?: (sceneId: string, timeContextId: string) => void;
   onAddVariation?: (sceneId: string) => void;
   onRegenerateAll?: (sceneId: string) => void;
   onRevisePrompt?: (sceneId: string, promptId: string) => void;
@@ -109,6 +112,7 @@ export function SceneCard({
   scene,
   characters,
   locations,
+  timeContexts = [],
   onUpdateNote,
   onGeneratePrompts,
   onDeleteScene,
@@ -116,6 +120,8 @@ export function SceneCard({
   onRemoveLocation,
   onAddCharacter,
   onAddLocation,
+  onAddTimeContext,
+  onRemoveTimeContext,
   onAddVariation,
   onRegenerateAll,
   onRevisePrompt,
@@ -125,6 +131,7 @@ export function SceneCard({
   const [editedNote, setEditedNote] = useState(scene.visualNote);
   const [addingCharacter, setAddingCharacter] = useState(false);
   const [addingLocation, setAddingLocation] = useState(false);
+  const [showTimeContextPicker, setShowTimeContextPicker] = useState(false);
 
   const handleSaveNote = () => {
     onUpdateNote(scene.id, editedNote);
@@ -303,6 +310,69 @@ export function SceneCard({
             )}
           </div>
         </div>
+
+        {/* Time Contexts */}
+        {(timeContexts.length > 0 || (scene.timeContextIds && scene.timeContextIds.length > 0)) && (
+          <div>
+            <div className="text-xs font-semibold mb-1 text-muted-foreground">⏰ Zaman Bağlamı:</div>
+            <div className="flex flex-wrap gap-1">
+              {scene.timeContextIds?.map(tcId => {
+                const tc = timeContexts.find(t => t.id === tcId);
+                if (!tc) return null;
+                return (
+                  <span key={tc.id} className="inline-flex items-center gap-1 rounded-full bg-purple-500/10 text-purple-400 px-2 py-0.5 text-xs font-medium">
+                    {tc.label}
+                    {onRemoveTimeContext && (
+                      <button
+                        onClick={() => onRemoveTimeContext(scene.id, tc.id)}
+                        className="hover:text-destructive ml-0.5"
+                        title="Kaldır"
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
+              {onAddTimeContext && timeContexts.length > 0 && (
+                <div className="relative">
+                  {showTimeContextPicker ? (
+                    <div className="absolute z-10 left-0 top-6 bg-popover border rounded shadow-lg p-1 min-w-[160px]">
+                      {timeContexts
+                        .filter(tc => !scene.timeContextIds?.includes(tc.id))
+                        .map(tc => (
+                          <button
+                            key={tc.id}
+                            className="block w-full text-left px-2 py-1 text-xs hover:bg-accent rounded"
+                            onClick={() => { onAddTimeContext(scene.id, tc.id); setShowTimeContextPicker(false); }}
+                          >
+                            ⏰ {tc.label}
+                            {tc.era && <span className="text-muted-foreground ml-1">({tc.era})</span>}
+                          </button>
+                        ))}
+                      {timeContexts.filter(tc => !scene.timeContextIds?.includes(tc.id)).length === 0 && (
+                        <span className="block px-2 py-1 text-xs text-muted-foreground">Tümü eklenmiş</span>
+                      )}
+                      <button
+                        className="block w-full text-left px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowTimeContextPicker(false)}
+                      >
+                        ✕ Kapat
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowTimeContextPicker(true)}
+                      className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-purple-500/30 px-2 py-0.5 text-xs text-purple-400/70 hover:border-purple-400 hover:text-purple-400 transition-colors"
+                    >
+                      <Plus className="h-2.5 w-2.5" /> Ekle
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Prompts */}

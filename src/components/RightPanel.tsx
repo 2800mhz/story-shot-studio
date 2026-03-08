@@ -44,6 +44,7 @@ interface RightPanelProps {
   sceneCards?: SceneCardType[];
   characters?: Character[];
   locations?: Location[];
+  timeContexts?: import('@/types').TimeContext[];
   isGeneratingPrompts?: boolean;
   onGeneratePrompts?: (sceneId: string) => void;
   onGenerateAllPrompts?: () => void;
@@ -53,6 +54,8 @@ interface RightPanelProps {
   onRemoveLocationFromSceneCard?: (sceneId: string, locationId: string) => void;
   onAddCharacterToSceneCard?: (sceneId: string, name: string) => void;
   onAddLocationToSceneCard?: (sceneId: string, name: string) => void;
+  onAddTimeContextToSceneCard?: (sceneId: string, timeContextId: string) => void;
+  onRemoveTimeContextFromSceneCard?: (sceneId: string, timeContextId: string) => void;
   onAddVariation?: (sceneId: string) => void;
   onRegenerateAllPrompts_?: (sceneId: string) => void;
   onRevisePrompt_?: (sceneId: string, promptId: string) => void;
@@ -116,10 +119,11 @@ export function RightPanel({
   onDeleteSubScenePrompt, onSetSubSceneNote,
   onAddSubSceneToGroup, onRemoveSubSceneFromGroup,
   onReorderScenes,
-  sceneCards = [], characters = [], locations = [],
+  sceneCards = [], characters = [], locations = [], timeContexts = [],
   isGeneratingPrompts, onGeneratePrompts, onGenerateAllPrompts, onDeleteSceneCard,
   onUpdateSceneCardNote, onRemoveCharacterFromSceneCard, onRemoveLocationFromSceneCard,
   onAddCharacterToSceneCard, onAddLocationToSceneCard,
+  onAddTimeContextToSceneCard, onRemoveTimeContextFromSceneCard,
   onAddVariation, onRegenerateAllPrompts_, onRevisePrompt_, onDeletePrompt_,
   isBulkGeneratingPrompts, bulkPromptsProgress, onCancelBulkPrompts,
 }: RightPanelProps) {
@@ -402,6 +406,7 @@ export function RightPanel({
                   scene={sc}
                   characters={sceneChars}
                   locations={sceneLocs}
+                  timeContexts={timeContexts}
                   onUpdateNote={onUpdateSceneCardNote || (() => {})}
                   onGeneratePrompts={onGeneratePrompts || (() => {})}
                   onDeleteScene={onDeleteSceneCard || (() => {})}
@@ -409,6 +414,8 @@ export function RightPanel({
                   onRemoveLocation={onRemoveLocationFromSceneCard || (() => {})}
                   onAddCharacter={onAddCharacterToSceneCard}
                   onAddLocation={onAddLocationToSceneCard}
+                  onAddTimeContext={onAddTimeContextToSceneCard}
+                  onRemoveTimeContext={onRemoveTimeContextFromSceneCard}
                   onAddVariation={onAddVariation}
                   onRegenerateAll={onRegenerateAllPrompts_}
                   onRevisePrompt={onRevisePrompt_}
