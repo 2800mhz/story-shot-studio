@@ -1,7 +1,7 @@
 import type { SceneCard, Character, Location } from '@/types';
 import { aiProvider } from './aiProvider';
 
-const SCENE_ANALYSIS_SYSTEM_PROMPT = `Sen bir senaryo analisti ve görsel yönetmenisin. Verilen metni ULTRA DETAYLI görsel SAHNELERE böl.
+const SCENE_ANALYSIS_SYSTEM_PROMPT = `Sen bir senaryo analisti ve görsel yönetmenisin. Verilen metni görsel SAHNELERE böl.
 
 🔥 KATİL KURALLAR:
 1. Her cümle = AYRI SAHNE! (Nokta gördün mü = yeni sahne!)
@@ -19,8 +19,8 @@ const SCENE_ANALYSIS_SYSTEM_PROMPT = `Sen bir senaryo analisti ve görsel yönet
 - 15+ kelime varsa MUTLAKA böl!
 
 KURALLAR:
-- visualNote TÜRKÇE olmalı (örn: "Boğaz kıyısında sabah yürüyüşü")
-- Character/location descriptions İNGİLİZCE olmalı (prompt'larda kullanılacak)
+- visualNote TÜRKÇE olmalı (örn: "Boğaz kıyısında sabah yürüyüşü") — maks 10 kelime
+- Character/location descriptions İNGİLİZCE olmalı — maks 30 kelime
 - Sahnede açıkça görünen karakterleri ve mekanları tespit et
 
 JSON ÇIKTI:
@@ -29,17 +29,17 @@ JSON ÇIKTI:
     {
       "sceneNumber": 1,
       "text": "Metinden kesilen kısa metin parçası (3-15 kelime)",
-      "visualNote": "Kısa Türkçe görsel açıklama",
+      "visualNote": "Kısa Türkçe görsel açıklama (maks 10 kelime)",
       "characters": [
         {
           "name": "Karakter adı (Türkçe)",
-          "description": "Detailed English visual description for AI image generation: age, clothing, physical features, distinctive characteristics"
+          "description": "Short English visual description: age, clothing, key features (max 30 words)"
         }
       ],
       "locations": [
         {
           "name": "Mekan adı (Türkçe)",
-          "description": "Detailed English visual description: architectural style, geographic features, time period, lighting, atmosphere"
+          "description": "Short English visual description: style, period, atmosphere (max 30 words)"
         }
       ]
     }
@@ -61,47 +61,70 @@ function cleanJsonResponse(text: string): string {
     return match.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
   });
 
+  // If JSON is still not parseable, attempt truncation recovery
+  try {
+    JSON.parse(text);
+  } catch {
+    text = recoverTruncatedJson(text);
+  }
+
   return text;
 }
 
-export async function analyzeTextIntoScenes(
-  text: string,
-  _apiKey?: string,
-  _model?: string
-): Promise<{
-  sceneCards: SceneCard[];
-  characters: Character[];
-  locations: Location[];
-}> {
-  const content = await aiProvider.generateContent(text, SCENE_ANALYSIS_SYSTEM_PROMPT);
+function splitTextIntoChunks(text: string, maxChars = 6000): string[] {
+  if (text.length <= maxChars) return [text];
 
-  console.log('🤖 Raw Gemini response:', content.substring(0, 200));
+  const chunks: string[] = [];
+  const paragraphs = text.split(/\n\n+/);
+  let current = '';
 
-  let cleanedContent: string;
-  try {
-    cleanedContent = cleanJsonResponse(content);
-    console.log('🧹 Cleaned JSON:', cleanedContent.substring(0, 200));
-  } catch {
-    cleanedContent = content;
-  }
-
-  let parsed: { scenes?: { sceneNumber?: number; text?: string; visualNote?: string; characters?: { name: string; description: string }[]; locations?: { name: string; description: string }[] }[] };
-  try {
-    parsed = JSON.parse(cleanedContent);
-  } catch (error) {
-    console.error('❌ Scene analysis JSON parse error:', error);
-    if (error instanceof SyntaxError) {
-      throw new Error(`JSON parsing failed: ${error.message}. Check Gemini API response format.`);
+  for (const para of paragraphs) {
+    if ((current + '\n\n' + para).length > maxChars && current) {
+      chunks.push(current.trim());
+      current = para;
+    } else {
+      current = current ? current + '\n\n' + para : para;
     }
-    throw error;
   }
+  if (current.trim()) chunks.push(current.trim());
+  return chunks;
+}
 
-  const characterMap = new Map<string, Character>();
-  const locationMap = new Map<string, Location>();
+function recoverTruncatedJson(raw: string): string {
+  // Try to find the last complete scene object before truncation
+  const lastCompleteScene = raw.lastIndexOf('},');
+  const lastScene = raw.lastIndexOf('}');
+
+  if (lastCompleteScene > 0) {
+    // Ensure we have the opening {"scenes":[ wrapper
+    const recovered = raw.substring(0, lastCompleteScene + 1) + ']}';
+    return recovered;
+  } else if (lastScene > 0) {
+    const recovered = raw.substring(0, lastScene + 1) + ']}';
+    return recovered;
+  }
+  throw new Error('Cannot recover truncated JSON');
+}
+
+type SceneRaw = {
+  sceneNumber?: number;
+  text?: string;
+  visualNote?: string;
+  characters?: { name: string; description: string }[];
+  locations?: { name: string; description: string }[];
+};
+
+function buildResultFromScenes(
+  scenes: SceneRaw[],
+  sceneNumberOffset: number,
+  characterMap: Map<string, Character>,
+  locationMap: Map<string, Location>
+): SceneCard[] {
   const sceneCards: SceneCard[] = [];
 
-  parsed.scenes?.forEach((scene, idx: number) => {
-    const sceneId = `scene-${Date.now()}-${idx}`;
+  scenes.forEach((scene, idx: number) => {
+    const globalIdx = sceneNumberOffset + idx;
+    const sceneId = `scene-${Date.now()}-${globalIdx}`;
     const characterIds: string[] = [];
     const locationIds: string[] = [];
 
@@ -123,9 +146,9 @@ export async function analyzeTextIntoScenes(
 
     sceneCards.push({
       id: sceneId,
-      sceneNumber: scene.sceneNumber || idx + 1,
+      sceneNumber: globalIdx + 1,
       text: scene.text || '',
-      visualNote: scene.visualNote || `Sahne ${idx + 1}`,
+      visualNote: scene.visualNote || `Sahne ${globalIdx + 1}`,
       characterIds,
       locationIds,
       prompts: [],
@@ -134,8 +157,70 @@ export async function analyzeTextIntoScenes(
     });
   });
 
+  return sceneCards;
+}
+
+async function analyzeChunk(
+  chunk: string
+): Promise<{ scenes?: SceneRaw[] }> {
+  const content = await aiProvider.generateContent(chunk, SCENE_ANALYSIS_SYSTEM_PROMPT);
+
+  console.log('🤖 Raw Gemini response:', content.substring(0, 200));
+
+  let cleanedContent: string;
+  try {
+    cleanedContent = cleanJsonResponse(content);
+    console.log('🧹 Cleaned JSON:', cleanedContent.substring(0, 200));
+  } catch {
+    cleanedContent = content;
+  }
+
+  try {
+    return JSON.parse(cleanedContent) as { scenes?: SceneRaw[] };
+  } catch (error) {
+    console.error('❌ Scene analysis JSON parse error:', error);
+    // Last-resort recovery attempt
+    try {
+      const recovered = recoverTruncatedJson(cleanedContent);
+      console.warn('⚠️ Recovered truncated JSON for chunk');
+      return JSON.parse(recovered) as { scenes?: SceneRaw[] };
+    } catch {
+      if (error instanceof SyntaxError) {
+        throw new Error(`JSON parsing failed: ${error.message}. Check Gemini API response format.`);
+      }
+      throw error;
+    }
+  }
+}
+
+export async function analyzeTextIntoScenes(
+  text: string,
+  _apiKey?: string,
+  _model?: string
+): Promise<{
+  sceneCards: SceneCard[];
+  characters: Character[];
+  locations: Location[];
+}> {
+  const chunks = splitTextIntoChunks(text);
+  console.log(`📦 Splitting text into ${chunks.length} chunk(s) for analysis`);
+
+  const characterMap = new Map<string, Character>();
+  const locationMap = new Map<string, Location>();
+  const allSceneCards: SceneCard[] = [];
+  let sceneNumberOffset = 0;
+
+  for (let i = 0; i < chunks.length; i++) {
+    console.log(`🔍 Analyzing chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
+    const parsed = await analyzeChunk(chunks[i]);
+    const scenes = parsed.scenes ?? [];
+    const cards = buildResultFromScenes(scenes, sceneNumberOffset, characterMap, locationMap);
+    allSceneCards.push(...cards);
+    sceneNumberOffset += scenes.length;
+  }
+
   return {
-    sceneCards,
+    sceneCards: allSceneCards,
     characters: Array.from(characterMap.values()),
     locations: Array.from(locationMap.values()),
   };

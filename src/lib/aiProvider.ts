@@ -133,7 +133,7 @@ class AIProviderManager {
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 16384,
+            maxOutputTokens: 65536,
           },
         };
         if (systemInstruction) {
