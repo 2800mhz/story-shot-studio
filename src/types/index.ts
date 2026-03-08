@@ -89,6 +89,11 @@ export interface Character {
   name: string;
   description?: string;
   basePrompt?: string;
+  age?: string;
+  ethnicity?: string;
+  clothing?: string;
+  physicalFeatures?: string;
+  role?: string;
 }
 
 export interface Location {
@@ -96,6 +101,21 @@ export interface Location {
   name: string;
   description?: string;
   basePrompt?: string;
+  period?: string;
+  geography?: string;
+  architecture?: string;
+  atmosphere?: string;
+}
+
+export interface TimeContext {
+  id: string;
+  label: string;
+  era?: string;
+  season?: string;
+  timeOfDay?: string;
+  lighting?: string;
+  weather?: string;
+  historicalNotes?: string;
 }
 
 export interface PromptCard {
@@ -166,6 +186,7 @@ export interface AppState {
   sceneCards: SceneCard[];
   characters: Character[];
   locations: Location[];
+  timeContexts: TimeContext[];
   masterPrompt: string;
   isAnalyzing: boolean;
   isGeneratingPrompts: boolean;
@@ -209,7 +230,7 @@ export type AppAction =
   | { type: 'DETACH_ENTITY_FROM_PROMPT'; payload: { sceneId: string; promptId: string; entityId: string } }
   // Two-stage AI workflow actions
   | { type: 'START_ANALYSIS' }
-  | { type: 'FINISH_ANALYSIS'; payload: { sceneCards: SceneCard[]; characters: Character[]; locations: Location[] } }
+  | { type: 'FINISH_ANALYSIS'; payload: { sceneCards: SceneCard[]; characters: Character[]; locations: Location[]; suggestedTimeContext?: TimeContext } }
   | { type: 'UPDATE_SCENE_CARD_NOTE'; payload: { sceneId: string; note: string } }
   | { type: 'ADD_CHARACTER_TO_SCENE_CARD'; payload: { sceneId: string; characterId: string } }
   | { type: 'REMOVE_CHARACTER_FROM_SCENE_CARD'; payload: { sceneId: string; characterId: string } }
@@ -233,4 +254,11 @@ export type AppAction =
   | { type: 'SET_DOCUMENT_TEXT'; payload: string }
   | { type: 'SET_SCENES'; payload: SceneCard[] }
   | { type: 'SET_CHARACTERS'; payload: Character[] }
-  | { type: 'SET_LOCATIONS'; payload: Location[] };
+  | { type: 'SET_LOCATIONS'; payload: Location[] }
+  | { type: 'UPSERT_CHARACTER'; payload: Character }
+  | { type: 'DELETE_CHARACTER'; payload: string }
+  | { type: 'UPSERT_LOCATION'; payload: Location }
+  | { type: 'DELETE_LOCATION'; payload: string }
+  | { type: 'ADD_TIME_CONTEXT'; payload: TimeContext }
+  | { type: 'UPDATE_TIME_CONTEXT'; payload: TimeContext }
+  | { type: 'DELETE_TIME_CONTEXT'; payload: string };

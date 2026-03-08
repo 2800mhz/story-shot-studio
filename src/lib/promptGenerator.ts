@@ -1,4 +1,4 @@
-import type { SceneCard, Character, Location, PromptCard, PromptAnalysis, GenerationResult, SceneAnalysis } from '@/types';
+import type { SceneCard, Character, Location, TimeContext, PromptCard, PromptAnalysis, GenerationResult, SceneAnalysis } from '@/types';
 import { aiProvider } from './aiProvider';
 
 const PROMPT_GENERATION_SYSTEM_PROMPT = `Sen sinematik görsel prompt üreticisisin. AI görsel üretim araçları için (Midjourney, DALL-E, Runway) detaylı prompt'lar yazıyorsun.
@@ -193,25 +193,78 @@ export async function generatePromptsForScene(
   _apiKey?: string,
   _model?: string,
   aspectRatio: '16:9' | '4:3' | '1:1' | '9:16' = '16:9',
-  sceneAnalysis?: SceneAnalysis
+  sceneAnalysis?: SceneAnalysis,
+  timeContexts?: TimeContext[]
 ): Promise<GenerationResult> {
   let userMessage = `SAHNE METNİ:\n${scene.text}\n\n`;
   userMessage += `TÜRKÇE GÖRSEL NOT: "${scene.visualNote}"\n\n`;
 
+  // Build entity context string
+  let entityContext = '';
+
   if (characters.length > 0) {
-    userMessage += `KARAKTERLER:\n`;
+    entityContext += 'CHARACTERS IN THIS SCENE:\n';
     characters.forEach(char => {
-      userMessage += `- ${char.name}: ${char.description}\n`;
+      let charDesc = `- ${char.name}`;
+      if (char.role) charDesc += ` (${char.role})`;
+      if (char.age) charDesc += `, ${char.age}`;
+      if (char.ethnicity) charDesc += `, ethnicity: ${char.ethnicity}`;
+      if (char.clothing) charDesc += `, wearing: ${char.clothing}`;
+      if (char.physicalFeatures) charDesc += `, appearance: ${char.physicalFeatures}`;
+      if (char.description) charDesc += `. ${char.description}`;
+      entityContext += charDesc + '\n';
     });
-    userMessage += '\n';
+    entityContext += '\n';
   }
 
   if (locations.length > 0) {
-    userMessage += `MEKANLAR:\n`;
+    entityContext += 'LOCATIONS IN THIS SCENE:\n';
     locations.forEach(loc => {
-      userMessage += `- ${loc.name}: ${loc.description}\n`;
+      let locDesc = `- ${loc.name}`;
+      if (loc.period) locDesc += ` (${loc.period})`;
+      if (loc.geography) locDesc += `, ${loc.geography}`;
+      if (loc.architecture) locDesc += `, architecture: ${loc.architecture}`;
+      if (loc.atmosphere) locDesc += `, atmosphere: ${loc.atmosphere}`;
+      if (loc.description) locDesc += `. ${loc.description}`;
+      entityContext += locDesc + '\n';
     });
-    userMessage += '\n';
+    entityContext += '\n';
+  }
+
+  if (timeContexts && timeContexts.length > 0) {
+    entityContext += 'HISTORICAL/TEMPORAL CONTEXT:\n';
+    timeContexts.forEach(tc => {
+      let tDesc = `- ${tc.label}`;
+      if (tc.era) tDesc += ` (${tc.era})`;
+      if (tc.season) tDesc += `, ${tc.season}`;
+      if (tc.timeOfDay) tDesc += `, ${tc.timeOfDay}`;
+      if (tc.lighting) tDesc += `, lighting: ${tc.lighting}`;
+      if (tc.weather) tDesc += `, weather: ${tc.weather}`;
+      if (tc.historicalNotes) tDesc += `. Historical notes: ${tc.historicalNotes}`;
+      entityContext += tDesc + '\n';
+    });
+    entityContext += '\n';
+  }
+
+  if (entityContext) {
+    userMessage += entityContext;
+  } else {
+    // Fallback to simple format for backward compatibility
+    if (characters.length > 0) {
+      userMessage += `KARAKTERLER:\n`;
+      characters.forEach(char => {
+        userMessage += `- ${char.name}: ${char.description}\n`;
+      });
+      userMessage += '\n';
+    }
+
+    if (locations.length > 0) {
+      userMessage += `MEKANLAR:\n`;
+      locations.forEach(loc => {
+        userMessage += `- ${loc.name}: ${loc.description}\n`;
+      });
+      userMessage += '\n';
+    }
   }
 
   if (masterPrompt) {
