@@ -76,11 +76,16 @@ export function CenterPanel({
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
 
+    // Auto-calculate scene count from word count (1 scene per ~3 words)
+    const words = selectedText.split(/\s+/).filter(Boolean).length;
+    const estimated = Math.max(3, Math.min(200, Math.round(words / 3)));
+    onMaxScenesChange(estimated);
+
     setToolbar({
       position: { top: rect.top + window.scrollY, left: Math.max(8, rect.left + window.scrollX) },
       selectedText,
     });
-  }, []);
+  }, [onMaxScenesChange]);
 
   const dismissToolbar = useCallback(() => {
     setToolbar(null);
@@ -141,28 +146,28 @@ export function CenterPanel({
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => {
-                    const newVal = Math.max(10, maxScenes - 20);
+                    const newVal = Math.max(3, maxScenes - 1);
                     onMaxScenesChange(newVal);
                     onReanalyze(newVal);
                   }}
-                  disabled={isAnalyzing || maxScenes <= 10}
+                  disabled={isAnalyzing || maxScenes <= 3}
                   className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   title={`Daha az sahne üret (şu an: ~${maxScenes})`}
                 >
-                  ➖ Daha Az
+                  ➖
                 </button>
-                <span className="text-[10px] text-muted-foreground/60 font-mono tabular-nums">~{maxScenes}</span>
+                <span className="text-[10px] text-muted-foreground/60 font-mono tabular-nums">~{maxScenes} sahne</span>
                 <button
                   onClick={() => {
-                    const newVal = maxScenes + 20;
+                    const newVal = Math.min(200, maxScenes + 1);
                     onMaxScenesChange(newVal);
                     onReanalyze(newVal);
                   }}
-                  disabled={isAnalyzing}
+                  disabled={isAnalyzing || maxScenes >= 200}
                   className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   title={`Daha fazla sahne üret (şu an: ~${maxScenes})`}
                 >
-                  ➕ Daha Fazla
+                  ➕
                 </button>
               </div>
             )}
