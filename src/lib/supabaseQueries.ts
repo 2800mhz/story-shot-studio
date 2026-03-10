@@ -125,6 +125,7 @@ export async function updateEpisode(episodeId: string, updates: {
   character_data?: string;
   location_data?: string;
   time_contexts?: TimeContext[];
+  episode_prompt?: string;
 }) {
   const { data, error } = await supabase
     .from('episodes')
@@ -247,14 +248,16 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
 
 export async function savePrompts(sceneId: string, prompts: any[]) {
   try {
-    // Delete existing prompts (retried)
+    // Soft-delete existing active prompts (mark is_active = false) instead of hard DELETE.
+    // This preserves prompt history so users can restore previous versions.
     await withRetry(async () => {
       const { error } = await supabase
         .from('prompts')
-        .delete()
-        .eq('scene_id', sceneId);
+        .update({ is_active: false })
+        .eq('scene_id', sceneId)
+        .eq('is_active', true);
       if (error) throw error;
-    }, `Delete prompts for ${sceneId}`);
+    }, `Soft-delete prompts for ${sceneId}`);
 
     if (prompts.length === 0) {
       return [];
@@ -268,7 +271,8 @@ export async function savePrompts(sceneId: string, prompts: any[]) {
       summary: prompt.summary || null,
       explanation: prompt.explanation || null,
       prompt_text: prompt.promptText || prompt.prompt_text || '',
-      aspect_ratio: prompt.aspectRatio || '16:9'
+      aspect_ratio: prompt.aspectRatio || '16:9',
+      is_active: true,
     }));
 
     // Insert with retry
@@ -292,10 +296,53 @@ export async function fetchPrompts(sceneId: string) {
   const { data, error } = await supabase
     .from('prompts')
     .select('*')
-    .eq('scene_id', sceneId);
+    .eq('scene_id', sceneId)
+    .eq('is_active', true);
 
   if (error) throw error;
   return data || [];
+}
+
+/**
+ * Returns the prompt history (soft-deleted / previous versions) for a scene.
+ * Useful for a "Restore Previous Prompt" UI feature.
+ */
+export async function fetchPromptHistory(sceneId: string) {
+  const { data, error } = await supabase
+    .from('prompts')
+    .select('*')
+    .eq('scene_id', sceneId)
+    .eq('is_active', false)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+/**
+ * Fetches all prompts for multiple scenes in a SINGLE database request using
+ * `.in('scene_id', sceneIds)` instead of firing one request per scene.
+ * Returns a Map<sceneId, prompt[]> for O(1) lookup per scene.
+ */
+export async function fetchAllPromptsForScenes(sceneIds: string[]): Promise<Map<string, any[]>> {
+  if (sceneIds.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from('prompts')
+    .select('*')
+    .in('scene_id', sceneIds)
+    .eq('is_active', true); // Only fetch active (current) prompts
+
+  if (error) throw error;
+
+  // Group by scene_id
+  const result = new Map<string, any[]>();
+  for (const row of data || []) {
+    const bucket = result.get(row.scene_id) ?? [];
+    bucket.push(row);
+    result.set(row.scene_id, bucket);
+  }
+  return result;
 }
 
 // ============================================

@@ -194,7 +194,8 @@ export async function generatePromptsForScene(
   _model?: string,
   aspectRatio: '16:9' | '4:3' | '1:1' | '9:16' = '16:9',
   sceneAnalysis?: SceneAnalysis,
-  timeContexts?: TimeContext[]
+  timeContexts?: TimeContext[],
+  episodePrompt?: string
 ): Promise<GenerationResult> {
   let userMessage = `SAHNE METNİ:\n${scene.text}\n\n`;
   userMessage += `TÜRKÇE GÖRSEL NOT: "${scene.visualNote}"\n\n`;
@@ -219,6 +220,9 @@ export async function generatePromptsForScene(
         if (char.clothing) charDesc += `, wearing: ${char.clothing}`;
         if (char.physicalFeatures) charDesc += `, appearance: ${char.physicalFeatures}`;
         if (char.description) charDesc += `. ${char.description}`;
+        // basePrompt holds the richest visual description (e.g. "middle-aged craftsman,
+        // weathered hands, Ottoman work clothes") — always include it when present
+        if (char.basePrompt) charDesc += ` Visual reference: ${char.basePrompt}`;
       }
       entityContext += charDesc + '\n';
     });
@@ -234,6 +238,8 @@ export async function generatePromptsForScene(
       if (loc.architecture) locDesc += `, architecture: ${loc.architecture}`;
       if (loc.atmosphere) locDesc += `, atmosphere: ${loc.atmosphere}`;
       if (loc.description) locDesc += `. ${loc.description}`;
+      // basePrompt holds rich visual detail for the location — always include it when present
+      if (loc.basePrompt) locDesc += ` Visual reference: ${loc.basePrompt}`;
       entityContext += locDesc + '\n';
     });
     entityContext += '\n';
@@ -258,8 +264,14 @@ export async function generatePromptsForScene(
     userMessage += entityContext;
   }
 
-  if (masterPrompt) {
-    userMessage += `MASTER PROMPT (tüm prompt'larda dikkate al):\n${masterPrompt}\n\n`;
+  // Episode prompt overrides/extends master prompt when present.
+  // effectivePrompt = masterPrompt base + EPISODE STYLE OVERRIDE section on top.
+  const effectivePrompt = episodePrompt
+    ? `${masterPrompt}\n\nEPISODE STYLE OVERRIDE (apply on top of master rules above):\n${episodePrompt}`
+    : masterPrompt;
+
+  if (effectivePrompt) {
+    userMessage += `MASTER PROMPT (tüm prompt'larda dikkate al):\n${effectivePrompt}\n\n`;
   }
 
   const compositionHint = ASPECT_RATIO_HINTS[aspectRatio] ?? ASPECT_RATIO_HINTS['16:9'];
@@ -283,16 +295,34 @@ export async function generatePromptsForScene(
   userMessage += `3 farklı açıdan sinematik prompt üret. Her prompt'ta "${scene.visualNote}" notunun ruhunu koru. Her prompt sonuna "--ar ${aspectRatio} --v 6" ekle.`;
 
   const content = await aiProvider.generateContent(userMessage, PROMPT_GENERATION_SYSTEM_PROMPT);
+
+  // Helper: try to parse the AI response as JSON, stripping any markdown fences first.
+  function tryParseJSON(raw: string) {
+    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    return JSON.parse(cleaned);
+  }
+
   let parsed: {
     prompts?: Array<{ shotType?: string; summary?: string; explanation?: string; prompt?: string }>;
     analysis?: Partial<PromptAnalysis>;
     optimizations?: string[];
   };
-  const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
   try {
-    parsed = JSON.parse(cleaned);
-  } catch {
-    throw new Error('Invalid JSON in prompt response');
+    parsed = tryParseJSON(content);
+  } catch (firstErr) {
+    // First attempt failed — retry once with an explicit JSON-only reminder appended.
+    console.error('[⚠️ promptGenerator] JSON parse failed on first attempt, retrying with JSON reminder...', firstErr);
+    console.error('Malformed response:', content);
+    const retryMessage = userMessage + '\n\nIMPORTANT: Return ONLY valid JSON. No markdown, no explanation, no code fences.';
+    const retryContent = await aiProvider.generateContent(retryMessage, PROMPT_GENERATION_SYSTEM_PROMPT);
+    try {
+      parsed = tryParseJSON(retryContent);
+    } catch (secondErr) {
+      console.error('[❌ promptGenerator] JSON parse failed after retry. Giving up.', secondErr);
+      console.error('Malformed retry response:', retryContent);
+      throw new Error('Invalid JSON in prompt response (after retry)');
+    }
   }
 
   if (!parsed.prompts || !Array.isArray(parsed.prompts)) {

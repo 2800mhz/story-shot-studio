@@ -16,7 +16,7 @@ import { parseEpisodes } from '@/lib/contextDetection';
 import { generatePrompts, revisePrompt, loadSystemPrompt } from '@/lib/geminiApi';
 import { analyzeTextIntoScenes } from '@/lib/sceneAnalyzer';
 import { generatePromptsForScene } from '@/lib/promptGenerator';
-import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts } from '@/lib/supabaseQueries';
+import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetchAllPromptsForScenes, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts } from '@/lib/supabaseQueries';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
@@ -101,6 +101,13 @@ const Index = () => {
         dispatch({ type: 'SET_DOCUMENT_TEXT', payload: episodeData.document_text });
       }
 
+      // Load episode-level style prompt (overrides/extends master prompt for this episode)
+      if (episodeData.episode_prompt) {
+        dispatch({ type: 'SET_EPISODE_PROMPT', payload: episodeData.episode_prompt });
+      } else {
+        dispatch({ type: 'SET_EPISODE_PROMPT', payload: '' });
+      }
+
       // Load characters: prefer episode-specific character_data (preserves exact IDs
       // used by scene cards) over global_characters table.
       if (episodeData.character_data) {
@@ -181,11 +188,11 @@ const Index = () => {
 
         dispatch({ type: 'SET_SCENES', payload: mappedScenes });
 
-        // Load prompts for ALL scenes in parallel (was sequential — caused ~1min wait)
-        const promptResults = await Promise.all(
-          scenesData.map(scene => fetchPrompts(scene.id))
-        );
-        promptResults.forEach((prompts, idx) => {
+        // Load ALL prompts in a SINGLE batch request (.in query) instead of
+        // firing one request per scene — avoids overwhelming Supabase and the
+        // CORS/rate-limit errors that result from too many concurrent HTTP calls.
+        const promptsByScene = await fetchAllPromptsForScenes(scenesData.map(s => s.id));
+        promptsByScene.forEach((prompts, sceneId) => {
           if (prompts.length > 0) {
             const mappedPrompts = prompts.map((p: any) => ({
               id: p.id,
@@ -200,7 +207,7 @@ const Index = () => {
             }));
             dispatch({
               type: 'FINISH_PROMPT_GENERATION',
-              payload: { sceneId: scenesData[idx].id, prompts: mappedPrompts }
+              payload: { sceneId, prompts: mappedPrompts }
             });
           }
         });
@@ -885,7 +892,8 @@ const Index = () => {
         undefined,
         aspectRatio,
         state.sceneAnalyses[sceneId],
-        sceneTimeContexts
+        sceneTimeContexts,
+        state.episodePrompt || undefined
       );
       dispatch({ 
         type: 'FINISH_PROMPT_GENERATION', 
@@ -963,7 +971,8 @@ const Index = () => {
         undefined,
         aspectRatio,
         state.sceneAnalyses[sceneId],
-        sceneTimeContexts
+        sceneTimeContexts,
+        state.episodePrompt || undefined
       );
       dispatch({
         type: 'FINISH_PROMPT_GENERATION',
