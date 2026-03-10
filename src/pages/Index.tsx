@@ -1205,6 +1205,8 @@ const Index = () => {
             activeSceneId={state.activeSceneId}
             mainFileName={state.mainFileName}
             isAnalyzing={state.isAnalyzing}
+            episodePrompt={state.episodePrompt}
+            onSetEpisodePrompt={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT', payload: prompt })}
             onEpisodeClick={(ep) => setScrollToIndex(ep.startIndex)}
             onSceneClick={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
             onMoveEpisode={(episodeId, newParentId) => dispatch({ type: 'MOVE_EPISODE', payload: { episodeId, newParentId } })}

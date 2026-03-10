@@ -10,6 +10,8 @@ interface LeftPanelProps {
   activeSceneId: string | null;
   mainFileName: string;
   isAnalyzing?: boolean;
+  episodePrompt?: string;
+  onSetEpisodePrompt?: (prompt: string) => void;
   onEpisodeClick: (ep: Episode) => void;
   onSceneClick: (id: string) => void;
   onMoveEpisode: (episodeId: string, newParentId: string | null) => void;
@@ -170,7 +172,8 @@ function EpisodeNode({
 
 export function LeftPanel({
   episodes, scenes, consistencyGroups, activeSceneId,
-  mainFileName, isAnalyzing, onEpisodeClick, onSceneClick,
+  mainFileName, isAnalyzing, episodePrompt, onSetEpisodePrompt,
+  onEpisodeClick, onSceneClick,
   onMoveEpisode, onReorderEpisodes,
 }: LeftPanelProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -267,6 +270,19 @@ export function LeftPanel({
           <div className="mt-2 flex items-center gap-2 text-sm text-foreground">
             <FileText className="h-3.5 w-3.5 text-primary" />
             <span className="truncate text-xs">{mainFileName}</span>
+          </div>
+        )}
+        {onSetEpisodePrompt && (
+          <div className="mt-3">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">
+              Bölüm Stili (Episode Prompt)
+            </label>
+            <textarea
+              className="w-full text-xs min-h-[60px] resize-none rounded-md border bg-background px-2 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary scrollbar-thin"
+              placeholder="Örn: Kabus atmosferi, karanlık ve sisli, 35mm film grain..."
+              value={episodePrompt || ''}
+              onChange={(e) => onSetEpisodePrompt(e.target.value)}
+            />
           </div>
         )}
       </div>
