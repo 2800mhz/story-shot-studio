@@ -60,6 +60,7 @@ interface RightPanelProps {
   onRegenerateAllPrompts_?: (sceneId: string) => void;
   onRevisePrompt_?: (sceneId: string, promptId: string) => void;
   onDeletePrompt_?: (sceneId: string, promptId: string) => void;
+  onRestorePreviousPrompt_?: (sceneId: string, entry: any) => void;
   isBulkGeneratingPrompts?: boolean;
   bulkPromptsProgress?: { done: number; total: number };
   onCancelBulkPrompts?: () => void;
@@ -124,7 +125,7 @@ export function RightPanel({
   onUpdateSceneCardNote, onRemoveCharacterFromSceneCard, onRemoveLocationFromSceneCard,
   onAddCharacterToSceneCard, onAddLocationToSceneCard,
   onAddTimeContextToSceneCard, onRemoveTimeContextFromSceneCard,
-  onAddVariation, onRegenerateAllPrompts_, onRevisePrompt_, onDeletePrompt_,
+  onAddVariation, onRegenerateAllPrompts_, onRevisePrompt_, onDeletePrompt_, onRestorePreviousPrompt_,
   isBulkGeneratingPrompts, bulkPromptsProgress, onCancelBulkPrompts,
 }: RightPanelProps) {
   const doneCount = scenes.filter(s => s.status === 'done').length;
@@ -423,6 +424,7 @@ export function RightPanel({
                   onRegenerateAll={onRegenerateAllPrompts_}
                   onRevisePrompt={onRevisePrompt_}
                   onDeletePrompt={onDeletePrompt_}
+                  onRestorePreviousPrompt={onRestorePreviousPrompt_}
                 />
               );
             })}

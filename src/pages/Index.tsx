@@ -20,7 +20,7 @@ import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetc
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
-import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis } from '@/types';
+import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis, PromptCard } from '@/types';
 
 
 const GROUP_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
@@ -984,6 +984,41 @@ const Index = () => {
     }
   }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, dispatch, aspectRatio]);
 
+  const handleRestoreSceneCardPrompt = useCallback((sceneId: string, entry: any) => {
+    const scene = state.sceneCards.find(s => s.id === sceneId);
+    if (!scene) return;
+
+    const restoredPrompt: PromptCard = {
+      id: entry.id || crypto.randomUUID(),
+      shotType: entry.shot_type || 'establishing',
+      promptText: entry.prompt_text || '',
+      summary: entry.summary || 'Önceki versiyondan geri yüklendi',
+      explanation: entry.explanation || '',
+      aspectRatio: entry.aspect_ratio || '16:9',
+      label: entry.label || undefined,
+      versions: []
+    };
+
+    dispatch({
+      type: 'FINISH_PROMPT_GENERATION',
+      payload: { sceneId, prompts: [...scene.prompts, restoredPrompt] },
+    });
+    toast({ title: 'Başarılı', description: 'Önceki prompt versiyonu sahneye eklendi.' });
+  }, [state.sceneCards, dispatch, toast]);
+
+  const handleDeletePrompt_ = useCallback((sceneId: string, promptId: string) => {
+    const scene = state.sceneCards.find(s => s.id === sceneId);
+    if (!scene) return;
+    dispatch({
+      type: 'FINISH_PROMPT_GENERATION',
+      payload: { sceneId, prompts: scene.prompts.filter(p => p.id !== promptId) }
+    });
+  }, [state.sceneCards, dispatch]);
+
+  const handleRevisePrompt_ = useCallback((sceneId: string, promptId: string) => {
+    toast({ title: 'Bilgi', description: 'Revize özelliği bu akış için yakında aktif edilecek.' });
+  }, [toast]);
+
   const handleAddNewCharacterToSceneCard = useCallback((sceneId: string, name: string) => {
     const character = {
       id: `char-${crypto.randomUUID()}`,
@@ -1200,16 +1235,19 @@ const Index = () => {
             isGeneratingPrompts={state.isGeneratingPrompts}
             onGeneratePrompts={handleGeneratePromptsForScene}
             onGenerateAllPrompts={handleGenerateAllPrompts}
-            onDeleteSceneCard={id => dispatch({ type: 'DELETE_SCENE_CARD', payload: id })}
+            onDeleteSceneCard={(sceneId) => dispatch({ type: 'DELETE_SCENE_CARD', payload: sceneId })}
             onUpdateSceneCardNote={(sceneId, note) => dispatch({ type: 'UPDATE_SCENE_CARD_NOTE', payload: { sceneId, note } })}
             onRemoveCharacterFromSceneCard={(sceneId, characterId) => dispatch({ type: 'REMOVE_CHARACTER_FROM_SCENE_CARD', payload: { sceneId, characterId } })}
             onRemoveLocationFromSceneCard={(sceneId, locationId) => dispatch({ type: 'REMOVE_LOCATION_FROM_SCENE_CARD', payload: { sceneId, locationId } })}
             onAddCharacterToSceneCard={handleAddNewCharacterToSceneCard}
             onAddLocationToSceneCard={handleAddNewLocationToSceneCard}
-            onAddTimeContextToSceneCard={(sceneId, timeContextId) => dispatch({ type: 'ADD_TIME_CONTEXT_TO_SCENE_CARD', payload: { sceneId, timeContextId } })}
-            onRemoveTimeContextFromSceneCard={(sceneId, timeContextId) => dispatch({ type: 'REMOVE_TIME_CONTEXT_FROM_SCENE_CARD', payload: { sceneId, timeContextId } })}
+            onAddTimeContextToSceneCard={(scene, tc) => dispatch({ type: 'ADD_TIME_CONTEXT_TO_SCENE_CARD', payload: { sceneId: scene, timeContextId: tc } })}
+            onRemoveTimeContextFromSceneCard={(scene, tc) => dispatch({ type: 'REMOVE_TIME_CONTEXT_FROM_SCENE_CARD', payload: { sceneId: scene, timeContextId: tc } })}
             onAddVariation={handleAddVariation}
             onRegenerateAllPrompts_={handleRegenerateAllPrompts}
+            onRevisePrompt_={handleRevisePrompt_}
+            onDeletePrompt_={handleDeletePrompt_}
+            onRestorePreviousPrompt_={handleRestoreSceneCardPrompt}
             isBulkGeneratingPrompts={isBulkGeneratingPrompts}
             bulkPromptsProgress={bulkPromptsProgress}
             onCancelBulkPrompts={handleCancelBulkPrompts}

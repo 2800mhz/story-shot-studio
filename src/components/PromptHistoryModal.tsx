@@ -3,12 +3,16 @@ import { X, Clock, RotateCcw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { fetchPromptHistory } from '@/lib/supabaseQueries';
 
-interface HistoryEntry {
+export interface HistoryEntry {
   id: string;
   shot_type: string;
   prompt_text: string;
   created_at: string;
   type?: string;
+  label?: string;
+  summary?: string;
+  explanation?: string;
+  aspect_ratio?: '16:9' | '4:3' | '1:1' | '9:16';
 }
 
 interface PromptHistoryModalProps {

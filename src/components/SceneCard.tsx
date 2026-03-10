@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Sparkles, Edit2, Trash2, Check, X, Copy, RefreshCw, Plus, ChevronDown, ChevronUp, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Edit2, Trash2, Check, X, Copy, RefreshCw, Plus, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import type { SceneCard as SceneCardType, Character, Location, TimeContext, PromptCard } from '@/types';
+import { PromptHistoryModal, type HistoryEntry } from './PromptHistoryModal';
 
 interface SceneCardProps {
   scene: SceneCardType;
@@ -23,6 +24,7 @@ interface SceneCardProps {
   onRegenerateAll?: (sceneId: string) => void;
   onRevisePrompt?: (sceneId: string, promptId: string) => void;
   onDeletePrompt?: (sceneId: string, promptId: string) => void;
+  onRestorePreviousPrompt?: (sceneId: string, entry: HistoryEntry) => void;
 }
 
 function InlinePromptCard({
@@ -126,12 +128,14 @@ export function SceneCard({
   onRegenerateAll,
   onRevisePrompt,
   onDeletePrompt,
+  onRestorePreviousPrompt,
 }: SceneCardProps) {
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [editedNote, setEditedNote] = useState(scene.visualNote);
   const [addingCharacter, setAddingCharacter] = useState(false);
   const [addingLocation, setAddingLocation] = useState(false);
   const [showTimeContextPicker, setShowTimeContextPicker] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   const handleSaveNote = () => {
     onUpdateNote(scene.id, editedNote);
@@ -195,14 +199,25 @@ export function SceneCard({
             )}
           </div>
 
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7 text-destructive shrink-0 ml-1"
-            onClick={() => onDeleteScene(scene.id)}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          <div className="flex items-center gap-1 shrink-0 ml-2">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              onClick={() => setShowHistoryModal(true)}
+              title="Önceki versiyonlar"
+            >
+              <Clock className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 text-destructive"
+              onClick={() => onDeleteScene(scene.id)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
 
         <details className="mt-3">
@@ -477,6 +492,17 @@ export function SceneCard({
           </Button>
         </div>
       )}
+
+      {showHistoryModal && (
+        <PromptHistoryModal
+          sceneId={scene.id}
+          onClose={() => setShowHistoryModal(false)}
+          onRestore={(entry) => {
+            onRestorePreviousPrompt?.(scene.id, entry);
+          }}
+        />
+      )}
     </div>
   );
 }
+
