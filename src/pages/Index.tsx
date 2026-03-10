@@ -38,6 +38,7 @@ const Index = () => {
   const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [analysisLog, setAnalysisLog] = useState<string[]>([]);
+  const [maxScenes, setMaxScenes] = useState<number>(50);
   const [project, setProject] = useState<{ title: string; master_prompt?: string } | null>(null);
   const [episode, setEpisode] = useState<{ title: string; document_text?: string } | null>(null);
   const [noKeysWarning, setNoKeysWarning] = useState(false);
@@ -862,7 +863,8 @@ const Index = () => {
         undefined,
         (message: string) => {
           setAnalysisLog(prev => [...prev, message]);
-        }
+        },
+        maxScenes
       );
       dispatch({ type: 'FINISH_ANALYSIS', payload: result });
       setTimeout(() => setAnalysisLog([]), 3000);
@@ -875,7 +877,7 @@ const Index = () => {
       });
       dispatch({ type: 'FINISH_ANALYSIS', payload: { sceneCards: [], characters: [], locations: [] } });
     }
-  }, [dispatch, toast]);
+  }, [dispatch, toast, maxScenes]);
 
   const handleGeneratePromptsForScene = useCallback(async (sceneId: string, isRegeneration: boolean = false): Promise<boolean> => {
     const scene = state.sceneCards.find(s => s.id === sceneId);
@@ -1262,6 +1264,8 @@ const Index = () => {
             onAnalyzeText={handleAnalyzeText}
             isAnalyzing={state.isAnalyzing}
             analysisLog={analysisLog}
+            maxScenes={maxScenes}
+            onMaxScenesChange={setMaxScenes}
           />
         </div>
 
