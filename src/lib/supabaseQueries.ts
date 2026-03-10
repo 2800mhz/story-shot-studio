@@ -196,7 +196,7 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
       return {
         id: scene.id, // now guaranteed to be a valid stable UUID
         episode_id: episodeId,
-        scene_number: idx + 1,
+        scene_number: scene.sceneNumber ?? idx + 1,
         text: scene.text || '',
         visual_note: scene.visualNote || null,
         character_ids: characterIds,

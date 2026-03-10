@@ -208,25 +208,13 @@ export async function generatePromptsForScene(
   if (characters.length > 0) {
     entityContext += 'CHARACTERS IN THIS SCENE:\n';
     characters.forEach(char => {
-      let charDesc = `- ${char.name}`;
-      if (char.isCrowd) {
-        // Use crowd format for group/crowd entities
-        charDesc = `- a crowd of ${char.name.toLocaleLowerCase('tr-TR')}`;
-        if (char.ethnicity) charDesc += ` (${char.ethnicity})`;
-        if (char.clothing) charDesc += ` wearing ${char.clothing}`;
-        if (char.description) charDesc += `. ${char.description}`;
-      } else {
-        if (char.role) charDesc += ` (${char.role})`;
-        if (char.age) charDesc += `, ${char.age}`;
-        if (char.ethnicity) charDesc += `, ethnicity: ${char.ethnicity}`;
-        if (char.clothing) charDesc += `, wearing: ${char.clothing}`;
-        if (char.physicalFeatures) charDesc += `, appearance: ${char.physicalFeatures}`;
-        if (char.description) charDesc += `. ${char.description}`;
-        // basePrompt holds the richest visual description (e.g. "middle-aged craftsman,
-        // weathered hands, Ottoman work clothes") — always include it when present
-        if (char.basePrompt) charDesc += ` Visual reference: ${char.basePrompt}`;
-      }
-      entityContext += charDesc + '\n';
+      const prefix = char.isCrowd
+        ? `- [CROWD] ${char.name}`
+        : `- ${char.name}${char.role ? ` (${char.role})` : ''}`;
+      const desc = char.visualDescription
+        ? ` — ${char.visualDescription}`
+        : '';
+      entityContext += prefix + desc + '\n';
     });
     entityContext += '\n';
   }
@@ -234,15 +222,8 @@ export async function generatePromptsForScene(
   if (locations.length > 0) {
     entityContext += 'LOCATIONS IN THIS SCENE:\n';
     locations.forEach(loc => {
-      let locDesc = `- ${loc.name}`;
-      if (loc.period) locDesc += ` (${loc.period})`;
-      if (loc.geography) locDesc += `, ${loc.geography}`;
-      if (loc.architecture) locDesc += `, architecture: ${loc.architecture}`;
-      if (loc.atmosphere) locDesc += `, atmosphere: ${loc.atmosphere}`;
-      if (loc.description) locDesc += `. ${loc.description}`;
-      // basePrompt holds rich visual detail for the location — always include it when present
-      if (loc.basePrompt) locDesc += ` Visual reference: ${loc.basePrompt}`;
-      entityContext += locDesc + '\n';
+      const desc = loc.visualDescription ? ` — ${loc.visualDescription}` : '';
+      entityContext += `- ${loc.name}${desc}\n`;
     });
     entityContext += '\n';
   }

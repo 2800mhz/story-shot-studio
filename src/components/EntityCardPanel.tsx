@@ -4,9 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
 import type { Character, Location, TimeContext } from '@/types';
-import { aiProvider } from '@/lib/aiProvider';
 
 // ── Normalization helpers ────────────────────────────────────────────────────
 
@@ -71,36 +69,7 @@ interface CharacterEditorProps {
 
 function CharacterEditor({ initial, onSave, onCancel }: CharacterEditorProps) {
   const [form, setForm] = useState<Character>({ ...initial });
-  const [isEnriching, setIsEnriching] = useState(false);
   const set = (field: keyof Character, value: string) => setForm(prev => ({ ...prev, [field]: value }));
-
-  const handleEnrich = async () => {
-    setIsEnriching(true);
-    try {
-      const enrichPrompt = `You are a visual art director for historical film/TV productions.
-Convert the following character info into a detailed visual reference description (80-100 words, English only).
-Focus on: physical appearance, facial features, skin tone, clothing details, fabric textures, age markers, cultural and historical accuracy.
-Do NOT include backstory, personality, or motivation. Only photographic, visual details that an image AI model can render.
-
-Character info:
-- Name: ${form.name}
-- Role: ${form.role || 'unknown'}
-- Age: ${form.age || 'unspecified'}
-- Ethnicity: ${form.ethnicity || 'unspecified'}
-- Clothing: ${form.clothing || 'unspecified'}
-- Physical features: ${form.physicalFeatures || 'unspecified'}
-- Description: ${form.description || 'none'}
-${form.basePrompt ? `- Existing base prompt (refine, do not discard): ${form.basePrompt}` : ''}
-
-Return ONLY the visual description. No preamble, no quotes, no bullet points.`;
-      const result = await aiProvider.generateContent(enrichPrompt);
-      set('basePrompt', result.trim());
-    } catch (err) {
-      console.error('[EnrichCharacter] Failed:', err);
-    } finally {
-      setIsEnriching(false);
-    }
-  };
 
   return (
     <div className="space-y-2 p-3 bg-amber-950/30 border border-amber-800/40 rounded-lg">
@@ -123,82 +92,19 @@ Return ONLY the visual description. No preamble, no quotes, no bullet points.`;
             placeholder="Osmanlı Sultanı"
           />
         </div>
-        <div>
-          <Label className="text-xs text-amber-300">Yaş</Label>
-          <Input
-            className="h-7 text-xs bg-background border-amber-800/50"
-            value={form.age ?? ''}
-            onChange={e => set('age', e.target.value)}
-            placeholder="40'lı yaşlar"
-          />
-        </div>
-        <div>
-          <Label className="text-xs text-amber-300">Etnisite</Label>
-          <Input
-            className="h-7 text-xs bg-background border-amber-800/50"
-            value={form.ethnicity ?? ''}
-            onChange={e => set('ethnicity', e.target.value)}
-            placeholder="Turanid-II, Central Asian"
-          />
-        </div>
-        <div>
-          <Label className="text-xs text-amber-300">Giysi</Label>
-          <Input
-            className="h-7 text-xs bg-background border-amber-800/50"
-            value={form.clothing ?? ''}
-            onChange={e => set('clothing', e.target.value)}
-            placeholder="Kırmızı kaftan, beyaz sarık"
-          />
-        </div>
-        <div>
-          <Label className="text-xs text-amber-300">Fiziksel Özellikler</Label>
-          <Input
-            className="h-7 text-xs bg-background border-amber-800/50"
-            value={form.physicalFeatures ?? ''}
-            onChange={e => set('physicalFeatures', e.target.value)}
-            placeholder="Koyu sakal, geniş yüz"
-          />
-        </div>
       </div>
       <div>
-        <Label className="text-xs text-amber-300">Açıklama</Label>
+        <Label className="text-xs text-amber-300">Görsel Betimleme (AI tarafından otomatik doldurulur)</Label>
         <Textarea
-          className="text-xs bg-background border-amber-800/50 min-h-[56px] resize-none"
-          value={form.description ?? ''}
-          onChange={e => set('description', e.target.value)}
-          placeholder="Ek görsel açıklama..."
-        />
-      </div>
-      <div>
-        <div className="flex items-center justify-between">
-          <Label className="text-xs text-amber-300">AI Görsel Referans (basePrompt)</Label>
-          <button
-            type="button"
-            onClick={handleEnrich}
-            disabled={isEnriching || !form.name.trim()}
-            className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors py-0.5"
-          >
-            {isEnriching ? <Loader2 className="h-3 w-3 animate-spin" /> : '✨'}
-            {isEnriching ? 'Zenginleştiriliyor...' : 'AI ile Geliştir'}
-          </button>
-        </div>
-        <Textarea
-          className="text-xs bg-background border-amber-800/50 min-h-[72px] resize-none font-mono"
-          value={form.basePrompt ?? ''}
-          onChange={e => set('basePrompt', e.target.value)}
-          disabled={isEnriching}
-          placeholder="80-100 kelimelik görsel betim (AI dolduracak ya da manuel girilebilir)..."
+          className="text-xs bg-background border-amber-800/50 min-h-[96px] resize-none font-mono"
+          value={form.visualDescription ?? ''}
+          onChange={e => set('visualDescription', e.target.value)}
+          placeholder="80-100 kelimelik İngilizce görsel betim (analiz sırasında AI otomatik üretir, manuel de girilebilir)..."
         />
       </div>
       <div className="flex gap-2 justify-end">
-        <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={onCancel}>İptal</Button>
-        <Button
-          size="sm"
-          className="h-6 text-xs bg-amber-700 hover:bg-amber-600 text-white"
-          onClick={() => form.name.trim() && onSave(form)}
-        >
-          Kaydet
-        </Button>
+        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onCancel}>İptal</Button>
+        <Button size="sm" className="h-7 text-xs" onClick={() => onSave(form)} disabled={!form.name.trim()}>Kaydet</Button>
       </div>
     </div>
   );
@@ -214,124 +120,31 @@ interface LocationEditorProps {
 
 function LocationEditor({ initial, onSave, onCancel }: LocationEditorProps) {
   const [form, setForm] = useState<Location>({ ...initial });
-  const [isEnriching, setIsEnriching] = useState(false);
   const set = (field: keyof Location, value: string) => setForm(prev => ({ ...prev, [field]: value }));
-
-  const handleEnrich = async () => {
-    setIsEnriching(true);
-    try {
-      const enrichPrompt = `You are a visual art director for historical film/TV productions.
-Convert the following location info into a detailed visual reference description (80-100 words, English only).
-Focus on: architectural style, building materials, surface textures, lighting conditions, color palette, atmosphere, historical period accuracy.
-Do NOT include narrative context or plot. Only what a camera would see.
-
-Location info:
-- Name: ${form.name}
-- Period: ${form.period || 'unspecified'}
-- Geography: ${form.geography || 'unspecified'}
-- Architecture: ${form.architecture || 'unspecified'}
-- Atmosphere: ${form.atmosphere || 'unspecified'}
-- Description: ${form.description || 'none'}
-${form.basePrompt ? `- Existing base prompt (refine, do not discard): ${form.basePrompt}` : ''}
-
-Return ONLY the visual description. No preamble, no quotes, no bullet points.`;
-      const result = await aiProvider.generateContent(enrichPrompt);
-      set('basePrompt', result.trim());
-    } catch (err) {
-      console.error('[EnrichLocation] Failed:', err);
-    } finally {
-      setIsEnriching(false);
-    }
-  };
 
   return (
     <div className="space-y-2 p-3 bg-blue-950/30 border border-blue-800/40 rounded-lg">
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label className="text-xs text-blue-300">İsim *</Label>
-          <Input
-            className="h-7 text-xs bg-background border-blue-800/50"
-            value={form.name}
-            onChange={e => set('name', e.target.value)}
-            placeholder="Mekan adı"
-          />
-        </div>
-        <div>
-          <Label className="text-xs text-blue-300">Dönem</Label>
-          <Input
-            className="h-7 text-xs bg-background border-blue-800/50"
-            value={form.period ?? ''}
-            onChange={e => set('period', e.target.value)}
-            placeholder="12. yüzyıl, Selçuklu"
-          />
-        </div>
-        <div>
-          <Label className="text-xs text-blue-300">Coğrafya</Label>
-          <Input
-            className="h-7 text-xs bg-background border-blue-800/50"
-            value={form.geography ?? ''}
-            onChange={e => set('geography', e.target.value)}
-            placeholder="Orta Asya, Transoxiana"
-          />
-        </div>
-        <div>
-          <Label className="text-xs text-blue-300">Mimari</Label>
-          <Input
-            className="h-7 text-xs bg-background border-blue-800/50"
-            value={form.architecture ?? ''}
-            onChange={e => set('architecture', e.target.value)}
-            placeholder="İslami geometrik çini"
-          />
-        </div>
-        <div className="col-span-2">
-          <Label className="text-xs text-blue-300">Atmosfer</Label>
-          <Input
-            className="h-7 text-xs bg-background border-blue-800/50"
-            value={form.atmosphere ?? ''}
-            onChange={e => set('atmosphere', e.target.value)}
-            placeholder="Tozlu ticaret yolu, kervansaray"
-          />
-        </div>
-      </div>
       <div>
-        <Label className="text-xs text-blue-300">Açıklama</Label>
-        <Textarea
-          className="text-xs bg-background border-blue-800/50 min-h-[56px] resize-none"
-          value={form.description ?? ''}
-          onChange={e => set('description', e.target.value)}
-          placeholder="Ek görsel açıklama..."
+        <Label className="text-xs text-blue-300">Mekan Adı *</Label>
+        <Input
+          className="h-7 text-xs bg-background border-blue-800/50"
+          value={form.name}
+          onChange={e => set('name', e.target.value)}
+          placeholder="Topkapı Sarayı"
         />
       </div>
       <div>
-        <div className="flex items-center justify-between">
-          <Label className="text-xs text-blue-300">AI Görsel Referans (basePrompt)</Label>
-          <button
-            type="button"
-            onClick={handleEnrich}
-            disabled={isEnriching || !form.name.trim()}
-            className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors py-0.5"
-          >
-            {isEnriching ? <Loader2 className="h-3 w-3 animate-spin" /> : '✨'}
-            {isEnriching ? 'Zenginleştiriliyor...' : 'AI ile Geliştir'}
-          </button>
-        </div>
+        <Label className="text-xs text-blue-300">Görsel Betimleme (AI tarafından otomatik doldurulur)</Label>
         <Textarea
-          className="text-xs bg-background border-blue-800/50 min-h-[72px] resize-none font-mono"
-          value={form.basePrompt ?? ''}
-          onChange={e => set('basePrompt', e.target.value)}
-          disabled={isEnriching}
-          placeholder="80-100 kelimelik görsel betim (AI dolduracak ya da manuel girilebilir)..."
+          className="text-xs bg-background border-blue-800/50 min-h-[96px] resize-none font-mono"
+          value={form.visualDescription ?? ''}
+          onChange={e => set('visualDescription', e.target.value)}
+          placeholder="80-100 kelimelik İngilizce görsel betim (analiz sırasında AI otomatik üretir, manuel de girilebilir)..."
         />
       </div>
       <div className="flex gap-2 justify-end">
-        <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={onCancel}>İptal</Button>
-        <Button
-          size="sm"
-          className="h-6 text-xs bg-blue-700 hover:bg-blue-600 text-white"
-          onClick={() => form.name.trim() && onSave(form)}
-        >
-          Kaydet
-        </Button>
+        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onCancel}>İptal</Button>
+        <Button size="sm" className="h-7 text-xs" onClick={() => onSave(form)} disabled={!form.name.trim()}>Kaydet</Button>
       </div>
     </div>
   );
@@ -462,22 +275,15 @@ export function EntityCardPanel({
   const newBlankCharacter = (): Character => ({
     id: `char-${crypto.randomUUID()}`,
     name: '',
-    description: '',
     role: '',
-    age: '',
-    ethnicity: '',
-    clothing: '',
-    physicalFeatures: '',
+    isCrowd: false,
+    visualDescription: '',
   });
 
   const newBlankLocation = (): Location => ({
     id: `loc-${crypto.randomUUID()}`,
     name: '',
-    description: '',
-    period: '',
-    geography: '',
-    architecture: '',
-    atmosphere: '',
+    visualDescription: '',
   });
 
   const newBlankTimeContext = (): TimeContext => ({
@@ -629,10 +435,9 @@ export function EntityCardPanel({
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="text-xs font-medium text-amber-300">👥 {char.name}</span>
-                              {char.ethnicity && <span className="text-xs text-amber-500/70">{char.ethnicity}</span>}
                             </div>
-                            {char.clothing && (
-                              <div className="text-xs text-muted-foreground/70 truncate">{char.clothing}</div>
+                            {char.visualDescription && (
+                              <div className="text-xs text-muted-foreground/70 line-clamp-2">{char.visualDescription}</div>
                             )}
                           </div>
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">

@@ -118,11 +118,12 @@ const Index = () => {
           if (globalChars.length > 0) {
             dispatch({
               type: 'SET_CHARACTERS',
-              payload: globalChars.map((c: { id: string; name: string; description?: string | null; base_prompt?: string | null }) => ({
+              payload: globalChars.map((c: { id: string; name: string; role?: string | null; is_crowd?: boolean | null; visual_description?: string | null }) => ({
                 id: c.id,
                 name: c.name,
-                description: c.description || '',
-                basePrompt: c.base_prompt || '',
+                role: c.role || undefined,
+                isCrowd: c.is_crowd ?? false,
+                visualDescription: c.visual_description || undefined,
               }))
             });
           }
@@ -130,11 +131,12 @@ const Index = () => {
       } else if (globalChars.length > 0) {
         dispatch({
           type: 'SET_CHARACTERS',
-          payload: globalChars.map((c: { id: string; name: string; description?: string | null; base_prompt?: string | null }) => ({
+          payload: globalChars.map((c: { id: string; name: string; role?: string | null; is_crowd?: boolean | null; visual_description?: string | null }) => ({
             id: c.id,
             name: c.name,
-            description: c.description || '',
-            basePrompt: c.base_prompt || '',
+            role: c.role || undefined,
+            isCrowd: c.is_crowd ?? false,
+            visualDescription: c.visual_description || undefined,
           }))
         });
       }
@@ -148,11 +150,10 @@ const Index = () => {
           if (globalLocs.length > 0) {
             dispatch({
               type: 'SET_LOCATIONS',
-              payload: globalLocs.map((l: { id: string; name: string; description?: string | null; base_prompt?: string | null }) => ({
+              payload: globalLocs.map((l: { id: string; name: string; visual_description?: string | null }) => ({
                 id: l.id,
                 name: l.name,
-                description: l.description || '',
-                basePrompt: l.base_prompt || '',
+                visualDescription: l.visual_description || undefined,
               }))
             });
           }
@@ -160,11 +161,10 @@ const Index = () => {
       } else if (globalLocs.length > 0) {
         dispatch({
           type: 'SET_LOCATIONS',
-          payload: globalLocs.map((l: { id: string; name: string; description?: string | null; base_prompt?: string | null }) => ({
+          payload: globalLocs.map((l: { id: string; name: string; visual_description?: string | null }) => ({
             id: l.id,
             name: l.name,
-            description: l.description || '',
-            basePrompt: l.base_prompt || '',
+            visualDescription: l.visual_description || undefined,
           }))
         });
       }
