@@ -195,7 +195,8 @@ export async function generatePromptsForScene(
   aspectRatio: '16:9' | '4:3' | '1:1' | '9:16' = '16:9',
   sceneAnalysis?: SceneAnalysis,
   timeContexts?: TimeContext[],
-  episodePrompt?: string
+  episodePrompt?: string,
+  generationType: 'initial' | 'regenerate' = 'initial'
 ): Promise<GenerationResult> {
   let userMessage = `SAHNE METNİ:\n${scene.text}\n\n`;
   userMessage += `TÜRKÇE GÖRSEL NOT: "${scene.visualNote}"\n\n`;
@@ -346,6 +347,7 @@ export async function generatePromptsForScene(
       promptText,
       versions: [promptText],
       aspectRatio,
+      generationType,
     };
   });
 

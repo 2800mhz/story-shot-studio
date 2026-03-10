@@ -867,7 +867,7 @@ const Index = () => {
     }
   }, [dispatch, toast]);
 
-  const handleGeneratePromptsForScene = useCallback(async (sceneId: string): Promise<boolean> => {
+  const handleGeneratePromptsForScene = useCallback(async (sceneId: string, isRegeneration: boolean = false): Promise<boolean> => {
     const scene = state.sceneCards.find(s => s.id === sceneId);
     if (!scene) return false;
 
@@ -889,7 +889,8 @@ const Index = () => {
         aspectRatio,
         state.sceneAnalyses[sceneId],
         sceneTimeContexts,
-        state.episodePrompt || undefined
+        state.episodePrompt || undefined,
+        isRegeneration ? 'regenerate' : 'initial'
       );
       dispatch({ 
         type: 'FINISH_PROMPT_GENERATION', 
@@ -955,7 +956,7 @@ const Index = () => {
   }, []);
 
   const handleRegenerateAllPrompts = useCallback(async (sceneId: string) => {
-    await handleGeneratePromptsForScene(sceneId);
+    await handleGeneratePromptsForScene(sceneId, true);
   }, [handleGeneratePromptsForScene]);
 
   const handleAddVariation = useCallback(async (sceneId: string) => {
@@ -980,7 +981,8 @@ const Index = () => {
         aspectRatio,
         state.sceneAnalyses[sceneId],
         sceneTimeContexts,
-        state.episodePrompt || undefined
+        state.episodePrompt || undefined,
+        'regenerate'
       );
       dispatch({
         type: 'FINISH_PROMPT_GENERATION',
