@@ -226,6 +226,7 @@ export type AppAction =
   // Two-stage AI workflow actions
   | { type: 'START_ANALYSIS' }
   | { type: 'FINISH_ANALYSIS'; payload: { sceneCards: SceneCard[]; characters: Character[]; locations: Location[]; suggestedTimeContexts?: TimeContext[] } }
+  | { type: 'REPLACE_ANALYSIS'; payload: { sceneCards: SceneCard[]; characters: Character[]; locations: Location[]; suggestedTimeContexts?: TimeContext[] } }
   | { type: 'SET_TIME_CONTEXTS'; payload: TimeContext[] }
   | { type: 'UPDATE_SCENE_CARD_NOTE'; payload: { sceneId: string; note: string } }
   | { type: 'ADD_CHARACTER_TO_SCENE_CARD'; payload: { sceneId: string; characterId: string } }
