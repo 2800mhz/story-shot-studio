@@ -13,6 +13,8 @@ interface CenterPanelProps {
   onAnalyzeText?: (text: string) => void;
   isAnalyzing?: boolean;
   analysisLog?: string[];
+  maxScenes: number;
+  onMaxScenesChange: (value: number) => void;
 }
 
 export function CenterPanel({
@@ -20,6 +22,7 @@ export function CenterPanel({
   scrollToIndex, onScrollComplete,
   onSetActiveScene, onRemoveScene,
   onAnalyzeText, isAnalyzing, analysisLog,
+  maxScenes, onMaxScenesChange,
 }: CenterPanelProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const activeSceneRef = useRef<HTMLDivElement>(null);
@@ -203,6 +206,8 @@ export function CenterPanel({
           onAnalyzeWithAI={handleAnalyzeFromSelection}
           onDismiss={dismissToolbar}
           isAnalyzing={isAnalyzing}
+          maxScenes={maxScenes}
+          onMaxScenesChange={onMaxScenesChange}
         />
       )}
     </div>

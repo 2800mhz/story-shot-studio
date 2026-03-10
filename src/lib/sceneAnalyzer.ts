@@ -246,9 +246,14 @@ function buildResultFromScenes(
 type TimeContextRaw = Omit<TimeContext, 'id'>;
 
 async function analyzeChunk(
-  chunk: string
+  chunk: string,
+  maxScenesHint?: number
 ): Promise<{ scenes?: SceneRaw[]; timeContexts?: TimeContextRaw[]; timeContext?: TimeContextRaw }> {
-  const content = await aiProvider.generateContent(chunk, SCENE_ANALYSIS_SYSTEM_PROMPT);
+  let systemPrompt = SCENE_ANALYSIS_SYSTEM_PROMPT;
+  if (maxScenesHint && maxScenesHint > 0) {
+    systemPrompt += `\n\n🎯 HEDEF SAHNE SAYISI: Bu metin parçasından yaklaşık ${maxScenesHint} sahne üret. Görsel bütünlüğü bozmadan bu sayıya mümkün olduğunca yaklaş. Çok küçük veya anlamsız sahneleri birleştir; çok uzun sahneleri böl.`;
+  }
+  const content = await aiProvider.generateContent(chunk, systemPrompt);
 
   console.log('🤖 Raw Gemini response:', content.substring(0, 200));
 
@@ -291,7 +296,8 @@ export async function analyzeTextIntoScenes(
   text: string,
   _apiKey?: string,
   _model?: string,
-  onProgress?: (message: string) => void
+  onProgress?: (message: string) => void,
+  maxScenes?: number
 ): Promise<{
   sceneCards: SceneCard[];
   characters: Character[];
@@ -313,7 +319,8 @@ export async function analyzeTextIntoScenes(
   for (let i = 0; i < chunks.length; i++) {
     console.log(`🔍 Analyzing chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
     onProgress?.(`🤖 Parça ${i + 1}/${chunks.length} yapay zekaya gönderiliyor...`);
-    const parsed = await analyzeChunk(chunks[i]);
+    const chunkMaxScenes = maxScenes ? Math.ceil(maxScenes / chunks.length) : undefined;
+    const parsed = await analyzeChunk(chunks[i], chunkMaxScenes);
     const scenes = parsed.scenes ?? [];
     const cards = buildResultFromScenes(scenes, sceneNumberOffset, characterMap, locationMap, timeContextLabelMap);
     allSceneCards.push(...cards);
