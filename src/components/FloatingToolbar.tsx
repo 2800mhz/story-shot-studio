@@ -17,7 +17,7 @@ export function FloatingToolbar({ position, onAnalyzeWithAI, onDismiss, isAnalyz
       style={{ top: position.top - 48, left: position.left }}
     >
       <div className="flex items-center gap-1.5">
-        <span className="text-[10px] text-muted-foreground shrink-0">Maks sahne:</span>
+        <span className="text-[10px] text-muted-foreground shrink-0" title="Kelime sayısından otomatik hesaplandı, değiştirebilirsiniz">~sahne sayısı:</span>
         <Input
           type="number"
           min={5}

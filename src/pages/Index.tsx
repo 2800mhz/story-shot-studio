@@ -25,6 +25,16 @@ import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, Pro
 
 const GROUP_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
+/**
+ * Calculate a sensible default maxScenes from a word count.
+ * Rule of thumb: ~1 scene per 70 words, clamped to [5, 200].
+ */
+function calculateDynamicMaxScenes(wordCount: number): number {
+  if (wordCount <= 0) return 20;
+  const raw = Math.round(wordCount / 70);
+  return Math.max(5, Math.min(200, raw));
+}
+
 const PROMPT_GENERATION_DELAY_MS = 2000;
 const AUTO_SAVE_DEBOUNCE_MS = 2000;
 
@@ -853,6 +863,11 @@ const Index = () => {
 
   // ─── Two-stage AI workflow handlers ─────────────────────────────
   const handleAnalyzeText = useCallback(async (selectedText: string) => {
+    // Compute dynamic maxScenes from the selected text's word count
+    const wordCount = selectedText.trim().split(/\s+/).filter(Boolean).length;
+    const dynamicMax = calculateDynamicMaxScenes(wordCount);
+    setMaxScenes(dynamicMax);
+
     dispatch({ type: 'START_ANALYSIS' });
     setAnalysisLog([]);
 
@@ -864,7 +879,7 @@ const Index = () => {
         (message: string) => {
           setAnalysisLog(prev => [...prev, message]);
         },
-        maxScenes
+        dynamicMax
       );
       dispatch({ type: 'FINISH_ANALYSIS', payload: result });
       setTimeout(() => setAnalysisLog([]), 3000);
@@ -877,15 +892,16 @@ const Index = () => {
       });
       dispatch({ type: 'FINISH_ANALYSIS', payload: { sceneCards: [], characters: [], locations: [] } });
     }
-  }, [dispatch, toast, maxScenes]);
+  }, [dispatch, toast]);
 
   const handleReanalyze = useCallback(async (newMaxScenes: number) => {
-    if (!state.mainText || state.isAnalyzing) return;
+    const textToAnalyze = state.mainText || state.documentText;
+    if (!textToAnalyze || state.isAnalyzing) return;
     dispatch({ type: 'START_ANALYSIS' });
     setAnalysisLog([]);
     try {
       const result = await analyzeTextIntoScenes(
-        state.mainText,
+        textToAnalyze,
         undefined,
         undefined,
         (message: string) => {
@@ -904,7 +920,7 @@ const Index = () => {
       });
       dispatch({ type: 'REPLACE_ANALYSIS', payload: { sceneCards: [], characters: [], locations: [], suggestedTimeContexts: [] } });
     }
-  }, [state.mainText, state.isAnalyzing, dispatch, toast]);
+  }, [state.mainText, state.documentText, state.isAnalyzing, dispatch, toast]);
 
   const handleGeneratePromptsForScene = useCallback(async (sceneId: string, isRegeneration: boolean = false): Promise<boolean> => {
     const scene = state.sceneCards.find(s => s.id === sceneId);

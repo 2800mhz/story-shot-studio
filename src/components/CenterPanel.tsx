@@ -219,6 +219,38 @@ export function CenterPanel({
           </div>
         </div>
       )}
+      {!isAnalyzing && onMaxScenesChange && (
+        <div className="border-b p-3 bg-muted/30 shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-muted-foreground">Analiz sahne hedefi:</div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => {
+                  const newVal = Math.max(5, maxScenes - 10);
+                  onMaxScenesChange(newVal);
+                }}
+                disabled={isAnalyzing || maxScenes <= 5}
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title="Daha az sahne"
+              >
+                ➖
+              </button>
+              <span className="text-[11px] text-muted-foreground font-mono tabular-nums min-w-[2.5rem] text-center">~{maxScenes}</span>
+              <button
+                onClick={() => {
+                  const newVal = Math.min(200, maxScenes + 10);
+                  onMaxScenesChange(newVal);
+                }}
+                disabled={isAnalyzing || maxScenes >= 200}
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title="Daha fazla sahne"
+              >
+                ➕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-8 py-6" onMouseUp={onAnalyzeText ? handleMouseUp : undefined}>
         {mainText ? (
           <div
