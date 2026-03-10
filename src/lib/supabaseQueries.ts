@@ -184,26 +184,8 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
       return [];
     }
 
-    // ── Step 1: Fetch existing scenes (sorted by scene_number) ──────────────
-    // We match by position so that UUIDs remain stable across saves.
-    // This is essential for prompt history: prompts reference scene_id (UUID).
-    // If we DELETE+INSERT every save, new UUIDs break the FK reference for
-    // the soft-delete UPDATE in savePrompts.
-    const existingScenes: any[] = await withRetry(async () => {
-      const { data, error } = await supabase
-        .from('scenes')
-        .select('id, scene_number')
-        .eq('episode_id', episodeId)
-        .order('scene_number', { ascending: true });
-      if (error) throw error;
-      return data || [];
-    }, 'Fetch existing scenes');
-
-    // ── Step 2: Build update/insert payloads ────────────────────────────────
-    const toUpdate: any[] = [];
-    const toInsert: any[] = [];
-
-    scenes.forEach((scene, idx) => {
+    // ── Step 1: Prepare the bulk upsert payload ──────────────
+    const scenesToUpsert = scenes.map((scene, idx) => {
       const characterIds = Array.isArray(scene.characterIds)
         ? scene.characterIds.filter((id: unknown) => typeof id === 'string') : [];
       const locationIds = Array.isArray(scene.locationIds)
@@ -211,7 +193,8 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
       const timeContextIds = Array.isArray(scene.timeContextIds)
         ? scene.timeContextIds.filter((id: unknown) => typeof id === 'string') : [];
 
-      const fields = {
+      return {
+        id: scene.id, // now guaranteed to be a valid stable UUID
         episode_id: episodeId,
         scene_number: idx + 1,
         text: scene.text || '',
@@ -222,48 +205,44 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
         analysis: scene.analysis || null,
         optimizations: scene.optimizations || [],
       };
-
-      if (existingScenes[idx]) {
-        toUpdate.push({ id: existingScenes[idx].id, ...fields });
-      } else {
-        toInsert.push(fields);
-      }
     });
 
-    // ── Step 3: Delete scenes no longer present (tail rows) ─────────────────
-    const extraIds = existingScenes.slice(scenes.length).map((s: any) => s.id);
-    if (extraIds.length > 0) {
+    // ── Step 2: Fetch existing scene IDs for this episode to find deletions
+    const existingIdsObj: any[] = await withRetry(async () => {
+      const { data, error } = await supabase
+        .from('scenes')
+        .select('id')
+        .eq('episode_id', episodeId);
+      if (error) throw error;
+      return data || [];
+    }, 'Fetch existing scene IDs');
+    
+    const existingIds = existingIdsObj.map(row => row.id);
+    const incomingIds = scenesToUpsert.map(s => s.id);
+    const idsToDelete = existingIds.filter(id => !incomingIds.includes(id));
+
+    // ── Step 3: Delete removed scenes ─────────────────
+    if (idsToDelete.length > 0) {
       await withRetry(async () => {
-        const { error } = await supabase.from('scenes').delete().in('id', extraIds);
+        const { error } = await supabase.from('scenes').delete().in('id', idsToDelete);
         if (error) throw error;
-      }, `Delete ${extraIds.length} extra scenes`);
+      }, `Delete ${idsToDelete.length} removed scenes`);
     }
 
-    // ── Step 4: UPDATE existing ──────────────────────────────────────────────
+    // ── Step 4: Upsert all incoming scenes ──────────────────────────────────────────────
     const allSaved: any[] = [];
-    for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
-      const chunk = toUpdate.slice(i, i + BATCH_SIZE);
+    const BATCH_SIZE = 10;
+    
+    for (let i = 0; i < scenesToUpsert.length; i += BATCH_SIZE) {
+      const chunk = scenesToUpsert.slice(i, i + BATCH_SIZE);
       const data = await withRetry(async () => {
-        const results = await Promise.all(
-          chunk.map((row: any) =>
-            supabase.from('scenes').update(row).eq('id', row.id).select().single()
-          )
-        );
-        const errors = results.filter(r => r.error);
-        if (errors.length) throw errors[0].error;
-        return results.map(r => r.data);
-      }, `Update scenes chunk ${Math.ceil(i / BATCH_SIZE) + 1}`);
-      allSaved.push(...data);
-    }
-
-    // ── Step 5: INSERT new scenes ────────────────────────────────────────────
-    for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
-      const chunk = toInsert.slice(i, i + BATCH_SIZE);
-      const data = await withRetry(async () => {
-        const { data, error } = await supabase.from('scenes').insert(chunk).select();
+        const { data, error } = await supabase
+          .from('scenes')
+          .upsert(chunk, { onConflict: 'id' })
+          .select();
         if (error) throw error;
         return data || [];
-      }, `Insert new scenes chunk ${Math.ceil(i / BATCH_SIZE) + 1}`);
+      }, `Upsert scenes chunk ${Math.ceil(i / BATCH_SIZE) + 1}`);
       allSaved.push(...data);
     }
 

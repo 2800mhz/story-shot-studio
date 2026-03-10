@@ -327,7 +327,7 @@ export async function parseTextIntoScenes(
 
           if (startIndex !== -1) {
             allScenes.push({
-              id: `scene-ai-${crypto.randomUUID()}`,
+              id: crypto.randomUUID(),
               number: sceneCounter,
               title: `Sahne ${sceneCounter}`,
               text: sceneText,
