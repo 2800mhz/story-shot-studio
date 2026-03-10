@@ -270,4 +270,5 @@ export type AppAction =
   | { type: 'UPDATE_TIME_CONTEXT'; payload: TimeContext }
   | { type: 'DELETE_TIME_CONTEXT'; payload: string }
   | { type: 'ADD_TIME_CONTEXT_TO_SCENE_CARD'; payload: { sceneId: string; timeContextId: string } }
-  | { type: 'REMOVE_TIME_CONTEXT_FROM_SCENE_CARD'; payload: { sceneId: string; timeContextId: string } };
+  | { type: 'REMOVE_TIME_CONTEXT_FROM_SCENE_CARD'; payload: { sceneId: string; timeContextId: string } }
+  | { type: 'REORDER_SCENE_CARDS'; payload: SceneCard[] };

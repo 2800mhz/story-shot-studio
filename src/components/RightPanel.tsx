@@ -39,6 +39,7 @@ interface RightPanelProps {
   onAddSubSceneToGroup?: (sceneId: string, subSceneId: string, groupId: string | null) => void;
   onRemoveSubSceneFromGroup?: (sceneId: string, subSceneId: string, groupId: string) => void;
   onReorderScenes?: (scenes: Scene[]) => void;
+  onReorderSceneCards?: (sceneCards: SceneCardType[]) => void;
   // Two-stage AI workflow
   sceneCards?: SceneCardType[];
   characters?: Character[];
@@ -118,7 +119,7 @@ export function RightPanel({
   onAddSubScene, onRemoveSubScene, onGenerateSubScene, onReviseSubScene, onRefreshSubScene,
   onDeleteSubScenePrompt, onSetSubSceneNote,
   onAddSubSceneToGroup, onRemoveSubSceneFromGroup,
-  onReorderScenes,
+  onReorderScenes, onReorderSceneCards,
   sceneCards = [], characters = [], locations = [], timeContexts = [],
   isGeneratingPrompts, onGeneratePrompts, onGenerateAllPrompts, onDeleteSceneCard,
   onUpdateSceneCardNote, onRemoveCharacterFromSceneCard, onRemoveLocationFromSceneCard,
@@ -138,6 +139,10 @@ export function RightPanel({
   // Drag-and-drop state
   const dragIndexRef = useRef<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  // Drag-and-drop state for sceneCards
+  const dragSceneCardIndexRef = useRef<number | null>(null);
+  const [dragOverSceneCardIndex, setDragOverSceneCardIndex] = useState<number | null>(null);
 
   const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
     dragIndexRef.current = index;
@@ -191,6 +196,59 @@ export function RightPanel({
   const handleDragEnd = useCallback(() => {
     setDragOverIndex(null);
     dragIndexRef.current = null;
+  }, []);
+
+  const handleSceneCardDragStart = useCallback((e: React.DragEvent, index: number) => {
+    dragSceneCardIndexRef.current = index;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  }, []);
+
+  const handleSceneCardDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverSceneCardIndex(index);
+  }, []);
+
+  const handleSceneCardDrop = useCallback((e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    const fromIndex = dragSceneCardIndexRef.current;
+    if (fromIndex === null || fromIndex === dropIndex) {
+      setDragOverSceneCardIndex(null);
+      dragSceneCardIndexRef.current = null;
+      return;
+    }
+    const reordered = [...sceneCards];
+    const [moved] = reordered.splice(fromIndex, 1);
+
+    // Float ordering logic (Average of previous and next scene numbers)
+    let newNumber = 1;
+    if (reordered.length === 0) {
+      newNumber = 1;
+    } else if (dropIndex === 0) {
+      // Dropped at the very beginning — use half of first card's number to stay positive
+      newNumber = reordered[0].sceneNumber / 2;
+    } else if (dropIndex >= reordered.length) {
+      // Dropped at the very end
+      newNumber = reordered[reordered.length - 1].sceneNumber + 1;
+    } else {
+      // Dropped between two cards
+      const prevNumber = reordered[dropIndex - 1].sceneNumber;
+      const nextNumber = reordered[dropIndex].sceneNumber;
+      newNumber = (prevNumber + nextNumber) / 2;
+    }
+
+    moved.sceneNumber = newNumber;
+    reordered.splice(dropIndex, 0, moved);
+
+    onReorderSceneCards?.(reordered);
+    setDragOverSceneCardIndex(null);
+    dragSceneCardIndexRef.current = null;
+  }, [sceneCards, onReorderSceneCards]);
+
+  const handleSceneCardDragEnd = useCallback(() => {
+    setDragOverSceneCardIndex(null);
+    dragSceneCardIndexRef.current = null;
   }, []);
 
   const handleExportAll = useCallback(() => {
@@ -417,14 +475,27 @@ export function RightPanel({
               );
             })}
 
-            {sceneCards.map(sc => {
+            {sceneCards.map((sc, i) => {
               const sceneChars = characters.filter(c => sc.characterIds.includes(c.id));
               const sceneLocs = locations.filter(l => sc.locationIds.includes(l.id));
               // Pass only the scene's own time contexts for label display.
               const sceneTimeContexts = timeContexts.filter(tc => (sc.timeContextIds ?? []).includes(tc.id));
               return (
-                <SceneCard
+                <div
                   key={sc.id}
+                  draggable
+                  onDragStart={(e) => handleSceneCardDragStart(e, i)}
+                  onDragOver={(e) => handleSceneCardDragOver(e, i)}
+                  onDrop={(e) => handleSceneCardDrop(e, i)}
+                  onDragEnd={handleSceneCardDragEnd}
+                  className={`relative transition-all ${dragOverSceneCardIndex === i ? 'border-t-2 border-primary pt-1' : ''}`}
+                >
+                  <div className="flex gap-1">
+                    <div className="flex items-start pt-3 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+                      <GripVertical className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                <SceneCard
                   scene={sc}
                   characters={sceneChars}
                   locations={sceneLocs}
@@ -444,6 +515,9 @@ export function RightPanel({
                   onDeletePrompt={onDeletePrompt}
                   onRestorePreviousPrompt={onRestorePreviousPrompt_}
                 />
+                    </div>
+                  </div>
+                </div>
               );
             })}
           </>
