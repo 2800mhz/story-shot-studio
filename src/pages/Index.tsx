@@ -256,6 +256,10 @@ const Index = () => {
   // Auto-save scenes to Supabase whenever sceneCards change
   const isSavingRef = useRef(false);
   const pendingSaveRef = useRef(false);
+  // Maps frontend scene IDs (e.g. 'scene-xxx') to the stable Supabase UUID assigned
+  // after saveScenes. Used by savePrompts so it always hits the right DB row without
+  // disturbing React state during concurrent prompt generation.
+  const sceneIdMapRef = useRef<Map<string, string>>(new Map());
 
   const doSave = useCallback(async () => {
     if (!episodeId || state.sceneCards.length === 0) return;
@@ -276,35 +280,34 @@ const Index = () => {
       // Save scenes
       const savedScenes = await saveScenes(episodeId, state.sceneCards);
 
-      // ─── Persist Supabase UUIDs back into state ──────────────────────────
-      // saveScenes does DELETE + INSERT each time, so Supabase assigns a brand-new
-      // UUID on every save.  If we don't write those IDs back to state, the next
-      // savePrompts call will use a stale scene_id that no longer exists in the DB,
-      // which means the soft-delete UPDATE finds 0 rows and the old prompts are
-      // never deactivated → fetchPromptHistory always returns empty.
-      const updatedCards = state.sceneCards.map((sc, i) =>
-        savedScenes[i] ? { ...sc, id: savedScenes[i].id } : sc
-      );
-      dispatch({ type: 'SET_SCENES', payload: updatedCards });
+      // ─── Build a stable frontend-ID → Supabase-UUID mapping ─────────────
+      // saveScenes does DELETE+INSERT every time (so Supabase assigns new UUIDs).
+      // We MUST NOT dispatch SET_SCENES here — doing so would overwrite any prompts
+      // that were generated while the save was in flight (race condition with
+      // handleGenerateAllPrompts).  Instead, we keep the mapping in a ref and use
+      // it below when calling savePrompts, so we always hit the right DB row.
+      state.sceneCards.forEach((sc, i) => {
+        if (savedScenes[i]) sceneIdMapRef.current.set(sc.id, savedScenes[i].id);
+      });
 
       // Save prompts in parallel batches (5 at a time) with error isolation
       const PROMPT_BATCH = 5;
       const scenesWithPrompts = state.sceneCards
-        .map((scene, i) => ({ scene, savedScene: savedScenes[i] }))
-        .filter(({ scene, savedScene }) => scene.prompts.length > 0 && savedScene);
+        .map((scene, i) => ({ scene, supabaseId: savedScenes[i]?.id }))
+        .filter(({ scene, supabaseId }) => scene.prompts.length > 0 && supabaseId);
 
       let failedCount = 0;
       for (let i = 0; i < scenesWithPrompts.length; i += PROMPT_BATCH) {
         const batch = scenesWithPrompts.slice(i, i + PROMPT_BATCH);
         const results = await Promise.allSettled(
-          batch.map(({ scene, savedScene }) =>
-            savePrompts(savedScene.id, scene.prompts)
+          batch.map(({ scene, supabaseId }) =>
+            savePrompts(supabaseId!, scene.prompts)
           )
         );
         results.forEach((r, idx) => {
           if (r.status === 'rejected') {
             failedCount++;
-            console.error(`❌ Failed to save prompts for scene ${batch[idx].savedScene.id}:`, r.reason);
+            console.error(`❌ Failed to save prompts for scene ${batch[idx].supabaseId}:`, r.reason);
           }
         });
       }
