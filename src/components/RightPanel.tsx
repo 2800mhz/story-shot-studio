@@ -57,7 +57,7 @@ interface RightPanelProps {
   onRemoveTimeContextFromSceneCard?: (sceneId: string, timeContextId: string) => void;
   onAddVariation?: (sceneId: string) => void;
   onRegenerateAllPrompts_?: (sceneId: string) => void;
-  onRevisePrompt?: (sceneId: string, promptId: string, instruction: string) => void;
+  onRevisePrompt?: (sceneId: string, promptId: string, instruction: string) => Promise<void>;
   onDeletePrompt?: (sceneId: string, promptId: string) => void;
   onRestorePreviousPrompt_?: (sceneId: string, entry: any) => void;
   isBulkGeneratingPrompts?: boolean;
@@ -161,10 +161,29 @@ export function RightPanel({
     }
     const reordered = [...scenes];
     const [moved] = reordered.splice(fromIndex, 1);
+    
+    // Float ordering logic (Average of previous and next scene numbers)
+    let newNumber = 1;
+    if (reordered.length === 0) {
+      newNumber = 1;
+    } else if (dropIndex === 0) {
+      // Dropped at the very beginning
+      newNumber = reordered[0].number - 1;
+    } else if (dropIndex >= reordered.length) {
+      // Dropped at the very end
+      newNumber = reordered[reordered.length - 1].number + 1;
+    } else {
+      // Dropped between two scenes
+      const prevNumber = reordered[dropIndex - 1].number;
+      const nextNumber = reordered[dropIndex].number;
+      newNumber = (prevNumber + nextNumber) / 2;
+    }
+
+    // Assign the newly calculated float number
+    moved.number = newNumber;
     reordered.splice(dropIndex, 0, moved);
-    // Update scene numbers
-    const renumbered = reordered.map((s, i) => ({ ...s, number: i + 1 }));
-    onReorderScenes?.(renumbered);
+
+    onReorderScenes?.(reordered);
     setDragOverIndex(null);
     dragIndexRef.current = null;
   }, [scenes, onReorderScenes]);
@@ -252,8 +271,8 @@ export function RightPanel({
                       style={{ width: `${bulkPromptsPercent}%` }}
                     />
                   </div>
-                  <span className="text-[10px] text-muted-foreground shrink-0">
-                    {bulkPromptsProgress?.done ?? 0}/{bulkPromptsProgress?.total ?? 0}
+                  <span className="text-[10px] text-muted-foreground shrink-0 font-medium">
+                    {bulkPromptsProgress?.done ?? 0}/{bulkPromptsProgress?.total ?? 0} üretiliyor...
                   </span>
                 </div>
                 <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={onCancelBulkPrompts}>

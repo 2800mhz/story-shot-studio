@@ -320,12 +320,11 @@ export interface PromptVariant {
 | Buton stilleri (ghost, minimal) | `SceneCard.tsx` | ✅ Aktif |
 | Prompt modifikasyonunda loading animasyonları | `Index.tsx` + `SceneCard.tsx` | ✅ Aktif |
 | Episode Style Textarea | `LeftPanel.tsx` + `Index.tsx` | ✅ Aktif |
+| Batch Generation Progress Bar | `Index.tsx` + `RightPanel.tsx` | ✅ Aktif |
 
 ### 🔴 Kalan UI Eksikleri
 
-1. **Batch Generation Progress Bar** — `handleGenerateAllPrompts` fonksiyonu `Index.tsx`'te mevcut. "Tümünü Üret" butonuna "23/60 üretiliyor..." ilerleme göstergesi eklenmesi gerekiyor.
-
-3. **Drag & Drop Float Ordering** — DB'de `NUMERIC`, state'te hazır. Sürükle-bırak UI'ında `(Önceki + Sonraki) / 2` algoritmasıyla yeni sıra numarası atanması gerekiyor.
+1. **Drag & Drop Float Ordering** — DB'de `NUMERIC`, state'te hazır. Sürükle-bırak UI'ında `(Önceki + Sonraki) / 2` algoritmasıyla yeni sıra numarası atanması gerekiyor.
 
 4. **JSON Retry Toast Bildirimi** — Retry tetiklendiğinde kullanıcıya "Yapay zeka yanıtı bozuk geldi, onarılıyor..." toast mesajı gösterilmesi gerekiyor.
 
