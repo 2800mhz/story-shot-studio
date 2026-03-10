@@ -893,7 +893,7 @@ const Index = () => {
         },
         newMaxScenes
       );
-      dispatch({ type: 'FINISH_ANALYSIS', payload: result });
+      dispatch({ type: 'REPLACE_ANALYSIS', payload: result });
       setTimeout(() => setAnalysisLog([]), 3000);
     } catch (error) {
       console.error('Re-analysis error:', error);
@@ -902,7 +902,7 @@ const Index = () => {
         description: error instanceof Error ? error.message : 'Hata oluştu',
         variant: 'destructive'
       });
-      dispatch({ type: 'FINISH_ANALYSIS', payload: { sceneCards: [], characters: [], locations: [], suggestedTimeContexts: [] } });
+      dispatch({ type: 'REPLACE_ANALYSIS', payload: { sceneCards: [], characters: [], locations: [], suggestedTimeContexts: [] } });
     }
   }, [state.mainText, state.isAnalyzing, dispatch, toast]);
 

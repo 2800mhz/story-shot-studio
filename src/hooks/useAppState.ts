@@ -377,6 +377,41 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
         timeContexts: mergedTimeContexts,
       };
     }
+    case 'REPLACE_ANALYSIS': {
+      const { sceneCards: newCards, characters: newChars, locations: newLocs, suggestedTimeContexts } = action.payload;
+      const mergedTimeContexts = suggestedTimeContexts?.length
+        ? mergeTimeContextsByLabel(state.timeContexts, suggestedTimeContexts)
+        : state.timeContexts;
+
+      const incomingIdToLabel = new Map<string, string>();
+      (suggestedTimeContexts ?? []).forEach(tc => {
+        if (tc.label) incomingIdToLabel.set(tc.id, tc.label);
+      });
+      const canonicalLabelToId = new Map<string, string>();
+      mergedTimeContexts.forEach(tc => canonicalLabelToId.set(tc.label, tc.id));
+
+      const updatedNewCards = newCards.map(sc => ({
+        ...sc,
+        timeContextIds: (sc.timeContextIds ?? [])
+          .map(incomingId => {
+            const label = incomingIdToLabel.get(incomingId);
+            if (label) {
+              return canonicalLabelToId.get(label) ?? incomingId;
+            }
+            return incomingId;
+          })
+          .filter((id, idx, arr) => arr.indexOf(id) === idx),
+      }));
+
+      return {
+        ...state,
+        isAnalyzing: false,
+        sceneCards: updatedNewCards,
+        characters: newChars,
+        locations: newLocs,
+        timeContexts: mergedTimeContexts,
+      };
+    }
     case 'SET_TIME_CONTEXTS':
       return { ...state, timeContexts: action.payload };
     case 'UPDATE_SCENE_CARD_NOTE':
