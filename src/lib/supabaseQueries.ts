@@ -353,7 +353,12 @@ export async function fetchPromptHistory(sceneId: string) {
     .eq('scene_id', sceneId)
     .order('created_at', { ascending: false });
 
-  if (error) throw error;
+  if (error) {
+    console.error('fetchPromptHistory Error:', error);
+    throw error;
+  }
+  
+  console.log(`[fetchPromptHistory] SceneID: ${sceneId} -> Found ${data?.length || 0} prompts`, data);
   return data || [];
 }
 
