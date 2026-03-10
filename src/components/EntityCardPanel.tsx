@@ -4,7 +4,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2 } from 'lucide-react';
 import type { Character, Location, TimeContext } from '@/types';
+import { aiProvider } from '@/lib/aiProvider';
 
 // ── Normalization helpers ────────────────────────────────────────────────────
 
@@ -69,7 +71,36 @@ interface CharacterEditorProps {
 
 function CharacterEditor({ initial, onSave, onCancel }: CharacterEditorProps) {
   const [form, setForm] = useState<Character>({ ...initial });
+  const [isEnriching, setIsEnriching] = useState(false);
   const set = (field: keyof Character, value: string) => setForm(prev => ({ ...prev, [field]: value }));
+
+  const handleEnrich = async () => {
+    setIsEnriching(true);
+    try {
+      const enrichPrompt = `You are a visual art director for historical film/TV productions.
+Convert the following character info into a detailed visual reference description (80-100 words, English only).
+Focus on: physical appearance, facial features, skin tone, clothing details, fabric textures, age markers, cultural and historical accuracy.
+Do NOT include backstory, personality, or motivation. Only photographic, visual details that an image AI model can render.
+
+Character info:
+- Name: ${form.name}
+- Role: ${form.role || 'unknown'}
+- Age: ${form.age || 'unspecified'}
+- Ethnicity: ${form.ethnicity || 'unspecified'}
+- Clothing: ${form.clothing || 'unspecified'}
+- Physical features: ${form.physicalFeatures || 'unspecified'}
+- Description: ${form.description || 'none'}
+${form.basePrompt ? `- Existing base prompt (refine, do not discard): ${form.basePrompt}` : ''}
+
+Return ONLY the visual description. No preamble, no quotes, no bullet points.`;
+      const result = await aiProvider.generateContent(enrichPrompt);
+      set('basePrompt', result.trim());
+    } catch (err) {
+      console.error('[EnrichCharacter] Failed:', err);
+    } finally {
+      setIsEnriching(false);
+    }
+  };
 
   return (
     <div className="space-y-2 p-3 bg-amber-950/30 border border-amber-800/40 rounded-lg">
@@ -138,6 +169,27 @@ function CharacterEditor({ initial, onSave, onCancel }: CharacterEditorProps) {
           placeholder="Ek görsel açıklama..."
         />
       </div>
+      <div>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-amber-300">AI Görsel Referans (basePrompt)</Label>
+          <button
+            type="button"
+            onClick={handleEnrich}
+            disabled={isEnriching || !form.name.trim()}
+            className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors py-0.5"
+          >
+            {isEnriching ? <Loader2 className="h-3 w-3 animate-spin" /> : '✨'}
+            {isEnriching ? 'Zenginleştiriliyor...' : 'AI ile Geliştir'}
+          </button>
+        </div>
+        <Textarea
+          className="text-xs bg-background border-amber-800/50 min-h-[72px] resize-none font-mono"
+          value={form.basePrompt ?? ''}
+          onChange={e => set('basePrompt', e.target.value)}
+          disabled={isEnriching}
+          placeholder="80-100 kelimelik görsel betim (AI dolduracak ya da manuel girilebilir)..."
+        />
+      </div>
       <div className="flex gap-2 justify-end">
         <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={onCancel}>İptal</Button>
         <Button
@@ -162,7 +214,35 @@ interface LocationEditorProps {
 
 function LocationEditor({ initial, onSave, onCancel }: LocationEditorProps) {
   const [form, setForm] = useState<Location>({ ...initial });
+  const [isEnriching, setIsEnriching] = useState(false);
   const set = (field: keyof Location, value: string) => setForm(prev => ({ ...prev, [field]: value }));
+
+  const handleEnrich = async () => {
+    setIsEnriching(true);
+    try {
+      const enrichPrompt = `You are a visual art director for historical film/TV productions.
+Convert the following location info into a detailed visual reference description (80-100 words, English only).
+Focus on: architectural style, building materials, surface textures, lighting conditions, color palette, atmosphere, historical period accuracy.
+Do NOT include narrative context or plot. Only what a camera would see.
+
+Location info:
+- Name: ${form.name}
+- Period: ${form.period || 'unspecified'}
+- Geography: ${form.geography || 'unspecified'}
+- Architecture: ${form.architecture || 'unspecified'}
+- Atmosphere: ${form.atmosphere || 'unspecified'}
+- Description: ${form.description || 'none'}
+${form.basePrompt ? `- Existing base prompt (refine, do not discard): ${form.basePrompt}` : ''}
+
+Return ONLY the visual description. No preamble, no quotes, no bullet points.`;
+      const result = await aiProvider.generateContent(enrichPrompt);
+      set('basePrompt', result.trim());
+    } catch (err) {
+      console.error('[EnrichLocation] Failed:', err);
+    } finally {
+      setIsEnriching(false);
+    }
+  };
 
   return (
     <div className="space-y-2 p-3 bg-blue-950/30 border border-blue-800/40 rounded-lg">
@@ -220,6 +300,27 @@ function LocationEditor({ initial, onSave, onCancel }: LocationEditorProps) {
           value={form.description ?? ''}
           onChange={e => set('description', e.target.value)}
           placeholder="Ek görsel açıklama..."
+        />
+      </div>
+      <div>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-blue-300">AI Görsel Referans (basePrompt)</Label>
+          <button
+            type="button"
+            onClick={handleEnrich}
+            disabled={isEnriching || !form.name.trim()}
+            className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors py-0.5"
+          >
+            {isEnriching ? <Loader2 className="h-3 w-3 animate-spin" /> : '✨'}
+            {isEnriching ? 'Zenginleştiriliyor...' : 'AI ile Geliştir'}
+          </button>
+        </div>
+        <Textarea
+          className="text-xs bg-background border-blue-800/50 min-h-[72px] resize-none font-mono"
+          value={form.basePrompt ?? ''}
+          onChange={e => set('basePrompt', e.target.value)}
+          disabled={isEnriching}
+          placeholder="80-100 kelimelik görsel betim (AI dolduracak ya da manuel girilebilir)..."
         />
       </div>
       <div className="flex gap-2 justify-end">

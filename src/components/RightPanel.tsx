@@ -356,6 +356,7 @@ export function RightPanel({
                     <div className="flex-1 min-w-0">
                 <PromptCard
                   key={scene.id}
+                  sceneId={scene.id}
                   sceneIndex={i + 1}
                   episodeTitle={scene.episodeTitle}
                   sceneText={scene.segments.map(s => s.text).join(' ')}

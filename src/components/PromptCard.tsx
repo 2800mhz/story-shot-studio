@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Copy, Pencil, RefreshCw, ChevronLeft, Plus, Loader2, AlertTriangle, Trash2, Zap, Link2, X, StickyNote, ChevronDown, ChevronRight, Layers } from 'lucide-react';
+import { Copy, Pencil, RefreshCw, ChevronLeft, Plus, Loader2, AlertTriangle, Trash2, Zap, Link2, X, StickyNote, ChevronDown, ChevronRight, Layers, Clock } from 'lucide-react';
 import type { PromptVariant, ConsistencyGroup, SubScene, ExtractedEntity } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SubSceneCard } from './SubSceneCard';
+import { PromptHistoryModal } from './PromptHistoryModal';
 
 interface PromptCardProps {
   sceneIndex: number;
@@ -41,8 +42,10 @@ interface PromptCardProps {
   onSetSubSceneNote?: (subSceneId: string, note: string) => void;
   onAddSubSceneToGroup?: (subSceneId: string, groupId: string | null) => void;
   onRemoveSubSceneFromGroup?: (subSceneId: string, groupId: string) => void;
+  sceneId?: string;  // used by PromptHistoryModal to fetch old versions
   isActive: boolean;
   onClick: () => void;
+  onRestorePrompt?: (promptText: string, shotType: string) => void;
 }
 
 export function PromptCard({
@@ -55,7 +58,8 @@ export function PromptCard({
   onAddSubScene, onRemoveSubScene, onGenerateSubScene, onReviseSubScene,
   onRefreshSubScene, onDeleteSubScenePrompt, onSetSubSceneNote,
   onAddSubSceneToGroup, onRemoveSubSceneFromGroup,
-  isActive, onClick,
+  isActive, onClick, onRestorePrompt,
+  sceneId,
 }: PromptCardProps) {
   const [revisingId, setRevisingId] = useState<string | null>(null);
   const [revisionText, setRevisionText] = useState('');
@@ -67,6 +71,7 @@ export function PromptCard({
   const [newSubSceneLabel, setNewSubSceneLabel] = useState('');
   const [showSubSceneInput, setShowSubSceneInput] = useState(false);
   const [entityPickerId, setEntityPickerId] = useState<string | null>(null);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -97,6 +102,7 @@ export function PromptCard({
   const availableGroups = allConsistencyGroups.filter(g => !currentGroupIds.has(g.id));
 
   return (
+    <>
     <div
       className={`rounded-lg border transition-colors ${
         isActive ? 'border-primary/50 bg-card' : 'border-border bg-card hover:border-border/80'
@@ -160,6 +166,16 @@ export function PromptCard({
               className="rounded p-1 text-blue-400 hover:bg-blue-500/10"
             >
               <Link2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {/* Prompt history modal clock button — only visible for old-workflow scenes backed by Supabase */}
+          {sceneId && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowHistoryModal(true); }}
+              title="Önceki versiyonlar"
+              className="rounded p-1 text-muted-foreground hover:text-primary hover:bg-primary/10"
+            >
+              <Clock className="h-3.5 w-3.5" />
             </button>
           )}
           <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="rounded p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10">
@@ -535,6 +551,19 @@ export function PromptCard({
         </div>
       )}
     </div>
+
+    {/* Prompt History Modal — fixed overlay, sibling to the card via fragment */}
+    {showHistoryModal && sceneId && (
+      <PromptHistoryModal
+        sceneId={sceneId}
+        onClose={() => setShowHistoryModal(false)}
+        onRestore={(entry) => {
+          onRestorePrompt?.(entry.prompt_text, entry.shot_type);
+        }}
+      />
+    )}
+    </>
   );
 }
+
 
