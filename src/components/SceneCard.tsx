@@ -22,7 +22,7 @@ interface SceneCardProps {
   onRemoveTimeContext?: (sceneId: string, timeContextId: string) => void;
   onAddVariation?: (sceneId: string) => void;
   onRegenerateAll?: (sceneId: string) => void;
-  onRevisePrompt?: (sceneId: string, promptId: string, instruction: string) => void;
+  onRevisePrompt?: (sceneId: string, promptId: string, instruction: string) => Promise<void>;
   onDeletePrompt?: (sceneId: string, promptId: string) => void;
   onRestorePreviousPrompt?: (sceneId: string, entry: HistoryEntry) => void;
 }
@@ -35,22 +35,36 @@ function InlinePromptCard({
 }: {
   prompt: PromptCard;
   sceneId: string;
-  onRevise?: (sceneId: string, promptId: string, instruction: string) => void;
+  onRevise?: (sceneId: string, promptId: string, instruction: string) => Promise<void>;
   onDelete?: (sceneId: string, promptId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [isRevising, setIsRevising] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [instruction, setInstruction] = useState('');
 
-  const submitRevision = () => {
+  const submitRevision = async () => {
     if (!instruction.trim() || !onRevise) return;
-    onRevise(sceneId, prompt.id, instruction);
-    setIsRevising(false);
-    setInstruction('');
+    setIsSubmitting(true);
+    try {
+      await onRevise(sceneId, prompt.id, instruction);
+    } finally {
+      setIsSubmitting(false);
+      setIsRevising(false);
+      setInstruction('');
+    }
   };
 
   return (
-    <div className="border rounded-md p-2.5 my-2 bg-muted/10">
+    <div className={`relative border rounded-md p-2.5 my-2 bg-muted/10 transition-all ${isSubmitting ? 'opacity-60 pointer-events-none' : ''}`}>
+      {isSubmitting && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-[1px] rounded-md">
+          <div className="flex flex-col items-center text-primary">
+            <RefreshCw className="h-5 w-5 animate-spin mb-1" />
+            <span className="text-[10px] font-medium">Revize Ediliyor...</span>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-1">
         <div>
           <span className="text-xs font-bold text-primary">
@@ -143,7 +157,7 @@ function InlinePromptCard({
             <Button
               size="sm"
               onClick={submitRevision}
-              disabled={!instruction.trim()}
+              disabled={!instruction.trim() || isSubmitting}
               className="h-6 text-[10px] px-2"
             >
               Uygula
@@ -489,7 +503,16 @@ export function SceneCard({
       )}
 
       {hasPrompts ? (
-        <div className="p-3">
+        <div className="p-3 relative">
+          {scene.status === 'generating' && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-[2px] rounded-b-lg">
+              <div className="flex flex-col items-center bg-background/90 p-4 rounded-lg shadow-sm border text-primary">
+                <RefreshCw className="h-6 w-6 animate-spin mb-2" />
+                <span className="text-xs font-semibold">AI Promptları Üretiyor...</span>
+                <span className="text-[10px] text-muted-foreground mt-1">Lütfen bekleyin</span>
+              </div>
+            </div>
+          )}
           <div className="text-xs font-semibold text-muted-foreground mb-1">Üretilen Promptlar:</div>
           {scene.prompts.map(prompt => (
             <InlinePromptCard

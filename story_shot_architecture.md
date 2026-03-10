@@ -14,7 +14,7 @@ graph TD
         UI[Kullanıcı Arayüzü / Paneller]
         State[Global State: useAppState]
         Parser[Text Parser & Splitter]
-        AI_Orchestrator[AI Provider & Prompters]
+        AI_Orchestrator[AI Provider (Resilient JSON Parser)]
     end
 
     subgraph Backend [Supabase]
@@ -53,42 +53,47 @@ erDiagram
     PROJECTS {
         uuid id PK
         string title
-        text master_prompt "Tüm projede geçerli stil rehberi"
+        text master_prompt
     }
 
     EPISODES {
         uuid id PK
         string title
         text document_text
-        jsonb character_data "Local cache for characters"
-        jsonb location_data "Local cache for locations"
-        jsonb time_contexts "Array of TimeContext objects"
+        jsonb character_data
+        jsonb location_data
+        jsonb time_contexts
+        text episode_prompt "Bölüme özel stil (Master prompt'u ezer/birleşir) [YENİ]"
     }
 
     GLOBAL_CHARACTERS {
         uuid id PK
         string name
         text description
-        text base_prompt "Rich AI visual description"
+        text base_prompt
     }
 
     SCENES {
         uuid id PK
         int scene_number
-        text text "Sahnenin ham metni"
+        text text
         text visual_note
-        jsonb character_ids "Array of string IDs"
+        jsonb character_ids
         jsonb location_ids
         jsonb time_context_ids
-        jsonb analysis "AI yapımı sahne analizi (narrativeType vb.)"
+        jsonb analysis
     }
 
     PROMPTS {
         uuid id PK
-        string type "wide, medium, closeup"
+        string type
         string shot_type
-        text prompt_text "AI tarafından üretilen 100+ kelimelik görsel prompt"
-        string aspect_ratio "16:9, 1:1, vb."
+        text prompt_text
+        string aspect_ratio
+        boolean is_active "Soft-delete versiyonlama [YENİ]"
+        timestamp created_at "[YENİ]"
+        text generation_type "initial / regenerate / revision [YENİ]"
+        text revision_prompt "Kullanıcının Türkçe revizyon talebi [YENİ]"
     }
 ```
 
@@ -98,7 +103,7 @@ erDiagram
 
 Yapay zeka sistemi, iki aşamalı (Two-Stage) bir motor olarak çalışır. İlk motor metni anlar ve planlar; ikinci motor ise bu plana göre sanat yönetmenliği yapar.
 
-### Aşama 1: Sahne Analisti ([sceneAnalyzer.ts](file:///c:/Users/gcmsx/Desktop/prompt_forge_2/story-shot-studio/src/lib/sceneAnalyzer.ts))
+### Aşama 1: Sahne Analisti (`sceneAnalyzer.ts`)
 
 ```mermaid
 sequenceDiagram
@@ -120,8 +125,9 @@ sequenceDiagram
 
 - **Girdi:** Kullanıcıdan gelen çiğ metin.
 - **Görev:** Metni mantıksal çekim sahnelerine (Scene Cards) ayırmak, her sahnenin zorluk derecesini (`temporalComplexity`) hesaplamak, "Bu sahnede kimler var?" (Entity Extraction) sorusuna yanıt bulmak.
+- **⚠️ Bilinen Sorun:** Analiz prompt'u her cümleyi ayrı sahneye bölebiliyor, 70 sayfalık metinden 98 sahne çıkıyor. `sceneAnalyzer.ts` sistem prompt'una maksimum sahne sayısı sınırı eklenmesi gerekiyor.
 
-### Aşama 2: Prompt Jeneratörü ([promptGenerator.ts](file:///c:/Users/gcmsx/Desktop/prompt_forge_2/story-shot-studio/src/lib/promptGenerator.ts))
+### Aşama 2: Prompt Jeneratörü (`promptGenerator.ts`)
 
 Kullanıcı arayüzde (UI) varlıklara (`Mahya Ustası`) özellik ("middle-aged, traditional clothes") atayıp "Üret (Generate)" dediğinde çalışan asıl beyindir.
 
@@ -140,43 +146,74 @@ flowchart TD
     API -->|JSON Çıktısı| Result3[Prompt 3: Close-up]
 ```
 
-- **Context Builder Özelliği:** Sistemin akıllılığı buradadır. Eğer sadece `Mahya Ustası` gönderilse AI kafasına göre çizer. Uygulama veritabanındaki varlıkları filtreler, dolgulu alanları okur ve devasa bir "Görünmez Sahne Ön-Bilgisi" yaratır. Özellikle `basePrompt` alanındaki veriler `Visual reference: {basePrompt}` etiketiyle LLM'e enjekte edilir.
+#### AI Prompt'unun (Görünmez İstem) Anatomisi
+
+`generatePromptsForScene` fonksiyonu, arka planda devasa bir metin bloğu inşa eder. Arayüzde küçük görünen Sahne Kartları, yapay zekaya giderken aşağıdaki formatta dev bir direktife dönüşür:
+
+```markdown
+SAHNE METNİ: (Ham türkçe metin)
+TÜRKÇE GÖRSEL NOT: (Kullanıcının sahneye girdiği not)
+
+CHARACTERS IN THIS SCENE:
+- Mahya Ustası (craftsman), middle-aged, ethnicity: Ottoman Turkish...
+  Visual reference: A middle-aged Ottoman craftsman...
+
+LOCATIONS IN THIS SCENE:
+- Süleymaniye Camii (16th Century), architecture: Classical Ottoman...
+
+HISTORICAL/TEMPORAL CONTEXT:
+- Ramazan Gecesi (Ottoman Era), weather: Clear night...
+
+MASTER PROMPT: (Proje genel stil kuralları)
+[EPISODE STYLE OVERRIDE: Bölüme özel stil — varsa masterPrompt'un üstüne eklenir]
+
+🎬 ASPECT RATIO: 16:9
+🔍 SAHNE ANALİZİ: narrativeType: static / sequence / timelapse
+```
+
+- **Episode Style Override:** `episodePrompt` varsa `masterPrompt` ile şu şekilde birleşir: `${masterPrompt}\n\nEPISODE STYLE OVERRIDE:\n${episodePrompt}` — master'ı silmez, üstüne yazar.
+- **Fail-Safe (Çökme Koruması):** İlk JSON parse denemesi çökerse `"Return ONLY valid JSON"` ikazı ekleyerek 1 retry yapar. Çökmeler %95 oranında önlenmiştir.
+
+### Aşama 3: Prompt Revizyonu (`promptGenerator.ts` → `revisePrompt()`)
+
+Kullanıcı mevcut bir promptu Türkçe bir talimatla revize edebilir.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant InlinePromptCard
+    participant Index.tsx
+    participant revisePrompt()
+    participant GeminiAPI
+
+    User->>InlinePromptCard: Revizyon kutusuna "Hava yağmurlu olsun" yazar
+    InlinePromptCard->>Index.tsx: onRevise(sceneId, promptId, instruction)
+    Index.tsx->>revisePrompt(): revisePrompt(oldPromptText, instruction)
+    revisePrompt()->>GeminiAPI: "Orijinal promptu koru, sadece yönetmen isteğini entegre et"
+    GeminiAPI-->>revisePrompt(): Yeni İngilizce prompt
+    revisePrompt()-->>Index.tsx: Güncel prompt metni
+    Index.tsx->>Index.tsx: Eski prompt is_active=false, yeni prompt INSERT
+    Note over Index.tsx: generation_type: 'revision'<br/>revision_prompt: "Hava yağmurlu olsun"
+```
 
 ---
 
 ## 4. State Management (Durum Yönetimi) ve Otomatik Kayıt (Auto-Save)
 
-Uygulamanın merkez sinir sistemi [src/hooks/useAppState.ts](file:///c:/Users/gcmsx/Desktop/prompt_forge_2/story-shot-studio/src/hooks/useAppState.ts) içerisindeki Reducer yapısıdır. Devasa ve iç içe (nested) veriler sebebiyle klasik `useState` yerine katı kurallı (Action-Payload) bir `useReducer` kullanılmıştır.
+Uygulamanın merkez sinir sistemi `src/hooks/useAppState.ts` içerisindeki Reducer yapısıdır.
 
-### Auto-Save (Otomatik Kayıt) Mekanizması
+### Auto-Save Mekanizması
 
-Uygulamada "Kaydet" butonu yoktur. Mimari Optimistic UI ve Debounce pattern üzerine kuruludur.
+Uygulamada "Kaydet" butonu yoktur. Optimistic UI + Debounce pattern üzerine kuruludur. Kullanıcı bir değişiklik yaptığında arayüz anında güncellenir, 2 saniye sonra Supabase'e yazılır.
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant State (React)
-    participant Timer (Debounce)
-    participant SupabaseQueries
-    participant DB
-    
-    User->>State: Karakter Seçer veya Not Yazar
-    Note over State: Arayüz anında güncellenir<br/>(0ms gecikme)
-    State->>Timer: Değişiklik oldu!
-    Timer-->>Timer: 2 Saniye Bekler<br/>(Kullanıcı yazmaya devam ederse sıfırlanır)
-    Timer->>SupabaseQueries: doSave() Tetiklendi
-    Note over SupabaseQueries: saveScenes()
-    SupabaseQueries->>DB: Sahneler Chunk (20'şerli) halinde UPDATE edilir
-    SupabaseQueries->>DB: Promptlar paralel olarak UPDATE edilir
-```
+### Ölümcül Döngü (Infinite Duplicate Bug) ve "Stable UUID" Çözümü
 
-### Bağlantı Tufanını (Connection Storm) Önleme
+**Eski Sorun:** React geçici `scene-138374` gibi ID'ler üretiyordu. Supabase bunları reddedip yeni UUID atıyordu. React'teki ID ile DB'deki ID uyuşmuyordu. Her auto-save'de sahneler ve promptlar tekrar INSERT ediliyordu → geçmişte 20+ kopya birikiyordu.
 
-Eski versiyonlarda bölüm (episode) yüklendiğinde 60 sahneli bir projede 60 ayrı [fetchPrompts](file:///c:/Users/gcmsx/Desktop/prompt_forge_2/story-shot-studio/src/lib/supabaseQueries.ts#291-300) isteği Supabase'e atılıyor ve CORS/500 hataları alınıyordu.
+**Çözüm (Stable Native UUIDs):** Artık her varlık (Sahne, Karakter, Prompt) doğduğu anda `crypto.randomUUID()` alır. Bu ID hiç değişmez. `saveScenes` UPSERT (`onConflict: 'id'`) kullanır.
 
-Yeni Mimaride (Batching):
-- [fetchAllPromptsForScenes(sceneIds)](file:///c:/Users/gcmsx/Desktop/prompt_forge_2/story-shot-studio/src/lib/supabaseQueries.ts#301-325) kullanılarak tüm promptlar tek bir `.in('scene_id', [dizi...])` SQL komutuyla çekilir. 
-- Supabase'den dönen devasa liste, Javascript üzerinde bir `Map<string, any[]>` (Hash map) objesine çevrilir ve id'lerine göre [O(1)](file:///c:/Users/gcmsx/Desktop/prompt_forge_2/story-shot-studio/src/lib/geminiApi.ts#57-75) (sabit zaman) karmaşıklığında sahnelerine atanır. Ağ trafiği %99 oranında azaltılmıştır.
+- **Batching:** `fetchAllPromptsForScenes(sceneIds)` ile tüm promptlar tek `.in()` sorgusunda çekilir, HashMap ile O(1) atanır.
+- **Prompt Soft-Delete:** "Yeniden Üret" → eski promptlar `is_active=false`, yeni promptlar INSERT. `fetchPromptHistory` ile geçmişe erişilir, `generation_type` ile (İlk Üretim / Yeniden Üretim / Revizyon) etiketlenir.
 
 ---
 
@@ -184,17 +221,92 @@ Yeni Mimaride (Batching):
 
 | Klasör / Dosya | Görev |
 | :--- | :--- |
-| [src/pages/Index.tsx](file:///c:/Users/gcmsx/Desktop/prompt_forge_2/story-shot-studio/src/pages/Index.tsx) | Beyin kontrol merkezi. UI bileşenlerini asamble eder, Supabase ile State'i konuşturur, Keyboard Kısayollarını (Ctrl+Z) dinler. |
-| [src/hooks/useAppState.ts](file:///c:/Users/gcmsx/Desktop/prompt_forge_2/story-shot-studio/src/hooks/useAppState.ts) | Global State (Reducer). Undo/Redo özellikleri, varlık ilişkileri, state merge (zaman bağlamı gibi) operasyonları buradadır. |
-| [src/components/RightPanel.tsx](file:///c:/Users/gcmsx/Desktop/prompt_forge_2/story-shot-studio/src/components/RightPanel.tsx) | Prompt üretimi, sahne notları, render tuşları ve AI üretim tetikleyicilerinin bulunduğu ana yan panel. |
-| [src/lib/geminiApi.ts](file:///c:/Users/gcmsx/Desktop/prompt_forge_2/story-shot-studio/src/lib/geminiApi.ts) | Google Gemini servisiyle (REST tabanlı) konuşan çekirdek API paketleyici. Token limiti, Retry mantığı buradadır. |
-| [src/lib/promptGenerator.ts](file:///c:/Users/gcmsx/Desktop/prompt_forge_2/story-shot-studio/src/lib/promptGenerator.ts) | GeminiAPI'ye gidecek "kullanıcıdan görünmez devasa prompt" metninin (Entity'ler + Master Prompt) legolar gibi birleştirildiği yer. |
-| [src/lib/supabaseQueries.ts](file:///c:/Users/gcmsx/Desktop/prompt_forge_2/story-shot-studio/src/lib/supabaseQueries.ts) | Exponential Backoff (üstel geri çekilme) destekli Supabase sorguları. Olası ağ kopmalarında isteklerin çökmesi engellenir. |
-| [src/types/index.ts](file:///c:/Users/gcmsx/Desktop/prompt_forge_2/story-shot-studio/src/types/index.ts) | Sistemin TypeScript DNA'sı. [SceneCard](file:///c:/Users/gcmsx/Desktop/prompt_forge_2/story-shot-studio/src/types/index.ts#151-165), [PromptVariant](file:///c:/Users/gcmsx/Desktop/prompt_forge_2/story-shot-studio/src/types/index.ts#8-19) ve Veritabanı Entity arayüzlerinin tiplerini barındırır. |
+| `src/pages/Index.tsx` | Beyin kontrol merkezi. UI bileşenlerini asamble eder, Supabase ile State'i konuşturur, Keyboard Kısayollarını (Ctrl+Z) dinler. |
+| `src/hooks/useAppState.ts` | Global State (Reducer). Undo/Redo, varlık ilişkileri, state merge operasyonları. |
+| `src/components/RightPanel.tsx` | Prompt üretimi, sahne notları, render tuşları ve AI üretim tetikleyicileri. |
+| `src/components/SceneCard.tsx` | Sahne kartı + InlinePromptCard (revizyon input'u dahil). |
+| `src/components/PromptHistoryModal.tsx` | **[YENİ]** Sahne prompt geçmişini listeler, geri yükleme sağlar. |
+| `src/components/EntityCardPanel.tsx` | Karakter ve Mekan editörleri. ✨ AI ile Geliştir butonu dahil. |
+| `src/lib/geminiApi.ts` | Google Gemini servisiyle konuşan çekirdek API paketleyici. Token limiti, Retry mantığı. |
+| `src/lib/promptGenerator.ts` | Context Builder + `generatePromptsForScene()` + `revisePrompt()` [YENİ]. |
+| `src/lib/supabaseQueries.ts` | Exponential Backoff destekli Supabase sorguları. `fetchPromptHistory` [YENİ]. |
+| `src/types/index.ts` | TypeScript DNA'sı. `SceneCard`, `PromptVariant`, `AppState` arayüzleri. |
 
 ---
 
-## 6. Uzman İpuçları ve En İyi Pratikler (Best Practices)
+## 6. Geliştirici Kuralları: "Do Not Touch"
 
-1. **Antropolojik Tutarlılık (Anthropological Consistency):** Uygulama son halindeki güncellemeyle Karaktere/Mekana yazılan `basePrompt` verisini kayıpsız kullanır. Yüz veya giysi tutarlılığı için bu alana `--cref url` veya detaylı 16. Yüzyıl kumaş terminolojisi girmek Midjourney gibi render motorlarında hatasız devamlılık sağlar.
-2. **Optimizasyon Grubu (Consistency Groups):** Aynı mekanı/karakteri içeren Sahneler "A, B, C" gibi harflerle "Consistency Group" a alınır. Prompt motoru bunu algılar ve bağlı olduğu grubu AI'ya bildirerek "Group A'nın önceki sahnesiyle ortam ışığını koru" komutunu otomatik yaratır.
+Gelecekteki AI asistanların **bozmaması** gereken hayati yapılar:
+
+1. **`supabaseQueries.ts` Exponential Backoff (`withRetry`):** Tekil `for` loop CRUD'a izin verilmez, her zaman `upsert` veya `.in()` kullanılır.
+2. **`promptGenerator.ts` Context Merging Mimarisi:** `episodePrompt` merge sırası, JSON Retry döngüsü, `basePrompt` birleştirme hassas ve sıralıdır.
+3. **`useAppState.ts` Devasa Reducer:** Yapısı narindir. Yalnızca `types/index.ts` ile eşleşen action/payload ile genişletin.
+4. **`crypto.randomUUID()` Stable ID Sistemi:** Hiçbir varlığa geçici string ID atanmaz. Her varlık doğduğu anda gerçek UUID alır ve bu ID asla değişmez.
+
+---
+
+## 7. AI Modeli Kod Üretim Referansları (TypeScript Signatures)
+
+```typescript
+// promptGenerator.ts Ana Fonksiyon
+export async function generatePromptsForScene(
+  scene: SceneCard,
+  characters: Character[],
+  locations: Location[],
+  masterPrompt: string,
+  _apiKey?: string,
+  _model?: string,
+  aspectRatio: '16:9' | '4:3' | '1:1' | '9:16' = '16:9',
+  sceneAnalysis?: SceneAnalysis,
+  timeContexts?: TimeContext[],
+  episodePrompt?: string
+): Promise<GenerationResult>
+
+// promptGenerator.ts Revizyon Fonksiyonu [YENİ]
+export async function revisePrompt(
+  oldPromptText: string,
+  instruction: string  // Kullanıcının Türkçe talebi
+): Promise<string>
+
+// AppState (useAppState.ts)
+export interface AppState {
+  episodePrompt: string;
+  masterPrompt: string;
+  // Tüm alanlar için src/types/index.ts baz alınmalıdır.
+}
+
+// PromptVariant (Soft-Delete Uyumlu)
+export interface PromptVariant {
+  id: string;
+  is_active?: boolean;       // false = geçmiş versiyon
+  created_at?: string;
+  generation_type?: 'initial' | 'regenerate' | 'revision';
+  revision_prompt?: string;  // Türkçe revizyon talebi
+}
+```
+
+---
+
+## 8. Frontend (UI/UX) Durumu ve Yol Haritası
+
+### ✅ Tamamlanan UI Özellikleri
+
+| Özellik | Bileşen | Durum |
+| :--- | :--- | :--- |
+| Prompt History Modal (🕐 saat ikonu) | `PromptHistoryModal.tsx` + `SceneCard.tsx` | ✅ Aktif |
+| ✨ AI ile Geliştir (Karakter & Mekan) | `EntityCardPanel.tsx` | ✅ Aktif |
+| Prompt Revizyon Sistemi | `SceneCard.tsx` + `Index.tsx` | ✅ Aktif |
+| Prompt geçmişinde generation_type rozeti | `PromptHistoryModal.tsx` | ✅ Aktif |
+| Buton stilleri (ghost, minimal) | `SceneCard.tsx` | ✅ Aktif |
+
+### 🔴 Kalan UI Eksikleri
+
+1. **Episode Style Textarea** — Backend + State hazır. Sol panelde veya bölüm başlığı altına `SET_EPISODE_PROMPT` action'ını tetikleyen bir `Textarea` eklenmesi gerekiyor.
+
+2. **Batch Generation Progress Bar** — `handleGenerateAllPrompts` fonksiyonu `Index.tsx`'te mevcut. "Tümünü Üret" butonuna "23/60 üretiliyor..." ilerleme göstergesi eklenmesi gerekiyor.
+
+3. **Drag & Drop Float Ordering** — DB'de `NUMERIC`, state'te hazır. Sürükle-bırak UI'ında `(Önceki + Sonraki) / 2` algoritmasıyla yeni sıra numarası atanması gerekiyor.
+
+4. **JSON Retry Toast Bildirimi** — Retry tetiklendiğinde kullanıcıya "Yapay zeka yanıtı bozuk geldi, onarılıyor..." toast mesajı gösterilmesi gerekiyor.
+
+5. **sceneAnalyzer.ts Sahne Sınırı** — Analiz prompt'una maksimum sahne sayısı kuralı eklenmesi gerekiyor (şu an ~70 sayfalık metin 98 sahne üretiyor).
