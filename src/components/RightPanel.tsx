@@ -114,7 +114,7 @@ export function RightPanel({
   extractedEntities, sceneAnalyses,
   onGenerate, onCancel, onCancelAll, onGenerateAll, isGeneratingAll, onRevise, onRefreshAll,
   onSetActiveScene, onRemoveScene, onRegenerateGroup,
-  onAddSceneToGroup, onRemoveSceneFromGroup, onDeletePrompt, onAttachEntity, onDetachEntity, onSetSceneNote, onSetGroupNote,
+  onAddSceneToGroup, onRemoveSceneFromGroup, onAttachEntity, onDetachEntity, onSetSceneNote, onSetGroupNote,
   onAddSubScene, onRemoveSubScene, onGenerateSubScene, onReviseSubScene, onRefreshSubScene,
   onDeleteSubScenePrompt, onSetSubSceneNote,
   onAddSubSceneToGroup, onRemoveSubSceneFromGroup,
