@@ -500,26 +500,26 @@ export function SceneCard({
               onDelete={onDeletePrompt}
             />
           ))}
-          <div className="flex gap-2 mt-3 pt-2 border-t">
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
             <Button
               size="sm"
-              variant="outline"
-              className="flex-1 h-7 text-xs"
+              variant="ghost"
+              className="h-6 px-2 text-[10px] font-medium text-muted-foreground hover:text-primary hover:bg-primary/5"
               onClick={() => onAddVariation?.(scene.id)}
               disabled={scene.status === 'generating'}
             >
               <Plus className="h-3 w-3 mr-1" />
-              VARYASYON EKLE
+              Yeni Varyasyon
             </Button>
             <Button
               size="sm"
-              variant="outline"
-              className="flex-1 h-7 text-xs"
+              variant="ghost"
+              className="h-6 px-2 text-[10px] font-medium text-muted-foreground hover:text-blue-600 hover:bg-blue-50"
               onClick={() => onRegenerateAll?.(scene.id)}
               disabled={scene.status === 'generating'}
             >
               <RefreshCw className="h-3 w-3 mr-1" />
-              TÜMÜNÜ YENİDEN ÜRET
+              Tümünü Yenile
             </Button>
           </div>
         </div>
