@@ -555,6 +555,8 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
             : sc
         ),
       };
+    case 'REORDER_SCENE_CARDS':
+      return { ...state, sceneCards: action.payload };
     default:
       return state;
   }

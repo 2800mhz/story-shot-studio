@@ -890,7 +890,13 @@ const Index = () => {
         state.sceneAnalyses[sceneId],
         sceneTimeContexts,
         state.episodePrompt || undefined,
-        isRegeneration ? 'regenerate' : 'initial'
+        isRegeneration ? 'regenerate' : 'initial',
+        () => {
+          toast({
+            title: '⚠️ Yapay Zeka Yanıtı Onarılıyor',
+            description: 'Yapay zeka yanıtı bozuk geldi, otomatik onarım deneniyor...',
+          });
+        }
       );
       dispatch({ 
         type: 'FINISH_PROMPT_GENERATION', 
@@ -982,7 +988,13 @@ const Index = () => {
         state.sceneAnalyses[sceneId],
         sceneTimeContexts,
         state.episodePrompt || undefined,
-        'regenerate'
+        'regenerate',
+        () => {
+          toast({
+            title: '⚠️ Yapay Zeka Yanıtı Onarılıyor',
+            description: 'Yapay zeka yanıtı bozuk geldi, otomatik onarım deneniyor...',
+          });
+        }
       );
       dispatch({
         type: 'FINISH_PROMPT_GENERATION',
@@ -1281,6 +1293,7 @@ const Index = () => {
             onAddSubSceneToGroup={handleAddSubSceneToGroup}
             onRemoveSubSceneFromGroup={handleRemoveSubSceneFromGroup}
             onReorderScenes={(reordered) => dispatch({ type: 'REORDER_SCENES', payload: reordered })}
+            onReorderSceneCards={(reordered) => dispatch({ type: 'REORDER_SCENE_CARDS', payload: reordered })}
             sceneCards={state.sceneCards}
             characters={state.characters}
             locations={state.locations}

@@ -196,7 +196,8 @@ export async function generatePromptsForScene(
   sceneAnalysis?: SceneAnalysis,
   timeContexts?: TimeContext[],
   episodePrompt?: string,
-  generationType: 'initial' | 'regenerate' = 'initial'
+  generationType: 'initial' | 'regenerate' = 'initial',
+  onRetry?: () => void
 ): Promise<GenerationResult> {
   let userMessage = `SAHNE METNİ:\n${scene.text}\n\n`;
   userMessage += `TÜRKÇE GÖRSEL NOT: "${scene.visualNote}"\n\n`;
@@ -315,6 +316,7 @@ export async function generatePromptsForScene(
     // First attempt failed — retry once with an explicit JSON-only reminder appended.
     console.error('[⚠️ promptGenerator] JSON parse failed on first attempt, retrying with JSON reminder...', firstErr);
     console.error('Malformed response:', content);
+    onRetry?.();
     const retryMessage = userMessage + '\n\nIMPORTANT: Return ONLY valid JSON. No markdown, no explanation, no code fences.';
     const retryContent = await aiProvider.generateContent(retryMessage, PROMPT_GENERATION_SYSTEM_PROMPT);
     try {
