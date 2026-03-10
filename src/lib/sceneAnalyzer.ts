@@ -290,15 +290,18 @@ function mergeTimeContextsByLabel(existing: TimeContext[], incoming: TimeContext
 export async function analyzeTextIntoScenes(
   text: string,
   _apiKey?: string,
-  _model?: string
+  _model?: string,
+  onProgress?: (message: string) => void
 ): Promise<{
   sceneCards: SceneCard[];
   characters: Character[];
   locations: Location[];
   suggestedTimeContexts: TimeContext[];
 }> {
+  onProgress?.(`📄 Metin analiz için hazırlanıyor... (${text.length} karakter)`);
   const chunks = splitTextIntoChunks(text);
   console.log(`📦 Splitting text into ${chunks.length} chunk(s) for analysis`);
+  onProgress?.(`📦 Metin ${chunks.length} parçaya bölündü`);
 
   const characterMap = new Map<string, Character>();
   const locationMap = new Map<string, Location>();
@@ -309,11 +312,13 @@ export async function analyzeTextIntoScenes(
 
   for (let i = 0; i < chunks.length; i++) {
     console.log(`🔍 Analyzing chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
+    onProgress?.(`🤖 Parça ${i + 1}/${chunks.length} yapay zekaya gönderiliyor...`);
     const parsed = await analyzeChunk(chunks[i]);
     const scenes = parsed.scenes ?? [];
     const cards = buildResultFromScenes(scenes, sceneNumberOffset, characterMap, locationMap, timeContextLabelMap);
     allSceneCards.push(...cards);
     sceneNumberOffset += scenes.length;
+    onProgress?.(`🎬 ${cards.length} sahne kartı oluşturuldu (toplam: ${allSceneCards.length})`);
 
     // Normalize time contexts from this chunk (support both array and legacy single object)
     const rawContexts: typeof parsed.timeContexts =
@@ -337,7 +342,10 @@ export async function analyzeTextIntoScenes(
       }));
 
     suggestedTimeContexts = mergeTimeContextsByLabel(suggestedTimeContexts, chunkTimeContexts);
+    onProgress?.(`👤 ${characterMap.size} karakter · 🏛️ ${locationMap.size} mekan tespit edildi`);
   }
+
+  onProgress?.(`🕐 Zaman bağlamları atanıyor... (${suggestedTimeContexts.length} bağlam)`);
 
   // Post-process: assign timeContextIds to scene cards based on timeContextLabel
   const labelToId = new Map(suggestedTimeContexts.map(tc => [tc.label, tc.id]));
@@ -352,6 +360,8 @@ export async function analyzeTextIntoScenes(
       }
     }
   }
+
+  onProgress?.(`✅ Analiz tamamlandı! ${allSceneCards.length} sahne · ${characterMap.size} karakter · ${locationMap.size} mekan`);
 
   return {
     sceneCards: allSceneCards,

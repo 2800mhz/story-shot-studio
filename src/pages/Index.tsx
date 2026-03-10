@@ -37,6 +37,7 @@ const Index = () => {
   const [loadingData, setLoadingData] = useState(false);
   const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [analysisLog, setAnalysisLog] = useState<string[]>([]);
   const [project, setProject] = useState<{ title: string; master_prompt?: string } | null>(null);
   const [episode, setEpisode] = useState<{ title: string; document_text?: string } | null>(null);
   const [noKeysWarning, setNoKeysWarning] = useState(false);
@@ -852,10 +853,19 @@ const Index = () => {
   // ─── Two-stage AI workflow handlers ─────────────────────────────
   const handleAnalyzeText = useCallback(async (selectedText: string) => {
     dispatch({ type: 'START_ANALYSIS' });
+    setAnalysisLog([]);
 
     try {
-      const result = await analyzeTextIntoScenes(selectedText);
+      const result = await analyzeTextIntoScenes(
+        selectedText,
+        undefined,
+        undefined,
+        (message: string) => {
+          setAnalysisLog(prev => [...prev, message]);
+        }
+      );
       dispatch({ type: 'FINISH_ANALYSIS', payload: result });
+      setTimeout(() => setAnalysisLog([]), 3000);
     } catch (error) {
       console.error('Scene analysis error:', error);
       toast({
@@ -1157,7 +1167,21 @@ const Index = () => {
               </span>
             )}
             {savingStatus === 'error' && (
-              <span className="text-red-600">✗ Save failed</span>
+              <span className="flex items-center gap-2 text-red-600">
+                <span>✗ Kaydetme başarısız</span>
+                <button
+                  onClick={() => doSave()}
+                  className="flex items-center gap-1 rounded-md bg-red-600 px-2 py-0.5 text-xs text-white hover:bg-red-700 transition-colors"
+                  title="Tekrar dene"
+                  aria-label="Kaydetme işlemini tekrar dene"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                    <path d="M3 3v5h5"/>
+                  </svg>
+                  Tekrar Dene
+                </button>
+              </span>
             )}
           </div>
         </div>
@@ -1237,6 +1261,7 @@ const Index = () => {
             onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
             onAnalyzeText={handleAnalyzeText}
             isAnalyzing={state.isAnalyzing}
+            analysisLog={analysisLog}
           />
         </div>
 
