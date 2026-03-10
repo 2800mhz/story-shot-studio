@@ -367,6 +367,12 @@ export async function fetchPrompts(sceneId: string) {
  * Useful for a "Restore Previous Prompt" UI feature.
  */
 export async function fetchPromptHistory(sceneId: string) {
+  // Prevent 400 Bad Request errors if called with a temporary client-side ID (e.g., "scene-123")
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sceneId);
+  if (!isUUID) {
+    return [];
+  }
+
   // Fetch ALL prompts for this scene (both active and soft-deleted ones),
   // ordered by date descending. This gives a full chronological history.
   const { data, error } = await supabase
@@ -380,7 +386,6 @@ export async function fetchPromptHistory(sceneId: string) {
     throw error;
   }
   
-  console.log(`[fetchPromptHistory] SceneID: ${sceneId} -> Found ${data?.length || 0} prompts`, data);
   return data || [];
 }
 

@@ -63,7 +63,7 @@ class AIProviderManager {
   }
 
   private async _generateWithRetry(prompt: string, systemInstruction: string | undefined, retryCount: number): Promise<string> {
-    const maxRetries = 10;
+    const maxRetries = 25; // Increase max retries to accommodate 19+ keys
 
     if (retryCount >= maxRetries) {
       throw new Error('All AI providers exhausted. Please add more API keys in Settings.');
@@ -71,6 +71,7 @@ class AIProviderManager {
 
     const key = this.getCurrentKey();
     if (!key) {
+      // If we ran out of keys but haven't hit max retries, we might need to wait for rate limits
       throw new Error('No active API keys available. Please add keys in Settings.');
     }
 
@@ -86,11 +87,14 @@ class AIProviderManager {
       if (err.status === 429 || err.message?.includes('429') || err.message?.includes('quota')) {
         console.warn(`⚠️ Rate limit hit for ${this.currentProvider}, rotating...`);
         await this.markRateLimited(key);
-        this.rotateKey();
-        return this._generateWithRetry(prompt, systemInstruction, retryCount + 1);
+      } else if (err.status === 503 || err.status === 500) {
+        console.warn(`⚠️ Server error ${err.status} for ${this.currentProvider}, rotating and waiting...`);
       }
 
       this.rotateKey();
+      
+      // Add a small delay before retrying to avoid hammering a downed API or getting instantly rate-limited again
+      await new Promise(resolve => setTimeout(resolve, 1000));
       return this._generateWithRetry(prompt, systemInstruction, retryCount + 1);
     }
   }

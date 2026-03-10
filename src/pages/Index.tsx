@@ -885,9 +885,9 @@ const Index = () => {
     }
   }, [dispatch, toast]);
 
-  const handleGeneratePromptsForScene = useCallback(async (sceneId: string) => {
+  const handleGeneratePromptsForScene = useCallback(async (sceneId: string): Promise<boolean> => {
     const scene = state.sceneCards.find(s => s.id === sceneId);
-    if (!scene) return;
+    if (!scene) return false;
 
     const sceneCharacters = state.characters.filter(c => scene.characterIds.includes(c.id));
     const sceneLocations = state.locations.filter(l => scene.locationIds.includes(l.id));
@@ -918,6 +918,7 @@ const Index = () => {
           optimizations: result.optimizations,
         } 
       });
+      return true;
     } catch (error) {
       console.error('Prompt generation error:', error);
       // Revert status to analyzed on error
@@ -925,6 +926,7 @@ const Index = () => {
         type: 'FINISH_PROMPT_GENERATION',
         payload: { sceneId, prompts: [] },
       });
+      return false;
     }
   }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, dispatch, aspectRatio]);
 
@@ -943,7 +945,17 @@ const Index = () => {
       for (let i = 0; i < scenesWithoutPrompts.length; i++) {
         if (controller.signal.aborted) break;
         const scene = scenesWithoutPrompts[i];
-        await handleGeneratePromptsForScene(scene.id);
+        const success = await handleGeneratePromptsForScene(scene.id);
+        
+        if (!success) {
+          toast({
+            title: 'Toplu Üretim Durduruldu',
+            description: `${i+1}. sahnede API hatası veya limit aşımı yaşandı. Üretim iptal edildi.`,
+            variant: 'destructive'
+          });
+          break; // Stop going through the rest of the scenes if the API is failing
+        }
+
         setBulkPromptsProgress({ done: i + 1, total: scenesWithoutPrompts.length });
         if (i < scenesWithoutPrompts.length - 1 && !controller.signal.aborted) {
           await new Promise(resolve => setTimeout(resolve, PROMPT_GENERATION_DELAY_MS));
