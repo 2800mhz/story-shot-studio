@@ -1,22 +1,27 @@
 import type { SceneCard, Character, Location, TimeContext } from '@/types';
 import { aiProvider } from './aiProvider';
 
-const SCENE_ANALYSIS_SYSTEM_PROMPT = `Sen bir senaryo analisti ve görsel yönetmenisin. Verilen metni görsel SAHNELERE böl.
+const SCENE_ANALYSIS_SYSTEM_PROMPT = `Sen bir storyboard yönetmenisin. Verilen metni görsel sahnelere böl.
 
-🔥 KATİL KURALLAR:
-1. Her cümle = AYRI SAHNE! (Nokta gördün mü = yeni sahne!)
-2. Uzun cümle (20+ kelime) = 2-3 sahneye böl
-3. 100 kelime = EN AZ 20 sahne
-4. 200 kelime = EN AZ 40 sahne
-5. Görsel değişimi = yeni sahne
-6. Karakter hareketi = yeni sahne
-7. Mekan değişimi = yeni sahne
-8. Duygusal geçiş = yeni sahne
+🎬 TEMEL KURAL: Bir sahne = tek bir fotoğraf karesinde anlatılabilecek görsel an.
 
-📐 SAHNE BOYUTU:
-- İdeal: 3-8 kelime per sahne
-- Maksimum: 15 kelime per sahne
-- 15+ kelime varsa MUTLAKA böl!
+SAHNE KESME KRİTERLERİ:
+- Kamera odak noktası değişiyorsa (farklı nesne/kişi ön plana geçiyor) → yeni sahne
+- Mekan veya ışık koşulu değişiyorsa → yeni sahne
+- Duygusal ton zirve yapıyorsa, o an kendi sahnesi olabilir
+- Aynı mekanda aynı karakterle aynı ışıkta ardışık eylemler → tek sahne
+
+BİRLEŞTİR:
+- "Sultan öne çıktı, kılıcını kaldırdı, bağırdı" → 1 sahne (aynı çerçeve)
+
+BÖLDÜR:
+- "Sultan bağırdı. Kale yıkıldı." → 2 sahne (farklı focal point)
+
+YOĞUNLUK REHBERİ (bağlayıcı değil, referans):
+- Diyalog ağırlıklı metin → daha az sahne
+- Aksiyon/hareket ağırlıklı metin → daha fazla sahne
+- Bir A4 sayfa (~250 kelime) → genellikle 8-15 sahne yeterlidir
+- Min/max sahne sayısı yoktur; metnin doğal ritmine uyu
 
 KURALLAR:
 - visualNote TÜRKÇE olmalı (örn: "Boğaz kıyısında sabah yürüyüşü") — maks 10 kelime
@@ -40,7 +45,7 @@ JSON ÇIKTI:
   "scenes": [
     {
       "sceneNumber": 1,
-      "text": "Metinden kesilen kısa metin parçası (3-15 kelime)",
+      "text": "Metinden kesilen metin parçası",
       "visualNote": "Kısa Türkçe görsel açıklama (maks 10 kelime)",
       "characters": [
         {
@@ -251,7 +256,7 @@ async function analyzeChunk(
 ): Promise<{ scenes?: SceneRaw[]; timeContexts?: TimeContextRaw[]; timeContext?: TimeContextRaw }> {
   let systemPrompt = SCENE_ANALYSIS_SYSTEM_PROMPT;
   if (maxScenesHint && maxScenesHint > 0) {
-    systemPrompt += `\n\n🎯 HEDEF SAHNE SAYISI: Bu metin parçasından yaklaşık ${maxScenesHint} sahne üret. Görsel bütünlüğü bozmadan bu sayıya mümkün olduğunca yaklaş. Çok küçük veya anlamsız sahneleri birleştir; çok uzun sahneleri böl.`;
+    systemPrompt += `\n\n🎯 YOĞUNLUK İPUCU: Kullanıcı bu metin için yaklaşık ${maxScenesHint} sahne bekliyor. Görsel bütünlüğü tamamen bozmadan bu sayıya yaklaşmaya çalış — çok küçük veya anlamsız sahneleri birleştir, çok uzun sahneleri böl. Bu bir kural değil, kullanıcı tercihidir.`;
   }
   const content = await aiProvider.generateContent(chunk, systemPrompt);
 

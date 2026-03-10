@@ -5,17 +5,14 @@ interface FloatingToolbarProps {
   onAnalyzeWithAI: () => void;
   onDismiss: () => void;
   isAnalyzing?: boolean;
-  maxScenes: number;
-  onMaxScenesChange: (value: number) => void;
 }
 
-export function FloatingToolbar({ position, onAnalyzeWithAI, onDismiss, isAnalyzing, maxScenes }: FloatingToolbarProps) {
+export function FloatingToolbar({ position, onAnalyzeWithAI, onDismiss, isAnalyzing }: FloatingToolbarProps) {
   return (
     <div
       className="animate-fade-in pointer-events-auto fixed z-50 flex items-center gap-1 rounded-lg border bg-card p-1.5 shadow-xl"
       style={{ top: position.top - 48, left: position.left }}
     >
-      <span className="text-[10px] text-muted-foreground px-1">~{maxScenes} sahne</span>
       <button
         onClick={onAnalyzeWithAI}
         disabled={isAnalyzing}
