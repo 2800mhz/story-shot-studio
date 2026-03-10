@@ -345,11 +345,12 @@ export async function fetchPrompts(sceneId: string) {
  * Useful for a "Restore Previous Prompt" UI feature.
  */
 export async function fetchPromptHistory(sceneId: string) {
+  // Fetch ALL prompts for this scene (both active and soft-deleted ones),
+  // ordered by date descending. This gives a full chronological history.
   const { data, error } = await supabase
     .from('prompts')
-    .select('id, type, label, shot_type, summary, explanation, prompt_text, aspect_ratio, generation_type, revision_prompt, created_at')
+    .select('id, type, label, shot_type, summary, explanation, prompt_text, aspect_ratio, generation_type, revision_prompt, created_at, is_active')
     .eq('scene_id', sceneId)
-    .eq('is_active', false)
     .order('created_at', { ascending: false });
 
   if (error) throw error;

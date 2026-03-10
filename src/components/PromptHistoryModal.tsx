@@ -15,6 +15,7 @@ export interface HistoryEntry {
   aspect_ratio?: '16:9' | '4:3' | '1:1' | '9:16';
   generation_type?: 'initial' | 'regenerate' | 'revision';
   revision_prompt?: string;
+  is_active?: boolean;
 }
 
 interface PromptHistoryModalProps {
@@ -115,6 +116,11 @@ export function PromptHistoryModal({ sceneId, onRestore, onClose }: PromptHistor
                     <span className="text-[10px] font-medium text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded">
                       {entry.shot_type || entry.type || 'Prompt'}
                     </span>
+                    {entry.is_active && (
+                      <span className="text-[10px] font-medium text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded">
+                        ✅ Aktif
+                      </span>
+                    )}
                     {entry.generation_type === 'revision' && (
                       <span className="text-[10px] font-medium text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded flex items-center gap-1">
                         ✏️ Revizyon

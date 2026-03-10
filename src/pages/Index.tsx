@@ -13,9 +13,9 @@ import { EntityCardPanel } from '@/components/EntityCardPanel';
 import { useAppState } from '@/hooks/useAppState';
 import { parseDocument } from '@/lib/documentParser';
 import { parseEpisodes } from '@/lib/contextDetection';
-import { generatePrompts, revisePrompt, loadSystemPrompt } from '@/lib/geminiApi';
+import { generatePrompts, loadSystemPrompt } from '@/lib/geminiApi';
 import { analyzeTextIntoScenes } from '@/lib/sceneAnalyzer';
-import { generatePromptsForScene } from '@/lib/promptGenerator';
+import { generatePromptsForScene, revisePrompt } from '@/lib/promptGenerator';
 import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetchAllPromptsForScenes, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts } from '@/lib/supabaseQueries';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -1299,7 +1299,7 @@ const Index = () => {
             onAddTimeContextToSceneCard={(scene, tc) => dispatch({ type: 'ADD_TIME_CONTEXT_TO_SCENE_CARD', payload: { sceneId: scene, timeContextId: tc } })}
             onRemoveTimeContextFromSceneCard={(scene, tc) => dispatch({ type: 'REMOVE_TIME_CONTEXT_FROM_SCENE_CARD', payload: { sceneId: scene, timeContextId: tc } })}
             onAddVariation={handleAddVariation}
-            onRegenerateAll={handleGenerate}
+            onRegenerateAllPrompts_={handleRegenerateAllPrompts}
             onRevisePrompt={handleRevisePrompt_}
             onDeletePrompt={handleDeletePrompt_}
             onRestorePreviousPrompt_={handleRestoreSceneCardPrompt}

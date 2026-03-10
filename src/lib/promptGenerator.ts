@@ -365,3 +365,44 @@ export async function generatePromptsForScene(
 
   return { prompts, analysis, optimizations };
 }
+
+const REVISION_SYSTEM_PROMPT = `You are an expert AI prompt engineer for cinematic visual generation (Midjourney, DALL-E, Stable Diffusion, etc).
+Your task is to REVISE an existing English prompt based on a user instruction (which may be in Turkish).
+
+RULES:
+1. Preserve the original camera angle, lighting, and core composition of the prompt.
+2. Seamlessly INTEGRATE the user's specific request into the existing scene.
+3. Return ONLY the final revised English prompt. No explanations, no markdown fences, no quotes.
+4. Keep all cinematic and technical terminology (--ar flags, etc.) intact.
+5. If the user asks to remove something, remove it naturally without breaking the sentence structure.`;
+
+export async function revisePrompt(
+  originalPrompt: string,
+  instruction: string,
+  _apiKey?: string,
+  model?: string,
+  temperature?: number
+): Promise<string> {
+  const userMessage = `ORIGINAL PROMPT:\n${originalPrompt}\n\nUSER INSTRUCTION:\n"${instruction}"\n\nPlease provide the revised English prompt below:`;
+
+  try {
+    const rawContent = await aiProvider.generateContent(
+      userMessage,
+      REVISION_SYSTEM_PROMPT
+    );
+
+    // Clean up markdown fences or surrounding quotes the model might add
+    let cleaned = rawContent.trim();
+    if (cleaned.startsWith('```')) {
+      cleaned = cleaned.replace(/^```[a-z]*\n/, '').replace(/\n```$/, '');
+    }
+    if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
+      cleaned = cleaned.slice(1, -1);
+    }
+
+    return cleaned.trim();
+  } catch (error) {
+    console.error('Failed to revise prompt:', error);
+    throw error;
+  }
+}
