@@ -337,7 +337,7 @@ export async function generatePromptsForScene(
     const rawPrompt = p.prompt || '';
     const promptText = /--ar\s+[\d:]+/.test(rawPrompt) ? rawPrompt : `${rawPrompt} ${arSuffix}`.trim();
     return {
-      id: `prompt-${scene.id}-${idx}`,
+      id: crypto.randomUUID(),
       type: types[idx] ?? 'wide',
       label: labels[idx] ?? `Prompt ${idx + 1}`,
       shotType: p.shotType || 'General',

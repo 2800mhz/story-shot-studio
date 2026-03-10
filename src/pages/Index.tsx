@@ -606,7 +606,7 @@ const Index = () => {
       });
 
       const prompts: PromptVariant[] = results.map((r, i) => ({
-        id: `prompt-${Date.now()}-${i}`,
+        id: crypto.randomUUID(),
         shotType: r.shotType,
         text: r.text,
         summary: r.summary,
@@ -715,8 +715,8 @@ const Index = () => {
         generateFn: aiProvider.generateContent.bind(aiProvider),
       });
 
-      const prompts: PromptVariant[] = results.map((r, i) => ({
-        id: `prompt-${Date.now()}-${i}`,
+      const prompts: PromptVariant[] = results.map((r) => ({
+        id: crypto.randomUUID(),
         shotType: r.shotType,
         text: r.text,
         summary: r.summary,
@@ -790,8 +790,8 @@ const Index = () => {
           generateFn: aiProvider.generateContent.bind(aiProvider),
         });
 
-        const prompts: PromptVariant[] = results.map((r, idx) => ({
-          id: `prompt-${Date.now()}-${idx}`,
+        const prompts: PromptVariant[] = results.map((r) => ({
+          id: crypto.randomUUID(),
           shotType: r.shotType,
           text: r.text,
           summary: r.summary,
@@ -1066,7 +1066,7 @@ const Index = () => {
 
       const updatedPrompt: PromptCard = {
         ...promptToRevise,
-        id: `prompt-${crypto.randomUUID()}`, // New ID so upsert doesn't overwrite the original in DB
+        id: crypto.randomUUID(), // New UUID so upsert doesn't overwrite the original in DB
         promptText: revisedText,
         versions: [...promptToRevise.versions, revisedText],
         generationType: 'revision',
