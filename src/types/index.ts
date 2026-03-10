@@ -87,25 +87,15 @@ export interface SceneAnalysis {
 export interface Character {
   id: string;
   name: string;
-  description?: string;
-  basePrompt?: string;
-  age?: string;
-  ethnicity?: string;
-  clothing?: string;
-  physicalFeatures?: string;
   role?: string;
   isCrowd?: boolean;
+  visualDescription?: string; // 80-100 word anthropological visual reference (English)
 }
 
 export interface Location {
   id: string;
   name: string;
-  description?: string;
-  basePrompt?: string;
-  period?: string;
-  geography?: string;
-  architecture?: string;
-  atmosphere?: string;
+  visualDescription?: string; // 80-100 word photographic visual reference (English)
 }
 
 export interface TimeContext {

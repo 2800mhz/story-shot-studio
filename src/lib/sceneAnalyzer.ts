@@ -20,21 +20,20 @@ const SCENE_ANALYSIS_SYSTEM_PROMPT = `Sen bir senaryo analisti ve görsel yönet
 
 KURALLAR:
 - visualNote TÜRKÇE olmalı (örn: "Boğaz kıyısında sabah yürüyüşü") — maks 10 kelime
-- Character/location descriptions İNGİLİZCE olmalı — maks 30 kelime
 - Sahnede açıkça görünen karakterleri ve mekanları tespit et
 - Metinde tarihsel dönem/çağ tespit edilirse timeContexts alanını doldur
 
-👥 KALABALIK KURALI:
-- "Şehir Halkı", "Cemaat", "Kalabalık", "Farklı İnsanlar", "Topluluk", "Halk", "Ordu", "Askerler" gibi grup ifadeleri için isCrowd: true döndür
-- Bireysel karakterler için isCrowd: false (varsayılan)
+👥 KARAKTER KURALI (KRİTİK):
+- Her karakter için 80-100 kelimelik İngilizce "visualDescription" yaz
+- Bu betim şunları içermeli: fiziksel görünüm, yüz özellikleri, ten rengi, kıyafet detayları, kumaş dokuları, yaş belirteçleri, kültürel ve tarihsel doğruluk
+- Kalabalık gruplar için isCrowd: true döndür
+- Bireysel karakterler için isCrowd: false
 
-🏛️ MEKAN KURALI:
-- SADECE gerçek, fiziksel, fotoğraflanabilir mekanları ekle (çarşı, saray, bozkır, cami avlusu, şehir kapısı, atölye, kütüphane içi vb.)
-- YASAKLI mekan isimleri — bunları asla locations'a ekleme:
-  * Soyut kavramlar: "teknolojik gelişim", "ekran birliği", "takvim", "ses yansımaları", "soyut uzam", "kavramsal alan", "zaman geçişi", "dönüşüm", "evrim", "iletişim", "bilgi", "kültür", "medeniyet"
-  * "-ması/-mesi/-ışı/-işi/-uşu/-üşü" fiilimsi ekleriyle biten isimler (örn: "gelişimi", "yayılması", "birleşmesi", "dönüşümü")
-  * Soyut fikirler, buluşlar veya süreçler
-- KURAL: Bir mekanı gerçek bir kamera ile fotoğraflayabilir misin? Hayırsa, ekleme!
+🏛️ MEKAN KURALI (KRİTİK):
+- Her mekan için 80-100 kelimelik İngilizce "visualDescription" yaz
+- Bu betim şunları içermeli: mimari stil, dönem, coğrafi konum, atmosfer, ışık, malzeme detayları
+- SADECE gerçek, fiziksel, fotoğraflanabilir mekanları ekle
+- YASAKLI: Soyut kavramlar, fiilimsi ekler (-ması/-mesi), süreçler
 
 JSON ÇIKTI:
 {
@@ -47,32 +46,14 @@ JSON ÇIKTI:
         {
           "name": "Sultan I. Ahmed",
           "role": "Ottoman Sultan",
-          "age": "young adult, early 20s",
-          "ethnicity": "Ottoman Turkish",
-          "clothing": "imperial kaftan with gold embroidery, turban",
-          "physicalFeatures": "dark beard, regal posture",
-          "description": "A young powerful Ottoman Sultan",
-          "isCrowd": false
-        },
-        {
-          "name": "Şehir Halkı",
-          "role": "crowd",
-          "age": "mixed ages",
-          "ethnicity": "Ottoman Turkish",
-          "clothing": "traditional Ottoman commoner dress",
-          "physicalFeatures": "diverse crowd of men, women, children",
-          "description": "A large crowd of Ottoman city dwellers",
-          "isCrowd": true
+          "isCrowd": false,
+          "visualDescription": "A young Ottoman Sultan in his early 20s with a dark beard and regal posture. Wearing an imperial deep-crimson kaftan embroidered with gold thread patterns, a large white turban with jeweled pin. Turanid facial features, olive skin tone, piercing dark eyes, broad shoulders. Cinematic lighting, photorealistic reference."
         }
       ],
       "locations": [
         {
           "name": "Sultanahmet Camii",
-          "period": "17th century Ottoman",
-          "geography": "Istanbul, Bosphorus coast",
-          "architecture": "six minarets, large central dome, Byzantine-influenced Ottoman architecture, blue Iznik tile interior",
-          "atmosphere": "sacred, grand, peaceful",
-          "description": "The Blue Mosque, an iconic Ottoman imperial mosque"
+          "visualDescription": "Grand 17th-century Ottoman imperial mosque in Istanbul. Six slender minarets. Massive central dome. Exterior pale limestone. Interior walls covered with blue-and-white Iznik tiles. Afternoon sunlight through stained-glass windows. Sacred monumental atmosphere. Photorealistic architectural reference."
         }
       ],
       "timeContextLabel": "17. yüzyıl Osmanlı - Gündüz"
@@ -80,10 +61,10 @@ JSON ÇIKTI:
   ],
   "timeContexts": [
     {
-      "label": "Dönem adı (Türkçe, örn: 16. yüzyıl Osmanlı - Gündüz)",
-      "era": "Tarihsel dönem (örn: 1500-1600 AD)",
+      "label": "Dönem adı (Türkçe)",
+      "era": "Tarihsel dönem",
       "season": "Mevsim (opsiyonel)",
-      "timeOfDay": "gündüz veya gece veya sabah veya akşam (opsiyonel)",
+      "timeOfDay": "gündüz/gece/sabah/akşam (opsiyonel)",
       "lighting": "Işık tanımı (opsiyonel, İngilizce)",
       "weather": "Hava durumu (opsiyonel)",
       "historicalNotes": "Tarihsel notlar (opsiyonel, İngilizce)"
@@ -91,10 +72,7 @@ JSON ÇIKTI:
   ]
 }
 
-NOT: timeContexts alanı opsiyoneldir. Metinde açık bir tarihsel dönem veya bağlam yoksa timeContexts'i JSON'a ekleme.
-Birden fazla farklı dönem veya gün/gece ayrımı varsa her biri için ayrı bir timeContext nesnesi ekle (örn: gündüz sahneleri ve gece sahneleri için ayrı girdiler).
-Her sahne için, o sahneye uyan timeContext'in label'ını \`timeContextLabel\` alanında belirt. Uygun bir timeContext yoksa bu alanı ekleme.
-
+NOT: timeContexts alanı opsiyoneldir.
 METİN:`;
 
 function cleanJsonResponse(text: string): string {
@@ -162,21 +140,13 @@ type SceneRaw = {
   timeContextLabel?: string;
   characters?: {
     name: string;
-    description?: string;
     role?: string;
-    age?: string;
-    ethnicity?: string;
-    clothing?: string;
-    physicalFeatures?: string;
     isCrowd?: boolean;
+    visualDescription?: string;
   }[];
   locations?: {
     name: string;
-    description?: string;
-    period?: string;
-    geography?: string;
-    architecture?: string;
-    atmosphere?: string;
+    visualDescription?: string;
   }[];
 };
 
@@ -223,13 +193,9 @@ function buildResultFromScenes(
         characterMap.set(charId, {
           id: charId,
           name: char.name,
-          description: char.description,
           role: char.role,
-          age: char.age,
-          ethnicity: char.ethnicity,
-          clothing: char.clothing,
-          physicalFeatures: char.physicalFeatures,
           isCrowd: char.isCrowd ?? false,
+          visualDescription: char.visualDescription,
         });
       }
       characterIds.push(charId);
@@ -248,11 +214,7 @@ function buildResultFromScenes(
           locationMap.set(locId, {
             id: locId,
             name: loc.name,
-            description: loc.description,
-            period: loc.period,
-            geography: loc.geography,
-            architecture: loc.architecture,
-            atmosphere: loc.atmosphere,
+            visualDescription: loc.visualDescription,
           });
           locationNormalizedIndex.set(normalizedName, locId);
         }

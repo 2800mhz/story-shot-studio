@@ -131,13 +131,11 @@ export async function extractEntitiesFromScene(
   const characters: Character[] = (parsed.characters || []).map((c) => ({
     id: `char-${c.name.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}`,
     name: c.name,
-    description: c.description,
   }));
 
   const locations: Location[] = (parsed.locations || []).map((l) => ({
     id: `loc-${l.name.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}`,
     name: l.name,
-    description: l.description,
   }));
 
   return { characters, locations };
