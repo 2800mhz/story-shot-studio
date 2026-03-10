@@ -1029,9 +1029,50 @@ const Index = () => {
     });
   }, [state.sceneCards, dispatch]);
 
-  const handleRevisePrompt_ = useCallback((sceneId: string, promptId: string) => {
-    toast({ title: 'Bilgi', description: 'Revize özelliği bu akış için yakında aktif edilecek.' });
-  }, [toast]);
+  const handleRevisePrompt_ = useCallback(async (sceneId: string, promptId: string, instruction: string) => {
+    if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
+      setNoKeysWarning(true);
+      return;
+    }
+
+    const scene = state.sceneCards.find(s => s.id === sceneId);
+    if (!scene) return;
+    
+    const promptToRevise = scene.prompts.find(p => p.id === promptId);
+    if (!promptToRevise) return;
+
+    try {
+      // Optik feedback için UI'ı güncelliyoruz diye bir şey yapabiliriz ama
+      // şimdilik toast ile bilgi verelim. (SceneCard içinde loading idare edilebilir)
+      const revisedText = await revisePrompt(
+        promptToRevise.promptText,
+        instruction,
+        '', // apiKey (aiProvider uses its internal key array)
+        state.settings.model,
+        state.settings.temperature
+      );
+
+      const updatedPrompt: PromptCard = {
+        ...promptToRevise,
+        promptText: revisedText,
+        versions: [...promptToRevise.versions, revisedText],
+        generationType: 'revision',
+        revisionPrompt: instruction,
+      };
+
+      dispatch({
+        type: 'FINISH_PROMPT_GENERATION',
+        payload: {
+          sceneId,
+          prompts: scene.prompts.map(p => p.id === promptId ? updatedPrompt : p)
+        }
+      });
+      toast({ title: 'Başarılı', description: 'Prompt başarıyla revize edildi.' });
+    } catch (e: any) {
+      console.error('Revizyon başarısız:', e);
+      toast({ title: 'Hata', description: 'Prompt revize edilemedi.', variant: 'destructive' });
+    }
+  }, [state, dispatch, toast]);
 
   const handleAddNewCharacterToSceneCard = useCallback((sceneId: string, name: string) => {
     const character = {
@@ -1258,9 +1299,9 @@ const Index = () => {
             onAddTimeContextToSceneCard={(scene, tc) => dispatch({ type: 'ADD_TIME_CONTEXT_TO_SCENE_CARD', payload: { sceneId: scene, timeContextId: tc } })}
             onRemoveTimeContextFromSceneCard={(scene, tc) => dispatch({ type: 'REMOVE_TIME_CONTEXT_FROM_SCENE_CARD', payload: { sceneId: scene, timeContextId: tc } })}
             onAddVariation={handleAddVariation}
-            onRegenerateAllPrompts_={handleRegenerateAllPrompts}
-            onRevisePrompt_={handleRevisePrompt_}
-            onDeletePrompt_={handleDeletePrompt_}
+            onRegenerateAll={handleGenerate}
+            onRevisePrompt={handleRevisePrompt_}
+            onDeletePrompt={handleDeletePrompt_}
             onRestorePreviousPrompt_={handleRestoreSceneCardPrompt}
             isBulkGeneratingPrompts={isBulkGeneratingPrompts}
             bulkPromptsProgress={bulkPromptsProgress}

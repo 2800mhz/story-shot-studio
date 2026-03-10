@@ -307,6 +307,8 @@ export async function savePrompts(sceneId: string, prompts: any[]) {
       explanation: prompt.explanation || null,
       prompt_text: prompt.promptText || prompt.prompt_text || '',
       aspect_ratio: prompt.aspectRatio || '16:9',
+      generation_type: prompt.generationType || 'initial',
+      revision_prompt: prompt.revisionPrompt || null,
       is_active: true,
     }));
 
@@ -345,7 +347,7 @@ export async function fetchPrompts(sceneId: string) {
 export async function fetchPromptHistory(sceneId: string) {
   const { data, error } = await supabase
     .from('prompts')
-    .select('*')
+    .select('id, type, label, shot_type, summary, explanation, prompt_text, aspect_ratio, generation_type, revision_prompt, created_at')
     .eq('scene_id', sceneId)
     .eq('is_active', false)
     .order('created_at', { ascending: false });

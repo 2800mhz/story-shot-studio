@@ -22,7 +22,7 @@ interface SceneCardProps {
   onRemoveTimeContext?: (sceneId: string, timeContextId: string) => void;
   onAddVariation?: (sceneId: string) => void;
   onRegenerateAll?: (sceneId: string) => void;
-  onRevisePrompt?: (sceneId: string, promptId: string) => void;
+  onRevisePrompt?: (sceneId: string, promptId: string, instruction: string) => void;
   onDeletePrompt?: (sceneId: string, promptId: string) => void;
   onRestorePreviousPrompt?: (sceneId: string, entry: HistoryEntry) => void;
 }
@@ -35,10 +35,19 @@ function InlinePromptCard({
 }: {
   prompt: PromptCard;
   sceneId: string;
-  onRevise?: (sceneId: string, promptId: string) => void;
+  onRevise?: (sceneId: string, promptId: string, instruction: string) => void;
   onDelete?: (sceneId: string, promptId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [isRevising, setIsRevising] = useState(false);
+  const [instruction, setInstruction] = useState('');
+
+  const submitRevision = () => {
+    if (!instruction.trim() || !onRevise) return;
+    onRevise(sceneId, prompt.id, instruction);
+    setIsRevising(false);
+    setInstruction('');
+  };
 
   return (
     <div className="border rounded-md p-2.5 my-2 bg-muted/10">
@@ -57,9 +66,9 @@ function InlinePromptCard({
           )}
         </div>
         <div className="flex items-center gap-1">
-          {onRevise && (
+          {onRevise && !isRevising && (
             <button
-              onClick={() => onRevise(sceneId, prompt.id)}
+              onClick={() => setIsRevising(true)}
               className="text-[10px] px-1.5 py-0.5 rounded border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
               title="Revize et"
             >
@@ -106,6 +115,42 @@ function InlinePromptCard({
         {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         {expanded ? 'daralt' : 'genişlet'}
       </button>
+
+      {/* Revision UI */}
+      {isRevising && (
+        <div className="mt-2 pt-2 border-t border-border/50">
+          <textarea
+            className="w-full text-[11px] p-2 bg-background border rounded-md focus:outline-none focus:ring-1 focus:ring-primary min-h-[50px] resize-none mb-1"
+            placeholder="Ne değişsin? Örn: Hava karlı olsun ve adamın elinde kılıç olsun."
+            value={instruction}
+            onChange={(e) => setInstruction(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitRevision();
+              }
+            }}
+          />
+          <div className="flex justify-end gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsRevising(false)}
+              className="h-6 text-[10px] px-2"
+            >
+              İptal
+            </Button>
+            <Button
+              size="sm"
+              onClick={submitRevision}
+              disabled={!instruction.trim()}
+              className="h-6 text-[10px] px-2"
+            >
+              Uygula
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

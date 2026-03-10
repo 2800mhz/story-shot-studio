@@ -24,7 +24,6 @@ interface RightPanelProps {
   onRegenerateGroup?: (groupId: string) => void;
   onAddSceneToGroup?: (sceneId: string, groupId: string | null) => void;
   onRemoveSceneFromGroup?: (sceneId: string, groupId: string) => void;
-  onDeletePrompt?: (sceneId: string, promptId: string) => void;
   onAttachEntity?: (sceneId: string, promptId: string, entityId: string) => void;
   onDetachEntity?: (sceneId: string, promptId: string, entityId: string) => void;
   onSetSceneNote?: (sceneId: string, note: string) => void;
@@ -58,8 +57,8 @@ interface RightPanelProps {
   onRemoveTimeContextFromSceneCard?: (sceneId: string, timeContextId: string) => void;
   onAddVariation?: (sceneId: string) => void;
   onRegenerateAllPrompts_?: (sceneId: string) => void;
-  onRevisePrompt_?: (sceneId: string, promptId: string) => void;
-  onDeletePrompt_?: (sceneId: string, promptId: string) => void;
+  onRevisePrompt?: (sceneId: string, promptId: string, instruction: string) => void;
+  onDeletePrompt?: (sceneId: string, promptId: string) => void;
   onRestorePreviousPrompt_?: (sceneId: string, entry: any) => void;
   isBulkGeneratingPrompts?: boolean;
   bulkPromptsProgress?: { done: number; total: number };
@@ -125,7 +124,7 @@ export function RightPanel({
   onUpdateSceneCardNote, onRemoveCharacterFromSceneCard, onRemoveLocationFromSceneCard,
   onAddCharacterToSceneCard, onAddLocationToSceneCard,
   onAddTimeContextToSceneCard, onRemoveTimeContextFromSceneCard,
-  onAddVariation, onRegenerateAllPrompts_, onRevisePrompt_, onDeletePrompt_, onRestorePreviousPrompt_,
+  onAddVariation, onRegenerateAllPrompts_, onRevisePrompt, onDeletePrompt, onRestorePreviousPrompt_,
   isBulkGeneratingPrompts, bulkPromptsProgress, onCancelBulkPrompts,
 }: RightPanelProps) {
   const doneCount = scenes.filter(s => s.status === 'done').length;
@@ -422,8 +421,8 @@ export function RightPanel({
                   onRemoveTimeContext={onRemoveTimeContextFromSceneCard}
                   onAddVariation={onAddVariation}
                   onRegenerateAll={onRegenerateAllPrompts_}
-                  onRevisePrompt={onRevisePrompt_}
-                  onDeletePrompt={onDeletePrompt_}
+                  onRevisePrompt={onRevisePrompt}
+                  onDeletePrompt={onDeletePrompt}
                   onRestorePreviousPrompt={onRestorePreviousPrompt_}
                 />
               );

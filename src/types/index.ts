@@ -129,6 +129,8 @@ export interface PromptCard {
   promptText: string;
   versions: string[];
   aspectRatio?: '16:9' | '4:3' | '1:1' | '9:16';
+  generationType?: 'initial' | 'regenerate' | 'revision';
+  revisionPrompt?: string;
 }
 
 export interface PromptAnalysis {

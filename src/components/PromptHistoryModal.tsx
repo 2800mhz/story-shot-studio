@@ -13,6 +13,8 @@ export interface HistoryEntry {
   summary?: string;
   explanation?: string;
   aspect_ratio?: '16:9' | '4:3' | '1:1' | '9:16';
+  generation_type?: 'initial' | 'regenerate' | 'revision';
+  revision_prompt?: string;
 }
 
 interface PromptHistoryModalProps {
@@ -109,14 +111,29 @@ export function PromptHistoryModal({ sceneId, onRestore, onClose }: PromptHistor
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className="text-[10px] font-medium text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded">
                       {entry.shot_type || entry.type || 'Prompt'}
                     </span>
-                    <span className="text-[10px] text-muted-foreground">
+                    {entry.generation_type === 'revision' && (
+                      <span className="text-[10px] font-medium text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                        ✏️ Revizyon
+                      </span>
+                    )}
+                    {entry.generation_type === 'regenerate' && (
+                      <span className="text-[10px] font-medium text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                        🔄 Yeniden Üretim
+                      </span>
+                    )}
+                    <span className="text-[10px] text-muted-foreground ml-auto">
                       {formatDate(entry.created_at)}
                     </span>
                   </div>
+                  {entry.generation_type === 'revision' && entry.revision_prompt && (
+                    <div className="text-[11px] text-amber-700/80 italic bg-amber-50/50 border-l-2 border-amber-300 pl-2 py-1 mb-2">
+                      💡 İsteğiniz: "{entry.revision_prompt}"
+                    </div>
+                  )}
                   <p className="text-[11px] text-foreground/70 leading-relaxed font-mono line-clamp-3">
                     {entry.prompt_text}
                   </p>
