@@ -342,19 +342,31 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       const mergedTimeContexts = suggestedTimeContexts?.length
         ? mergeTimeContextsByLabel(state.timeContexts, suggestedTimeContexts)
         : state.timeContexts;
-      // Determine which time context IDs correspond to the detected contexts
-      // (resolved from merged result so existing IDs are reused when labels match)
-      const incomingLabels = new Set(suggestedTimeContexts?.map(tc => tc.label) ?? []);
-      const timeContextIdsToAssign = mergedTimeContexts
-        .filter(tc => incomingLabels.has(tc.label))
-        .map(tc => tc.id);
-      // Auto-assign detected time context IDs to all newly created scene cards (Bug 4)
-      const updatedNewCards = timeContextIdsToAssign.length > 0
-        ? newCards.map(sc => ({
-            ...sc,
-            timeContextIds: [...new Set([...(sc.timeContextIds ?? []), ...timeContextIdsToAssign])],
-          }))
-        : newCards;
+
+      // Build a mapping from incoming (analyzer-generated) time context IDs to canonical (merged) IDs.
+      // When an incoming label matches an existing time context, the merged list keeps the existing ID.
+      const incomingIdToLabel = new Map<string, string>();
+      (suggestedTimeContexts ?? []).forEach(tc => {
+        if (tc.label) incomingIdToLabel.set(tc.id, tc.label);
+      });
+      const canonicalLabelToId = new Map<string, string>();
+      mergedTimeContexts.forEach(tc => canonicalLabelToId.set(tc.label, tc.id));
+
+      // Remap each card's timeContextIds from incoming IDs to canonical IDs
+      // Each card keeps ONLY its own time context (not all of them)
+      const updatedNewCards = newCards.map(sc => ({
+        ...sc,
+        timeContextIds: (sc.timeContextIds ?? [])
+          .map(incomingId => {
+            const label = incomingIdToLabel.get(incomingId);
+            if (label) {
+              return canonicalLabelToId.get(label) ?? incomingId;
+            }
+            return incomingId;
+          })
+          .filter((id, idx, arr) => arr.indexOf(id) === idx), // deduplicate
+      }));
+
       return {
         ...state,
         isAnalyzing: false,

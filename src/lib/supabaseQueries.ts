@@ -1,6 +1,33 @@
 import { supabase } from './supabase';
 import type { TimeContext } from '@/types';
 
+// ── Retry helper with exponential backoff ────────────────────────────────────
+
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 500;
+const BATCH_SIZE = 20; // Max rows per INSERT to avoid payload limits
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  label = 'Supabase operation',
+  retries = MAX_RETRIES,
+): Promise<T> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === retries) {
+        console.error(`❌ ${label} failed after ${retries} attempts:`, err);
+        throw err;
+      }
+      const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+      console.warn(`⚠️ ${label} attempt ${attempt} failed, retrying in ${delay}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw new Error(`${label}: unreachable`);
+}
+
 // ============================================
 // PROJECT QUERIES
 // ============================================
@@ -147,15 +174,14 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
   try {
     console.log('💾 Saving scenes for episode:', episodeId, 'Count:', scenes.length);
 
-    const { error: deleteError } = await supabase
-      .from('scenes')
-      .delete()
-      .eq('episode_id', episodeId);
-
-    if (deleteError) {
-      console.error('❌ Delete error:', deleteError);
-      throw deleteError;
-    }
+    // Delete existing scenes (retried)
+    await withRetry(async () => {
+      const { error } = await supabase
+        .from('scenes')
+        .delete()
+        .eq('episode_id', episodeId);
+      if (error) throw error;
+    }, 'Delete scenes');
 
     if (scenes.length === 0) {
       console.log('✅ No scenes to save');
@@ -188,20 +214,27 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
       };
     });
 
-    console.log('📤 Inserting scenes:', scenesToInsert.length);
+    // Insert in chunks to avoid payload limits
+    const allInserted: any[] = [];
+    for (let i = 0; i < scenesToInsert.length; i += BATCH_SIZE) {
+      const chunk = scenesToInsert.slice(i, i + BATCH_SIZE);
+      const chunkLabel = `Insert scenes chunk ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(scenesToInsert.length / BATCH_SIZE)}`;
+      console.log(`📤 ${chunkLabel} (${chunk.length} rows)`);
 
-    const { data, error } = await supabase
-      .from('scenes')
-      .insert(scenesToInsert)
-      .select();
+      const data = await withRetry(async () => {
+        const { data, error } = await supabase
+          .from('scenes')
+          .insert(chunk)
+          .select();
+        if (error) throw error;
+        return data || [];
+      }, chunkLabel);
 
-    if (error) {
-      console.error('❌ Insert error:', error);
-      throw error;
+      allInserted.push(...data);
     }
 
-    console.log('✅ Scenes saved successfully:', data?.length);
-    return data || [];
+    console.log('✅ Scenes saved successfully:', allInserted.length);
+    return allInserted;
   } catch (error) {
     console.error('❌ saveScenes error:', error);
     throw error;
@@ -214,20 +247,16 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
 
 export async function savePrompts(sceneId: string, prompts: any[]) {
   try {
-    console.log('💾 Saving prompts for scene:', sceneId, 'Count:', prompts.length);
-
-    const { error: deleteError } = await supabase
-      .from('prompts')
-      .delete()
-      .eq('scene_id', sceneId);
-
-    if (deleteError) {
-      console.error('❌ Delete prompts error:', deleteError);
-      throw deleteError;
-    }
+    // Delete existing prompts (retried)
+    await withRetry(async () => {
+      const { error } = await supabase
+        .from('prompts')
+        .delete()
+        .eq('scene_id', sceneId);
+      if (error) throw error;
+    }, `Delete prompts for ${sceneId}`);
 
     if (prompts.length === 0) {
-      console.log('✅ No prompts to save');
       return [];
     }
 
@@ -242,22 +271,19 @@ export async function savePrompts(sceneId: string, prompts: any[]) {
       aspect_ratio: prompt.aspectRatio || '16:9'
     }));
 
-    console.log('📤 Inserting prompts:', promptsToInsert.length);
+    // Insert with retry
+    const data = await withRetry(async () => {
+      const { data, error } = await supabase
+        .from('prompts')
+        .insert(promptsToInsert)
+        .select();
+      if (error) throw error;
+      return data || [];
+    }, `Insert prompts for ${sceneId}`);
 
-    const { data, error } = await supabase
-      .from('prompts')
-      .insert(promptsToInsert)
-      .select();
-
-    if (error) {
-      console.error('❌ Insert prompts error:', error);
-      throw error;
-    }
-
-    console.log('✅ Prompts saved successfully:', data?.length);
-    return data || [];
+    return data;
   } catch (error) {
-    console.error('❌ savePrompts error:', error);
+    console.error(`❌ savePrompts error for ${sceneId}:`, error);
     throw error;
   }
 }

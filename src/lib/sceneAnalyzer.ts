@@ -93,7 +93,7 @@ JSON ÇIKTI:
 
 NOT: timeContexts alanı opsiyoneldir. Metinde açık bir tarihsel dönem veya bağlam yoksa timeContexts'i JSON'a ekleme.
 Birden fazla farklı dönem veya gün/gece ayrımı varsa her biri için ayrı bir timeContext nesnesi ekle (örn: gündüz sahneleri ve gece sahneleri için ayrı girdiler).
-Her sahne için, o sahneye uyan timeContext'in label'ını `timeContextLabel` alanında belirt. Uygun bir timeContext yoksa bu alanı ekleme.
+Her sahne için, o sahneye uyan timeContext'in label'ını \`timeContextLabel\` alanında belirt. Uygun bir timeContext yoksa bu alanı ekleme.
 
 METİN:`;
 

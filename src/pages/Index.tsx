@@ -181,9 +181,11 @@ const Index = () => {
 
         dispatch({ type: 'SET_SCENES', payload: mappedScenes });
 
-        // Load prompts for each scene
-        for (const scene of scenesData) {
-          const prompts = await fetchPrompts(scene.id);
+        // Load prompts for ALL scenes in parallel (was sequential — caused ~1min wait)
+        const promptResults = await Promise.all(
+          scenesData.map(scene => fetchPrompts(scene.id))
+        );
+        promptResults.forEach((prompts, idx) => {
           if (prompts.length > 0) {
             const mappedPrompts = prompts.map((p: any) => ({
               id: p.id,
@@ -198,10 +200,10 @@ const Index = () => {
             }));
             dispatch({
               type: 'FINISH_PROMPT_GENERATION',
-              payload: { sceneId: scene.id, prompts: mappedPrompts }
+              payload: { sceneId: scenesData[idx].id, prompts: mappedPrompts }
             });
           }
-        }
+        });
       }
 
       // Load time contexts from Supabase (backward compatible: if column missing treat as [])
@@ -245,48 +247,90 @@ const Index = () => {
   }, [state.documentText, state.characters, state.locations, state.timeContexts, episodeId, loadingData, episode]);
 
   // Auto-save scenes to Supabase whenever sceneCards change
+  const isSavingRef = useRef(false);
+  const pendingSaveRef = useRef(false);
+
+  const doSave = useCallback(async () => {
+    if (!episodeId || state.sceneCards.length === 0) return;
+    if (isSavingRef.current) {
+      // Another save already running – mark as pending so it re-runs when done
+      pendingSaveRef.current = true;
+      console.log('⏳ Save already in progress, queuing…');
+      return;
+    }
+
+    isSavingRef.current = true;
+    pendingSaveRef.current = false;
+
+    try {
+      setSavingStatus('saving');
+      console.log('💾 Auto-saving scenes...');
+
+      // Save scenes
+      const savedScenes = await saveScenes(episodeId, state.sceneCards);
+
+      // Save prompts in parallel batches (5 at a time) with error isolation
+      const PROMPT_BATCH = 5;
+      const scenesWithPrompts = state.sceneCards
+        .map((scene, i) => ({ scene, savedScene: savedScenes[i] }))
+        .filter(({ scene, savedScene }) => scene.prompts.length > 0 && savedScene);
+
+      let failedCount = 0;
+      for (let i = 0; i < scenesWithPrompts.length; i += PROMPT_BATCH) {
+        const batch = scenesWithPrompts.slice(i, i + PROMPT_BATCH);
+        const results = await Promise.allSettled(
+          batch.map(({ scene, savedScene }) =>
+            savePrompts(savedScene.id, scene.prompts)
+          )
+        );
+        results.forEach((r, idx) => {
+          if (r.status === 'rejected') {
+            failedCount++;
+            console.error(`❌ Failed to save prompts for scene ${batch[idx].savedScene.id}:`, r.reason);
+          }
+        });
+      }
+
+      if (failedCount > 0) {
+        console.warn(`⚠️ ${failedCount}/${scenesWithPrompts.length} prompt saves failed`);
+        setSavingStatus('error');
+        toast({
+          title: "Kısmi kaydetme hatası",
+          description: `${scenesWithPrompts.length - failedCount}/${scenesWithPrompts.length} sahne kaydedildi. ${failedCount} sahne başarısız.`,
+          variant: "destructive"
+        });
+      } else {
+        setSavingStatus('saved');
+        setLastSavedAt(new Date());
+        console.log('✅ Auto-save complete');
+      }
+
+      // Reset to idle after 2 seconds
+      setTimeout(() => setSavingStatus('idle'), 2000);
+    } catch (error) {
+      console.error('❌ Error saving scenes:', error);
+      setSavingStatus('error');
+      toast({
+        title: "Save failed",
+        description: error instanceof Error ? error.message : "Failed to save changes",
+        variant: "destructive"
+      });
+    } finally {
+      isSavingRef.current = false;
+      // If another save was requested while we were busy, run it now
+      if (pendingSaveRef.current) {
+        pendingSaveRef.current = false;
+        doSave();
+      }
+    }
+  }, [episodeId, state.sceneCards, toast]);
+
   useEffect(() => {
     if (!loadingData && state.sceneCards.length > 0 && episodeId) {
-      const saveData = async () => {
-        try {
-          setSavingStatus('saving');
-          console.log('💾 Auto-saving scenes...');
-
-          // Save scenes
-          const savedScenes = await saveScenes(episodeId, state.sceneCards);
-
-          // Save prompts for each scene
-          for (let i = 0; i < state.sceneCards.length; i++) {
-            const scene = state.sceneCards[i];
-            const savedScene = savedScenes[i];
-
-            if (scene.prompts.length > 0 && savedScene) {
-              await savePrompts(savedScene.id, scene.prompts);
-            }
-          }
-
-          setSavingStatus('saved');
-          setLastSavedAt(new Date());
-          console.log('✅ Auto-save complete');
-
-          // Reset to idle after 2 seconds
-          setTimeout(() => setSavingStatus('idle'), 2000);
-        } catch (error) {
-          console.error('❌ Error saving scenes:', error);
-          setSavingStatus('error');
-          toast({
-            title: "Save failed",
-            description: error instanceof Error ? error.message : "Failed to save changes",
-            variant: "destructive"
-          });
-        }
-      };
-
-      // Debounce saves
-      const timeoutId = setTimeout(saveData, AUTO_SAVE_DEBOUNCE_MS);
+      const timeoutId = setTimeout(doSave, AUTO_SAVE_DEBOUNCE_MS);
       return () => clearTimeout(timeoutId);
     }
-  }, [state.sceneCards, episodeId, loadingData]);
+  }, [state.sceneCards, episodeId, loadingData, doSave]);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [infoOpen, setInfoOpen] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
@@ -826,10 +870,8 @@ const Index = () => {
 
     const sceneCharacters = state.characters.filter(c => scene.characterIds.includes(c.id));
     const sceneLocations = state.locations.filter(l => scene.locationIds.includes(l.id));
-    // Use scene-specific time contexts if attached; fall back to all time contexts
-    const sceneTimeContexts = scene.timeContextIds && scene.timeContextIds.length > 0
-      ? state.timeContexts.filter(tc => scene.timeContextIds.includes(tc.id))
-      : state.timeContexts;
+    // Use only the scene's own time contexts (no fallback to all)
+    const sceneTimeContexts = state.timeContexts.filter(tc => (scene.timeContextIds ?? []).includes(tc.id));
 
     dispatch({ type: 'START_PROMPT_GENERATION', payload: { sceneId } });
 
@@ -906,9 +948,7 @@ const Index = () => {
 
     const sceneCharacters = state.characters.filter(c => scene.characterIds.includes(c.id));
     const sceneLocations = state.locations.filter(l => scene.locationIds.includes(l.id));
-    const sceneTimeContexts = scene.timeContextIds && scene.timeContextIds.length > 0
-      ? state.timeContexts.filter(tc => scene.timeContextIds.includes(tc.id))
-      : state.timeContexts;
+    const sceneTimeContexts = state.timeContexts.filter(tc => (scene.timeContextIds ?? []).includes(tc.id));
     const existingPrompts = scene.prompts;
 
     dispatch({ type: 'START_PROMPT_GENERATION', payload: { sceneId } });
