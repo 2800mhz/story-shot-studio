@@ -11,6 +11,8 @@ Aşağıda, bu sistemin en temel parçasından en tepe yapısına kadar her bir 
 ## 1. Yüksek Seviye Sistem Mimarisi (High-Level Architecture)
 
 düttürü dünya 
+düttürü dünya 
+
 
 Story Shot Studio, frontend ağırlıklı (React + Vite) bir yapıya sahiptir. Tüm ağır iş mantığı (AI istemi oluşturma, sahne analizi, metin parçalama) istemcide çalışır ve durum Senkronizasyonu (State Sync) için Supabase'i (PostgreSQL) kullanır.
 
