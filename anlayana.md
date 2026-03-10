@@ -13,6 +13,7 @@ Aşağıda, bu sistemin en temel parçasından en tepe yapısına kadar her bir 
 düttürü dünya 
 düttürü dünya 
 düttürü dünya
+düttürü dünya
 
 Story Shot Studio, frontend ağırlıklı (React + Vite) bir yapıya sahiptir. Tüm ağır iş mantığı (AI istemi oluşturma, sahne analizi, metin parçalama) istemcide çalışır ve durum Senkronizasyonu (State Sync) için Supabase'i (PostgreSQL) kullanır.
 
