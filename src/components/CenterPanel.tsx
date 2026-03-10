@@ -12,13 +12,14 @@ interface CenterPanelProps {
   onRemoveScene: (id: string) => void;
   onAnalyzeText?: (text: string) => void;
   isAnalyzing?: boolean;
+  analysisLog?: string[];
 }
 
 export function CenterPanel({
   mainText, scenes, activeSceneId,
   scrollToIndex, onScrollComplete,
   onSetActiveScene, onRemoveScene,
-  onAnalyzeText, isAnalyzing,
+  onAnalyzeText, isAnalyzing, analysisLog,
 }: CenterPanelProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const activeSceneRef = useRef<HTMLDivElement>(null);
@@ -92,12 +93,32 @@ export function CenterPanel({
     if (isAnalyzing) {
       return (
         <div className="flex h-full items-center justify-center bg-background">
-          <div className="text-center">
-            <div className="animate-spin text-4xl mb-4">🤖</div>
-            <p className="text-lg font-medium">AI Metin Analiz Ediyor...</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Karakterler, mekanlar ve sahneler tespit ediliyor
-            </p>
+          <div className="w-full max-w-md px-6">
+            <div className="text-center mb-6">
+              <div className="animate-spin text-4xl mb-3">🤖</div>
+              <p className="text-lg font-semibold">AI Metin Analiz Ediyor...</p>
+            </div>
+            {/* Live progress log */}
+            {analysisLog && analysisLog.length > 0 && (
+              <div className="rounded-lg border border-border bg-card/60 p-3 space-y-1.5 max-h-64 overflow-y-auto">
+                {analysisLog.map((msg, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    <span aria-hidden="true" className="text-muted-foreground shrink-0 font-mono">{String(i + 1).padStart(2, '0')}</span>
+                    <span className={i === analysisLog.length - 1 ? 'text-foreground font-medium' : 'text-muted-foreground'}>{msg}</span>
+                  </div>
+                ))}
+                {/* Blinking cursor on the last line */}
+                <div className="flex items-center gap-1 text-xs text-primary">
+                  <span className="animate-pulse">▋</span>
+                  <span className="text-muted-foreground">işleniyor...</span>
+                </div>
+              </div>
+            )}
+            {(!analysisLog || analysisLog.length === 0) && (
+              <p className="text-sm text-muted-foreground text-center">
+                Karakterler, mekanlar ve sahneler tespit ediliyor...
+              </p>
+            )}
           </div>
         </div>
       );
