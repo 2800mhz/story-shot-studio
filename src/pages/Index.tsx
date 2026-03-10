@@ -276,6 +276,17 @@ const Index = () => {
       // Save scenes
       const savedScenes = await saveScenes(episodeId, state.sceneCards);
 
+      // ─── Persist Supabase UUIDs back into state ──────────────────────────
+      // saveScenes does DELETE + INSERT each time, so Supabase assigns a brand-new
+      // UUID on every save.  If we don't write those IDs back to state, the next
+      // savePrompts call will use a stale scene_id that no longer exists in the DB,
+      // which means the soft-delete UPDATE finds 0 rows and the old prompts are
+      // never deactivated → fetchPromptHistory always returns empty.
+      const updatedCards = state.sceneCards.map((sc, i) =>
+        savedScenes[i] ? { ...sc, id: savedScenes[i].id } : sc
+      );
+      dispatch({ type: 'SET_SCENES', payload: updatedCards });
+
       // Save prompts in parallel batches (5 at a time) with error isolation
       const PROMPT_BATCH = 5;
       const scenesWithPrompts = state.sceneCards
