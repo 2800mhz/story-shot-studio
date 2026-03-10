@@ -1054,6 +1054,7 @@ const Index = () => {
 
       const updatedPrompt: PromptCard = {
         ...promptToRevise,
+        id: `prompt-${crypto.randomUUID()}`, // New ID so upsert doesn't overwrite the original in DB
         promptText: revisedText,
         versions: [...promptToRevise.versions, revisedText],
         generationType: 'revision',
@@ -1268,7 +1269,6 @@ const Index = () => {
             onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
             onAddSceneToGroup={handleAddSceneToGroup}
             onRemoveSceneFromGroup={handleRemoveSceneFromGroup}
-            onDeletePrompt={handleDeletePrompt}
             onAttachEntity={handleAttachEntity}
             onDetachEntity={handleDetachEntity}
             onSetSceneNote={handleSetSceneNote}

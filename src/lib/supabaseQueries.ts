@@ -283,44 +283,66 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
 
 export async function savePrompts(sceneId: string, prompts: any[]) {
   try {
-    // Soft-delete existing active prompts (mark is_active = false) instead of hard DELETE.
-    // This preserves prompt history so users can restore previous versions.
-    await withRetry(async () => {
-      const { error } = await supabase
+    // 1. Get current active prompts for this scene to see what exists
+    const currentActive: any[] = await withRetry(async () => {
+      const { data, error } = await supabase
         .from('prompts')
-        .update({ is_active: false })
+        .select('id')
         .eq('scene_id', sceneId)
         .eq('is_active', true);
       if (error) throw error;
-    }, `Soft-delete prompts for ${sceneId}`);
+      return data || [];
+    }, `Fetch active prompts for ${sceneId}`);
+
+    const incomingIds = prompts.map(p => p.id).filter(Boolean);
+    const idsToSoftDelete = currentActive
+      .map(p => p.id)
+      .filter(id => !incomingIds.includes(id));
+
+    // 2. Soft-delete ONLY the prompts that were removed or regenerated entirely
+    if (idsToSoftDelete.length > 0) {
+      await withRetry(async () => {
+        const { error } = await supabase
+          .from('prompts')
+          .update({ is_active: false })
+          .in('id', idsToSoftDelete);
+        if (error) throw error;
+      }, `Soft-delete ${idsToSoftDelete.length} old prompts for ${sceneId}`);
+    }
 
     if (prompts.length === 0) {
       return [];
     }
 
-    const promptsToInsert = prompts.map(prompt => ({
-      scene_id: sceneId,
-      type: prompt.type || null,
-      label: prompt.label || null,
-      shot_type: prompt.shotType || 'establishing',
-      summary: prompt.summary || null,
-      explanation: prompt.explanation || null,
-      prompt_text: prompt.promptText || prompt.prompt_text || '',
-      aspect_ratio: prompt.aspectRatio || '16:9',
-      generation_type: prompt.generationType || 'initial',
-      revision_prompt: prompt.revisionPrompt || null,
-      is_active: true,
-    }));
+    // 3. Upsert the incoming prompts
+    const promptsToUpsert = prompts.map(prompt => {
+      // Look for an existing UUID to avoid Postgres assigning a new one blindly on insert
+      const isValidUUID = prompt.id && prompt.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+      
+      return {
+        ...(isValidUUID ? { id: prompt.id } : {}), // only send id if it's a valid uuid (not a temporary client ID like prompt-1234)
+        scene_id: sceneId,
+        type: prompt.type || null,
+        label: prompt.label || null,
+        shot_type: prompt.shotType || 'establishing',
+        summary: prompt.summary || null,
+        explanation: prompt.explanation || null,
+        prompt_text: prompt.promptText || prompt.prompt_text || '',
+        aspect_ratio: prompt.aspectRatio || '16:9',
+        generation_type: prompt.generationType || 'initial',
+        revision_prompt: prompt.revisionPrompt || null,
+        is_active: true,
+      };
+    });
 
-    // Insert with retry
     const data = await withRetry(async () => {
       const { data, error } = await supabase
         .from('prompts')
-        .insert(promptsToInsert)
+        .upsert(promptsToUpsert, { onConflict: 'id' })
         .select();
       if (error) throw error;
       return data || [];
-    }, `Insert prompts for ${sceneId}`);
+    }, `Upsert prompts for ${sceneId}`);
 
     return data;
   } catch (error) {
