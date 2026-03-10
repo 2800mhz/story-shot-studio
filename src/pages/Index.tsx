@@ -25,16 +25,6 @@ import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, Pro
 
 const GROUP_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
-/**
- * Calculate a sensible default maxScenes from a word count.
- * Rule of thumb: ~1 scene per 70 words, clamped to [5, 200].
- */
-function calculateDynamicMaxScenes(wordCount: number): number {
-  if (wordCount <= 0) return 20;
-  const raw = Math.round(wordCount / 70);
-  return Math.max(5, Math.min(200, raw));
-}
-
 const PROMPT_GENERATION_DELAY_MS = 2000;
 const AUTO_SAVE_DEBOUNCE_MS = 2000;
 
@@ -48,7 +38,6 @@ const Index = () => {
   const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [analysisLog, setAnalysisLog] = useState<string[]>([]);
-  const [maxScenes, setMaxScenes] = useState<number>(50);
   const [project, setProject] = useState<{ title: string; master_prompt?: string } | null>(null);
   const [episode, setEpisode] = useState<{ title: string; document_text?: string } | null>(null);
   const [noKeysWarning, setNoKeysWarning] = useState(false);
@@ -863,11 +852,6 @@ const Index = () => {
 
   // ─── Two-stage AI workflow handlers ─────────────────────────────
   const handleAnalyzeText = useCallback(async (selectedText: string) => {
-    // Compute dynamic maxScenes from the selected text's word count
-    const wordCount = selectedText.trim().split(/\s+/).filter(Boolean).length;
-    const dynamicMax = calculateDynamicMaxScenes(wordCount);
-    setMaxScenes(dynamicMax);
-
     dispatch({ type: 'START_ANALYSIS' });
     setAnalysisLog([]);
 
@@ -878,8 +862,7 @@ const Index = () => {
         undefined,
         (message: string) => {
           setAnalysisLog(prev => [...prev, message]);
-        },
-        dynamicMax
+        }
       );
       dispatch({ type: 'FINISH_ANALYSIS', payload: result });
       setTimeout(() => setAnalysisLog([]), 3000);
@@ -1307,8 +1290,6 @@ const Index = () => {
             onAnalyzeText={handleAnalyzeText}
             isAnalyzing={state.isAnalyzing}
             analysisLog={analysisLog}
-            maxScenes={maxScenes}
-            onMaxScenesChange={setMaxScenes}
             onReanalyze={handleReanalyze}
           />
         </div>
