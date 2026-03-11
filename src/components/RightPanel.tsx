@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Sparkles, Zap, StickyNote, GripVertical, Download } from 'lucide-react';
+import { Sparkles, Zap, StickyNote, GripVertical, Download, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PromptCard } from './PromptCard';
@@ -64,6 +64,7 @@ interface RightPanelProps {
   isBulkGeneratingPrompts?: boolean;
   bulkPromptsProgress?: { done: number; total: number };
   onCancelBulkPrompts?: () => void;
+  onInsertSceneCardAfter?: (sceneId: string) => void;
 }
 
 function GroupNoteEditor({ group, onSave }: { group: ConsistencyGroup; onSave: (note: string) => void }) {
@@ -127,6 +128,7 @@ export function RightPanel({
   onAddTimeContextToSceneCard, onRemoveTimeContextFromSceneCard,
   onAddVariation, onRegenerateAllPrompts_, onRevisePrompt, onDeletePrompt, onRestorePreviousPrompt_,
   isBulkGeneratingPrompts, bulkPromptsProgress, onCancelBulkPrompts,
+  onInsertSceneCardAfter,
 }: RightPanelProps) {
   const doneCount = scenes.filter(s => s.status === 'done').length;
   const pendingCount = scenes.filter(s => s.status === 'pending').length;
@@ -166,27 +168,16 @@ export function RightPanel({
     }
     const reordered = [...scenes];
     const [moved] = reordered.splice(fromIndex, 1);
-    
-    // Float ordering logic (Average of previous and next scene numbers)
-    let newNumber = 1;
-    if (reordered.length === 0) {
-      newNumber = 1;
-    } else if (dropIndex === 0) {
-      // Dropped at the very beginning
-      newNumber = reordered[0].number - 1;
-    } else if (dropIndex >= reordered.length) {
-      // Dropped at the very end
-      newNumber = reordered[reordered.length - 1].number + 1;
-    } else {
-      // Dropped between two scenes
-      const prevNumber = reordered[dropIndex - 1].number;
-      const nextNumber = reordered[dropIndex].number;
-      newNumber = (prevNumber + nextNumber) / 2;
-    }
 
-    // Assign the newly calculated float number
-    moved.number = newNumber;
-    reordered.splice(dropIndex, 0, moved);
+    let actualDropIndex = dropIndex;
+    if (fromIndex < dropIndex) actualDropIndex--;
+
+    reordered.splice(actualDropIndex, 0, moved);
+
+    // Auto-renormalize integer numbers to prevent float drift
+    reordered.forEach((s, idx) => {
+      s.number = idx + 1;
+    });
 
     onReorderScenes?.(reordered);
     setDragOverIndex(null);
@@ -221,25 +212,16 @@ export function RightPanel({
     const reordered = [...sceneCards];
     const [moved] = reordered.splice(fromIndex, 1);
 
-    // Float ordering logic (Average of previous and next scene numbers)
-    let newNumber = 1;
-    if (reordered.length === 0) {
-      newNumber = 1;
-    } else if (dropIndex === 0) {
-      // Dropped at the very beginning — use half of first card's number to stay positive
-      newNumber = reordered[0].sceneNumber / 2;
-    } else if (dropIndex >= reordered.length) {
-      // Dropped at the very end
-      newNumber = reordered[reordered.length - 1].sceneNumber + 1;
-    } else {
-      // Dropped between two cards
-      const prevNumber = reordered[dropIndex - 1].sceneNumber;
-      const nextNumber = reordered[dropIndex].sceneNumber;
-      newNumber = (prevNumber + nextNumber) / 2;
-    }
+    let actualDropIndex = dropIndex;
+    // When dragging downwards, the target index shifts because we removed an item above it
+    if (fromIndex < dropIndex) actualDropIndex--;
 
-    moved.sceneNumber = newNumber;
-    reordered.splice(dropIndex, 0, moved);
+    reordered.splice(actualDropIndex, 0, moved);
+
+    // Auto-renormalize integer scene numbers to prevent float drift (e.g. 0.5, 3.25)
+    reordered.forEach((sc, idx) => {
+      sc.sceneNumber = idx + 1;
+    });
 
     onReorderSceneCards?.(reordered);
     setDragOverSceneCardIndex(null);
@@ -431,44 +413,44 @@ export function RightPanel({
                       <GripVertical className="h-4 w-4" />
                     </div>
                     <div className="flex-1 min-w-0">
-                <PromptCard
-                  key={scene.id}
-                  sceneId={scene.id}
-                  sceneIndex={i + 1}
-                  episodeTitle={scene.episodeTitle}
-                  sceneText={scene.segments.map(s => s.text).join(' ')}
-                  referenceText={scene.subjectReferences.length > 0 ? scene.subjectReferences.map(r => r.text).join(' ') : undefined}
-                  prompts={scene.prompts}
-                  status={scene.status}
-                  consistencyGroups={groups}
-                  allConsistencyGroups={consistencyGroups}
-                  note={scene.note}
-                  subScenes={scene.subScenes || []}
-                  allEntities={extractedEntities || []}
-                  isActive={activeSceneId === scene.id}
-                  onGenerate={() => onGenerate(scene.id)}
-                  onCancel={onCancel ? () => onCancel(scene.id) : undefined}
-                  onRevise={(promptId, instruction) => onRevise(scene.id, promptId, instruction)}
-                  onRefreshAll={() => onRefreshAll(scene.id)}
-                  onDelete={() => onRemoveScene(scene.id)}
-                  onDeletePrompt={onDeletePrompt ? (promptId) => onDeletePrompt(scene.id, promptId) : undefined}
-                  onAttachEntity={onAttachEntity ? (promptId, entityId) => onAttachEntity(scene.id, promptId, entityId) : undefined}
-                  onDetachEntity={onDetachEntity ? (promptId, entityId) => onDetachEntity(scene.id, promptId, entityId) : undefined}
-                  onRegenerateGroup={groups.length > 0 ? () => onRegenerateGroup?.(groups[0]!.id) : undefined}
-                  onAddToGroup={onAddSceneToGroup ? (groupId) => onAddSceneToGroup(scene.id, groupId) : undefined}
-                  onRemoveFromGroup={onRemoveSceneFromGroup ? (groupId) => onRemoveSceneFromGroup(scene.id, groupId) : undefined}
-                  onSetNote={onSetSceneNote ? (note) => onSetSceneNote(scene.id, note) : undefined}
-                  onAddSubScene={onAddSubScene ? (label) => onAddSubScene(scene.id, label) : undefined}
-                  onRemoveSubScene={onRemoveSubScene ? (subSceneId) => onRemoveSubScene(scene.id, subSceneId) : undefined}
-                  onGenerateSubScene={onGenerateSubScene ? (subSceneId) => onGenerateSubScene(scene.id, subSceneId) : undefined}
-                  onReviseSubScene={onReviseSubScene ? (subSceneId, promptId, instruction) => onReviseSubScene(scene.id, subSceneId, promptId, instruction) : undefined}
-                  onRefreshSubScene={onRefreshSubScene ? (subSceneId) => onRefreshSubScene(scene.id, subSceneId) : undefined}
-                  onDeleteSubScenePrompt={onDeleteSubScenePrompt ? (subSceneId, promptId) => onDeleteSubScenePrompt(scene.id, subSceneId, promptId) : undefined}
-                  onSetSubSceneNote={onSetSubSceneNote ? (subSceneId, note) => onSetSubSceneNote(scene.id, subSceneId, note) : undefined}
-                  onAddSubSceneToGroup={onAddSubSceneToGroup ? (subSceneId, groupId) => onAddSubSceneToGroup(scene.id, subSceneId, groupId) : undefined}
-                  onRemoveSubSceneFromGroup={onRemoveSubSceneFromGroup ? (subSceneId, groupId) => onRemoveSubSceneFromGroup(scene.id, subSceneId, groupId) : undefined}
-                  onClick={() => onSetActiveScene(scene.id)}
-                />
+                      <PromptCard
+                        key={scene.id}
+                        sceneId={scene.id}
+                        sceneIndex={i + 1}
+                        episodeTitle={scene.episodeTitle}
+                        sceneText={scene.segments.map(s => s.text).join(' ')}
+                        referenceText={scene.subjectReferences.length > 0 ? scene.subjectReferences.map(r => r.text).join(' ') : undefined}
+                        prompts={scene.prompts}
+                        status={scene.status}
+                        consistencyGroups={groups}
+                        allConsistencyGroups={consistencyGroups}
+                        note={scene.note}
+                        subScenes={scene.subScenes || []}
+                        allEntities={extractedEntities || []}
+                        isActive={activeSceneId === scene.id}
+                        onGenerate={() => onGenerate(scene.id)}
+                        onCancel={onCancel ? () => onCancel(scene.id) : undefined}
+                        onRevise={(promptId, instruction) => onRevise(scene.id, promptId, instruction)}
+                        onRefreshAll={() => onRefreshAll(scene.id)}
+                        onDelete={() => onRemoveScene(scene.id)}
+                        onDeletePrompt={onDeletePrompt ? (promptId) => onDeletePrompt(scene.id, promptId) : undefined}
+                        onAttachEntity={onAttachEntity ? (promptId, entityId) => onAttachEntity(scene.id, promptId, entityId) : undefined}
+                        onDetachEntity={onDetachEntity ? (promptId, entityId) => onDetachEntity(scene.id, promptId, entityId) : undefined}
+                        onRegenerateGroup={groups.length > 0 ? () => onRegenerateGroup?.(groups[0]!.id) : undefined}
+                        onAddToGroup={onAddSceneToGroup ? (groupId) => onAddSceneToGroup(scene.id, groupId) : undefined}
+                        onRemoveFromGroup={onRemoveSceneFromGroup ? (groupId) => onRemoveSceneFromGroup(scene.id, groupId) : undefined}
+                        onSetNote={onSetSceneNote ? (note) => onSetSceneNote(scene.id, note) : undefined}
+                        onAddSubScene={onAddSubScene ? (label) => onAddSubScene(scene.id, label) : undefined}
+                        onRemoveSubScene={onRemoveSubScene ? (subSceneId) => onRemoveSubScene(scene.id, subSceneId) : undefined}
+                        onGenerateSubScene={onGenerateSubScene ? (subSceneId) => onGenerateSubScene(scene.id, subSceneId) : undefined}
+                        onReviseSubScene={onReviseSubScene ? (subSceneId, promptId, instruction) => onReviseSubScene(scene.id, subSceneId, promptId, instruction) : undefined}
+                        onRefreshSubScene={onRefreshSubScene ? (subSceneId) => onRefreshSubScene(scene.id, subSceneId) : undefined}
+                        onDeleteSubScenePrompt={onDeleteSubScenePrompt ? (subSceneId, promptId) => onDeleteSubScenePrompt(scene.id, subSceneId, promptId) : undefined}
+                        onSetSubSceneNote={onSetSubSceneNote ? (subSceneId, note) => onSetSubSceneNote(scene.id, subSceneId, note) : undefined}
+                        onAddSubSceneToGroup={onAddSubSceneToGroup ? (subSceneId, groupId) => onAddSubSceneToGroup(scene.id, subSceneId, groupId) : undefined}
+                        onRemoveSubSceneFromGroup={onRemoveSubSceneFromGroup ? (subSceneId, groupId) => onRemoveSubSceneFromGroup(scene.id, subSceneId, groupId) : undefined}
+                        onClick={() => onSetActiveScene(scene.id)}
+                      />
                     </div>
                   </div>
                 </div>
@@ -481,42 +463,59 @@ export function RightPanel({
               // Pass only the scene's own time contexts for label display.
               const sceneTimeContexts = timeContexts.filter(tc => (sc.timeContextIds ?? []).includes(tc.id));
               return (
-                <div
-                  key={sc.id}
-                  draggable
-                  onDragStart={(e) => handleSceneCardDragStart(e, i)}
-                  onDragOver={(e) => handleSceneCardDragOver(e, i)}
-                  onDrop={(e) => handleSceneCardDrop(e, i)}
-                  onDragEnd={handleSceneCardDragEnd}
-                  className={`relative transition-all ${dragOverSceneCardIndex === i ? 'border-t-2 border-primary pt-1' : ''}`}
-                >
-                  <div className="flex gap-1">
-                    <div className="flex items-start pt-3 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors">
-                      <GripVertical className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                <SceneCard
-                  scene={sc}
-                  characters={sceneChars}
-                  locations={sceneLocs}
-                  timeContexts={sceneTimeContexts}
-                  onUpdateNote={onUpdateSceneCardNote || (() => {})}
-                  onGeneratePrompts={onGeneratePrompts || (() => {})}
-                  onDeleteScene={onDeleteSceneCard || (() => {})}
-                  onRemoveCharacter={onRemoveCharacterFromSceneCard || (() => {})}
-                  onRemoveLocation={onRemoveLocationFromSceneCard || (() => {})}
-                  onAddCharacter={onAddCharacterToSceneCard}
-                  onAddLocation={onAddLocationToSceneCard}
-                  onAddTimeContext={onAddTimeContextToSceneCard}
-                  onRemoveTimeContext={onRemoveTimeContextFromSceneCard}
-                  onAddVariation={onAddVariation}
-                  onRegenerateAll={onRegenerateAllPrompts_}
-                  onRevisePrompt={onRevisePrompt}
-                  onDeletePrompt={onDeletePrompt}
-                  onRestorePreviousPrompt={onRestorePreviousPrompt_}
-                />
+                <div key={sc.id}>
+                  <div
+                    draggable
+                    onDragStart={(e) => handleSceneCardDragStart(e, i)}
+                    onDragOver={(e) => handleSceneCardDragOver(e, i)}
+                    onDrop={(e) => handleSceneCardDrop(e, i)}
+                    onDragEnd={handleSceneCardDragEnd}
+                    className={`relative transition-all ${dragOverSceneCardIndex === i ? 'border-t-2 border-primary pt-1' : ''}`}
+                  >
+                    <div className="flex gap-1">
+                      <div className="flex items-start pt-3 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+                        <GripVertical className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <SceneCard
+                          scene={sc}
+                          characters={sceneChars}
+                          locations={sceneLocs}
+                          timeContexts={sceneTimeContexts}
+                          onUpdateNote={onUpdateSceneCardNote || (() => { })}
+                          onGeneratePrompts={onGeneratePrompts || (() => { })}
+                          onDeleteScene={onDeleteSceneCard || (() => { })}
+                          onRemoveCharacter={onRemoveCharacterFromSceneCard || (() => { })}
+                          onRemoveLocation={onRemoveLocationFromSceneCard || (() => { })}
+                          onAddCharacter={onAddCharacterToSceneCard}
+                          onAddLocation={onAddLocationToSceneCard}
+                          onAddTimeContext={onAddTimeContextToSceneCard}
+                          onRemoveTimeContext={onRemoveTimeContextFromSceneCard}
+                          onAddVariation={onAddVariation}
+                          onRegenerateAll={onRegenerateAllPrompts_}
+                          onRevisePrompt={onRevisePrompt}
+                          onDeletePrompt={onDeletePrompt}
+                          onRestorePreviousPrompt={onRestorePreviousPrompt_}
+                        />
+                      </div>
                     </div>
                   </div>
+
+                  {/* Insert Scene Button */}
+                  {onInsertSceneCardAfter && (
+                    <div className="flex justify-center -my-2 opacity-0 hover:opacity-100 transition-opacity z-10 relative">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 rounded-full px-3 text-[10px] bg-background border-dashed shadow-sm hover:border-primary hover:text-primary"
+                        onClick={() => onInsertSceneCardAfter(sc.id)}
+                        title="Araya AI destekli yeni bir bağlama sahnesi ekle"
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Ara Sahne Ekle
+                      </Button>
+                    </div>
+                  )}
                 </div>
               );
             })}

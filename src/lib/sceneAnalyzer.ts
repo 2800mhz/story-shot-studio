@@ -297,6 +297,67 @@ function mergeTimeContextsByLabel(existing: TimeContext[], incoming: TimeContext
   return Array.from(map.values());
 }
 
+export async function generateIntermediateScene(
+  prevText: string,
+  nextText: string
+): Promise<{ sceneCard: Partial<SceneCard>; characters: Character[]; locations: Location[]; timeContext: TimeContext | null }> {
+  const prompt = `Sen bir storyboard yönetmenisin. Aşağıda verilen iki sahnenin metinleri arasına anlamsal ve görsel bir geçiş sağlayacak mantıklı bir "ara sahne" yazmalısın.
+  
+Önceki Sahne Metni: "${prevText}"
+Sonraki Sahne Metni: "${nextText}"
+
+Görevlerin:
+1. Bu iki olay akışı arasında eksik olan veya geçişi güçlendirecek tek bir görsel sahne tasarımı yap. (Örneğin karakterin bir mekandan diğerine yürüyüşü, bir düşünce anı veya yoldaki bir detay).
+2. Sadece SADECE TEK BİR SAHNE döndür.
+3. Çıktı formatı, normal sahne analizi çıktısıyla aynı olmalı:
+
+{
+  "scenes": [
+    {
+      "text": "Yazdığın ara sahne metni...",
+      "visualNote": "Türkçe görsel not (maks 10 kelime)",
+      "characters": [ { "name": "...", "visualDescription": "..." } ],
+      "locations": [ { "name": "...", "visualDescription": "..." } ],
+      "timeContextLabel": "..."
+    }
+  ],
+  "timeContexts": [ ]
+}`;
+
+  const content = await aiProvider.generateContent("Create a transitional scene.", prompt);
+  const cleaned = cleanJsonResponse(content);
+  const parsed = JSON.parse(cleaned) as { scenes?: SceneRaw[]; timeContexts?: TimeContextRaw[]; timeContext?: TimeContextRaw };
+
+  if (!parsed.scenes || parsed.scenes.length === 0) {
+    throw new Error("AI did not return any scene.");
+  }
+
+  const rawScene = parsed.scenes[0];
+  const charMap = new Map<string, Character>();
+  const locMap = new Map<string, Location>();
+  const tcMap = new Map<string, string>();
+
+  const cards = buildResultFromScenes([rawScene], 0, charMap, locMap, tcMap);
+  const card = cards[0];
+
+  const rawContexts = Array.isArray(parsed.timeContexts) && parsed.timeContexts.length > 0
+    ? parsed.timeContexts
+    : parsed.timeContext?.label ? [parsed.timeContext] : [];
+
+  let timeContext: TimeContext | null = null;
+  if (rawContexts.length > 0 && rawContexts[0].label) {
+    timeContext = { id: `tc-${crypto.randomUUID()}`, label: rawContexts[0].label, ...rawContexts[0] } as TimeContext;
+    card.timeContextIds = [timeContext.id];
+  }
+
+  return {
+    sceneCard: card,
+    characters: Array.from(charMap.values()),
+    locations: Array.from(locMap.values()),
+    timeContext
+  };
+}
+
 export async function analyzeTextIntoScenes(
   text: string,
   _apiKey?: string,

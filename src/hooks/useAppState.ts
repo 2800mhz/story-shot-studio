@@ -260,13 +260,13 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
         scenes: state.scenes.map(s =>
           s.id === action.payload.sceneId
             ? {
-                ...s,
-                subScenes: (s.subScenes || []).map(ss =>
-                  ss.id === action.payload.subSceneId
-                    ? { ...ss, prompts: ss.prompts.filter(p => p.id !== action.payload.promptId), status: ss.prompts.filter(p => p.id !== action.payload.promptId).length === 0 ? 'pending' : ss.status }
-                    : ss
-                ),
-              }
+              ...s,
+              subScenes: (s.subScenes || []).map(ss =>
+                ss.id === action.payload.subSceneId
+                  ? { ...ss, prompts: ss.prompts.filter(p => p.id !== action.payload.promptId), status: ss.prompts.filter(p => p.id !== action.payload.promptId).length === 0 ? 'pending' : ss.status }
+                  : ss
+              ),
+            }
             : s
         ),
       };
@@ -468,9 +468,9 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       return {
         ...state,
         sceneCards: state.sceneCards.map(sc =>
-          sc.id === action.payload.sceneId ? { 
-            ...sc, 
-            prompts: action.payload.prompts, 
+          sc.id === action.payload.sceneId ? {
+            ...sc,
+            prompts: action.payload.prompts,
             status: 'ready',
             analysis: action.payload.analysis,
             optimizations: action.payload.optimizations,
@@ -592,6 +592,26 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       };
     case 'REORDER_SCENE_CARDS':
       return { ...state, sceneCards: action.payload };
+    case 'INSERT_SCENE_CARD_AFTER': {
+      const { targetSceneId, newSceneCard, newCharacters, newLocations } = action.payload;
+      const index = state.sceneCards.findIndex(sc => sc.id === targetSceneId);
+      if (index === -1) return state;
+
+      const updatedCards = [...state.sceneCards];
+      updatedCards.splice(index + 1, 0, newSceneCard);
+
+      // Auto-renormalize scene numbers to keep them clean integer sequences
+      updatedCards.forEach((sc, idx) => {
+        sc.sceneNumber = idx + 1;
+      });
+
+      return {
+        ...state,
+        sceneCards: updatedCards,
+        characters: mergeById(state.characters, newCharacters),
+        locations: mergeById(state.locations, newLocations),
+      };
+    }
     default:
       return state;
   }

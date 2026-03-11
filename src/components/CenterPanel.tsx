@@ -34,8 +34,12 @@ export function CenterPanel({
   useEffect(() => {
     if (scenes.length > 0) {
       setMaxScenes(scenes.length);
+    } else if (mainText) {
+      // Kelime bazlı otomatik sahne sayısı tahmini (her 7 kelime için ~1 sahne hedefi)
+      const words = mainText.trim().split(/\s+/).length;
+      setMaxScenes(Math.max(1, Math.round(words / 7)));
     }
-  }, [scenes.length]);
+  }, [scenes.length, mainText]);
 
   // Check if scenes are AI-parsed (have text property)
   const hasAiScenes = scenes.length > 0 && scenes.some(s => s.text);
@@ -60,7 +64,7 @@ export function CenterPanel({
     if (hasAiScenes) {
       const targetScene = scenes.find(
         s => s.startIndex !== undefined && s.endIndex !== undefined &&
-             scrollToIndex >= s.startIndex && scrollToIndex < s.endIndex
+          scrollToIndex >= s.startIndex && scrollToIndex < s.endIndex
       );
       if (targetScene) {
         onSetActiveScene(targetScene.id);
@@ -179,11 +183,10 @@ export function CenterPanel({
               <div key={scene.id}>
                 <div
                   ref={activeSceneId === scene.id ? activeSceneRef : undefined}
-                  className={`whitespace-pre-wrap transition-all duration-200 cursor-pointer rounded-md py-3 px-4 my-1 ${
-                    activeSceneId === scene.id
+                  className={`whitespace-pre-wrap transition-all duration-200 cursor-pointer rounded-md py-3 px-4 my-1 ${activeSceneId === scene.id
                       ? 'bg-yellow-200/70 dark:bg-yellow-500/30 border-l-4 border-yellow-500 font-medium shadow-sm'
                       : 'hover:bg-muted/40 hover:border-l-2 hover:border-muted-foreground/30'
-                  }`}
+                    }`}
                   onClick={() => {
                     onSetActiveScene(scene.id);
                   }}

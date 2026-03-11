@@ -14,13 +14,13 @@ import { useAppState } from '@/hooks/useAppState';
 import { parseDocument } from '@/lib/documentParser';
 import { parseEpisodes } from '@/lib/contextDetection';
 import { generatePrompts, loadSystemPrompt } from '@/lib/geminiApi';
-import { analyzeTextIntoScenes } from '@/lib/sceneAnalyzer';
+import { analyzeTextIntoScenes, generateIntermediateScene } from '@/lib/sceneAnalyzer';
 import { generatePromptsForScene, revisePrompt } from '@/lib/promptGenerator';
 import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetchAllPromptsForScenes, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts } from '@/lib/supabaseQueries';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
-import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis, PromptCard } from '@/types';
+import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis, PromptCard, SceneCard, Character, Location, TimeContext } from '@/types';
 
 
 const GROUP_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
@@ -55,7 +55,7 @@ const Index = () => {
           console.error('Failed to initialize AI provider:', err);
         });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Sync model to aiProvider whenever settings change
@@ -725,7 +725,7 @@ const Index = () => {
     const bulkController = new AbortController();
     bulkAbortRef.current = bulkController;
     setIsGeneratingAll(true);
-    
+
     for (let i = 0; i < pending.length; i++) {
       if (bulkController.signal.aborted) break;
 
@@ -851,18 +851,20 @@ const Index = () => {
   }, [handleGenerate]);
 
   // ─── Two-stage AI workflow handlers ─────────────────────────────
-  const handleAnalyzeText = useCallback(async (selectedText: string) => {
+  const handleAnalyzeText = useCallback(async (textToAnalyze: string, maxScenes?: number) => {
+    if (!textToAnalyze.trim()) return;
     dispatch({ type: 'START_ANALYSIS' });
     setAnalysisLog([]);
 
     try {
       const result = await analyzeTextIntoScenes(
-        selectedText,
+        textToAnalyze,
         undefined,
         undefined,
         (message: string) => {
           setAnalysisLog(prev => [...prev, message]);
-        }
+        },
+        maxScenes
       );
       dispatch({ type: 'FINISH_ANALYSIS', payload: result });
       setTimeout(() => setAnalysisLog([]), 3000);
@@ -883,16 +885,14 @@ const Index = () => {
     dispatch({ type: 'START_ANALYSIS' });
     setAnalysisLog([]);
     try {
-      const result = await analyzeTextIntoScenes(
+      const analysisResult = await analyzeTextIntoScenes(
         textToAnalyze,
-        undefined,
-        undefined,
-        (message: string) => {
-          setAnalysisLog(prev => [...prev, message]);
-        },
+        '',
+        state.settings.model,
+        (msg) => setAnalysisLog(prev => [...prev.slice(-10), msg]),
         newMaxScenes
       );
-      dispatch({ type: 'REPLACE_ANALYSIS', payload: result });
+      dispatch({ type: 'REPLACE_ANALYSIS', payload: analysisResult });
       setTimeout(() => setAnalysisLog([]), 3000);
     } catch (error) {
       console.error('Re-analysis error:', error);
@@ -936,14 +936,14 @@ const Index = () => {
           });
         }
       );
-      dispatch({ 
-        type: 'FINISH_PROMPT_GENERATION', 
-        payload: { 
-          sceneId, 
+      dispatch({
+        type: 'FINISH_PROMPT_GENERATION',
+        payload: {
+          sceneId,
           prompts: result.prompts,
           analysis: result.analysis,
           optimizations: result.optimizations,
-        } 
+        }
       });
       return true;
     } catch (error) {
@@ -973,11 +973,11 @@ const Index = () => {
         if (controller.signal.aborted) break;
         const scene = scenesWithoutPrompts[i];
         const success = await handleGeneratePromptsForScene(scene.id);
-        
+
         if (!success) {
           toast({
             title: 'Toplu Üretim Durduruldu',
-            description: `${i+1}. sahnede API hatası veya limit aşımı yaşandı. Üretim iptal edildi.`,
+            description: `${i + 1}. sahnede API hatası veya limit aşımı yaşandı. Üretim iptal edildi.`,
             variant: 'destructive'
           });
           break; // Stop going through the rest of the scenes if the API is failing
@@ -998,6 +998,55 @@ const Index = () => {
   const handleCancelBulkPrompts = useCallback(() => {
     bulkPromptsAbortRef.current?.abort();
   }, []);
+
+  const handleInsertSceneCardAfter = useCallback(async (sceneId: string) => {
+    const currentIndex = state.sceneCards.findIndex(sc => sc.id === sceneId);
+    if (currentIndex === -1) return;
+
+    const prevText = state.sceneCards[currentIndex]?.text || "";
+    const nextText = state.sceneCards[currentIndex + 1]?.text || "Son sahne/Bitiş";
+
+    toast({
+      title: "Ara sahne üretiliyor...",
+      description: "AI iki bağlam arasını dolduruyor.",
+    });
+
+    try {
+      const { sceneCard, characters, locations, timeContext } = await generateIntermediateScene(prevText, nextText);
+      const newCard: SceneCard = {
+        ...sceneCard as SceneCard,
+        id: crypto.randomUUID(),
+        sceneNumber: currentIndex + 1.5, // Will be auto-renormalized in reducer
+        status: 'analyzed'
+      };
+
+      if (timeContext) {
+        dispatch({ type: 'ADD_TIME_CONTEXT', payload: timeContext });
+      }
+
+      dispatch({
+        type: 'INSERT_SCENE_CARD_AFTER',
+        payload: {
+          targetSceneId: sceneId,
+          newSceneCard: newCard,
+          newCharacters: characters,
+          newLocations: locations
+        }
+      });
+
+      toast({
+        title: "Sahne eklendi",
+        description: "Ara sahne analizi başarıyla tamamlandı.",
+      });
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Hata",
+        description: "Ara sahne oluşturulamadı.",
+        variant: "destructive"
+      });
+    }
+  }, [state.sceneCards, dispatch, toast]);
 
   const handleRegenerateAllPrompts = useCallback(async (sceneId: string) => {
     await handleGeneratePromptsForScene(sceneId, true);
@@ -1083,7 +1132,7 @@ const Index = () => {
 
     const scene = state.sceneCards.find(s => s.id === sceneId);
     if (!scene) return;
-    
+
     const promptToRevise = scene.prompts.find(p => p.id === promptId);
     if (!promptToRevise) return;
 
@@ -1204,8 +1253,8 @@ const Index = () => {
                   aria-label="Kaydetme işlemini tekrar dene"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                    <path d="M3 3v5h5"/>
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                    <path d="M3 3v5h5" />
                   </svg>
                   Tekrar Dene
                 </button>
@@ -1287,10 +1336,10 @@ const Index = () => {
             onScrollComplete={() => setScrollToIndex(null)}
             onSetActiveScene={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
             onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
-            onAnalyzeText={handleAnalyzeText}
+            onAnalyzeText={(selectedText) => handleAnalyzeText(selectedText)}
             isAnalyzing={state.isAnalyzing}
             analysisLog={analysisLog}
-            onReanalyze={handleReanalyze}
+            onReanalyze={(max) => handleAnalyzeText(state.documentText || state.mainText, max)}
           />
         </div>
 
@@ -1371,6 +1420,7 @@ const Index = () => {
             isBulkGeneratingPrompts={isBulkGeneratingPrompts}
             bulkPromptsProgress={bulkPromptsProgress}
             onCancelBulkPrompts={handleCancelBulkPrompts}
+            onInsertSceneCardAfter={handleInsertSceneCardAfter}
           />
         </div>
       </div>
