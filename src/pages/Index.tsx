@@ -10,6 +10,8 @@ import { SettingsModal } from '@/components/SettingsModal';
 import { InfoModal } from '@/components/InfoModal';
 import { ExportModal } from '@/components/ExportModal';
 import { EntityCardPanel } from '@/components/EntityCardPanel';
+import { EpisodeStylePanel } from '@/components/EpisodeStylePanel';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useAppState } from '@/hooks/useAppState';
 import { parseDocument } from '@/lib/documentParser';
 import { parseEpisodes } from '@/lib/contextDetection';
@@ -41,8 +43,6 @@ const Index = () => {
   const [project, setProject] = useState<{ title: string; master_prompt?: string } | null>(null);
   const [episode, setEpisode] = useState<{ title: string; document_text?: string } | null>(null);
   const [noKeysWarning, setNoKeysWarning] = useState(false);
-
-  // Initialize AI provider with database keys
   useEffect(() => {
     if (user?.id) {
       aiProvider.initialize(user.id)
@@ -348,6 +348,7 @@ const Index = () => {
   const [infoOpen, setInfoOpen] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
   const [showEntityPanel, setShowEntityPanel] = useState(false);
+  const [showEpisodeStylePanel, setShowEpisodeStylePanel] = useState(false);
   const [scrollToIndex, setScrollToIndex] = useState<number | null>(null);
   const mainFileRef = useRef<HTMLInputElement>(null);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
@@ -1238,6 +1239,14 @@ const Index = () => {
         >
           🎭 Varlıklar
         </Button>
+        <Button
+          size="sm"
+          variant={showEpisodeStylePanel ? 'default' : 'outline'}
+          className="h-7 text-xs"
+          onClick={() => setShowEpisodeStylePanel(v => !v)}
+        >
+          🎨 Bölüm Stili
+        </Button>
       </div>
 
       {/* No API keys banner */}
@@ -1269,119 +1278,143 @@ const Index = () => {
         onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="w-[280px] shrink-0">
-          <LeftPanel
-            episodes={state.episodes}
-            scenes={state.scenes}
-            consistencyGroups={state.consistencyGroups}
-            activeSceneId={state.activeSceneId}
-            mainFileName={state.mainFileName}
-            isAnalyzing={state.isAnalyzing}
-            episodePrompt={state.episodePrompt}
-            episodePromptTr={state.episodePromptTr}
-            onSetEpisodePrompt={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT', payload: prompt })}
-            onSetEpisodePromptTr={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: prompt })}
-            onEpisodeClick={(ep) => setScrollToIndex(ep.startIndex)}
-            onSceneClick={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
-            onMoveEpisode={(episodeId, newParentId) => dispatch({ type: 'MOVE_EPISODE', payload: { episodeId, newParentId } })}
-            onReorderEpisodes={(eps) => dispatch({ type: 'REORDER_EPISODES', payload: eps })}
-          />
-        </div>
+        <PanelGroup direction="horizontal">
+          <Panel defaultSize={20} minSize={15}>
+            <LeftPanel
+              episodes={state.episodes}
+              scenes={state.scenes}
+              consistencyGroups={state.consistencyGroups}
+              activeSceneId={state.activeSceneId}
+              mainFileName={state.mainFileName}
+              isAnalyzing={state.isAnalyzing}
+              onEpisodeClick={(ep) => setScrollToIndex(ep.startIndex)}
+              onSceneClick={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
+              onMoveEpisode={(episodeId, newParentId) => dispatch({ type: 'MOVE_EPISODE', payload: { episodeId, newParentId } })}
+              onReorderEpisodes={(eps) => dispatch({ type: 'REORDER_EPISODES', payload: eps })}
+            />
+          </Panel>
 
-        <div className="flex-1 min-w-0">
-          <CenterPanel
-            mainText={state.mainText}
-            scenes={state.scenes}
-            activeSceneId={state.activeSceneId}
-            scrollToIndex={scrollToIndex}
-            onScrollComplete={() => setScrollToIndex(null)}
-            onSetActiveScene={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
-            onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
-            onAnalyzeText={handleAnalyzeText}
-            isAnalyzing={state.isAnalyzing}
-            analysisLog={analysisLog}
-          />
-        </div>
+          <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/50 cursor-col-resize transition-colors" />
 
-        {showEntityPanel && (
-          <div className="w-[320px] shrink-0 border-l border-border overflow-y-auto">
-            <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-card">
-              <span className="text-sm font-medium">🎭 Varlıklar</span>
-              <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={() => setShowEntityPanel(false)}>✕</Button>
-            </div>
-            <EntityCardPanel
+          <Panel defaultSize={40} minSize={20}>
+            <CenterPanel
+              mainText={state.mainText}
+              scenes={state.scenes}
+              activeSceneId={state.activeSceneId}
+              scrollToIndex={scrollToIndex}
+              onScrollComplete={() => setScrollToIndex(null)}
+              onSetActiveScene={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
+              onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
+              onAnalyzeText={handleAnalyzeText}
+              isAnalyzing={state.isAnalyzing}
+              analysisLog={analysisLog}
+            />
+          </Panel>
+
+          {showEpisodeStylePanel && (
+            <>
+              <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/50 cursor-col-resize transition-colors" />
+              <Panel defaultSize={15} minSize={10}>
+                <EpisodeStylePanel
+                  episodePrompt={state.episodePrompt}
+                  episodePromptTr={state.episodePromptTr}
+                  onSetEpisodePrompt={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT', payload: prompt })}
+                  onSetEpisodePromptTr={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: prompt })}
+                  onClose={() => setShowEpisodeStylePanel(false)}
+                />
+              </Panel>
+            </>
+          )}
+
+          {showEntityPanel && (
+            <>
+              <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/50 cursor-col-resize transition-colors" />
+              <Panel defaultSize={20} minSize={15}>
+                <div className="flex h-full flex-col border-l border-border bg-card">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                    <span className="text-sm font-medium">🎭 Varlıklar</span>
+                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={() => setShowEntityPanel(false)}>✕</Button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                    <EntityCardPanel
+                      characters={state.characters}
+                      locations={state.locations}
+                      timeContexts={state.timeContexts}
+                      onUpsertCharacter={(c) => dispatch({ type: 'UPSERT_CHARACTER', payload: c })}
+                      onDeleteCharacter={(id) => dispatch({ type: 'DELETE_CHARACTER', payload: id })}
+                      onUpsertLocation={(l) => dispatch({ type: 'UPSERT_LOCATION', payload: l })}
+                      onDeleteLocation={(id) => dispatch({ type: 'DELETE_LOCATION', payload: id })}
+                      onAddTimeContext={(t) => dispatch({ type: 'ADD_TIME_CONTEXT', payload: t })}
+                      onUpdateTimeContext={(t) => dispatch({ type: 'UPDATE_TIME_CONTEXT', payload: t })}
+                      onDeleteTimeContext={(id) => dispatch({ type: 'DELETE_TIME_CONTEXT', payload: id })}
+                    />
+                  </div>
+                </div>
+              </Panel>
+            </>
+          )}
+
+          <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/50 cursor-col-resize transition-colors" />
+
+          <Panel defaultSize={25} minSize={15}>
+            <RightPanel
+              scenes={state.scenes}
+              consistencyGroups={state.consistencyGroups}
+              activeSceneId={state.activeSceneId}
+              extractedEntities={state.extractedEntities}
+              sceneAnalyses={state.sceneAnalyses}
+              onGenerate={handleGenerate}
+              onCancel={handleCancel}
+              onCancelAll={handleCancelAll}
+              onGenerateAll={handleGenerateAll}
+              isGeneratingAll={isGeneratingAll}
+              onRevise={handleRevise}
+              onRefreshAll={handleRefreshAll}
+              onSetActiveScene={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
+              onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
+              onAddSceneToGroup={handleAddSceneToGroup}
+              onRemoveSceneFromGroup={handleRemoveSceneFromGroup}
+              onAttachEntity={handleAttachEntity}
+              onDetachEntity={handleDetachEntity}
+              onSetSceneNote={handleSetSceneNote}
+              onSetGroupNote={handleSetGroupNote}
+              onAddSubScene={handleAddSubScene}
+              onRemoveSubScene={handleRemoveSubScene}
+              onGenerateSubScene={handleGenerateSubScene}
+              onReviseSubScene={handleReviseSubScene}
+              onRefreshSubScene={(sceneId, subSceneId) => handleGenerateSubScene(sceneId, subSceneId)}
+              onDeleteSubScenePrompt={handleDeleteSubScenePrompt}
+              onSetSubSceneNote={handleSetSubSceneNote}
+              onAddSubSceneToGroup={handleAddSubSceneToGroup}
+              onRemoveSubSceneFromGroup={handleRemoveSubSceneFromGroup}
+              onReorderScenes={(reordered) => dispatch({ type: 'REORDER_SCENES', payload: reordered })}
+              onReorderSceneCards={(reordered) => dispatch({ type: 'REORDER_SCENE_CARDS', payload: reordered })}
+              sceneCards={state.sceneCards}
               characters={state.characters}
               locations={state.locations}
               timeContexts={state.timeContexts}
-              onUpsertCharacter={(c) => dispatch({ type: 'UPSERT_CHARACTER', payload: c })}
-              onDeleteCharacter={(id) => dispatch({ type: 'DELETE_CHARACTER', payload: id })}
-              onUpsertLocation={(l) => dispatch({ type: 'UPSERT_LOCATION', payload: l })}
-              onDeleteLocation={(id) => dispatch({ type: 'DELETE_LOCATION', payload: id })}
-              onAddTimeContext={(t) => dispatch({ type: 'ADD_TIME_CONTEXT', payload: t })}
-              onUpdateTimeContext={(t) => dispatch({ type: 'UPDATE_TIME_CONTEXT', payload: t })}
-              onDeleteTimeContext={(id) => dispatch({ type: 'DELETE_TIME_CONTEXT', payload: id })}
+              isGeneratingPrompts={state.isGeneratingPrompts}
+              onGeneratePrompts={handleGeneratePromptsForScene}
+              onGenerateAllPrompts={handleGenerateAllPrompts}
+              onDeleteSceneCard={(sceneId) => dispatch({ type: 'DELETE_SCENE_CARD', payload: sceneId })}
+              onUpdateSceneCardNote={(sceneId, note) => dispatch({ type: 'UPDATE_SCENE_CARD_NOTE', payload: { sceneId, note } })}
+              onRemoveCharacterFromSceneCard={(sceneId, characterId) => dispatch({ type: 'REMOVE_CHARACTER_FROM_SCENE_CARD', payload: { sceneId, characterId } })}
+              onRemoveLocationFromSceneCard={(sceneId, locationId) => dispatch({ type: 'REMOVE_LOCATION_FROM_SCENE_CARD', payload: { sceneId, locationId } })}
+              onAddCharacterToSceneCard={handleAddNewCharacterToSceneCard}
+              onAddLocationToSceneCard={handleAddNewLocationToSceneCard}
+              onAddTimeContextToSceneCard={(scene, tc) => dispatch({ type: 'ADD_TIME_CONTEXT_TO_SCENE_CARD', payload: { sceneId: scene, timeContextId: tc } })}
+              onRemoveTimeContextFromSceneCard={(scene, tc) => dispatch({ type: 'REMOVE_TIME_CONTEXT_FROM_SCENE_CARD', payload: { sceneId: scene, timeContextId: tc } })}
+              onAddVariation={handleAddVariation}
+              onRegenerateAllPrompts_={handleRegenerateAllPrompts}
+              onRevisePrompt={handleRevisePrompt_}
+              onDeletePrompt={handleDeletePrompt_}
+              onRestorePreviousPrompt_={handleRestoreSceneCardPrompt}
+              isBulkGeneratingPrompts={isBulkGeneratingPrompts}
+              bulkPromptsProgress={bulkPromptsProgress}
+              onCancelBulkPrompts={handleCancelBulkPrompts}
             />
-          </div>
-        )}
-
-        <div className="w-[380px] shrink-0">
-          <RightPanel
-            scenes={state.scenes}
-            consistencyGroups={state.consistencyGroups}
-            activeSceneId={state.activeSceneId}
-            extractedEntities={state.extractedEntities}
-            sceneAnalyses={state.sceneAnalyses}
-            onGenerate={handleGenerate}
-            onCancel={handleCancel}
-            onCancelAll={handleCancelAll}
-            onGenerateAll={handleGenerateAll}
-            isGeneratingAll={isGeneratingAll}
-            onRevise={handleRevise}
-            onRefreshAll={handleRefreshAll}
-            onSetActiveScene={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
-            onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
-            onAddSceneToGroup={handleAddSceneToGroup}
-            onRemoveSceneFromGroup={handleRemoveSceneFromGroup}
-            onAttachEntity={handleAttachEntity}
-            onDetachEntity={handleDetachEntity}
-            onSetSceneNote={handleSetSceneNote}
-            onSetGroupNote={handleSetGroupNote}
-            onAddSubScene={handleAddSubScene}
-            onRemoveSubScene={handleRemoveSubScene}
-            onGenerateSubScene={handleGenerateSubScene}
-            onReviseSubScene={handleReviseSubScene}
-            onRefreshSubScene={(sceneId, subSceneId) => handleGenerateSubScene(sceneId, subSceneId)}
-            onDeleteSubScenePrompt={handleDeleteSubScenePrompt}
-            onSetSubSceneNote={handleSetSubSceneNote}
-            onAddSubSceneToGroup={handleAddSubSceneToGroup}
-            onRemoveSubSceneFromGroup={handleRemoveSubSceneFromGroup}
-            onReorderScenes={(reordered) => dispatch({ type: 'REORDER_SCENES', payload: reordered })}
-            onReorderSceneCards={(reordered) => dispatch({ type: 'REORDER_SCENE_CARDS', payload: reordered })}
-            sceneCards={state.sceneCards}
-            characters={state.characters}
-            locations={state.locations}
-            timeContexts={state.timeContexts}
-            isGeneratingPrompts={state.isGeneratingPrompts}
-            onGeneratePrompts={handleGeneratePromptsForScene}
-            onGenerateAllPrompts={handleGenerateAllPrompts}
-            onDeleteSceneCard={(sceneId) => dispatch({ type: 'DELETE_SCENE_CARD', payload: sceneId })}
-            onUpdateSceneCardNote={(sceneId, note) => dispatch({ type: 'UPDATE_SCENE_CARD_NOTE', payload: { sceneId, note } })}
-            onRemoveCharacterFromSceneCard={(sceneId, characterId) => dispatch({ type: 'REMOVE_CHARACTER_FROM_SCENE_CARD', payload: { sceneId, characterId } })}
-            onRemoveLocationFromSceneCard={(sceneId, locationId) => dispatch({ type: 'REMOVE_LOCATION_FROM_SCENE_CARD', payload: { sceneId, locationId } })}
-            onAddCharacterToSceneCard={handleAddNewCharacterToSceneCard}
-            onAddLocationToSceneCard={handleAddNewLocationToSceneCard}
-            onAddTimeContextToSceneCard={(scene, tc) => dispatch({ type: 'ADD_TIME_CONTEXT_TO_SCENE_CARD', payload: { sceneId: scene, timeContextId: tc } })}
-            onRemoveTimeContextFromSceneCard={(scene, tc) => dispatch({ type: 'REMOVE_TIME_CONTEXT_FROM_SCENE_CARD', payload: { sceneId: scene, timeContextId: tc } })}
-            onAddVariation={handleAddVariation}
-            onRegenerateAllPrompts_={handleRegenerateAllPrompts}
-            onRevisePrompt={handleRevisePrompt_}
-            onDeletePrompt={handleDeletePrompt_}
-            onRestorePreviousPrompt_={handleRestoreSceneCardPrompt}
-            isBulkGeneratingPrompts={isBulkGeneratingPrompts}
-            bulkPromptsProgress={bulkPromptsProgress}
-            onCancelBulkPrompts={handleCancelBulkPrompts}
-          />
-        </div>
+          </Panel>
+        </PanelGroup>
       </div>
 
       <SettingsModal

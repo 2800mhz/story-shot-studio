@@ -10,10 +10,6 @@ interface LeftPanelProps {
   activeSceneId: string | null;
   mainFileName: string;
   isAnalyzing?: boolean;
-  episodePrompt?: string;
-  episodePromptTr?: string;
-  onSetEpisodePrompt?: (prompt: string) => void;
-  onSetEpisodePromptTr?: (prompt: string) => void;
   onEpisodeClick: (ep: Episode) => void;
   onSceneClick: (id: string) => void;
   onMoveEpisode: (episodeId: string, newParentId: string | null) => void;
@@ -174,7 +170,7 @@ function EpisodeNode({
 
 export function LeftPanel({
   episodes, scenes, consistencyGroups, activeSceneId,
-  mainFileName, isAnalyzing, episodePrompt, episodePromptTr, onSetEpisodePrompt, onSetEpisodePromptTr,
+  mainFileName, isAnalyzing,
   onEpisodeClick, onSceneClick,
   onMoveEpisode, onReorderEpisodes,
 }: LeftPanelProps) {
@@ -272,35 +268,6 @@ export function LeftPanel({
           <div className="mt-2 flex items-center gap-2 text-sm text-foreground">
             <FileText className="h-3.5 w-3.5 text-primary" />
             <span className="truncate text-xs">{mainFileName}</span>
-          </div>
-        )}
-        {onSetEpisodePrompt && (
-          <div className="mt-3">
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">
-              Bölüm Stili (Episode Prompt)
-            </label>
-            <p className="text-[10px] text-muted-foreground/80 mb-2 leading-tight">
-              Tüm sahneler üretilirken ana vizyon ve atmosfer olarak bu kutudaki kurallar öncelikli baz alınır.
-            </p>
-            <textarea
-              className="w-full text-xs min-h-[60px] resize-none rounded-md border bg-background px-2 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary scrollbar-thin"
-              placeholder="Örn: Kabus atmosferi, karanlık ve sisli, 35mm film grain..."
-              value={episodePrompt || ''}
-              onChange={(e) => onSetEpisodePrompt(e.target.value)}
-            />
-          </div>
-        )}
-        {onSetEpisodePromptTr && (
-          <div className="mt-3">
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">
-              Türkçe Açıklama (AI Özeti)
-            </label>
-            <textarea
-              className="w-full text-xs min-h-[50px] resize-none rounded-md border border-indigo-200 bg-indigo-50/30 px-2 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-indigo-300 scrollbar-thin"
-              placeholder="Görsel stilin Türkçe açıklaması burada görünecek..."
-              value={episodePromptTr || ''}
-              onChange={(e) => onSetEpisodePromptTr(e.target.value)}
-            />
           </div>
         )}
       </div>
