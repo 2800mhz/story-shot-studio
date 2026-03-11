@@ -264,6 +264,7 @@ function buildResultFromScenes(
     const locationIds: string[] = [];
 
     scene.characters?.forEach((char) => {
+      if (!char.name) return;
       const charId = `char-${char.name.replace(/\s+/g, '-').toLocaleLowerCase('tr-TR')}`;
       if (!characterMap.has(charId)) {
         characterMap.set(charId, {
@@ -278,6 +279,7 @@ function buildResultFromScenes(
     });
 
     scene.locations?.forEach((loc) => {
+      if (!loc.name) return;
       const normalizedName = normalizeTurkishLocationName(loc.name);
       // Check if a location with the same normalized name already exists
       const existingId = locationNormalizedIndex.get(normalizedName);
