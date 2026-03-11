@@ -8,7 +8,7 @@ TEMEL CERCEVE
 
 Bu metin ekranda kısa görüntü kesimleriyle desteklenecek.
 Her sahne kartı = ekranda 1.5-2 saniyelik TEK BİR GÖRÜNTÜ KESİMİDİR.
-Bu görüntüler text2img ile üretilecek, sonra hafif hareketlendirme uygulanacaktır.
+Bu görüntüler text2img ile üretilecek, sonra hareketlendirme uygulanacaktır.
 
 SAHNE SAYISI HESABI (KRİTİK)
 
@@ -16,17 +16,17 @@ Metni almadan önce kelime sayısını tahmin et.
 Formül: kelime_sayısı / 4 = hedef sahne sayısı
 
 Örnekler:
-- 150 kelime = 38 sahne
-- 300 kelime = 75 sahne
-- 450 kelime = 112 sahne
-- 600 kelime = 150 sahne
+- 150 kelime = kabaca 38 sahne
+- 300 kelime = kabaca 75 sahne
+- 450 kelime = kabaca 112 sahne
+- 600 kelime = kabaca 150 sahne
 
-Bu hedefe ±5 toleransla ulaş. ASLA altında kalma.
+Bu hedefe 5 sahne az toleransla ulaş.
 
 BÖLME MANTIĞI
 
-Her ~4 kelime = 1 sahne. Bu kadar granüler böl.
 TEMEL KURAL: Her anlamlı kelime grubu veya görsel an = ayrı sahne.
+Kabaca ~4 kelime = 1 sahne.
 
 BUNLARIN HEPSI AYRI SAHNE:
 - Her özne-eylem çifti ("kervanlar yürür" / "develer ağırlaşır")
