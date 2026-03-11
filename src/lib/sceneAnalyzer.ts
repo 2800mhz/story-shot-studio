@@ -446,3 +446,48 @@ export async function analyzeTextIntoScenes(
     suggestedTimeContexts,
   };
 }
+
+export async function generateEpisodePrompt(
+  documentText: string,
+  characters: Character[],
+  locations: Location[]
+): Promise<string> {
+  const characterSummary = characters
+    .slice(0, 5)
+    .map(c => `${c.name}${c.role ? ` (${c.role})` : ''}`)
+    .join(', ');
+
+  const locationSummary = locations
+    .slice(0, 5)
+    .map(l => l.name)
+    .join(', ');
+
+  const systemPrompt = `Sen dünya standartlarında bir belgesel film sanat yönetmenisin.
+Sana bir belgesel bölümünün seslendirme metni, karakterleri ve mekanları verilecek.
+Görevin: Bu bölüm için kapsamlı bir GÖRSEL STİL REHBERİ yazmak.
+
+Bu rehber şunları içermeli:
+- Genel görsel ton ve atmosfer (sinematik referanslar)
+- Renk paleti ve kontrast tercihleri
+- Işık karakteri (sıcak/soğuk, sert/yumuşak, yön)
+- Kamera dili (yakın çekim ağırlıklı mı, epik geniş açılar mı)
+- Dönem ve kültürel estetik doğruluk notları
+- Kostüm ve mimari renk harmonisi
+- Öne çıkan doku ve malzeme karakteri
+- Genel mood ve duygusal ton
+
+Rehber İNGİLİZCE olmalı, 150-200 kelime, prompt formatında yazılmalı.
+Madde madde değil, akıcı paragraf halinde.
+Görüntü üretim AI'ına (Midjourney/Stable Diffusion) doğrudan verilebilecek kalitede olmalı.`;
+
+  const userMessage = `Seslendirme metni:
+${documentText.substring(0, 1500)}
+
+Bölümde geçen karakterler: ${characterSummary || 'Belirtilmemiş'}
+Bölümde geçen mekanlar: ${locationSummary || 'Belirtilmemiş'}
+
+Bu bölüm için görsel stil rehberini yaz.`;
+
+  const result = await aiProvider.generateContent(userMessage, systemPrompt);
+  return result.trim();
+}

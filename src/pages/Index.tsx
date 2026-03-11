@@ -14,7 +14,7 @@ import { useAppState } from '@/hooks/useAppState';
 import { parseDocument } from '@/lib/documentParser';
 import { parseEpisodes } from '@/lib/contextDetection';
 import { generatePrompts, loadSystemPrompt } from '@/lib/geminiApi';
-import { analyzeTextIntoScenes } from '@/lib/sceneAnalyzer';
+import { analyzeTextIntoScenes, generateEpisodePrompt } from '@/lib/sceneAnalyzer';
 import { generatePromptsForScene, revisePrompt } from '@/lib/promptGenerator';
 import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetchAllPromptsForScenes, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts } from '@/lib/supabaseQueries';
 import { useToast } from '@/hooks/use-toast';
@@ -866,6 +866,27 @@ const Index = () => {
       );
       dispatch({ type: 'FINISH_ANALYSIS', payload: result });
       setTimeout(() => setAnalysisLog([]), 3000);
+
+      try {
+        setAnalysisLog(prev => [...prev, '🎨 Bölüm stili (episode prompt) üretiliyor...']);
+        // Episode prompt'u otomatik oluştur
+        const episodePrompt = await generateEpisodePrompt(
+          selectedText,
+          result.characters,
+          result.locations
+        );
+        if (episodePrompt) {
+          dispatch({ type: 'SET_EPISODE_PROMPT', payload: episodePrompt });
+        }
+      } catch (promptErr) {
+        console.error('Episode prompt generation error:', promptErr);
+        toast({
+          title: 'Stil Rehberi Hatası',
+          description: 'Görsel stil rehberi üretilemedi ama analiz tamamlandı.',
+          variant: 'destructive'
+        });
+      }
+
     } catch (error) {
       console.error('Scene analysis error:', error);
       toast({
