@@ -187,6 +187,8 @@ const Index = () => {
           characterIds: scene.character_ids || [],
           locationIds: scene.location_ids || [],
           timeContextIds: scene.time_context_ids || [],
+          startIndex: scene.start_index ?? undefined,
+          endIndex: scene.end_index ?? undefined,
           prompts: [],
           status: 'ready' as const,
           noteEditable: false,

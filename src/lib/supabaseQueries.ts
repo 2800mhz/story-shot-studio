@@ -203,6 +203,8 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
         character_ids: characterIds,
         location_ids: locationIds,
         time_context_ids: timeContextIds,
+        start_index: scene.startIndex ?? null,
+        end_index: scene.endIndex ?? null,
         analysis: scene.analysis || null,
         optimizations: scene.optimizations || [],
       };
