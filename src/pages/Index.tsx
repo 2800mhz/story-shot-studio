@@ -14,7 +14,7 @@ import { useAppState } from '@/hooks/useAppState';
 import { parseDocument } from '@/lib/documentParser';
 import { parseEpisodes } from '@/lib/contextDetection';
 import { generatePrompts, loadSystemPrompt } from '@/lib/geminiApi';
-import { analyzeTextIntoScenes, generateEpisodePrompt } from '@/lib/sceneAnalyzer';
+import { analyzeTextIntoScenes, generateEpisodePrompt, generateEpisodePromptTurkishExplanation } from '@/lib/sceneAnalyzer';
 import { generatePromptsForScene, revisePrompt } from '@/lib/promptGenerator';
 import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetchAllPromptsForScenes, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts } from '@/lib/supabaseQueries';
 import { useToast } from '@/hooks/use-toast';
@@ -107,6 +107,13 @@ const Index = () => {
         dispatch({ type: 'SET_EPISODE_PROMPT', payload: episodeData.episode_prompt });
       } else {
         dispatch({ type: 'SET_EPISODE_PROMPT', payload: '' });
+      }
+
+      // Load Turkish translation of the episode prompt
+      if (episodeData.episode_prompt_tr) {
+        dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: episodeData.episode_prompt_tr });
+      } else {
+        dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: '' });
       }
 
       // Load characters: prefer episode-specific character_data (preserves exact IDs
@@ -244,6 +251,7 @@ const Index = () => {
             character_data: JSON.stringify(state.characters),
             location_data: JSON.stringify(state.locations),
             episode_prompt: state.episodePrompt || undefined,
+            episode_prompt_tr: state.episodePromptTr || undefined,
           });
           await saveTimeContexts(episodeId, state.timeContexts);
         } catch (err) {
@@ -253,7 +261,7 @@ const Index = () => {
       const id = setTimeout(saveEpisodeData, AUTO_SAVE_DEBOUNCE_MS);
       return () => clearTimeout(id);
     }
-  }, [state.documentText, state.characters, state.locations, state.episodePrompt, state.timeContexts, episodeId, loadingData, episode]);
+  }, [state.documentText, state.characters, state.locations, state.episodePrompt, state.episodePromptTr, state.timeContexts, episodeId, loadingData, episode]);
 
   // Auto-save scenes to Supabase whenever sceneCards change
   const isSavingRef = useRef(false);
@@ -878,6 +886,12 @@ const Index = () => {
         );
         if (episodePrompt) {
           dispatch({ type: 'SET_EPISODE_PROMPT', payload: episodePrompt });
+          
+          setAnalysisLog(prev => [...prev, '🇹🇷 Bölüm stili Türkçe özeti yazılıyor...']);
+          const turkishExplanation = await generateEpisodePromptTurkishExplanation(episodePrompt);
+          if (turkishExplanation) {
+            dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: turkishExplanation });
+          }
         }
       } catch (promptErr) {
         console.error('Episode prompt generation error:', promptErr);
@@ -1264,7 +1278,9 @@ const Index = () => {
             mainFileName={state.mainFileName}
             isAnalyzing={state.isAnalyzing}
             episodePrompt={state.episodePrompt}
+            episodePromptTr={state.episodePromptTr}
             onSetEpisodePrompt={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT', payload: prompt })}
+            onSetEpisodePromptTr={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: prompt })}
             onEpisodeClick={(ep) => setScrollToIndex(ep.startIndex)}
             onSceneClick={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
             onMoveEpisode={(episodeId, newParentId) => dispatch({ type: 'MOVE_EPISODE', payload: { episodeId, newParentId } })}

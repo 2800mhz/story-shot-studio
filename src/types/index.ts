@@ -183,6 +183,7 @@ export interface AppState {
   timeContexts: TimeContext[];
   masterPrompt: string;
   episodePrompt: string;
+  episodePromptTr: string;
   isAnalyzing: boolean;
   isGeneratingPrompts: boolean;
 }
@@ -247,6 +248,7 @@ export type AppAction =
   | { type: 'DELETE_SCENE_CARD'; payload: string }
   | { type: 'SET_MASTER_PROMPT'; payload: string }
   | { type: 'SET_EPISODE_PROMPT'; payload: string }
+  | { type: 'SET_EPISODE_PROMPT_TR'; payload: string }
   | { type: 'SET_ANALYZING'; payload: boolean }
   | { type: 'SET_DOCUMENT_TEXT'; payload: string }
   | { type: 'SET_SCENES'; payload: SceneCard[] }

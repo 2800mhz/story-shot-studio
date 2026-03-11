@@ -492,4 +492,26 @@ Bu bölüm için görsel stil rehberini yaz.`;
 
   const result = await aiProvider.generateContent(userMessage, systemPrompt);
   return result.trim();
+}
+
+export async function generateEpisodePromptTurkishExplanation(
+  episodePrompt: string
+): Promise<string> {
+  const systemPrompt = `Sen profesyonel bir belgesel yönetmeni ve çevirmenisin.
+Sana İngilizce yazılmış, yapay zeka görüntü üretimi için hazırlanmış teknik bir GÖRSEL STİL REHBERİ (Episode Prompt) verilecek.
+Görevin: Bu rehberde istenen vizyonu ve atmosferi, prodüksiyon ekibinin (veya müşterinin) kolayca anlayabileceği bir dille TÜRKÇE olarak özetlemek.
+
+Kurallar:
+- Doğrudan çeviri yapma, okunaklı ve akıcı bir özet paragraf yaz.
+- Renk paletini, ışık tarzını, kamera dilini ve genel atmosferi kısaca anlat.
+- Prompun teknik kısımlarını (örn. 35mm lens, 8k resolution, cinematic lighting vb.) sadeleştirerek "Nasıl bir his/görüntü yaratılmak isteniyor?" sorusuna cevap ver.
+- En fazla 2-3 cümlelik, 40-50 kelimelik net ve profesyonel bir özet olsun.`;
+
+  const userMessage = `İngilizce Görsel Stil Rehberi (Episode Prompt):
+${episodePrompt}
+
+Bu rehberin Türkçe, akıcı ve profesyonel açıklamasını/özetini yazar mısın?`;
+
+  const result = await aiProvider.generateContent(userMessage, systemPrompt);
+  return result.trim();
 }

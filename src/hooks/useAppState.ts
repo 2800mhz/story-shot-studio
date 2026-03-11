@@ -42,6 +42,7 @@ const initialState: AppState = {
   timeContexts: loadJson('time_contexts', []),
   masterPrompt: '',
   episodePrompt: '',
+  episodePromptTr: '',
   isAnalyzing: false,
   isGeneratingPrompts: false,
 };
@@ -475,6 +476,8 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       return { ...state, masterPrompt: action.payload };
     case 'SET_EPISODE_PROMPT':
       return { ...state, episodePrompt: action.payload };
+    case 'SET_EPISODE_PROMPT_TR':
+      return { ...state, episodePromptTr: action.payload };
     case 'SET_ANALYZING':
       return { ...state, isAnalyzing: action.payload };
     case 'SET_DOCUMENT_TEXT':
