@@ -247,7 +247,9 @@ function buildResultFromScenes(
   sceneNumberOffset: number,
   characterMap: Map<string, Character>,
   locationMap: Map<string, Location>,
-  timeContextLabelMap: Map<string, string>
+  timeContextLabelMap: Map<string, string>,
+  fullText: string,
+  searchState: { lastIndex: number }
 ): SceneCard[] {
   // Build a normalized-name → existing-id lookup for locations (deduplication)
   const locationNormalizedIndex = new Map<string, string>();
@@ -300,6 +302,18 @@ function buildResultFromScenes(
       }
     });
 
+    let startIndex: number | undefined;
+    let endIndex: number | undefined;
+    if (scene.text) {
+      // Find the text in the document starting from our last known position
+      const foundIdx = fullText.indexOf(scene.text.trim(), searchState.lastIndex);
+      if (foundIdx !== -1) {
+        startIndex = foundIdx;
+        endIndex = foundIdx + scene.text.trim().length;
+        searchState.lastIndex = endIndex; // Move the pointer forward
+      }
+    }
+
     sceneCards.push({
       id: sceneId,
       sceneNumber: globalIdx + 1,
@@ -308,6 +322,8 @@ function buildResultFromScenes(
       characterIds,
       locationIds,
       timeContextIds: [],
+      startIndex,
+      endIndex,
       prompts: [],
       status: 'analyzed',
       noteEditable: true,
@@ -387,13 +403,14 @@ export async function analyzeTextIntoScenes(
   const timeContextLabelMap = new Map<string, string>(); // sceneId → timeContextLabel
   let sceneNumberOffset = 0;
   let suggestedTimeContexts: TimeContext[] = [];
+  const searchState = { lastIndex: 0 };
 
   for (let i = 0; i < chunks.length; i++) {
     console.log(`🔍 Analyzing chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
     onProgress?.(`🤖 Parça ${i + 1}/${chunks.length} yapay zekaya gönderiliyor...`);
     const parsed = await analyzeChunk(chunks[i]);
     const scenes = parsed.scenes ?? [];
-    const cards = buildResultFromScenes(scenes, sceneNumberOffset, characterMap, locationMap, timeContextLabelMap);
+    const cards = buildResultFromScenes(scenes, sceneNumberOffset, characterMap, locationMap, timeContextLabelMap, text, searchState);
     allSceneCards.push(...cards);
     sceneNumberOffset += scenes.length;
     onProgress?.(`🎬 ${cards.length} sahne kartı oluşturuldu (toplam: ${allSceneCards.length})`);

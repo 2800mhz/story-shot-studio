@@ -148,6 +148,8 @@ export interface SceneCard {
   characterIds: string[];
   locationIds: string[];
   timeContextIds: string[];
+  startIndex?: number;
+  endIndex?: number;
   prompts: PromptCard[];
   status: 'analyzed' | 'generating' | 'ready';
   noteEditable: boolean;

@@ -132,36 +132,98 @@ export function CenterPanel({
         </div>
 
         <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin">
-          <div className="p-6 font-serif leading-relaxed">
-            {scenes.map((scene, idx) => (
-              <div key={scene.id}>
-                <div
-                  ref={activeSceneId === scene.id ? activeSceneRef : undefined}
-                  className={`whitespace-pre-wrap transition-all duration-200 cursor-pointer rounded-md py-3 px-4 my-1 ${
-                    activeSceneId === scene.id
-                      ? 'bg-yellow-200/70 dark:bg-yellow-500/30 border-l-4 border-yellow-500 font-medium shadow-sm'
-                      : 'hover:bg-muted/40 hover:border-l-2 hover:border-muted-foreground/30'
-                  }`}
-                  onClick={() => {
-                    onSetActiveScene(scene.id);
-                  }}
-                >
-                  {scene.text}
-                </div>
-
-                {idx < scenes.length - 1 && (
-                  <div className="my-4 flex items-center gap-3">
-                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-primary/30 to-primary/30" />
-                    <div className="flex items-center gap-2 text-xs font-mono text-primary/80 bg-primary/5 px-3 py-1 rounded-full border border-primary/20">
-                      <span className="opacity-50">━━━</span>
-                      <span className="font-semibold">Sahne {scene.number}</span>
-                      <span className="opacity-50">━━━</span>
-                    </div>
-                    <div className="h-px flex-1 bg-gradient-to-r from-primary/30 via-primary/30 to-transparent" />
+          <div className="p-8 font-serif text-[17px] leading-[2.2] text-foreground/90 whitespace-pre-wrap">
+            {/* If we don't have mainText or scenes lack indices, fallback to legacy block render */}
+            {!mainText || !scenes.some(s => s.startIndex !== undefined) ? (
+              scenes.map((scene, idx) => (
+                <div key={scene.id}>
+                  <div
+                    ref={activeSceneId === scene.id ? activeSceneRef : undefined}
+                    className={`whitespace-pre-wrap transition-all duration-200 cursor-pointer rounded-md py-3 px-4 my-1 ${
+                      activeSceneId === scene.id
+                        ? 'bg-yellow-200/70 dark:bg-yellow-500/30 border-l-4 border-yellow-500 font-medium shadow-sm'
+                        : 'hover:bg-muted/40 hover:border-l-2 hover:border-muted-foreground/30'
+                    }`}
+                    onClick={() => onSetActiveScene(scene.id)}
+                  >
+                    {scene.text}
                   </div>
-                )}
-              </div>
-            ))}
+                  {idx < scenes.length - 1 && (
+                    <div className="my-4 flex items-center gap-3">
+                      <div className="h-px flex-1 bg-gradient-to-r from-transparent via-primary/30 to-primary/30" />
+                      <div className="flex items-center gap-2 text-xs font-mono text-primary/80 bg-primary/5 px-3 py-1 rounded-full border border-primary/20">
+                        <span className="opacity-50">━━━</span>
+                        <span className="font-semibold">Sahne {scene.number}</span>
+                        <span className="opacity-50">━━━</span>
+                      </div>
+                      <div className="h-px flex-1 bg-gradient-to-r from-primary/30 via-primary/30 to-transparent" />
+                    </div>
+                  )}
+                </div>
+              ))
+            ) : (() => {
+              // INLINE HIGHLIGHT RENDERING
+              const elements: React.ReactNode[] = [];
+              let currentIndex = 0;
+              
+              // Sort scenes by startIndex to process sequentially
+              const sortedScenes = [...scenes]
+                .filter(s => s.startIndex !== undefined && s.endIndex !== undefined)
+                .sort((a, b) => a.startIndex! - b.startIndex!);
+
+              sortedScenes.forEach((scene) => {
+                const start = scene.startIndex!;
+                const end = scene.endIndex!;
+
+                // Add unhighlighted text before the scene
+                if (start > currentIndex) {
+                  elements.push(
+                    <span key={`text-${currentIndex}`}>
+                      {mainText.substring(currentIndex, start)}
+                    </span>
+                  );
+                }
+
+                // Add the highlighted scene text
+                const isSelected = activeSceneId === scene.id;
+                elements.push(
+                  <span
+                    key={`scene-${scene.id}`}
+                    ref={isSelected ? (el) => {
+                      // Note: We cast to any because we use HTMLDivElement ref above, but this is a span.
+                      // The scrolling logic just calls getBoundingClientRect, which exists on Element.
+                      if (activeSceneRef) (activeSceneRef as any).current = el;
+                    } : undefined}
+                    onClick={() => onSetActiveScene(scene.id)}
+                    className={`relative cursor-pointer transition-colors duration-200 rounded px-1 -mx-1 ${
+                      isSelected
+                        ? 'bg-amber-600/30 text-amber-200 outline outline-1 outline-amber-500/50 shadow-sm z-10'
+                        : 'hover:bg-amber-900/30 text-amber-100/90'
+                    }`}
+                  >
+                    <span className={`inline-flex items-center justify-center rounded-full text-[10px] w-5 h-5 mr-1.5 -ml-1 align-middle select-none transition-colors ${
+                      isSelected ? 'bg-amber-500 text-amber-950 font-bold shadow-sm shadow-amber-900/50' : 'bg-amber-800/80 text-amber-100 border border-amber-600/50'
+                    }`}>
+                      {scene.number}
+                    </span>
+                    {mainText.substring(start, end)}
+                  </span>
+                );
+
+                currentIndex = end;
+              });
+
+              // Add remaining text after the last scene
+              if (currentIndex < mainText.length) {
+                elements.push(
+                  <span key={`text-${currentIndex}`}>
+                    {mainText.substring(currentIndex)}
+                  </span>
+                );
+              }
+
+              return elements;
+            })()}
           </div>
         </div>
       </div>
