@@ -242,6 +242,38 @@ function normalizeTurkishLocationName(name: string): string {
   return n;
 }
 
+function fuzzyFindText(fullText: string, searchStr: string, startIndex: number): { start: number, end: number } | null {
+  const cleanSearch = searchStr.trim();
+  if (!cleanSearch) return null;
+
+  // 1. Exact match from the last known good position
+  let exact = fullText.indexOf(cleanSearch, startIndex);
+  if (exact !== -1) return { start: exact, end: exact + cleanSearch.length };
+
+  // 2. Exact match from anywhere (lastIndex might have jumped too far)
+  exact = fullText.indexOf(cleanSearch, 0);
+  if (exact !== -1) return { start: exact, end: exact + cleanSearch.length };
+
+  // 3. Fallback: Prefix/Suffix match. AI often changes middle spacing or punctuation.
+  if (cleanSearch.length > 20) {
+    const prefix = cleanSearch.substring(0, 15).trim();
+    let startMatch = fullText.indexOf(prefix, Math.max(0, startIndex - 200));
+    if (startMatch === -1) startMatch = fullText.indexOf(prefix, 0);
+
+    if (startMatch !== -1) {
+      const suffix = cleanSearch.substring(cleanSearch.length - 15).trim();
+      let endMatch = fullText.indexOf(suffix, startMatch);
+      if (endMatch !== -1 && (endMatch - startMatch) < cleanSearch.length * 1.5) {
+        return { start: startMatch, end: endMatch + suffix.length };
+      }
+      // If end not found but start is found, just use the assumed length
+      return { start: startMatch, end: startMatch + cleanSearch.length };
+    }
+  }
+
+  return null;
+}
+
 function buildResultFromScenes(
   scenes: SceneRaw[],
   sceneNumberOffset: number,
@@ -305,12 +337,14 @@ function buildResultFromScenes(
     let startIndex: number | undefined;
     let endIndex: number | undefined;
     if (scene.text) {
-      // Find the text in the document starting from our last known position
-      const foundIdx = fullText.indexOf(scene.text.trim(), searchState.lastIndex);
-      if (foundIdx !== -1) {
-        startIndex = foundIdx;
-        endIndex = foundIdx + scene.text.trim().length;
-        searchState.lastIndex = endIndex; // Move the pointer forward
+      // Find the text in the document starting from our last known position using fuzzy search
+      const match = fuzzyFindText(fullText, scene.text, searchState.lastIndex);
+      if (match) {
+        startIndex = match.start;
+        endIndex = match.end;
+        searchState.lastIndex = match.end; // Move the pointer forward
+      } else {
+        console.warn(`⚠️ Could not find exact match for scene text: "${scene.text.substring(0, 30)}..."`);
       }
     }
 
