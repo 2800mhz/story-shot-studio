@@ -13,6 +13,8 @@ interface CenterPanelProps {
   onAnalyzeText?: (text: string) => void;
   isAnalyzing?: boolean;
   analysisLog?: string[];
+  maxScenes: number;
+  onMaxScenesChange: (value: number) => void;
   onReanalyze?: (newMaxScenes: number) => void;
 }
 
@@ -21,6 +23,7 @@ export function CenterPanel({
   scrollToIndex, onScrollComplete,
   onSetActiveScene, onRemoveScene,
   onAnalyzeText, isAnalyzing, analysisLog,
+  maxScenes, onMaxScenesChange,
   onReanalyze,
 }: CenterPanelProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -29,17 +32,6 @@ export function CenterPanel({
     position: { top: number; left: number };
     selectedText: string;
   } | null>(null);
-  const [maxScenes, setMaxScenes] = useState<number>(() => Math.max(3, scenes.length));
-
-  useEffect(() => {
-    if (scenes.length > 0) {
-      setMaxScenes(scenes.length);
-    } else if (mainText) {
-      // Kelime bazlı otomatik sahne sayısı tahmini (her 7 kelime için ~1 sahne hedefi)
-      const words = mainText.trim().split(/\s+/).length;
-      setMaxScenes(Math.max(1, Math.round(words / 7)));
-    }
-  }, [scenes.length, mainText]);
 
   // Check if scenes are AI-parsed (have text property)
   const hasAiScenes = scenes.length > 0 && scenes.some(s => s.text);
@@ -64,7 +56,7 @@ export function CenterPanel({
     if (hasAiScenes) {
       const targetScene = scenes.find(
         s => s.startIndex !== undefined && s.endIndex !== undefined &&
-          scrollToIndex >= s.startIndex && scrollToIndex < s.endIndex
+             scrollToIndex >= s.startIndex && scrollToIndex < s.endIndex
       );
       if (targetScene) {
         onSetActiveScene(targetScene.id);
@@ -149,28 +141,28 @@ export function CenterPanel({
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => {
-                    const newVal = Math.max(1, maxScenes - 1);
-                    setMaxScenes(newVal);
+                    const newVal = Math.max(10, maxScenes - 20);
+                    onMaxScenesChange(newVal);
                     onReanalyze(newVal);
                   }}
-                  disabled={isAnalyzing || maxScenes <= 1}
+                  disabled={isAnalyzing || maxScenes <= 10}
                   className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  title="Daha az sahne üret"
+                  title={`Daha az sahne üret (şu an: ~${maxScenes})`}
                 >
-                  ➖
+                  ➖ Daha Az
                 </button>
-                <span className="text-[10px] text-muted-foreground/60 font-mono tabular-nums">~{maxScenes} sahne</span>
+                <span className="text-[10px] text-muted-foreground/60 font-mono tabular-nums">~{maxScenes}</span>
                 <button
                   onClick={() => {
-                    const newVal = maxScenes + 1;
-                    setMaxScenes(newVal);
+                    const newVal = maxScenes + 20;
+                    onMaxScenesChange(newVal);
                     onReanalyze(newVal);
                   }}
                   disabled={isAnalyzing}
                   className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  title="Daha fazla sahne üret"
+                  title={`Daha fazla sahne üret (şu an: ~${maxScenes})`}
                 >
-                  ➕
+                  ➕ Daha Fazla
                 </button>
               </div>
             )}
@@ -183,10 +175,11 @@ export function CenterPanel({
               <div key={scene.id}>
                 <div
                   ref={activeSceneId === scene.id ? activeSceneRef : undefined}
-                  className={`whitespace-pre-wrap transition-all duration-200 cursor-pointer rounded-md py-3 px-4 my-1 ${activeSceneId === scene.id
+                  className={`whitespace-pre-wrap transition-all duration-200 cursor-pointer rounded-md py-3 px-4 my-1 ${
+                    activeSceneId === scene.id
                       ? 'bg-yellow-200/70 dark:bg-yellow-500/30 border-l-4 border-yellow-500 font-medium shadow-sm'
                       : 'hover:bg-muted/40 hover:border-l-2 hover:border-muted-foreground/30'
-                    }`}
+                  }`}
                   onClick={() => {
                     onSetActiveScene(scene.id);
                   }}
@@ -248,6 +241,8 @@ export function CenterPanel({
           onAnalyzeWithAI={handleAnalyzeFromSelection}
           onDismiss={dismissToolbar}
           isAnalyzing={isAnalyzing}
+          maxScenes={maxScenes}
+          onMaxScenesChange={onMaxScenesChange}
         />
       )}
     </div>

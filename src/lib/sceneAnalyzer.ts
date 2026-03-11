@@ -1,27 +1,22 @@
 import type { SceneCard, Character, Location, TimeContext } from '@/types';
 import { aiProvider } from './aiProvider';
 
-const SCENE_ANALYSIS_SYSTEM_PROMPT = `Sen bir storyboard yönetmenisin. Verilen metni görsel sahnelere böl.
+const SCENE_ANALYSIS_SYSTEM_PROMPT = `Sen bir senaryo analisti ve görsel yönetmenisin. Verilen metni görsel SAHNELERE böl.
 
-🎬 TEMEL KURAL: Bir sahne = tek bir fotoğraf karesinde anlatılabilecek görsel an.
+🔥 KATİL KURALLAR:
+1. Her cümle = AYRI SAHNE! (Nokta gördün mü = yeni sahne!)
+2. Uzun cümle (20+ kelime) = 2-3 sahneye böl
+3. 100 kelime = EN AZ 20 sahne
+4. 200 kelime = EN AZ 40 sahne
+5. Görsel değişimi = yeni sahne
+6. Karakter hareketi = yeni sahne
+7. Mekan değişimi = yeni sahne
+8. Duygusal geçiş = yeni sahne
 
-SAHNE KESME KRİTERLERİ:
-- Kamera odak noktası değişiyorsa (farklı nesne/kişi ön plana geçiyor) → yeni sahne
-- Mekan veya ışık koşulu değişiyorsa → yeni sahne
-- Duygusal ton zirve yapıyorsa, o an kendi sahnesi olabilir
-- Aynı mekanda aynı karakterle aynı ışıkta ardışık eylemler → tek sahne
-
-BİRLEŞTİR:
-- "Sultan öne çıktı, kılıcını kaldırdı, bağırdı" → 1 sahne (aynı çerçeve)
-
-BÖLDÜR:
-- "Sultan bağırdı. Kale yıkıldı." → 2 sahne (farklı focal point)
-
-YOĞUNLUK REHBERİ (bağlayıcı değil, referans):
-- Diyalog ağırlıklı metin → daha az sahne
-- Aksiyon/hareket ağırlıklı metin → daha fazla sahne
-- Bir A4 sayfa (~250 kelime) → genellikle 8-15 sahne yeterlidir
-- Min/max sahne sayısı yoktur; metnin doğal ritmine uyu
+📐 SAHNE BOYUTU:
+- İdeal: 3-8 kelime per sahne
+- Maksimum: 15 kelime per sahne
+- 15+ kelime varsa MUTLAKA böl!
 
 KURALLAR:
 - visualNote TÜRKÇE olmalı (örn: "Boğaz kıyısında sabah yürüyüşü") — maks 10 kelime
@@ -45,7 +40,7 @@ JSON ÇIKTI:
   "scenes": [
     {
       "sceneNumber": 1,
-      "text": "Metinden kesilen metin parçası",
+      "text": "Metinden kesilen kısa metin parçası (3-15 kelime)",
       "visualNote": "Kısa Türkçe görsel açıklama (maks 10 kelime)",
       "characters": [
         {
@@ -256,7 +251,7 @@ async function analyzeChunk(
 ): Promise<{ scenes?: SceneRaw[]; timeContexts?: TimeContextRaw[]; timeContext?: TimeContextRaw }> {
   let systemPrompt = SCENE_ANALYSIS_SYSTEM_PROMPT;
   if (maxScenesHint && maxScenesHint > 0) {
-    systemPrompt += `\n\n🎯 YOĞUNLUK İPUCU: Kullanıcı bu metin için yaklaşık ${maxScenesHint} sahne bekliyor. Görsel bütünlüğü tamamen bozmadan bu sayıya yaklaşmaya çalış — çok küçük veya anlamsız sahneleri birleştir, çok uzun sahneleri böl. Bu bir kural değil, kullanıcı tercihidir.`;
+    systemPrompt += `\n\n🎯 HEDEF SAHNE SAYISI: Bu metin parçasından yaklaşık ${maxScenesHint} sahne üret. Görsel bütünlüğü bozmadan bu sayıya mümkün olduğunca yaklaş. Çok küçük veya anlamsız sahneleri birleştir; çok uzun sahneleri böl.`;
   }
   const content = await aiProvider.generateContent(chunk, systemPrompt);
 
@@ -295,67 +290,6 @@ function mergeTimeContextsByLabel(existing: TimeContext[], incoming: TimeContext
   const map = new Map(existing.map(tc => [tc.label, tc]));
   incoming.forEach(tc => { if (!map.has(tc.label)) map.set(tc.label, tc); });
   return Array.from(map.values());
-}
-
-export async function generateIntermediateScene(
-  prevText: string,
-  nextText: string
-): Promise<{ sceneCard: Partial<SceneCard>; characters: Character[]; locations: Location[]; timeContext: TimeContext | null }> {
-  const prompt = `Sen bir storyboard yönetmenisin. Aşağıda verilen iki sahnenin metinleri arasına anlamsal ve görsel bir geçiş sağlayacak mantıklı bir "ara sahne" yazmalısın.
-  
-Önceki Sahne Metni: "${prevText}"
-Sonraki Sahne Metni: "${nextText}"
-
-Görevlerin:
-1. Bu iki olay akışı arasında eksik olan veya geçişi güçlendirecek tek bir görsel sahne tasarımı yap. (Örneğin karakterin bir mekandan diğerine yürüyüşü, bir düşünce anı veya yoldaki bir detay).
-2. Sadece SADECE TEK BİR SAHNE döndür.
-3. Çıktı formatı, normal sahne analizi çıktısıyla aynı olmalı:
-
-{
-  "scenes": [
-    {
-      "text": "Yazdığın ara sahne metni...",
-      "visualNote": "Türkçe görsel not (maks 10 kelime)",
-      "characters": [ { "name": "...", "visualDescription": "..." } ],
-      "locations": [ { "name": "...", "visualDescription": "..." } ],
-      "timeContextLabel": "..."
-    }
-  ],
-  "timeContexts": [ ]
-}`;
-
-  const content = await aiProvider.generateContent("Create a transitional scene.", prompt);
-  const cleaned = cleanJsonResponse(content);
-  const parsed = JSON.parse(cleaned) as { scenes?: SceneRaw[]; timeContexts?: TimeContextRaw[]; timeContext?: TimeContextRaw };
-
-  if (!parsed.scenes || parsed.scenes.length === 0) {
-    throw new Error("AI did not return any scene.");
-  }
-
-  const rawScene = parsed.scenes[0];
-  const charMap = new Map<string, Character>();
-  const locMap = new Map<string, Location>();
-  const tcMap = new Map<string, string>();
-
-  const cards = buildResultFromScenes([rawScene], 0, charMap, locMap, tcMap);
-  const card = cards[0];
-
-  const rawContexts = Array.isArray(parsed.timeContexts) && parsed.timeContexts.length > 0
-    ? parsed.timeContexts
-    : parsed.timeContext?.label ? [parsed.timeContext] : [];
-
-  let timeContext: TimeContext | null = null;
-  if (rawContexts.length > 0 && rawContexts[0].label) {
-    timeContext = { id: `tc-${crypto.randomUUID()}`, label: rawContexts[0].label, ...rawContexts[0] } as TimeContext;
-    card.timeContextIds = [timeContext.id];
-  }
-
-  return {
-    sceneCard: card,
-    characters: Array.from(charMap.values()),
-    locations: Array.from(locMap.values()),
-    timeContext
-  };
 }
 
 export async function analyzeTextIntoScenes(

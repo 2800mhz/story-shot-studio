@@ -236,15 +236,15 @@ export type AppAction =
   | { type: 'ADD_NEW_CHARACTER_TO_SCENE_CARD'; payload: { sceneId: string; character: Character } }
   | { type: 'ADD_NEW_LOCATION_TO_SCENE_CARD'; payload: { sceneId: string; location: Location } }
   | { type: 'START_PROMPT_GENERATION'; payload: { sceneId: string } }
-  | {
-    type: 'FINISH_PROMPT_GENERATION';
-    payload: {
-      sceneId: string;
-      prompts: PromptCard[];
-      analysis?: PromptAnalysis;
-      optimizations?: string[];
+  | { 
+      type: 'FINISH_PROMPT_GENERATION'; 
+      payload: { 
+        sceneId: string; 
+        prompts: PromptCard[];
+        analysis?: PromptAnalysis;
+        optimizations?: string[];
+      } 
     }
-  }
   | { type: 'DELETE_SCENE_CARD'; payload: string }
   | { type: 'SET_MASTER_PROMPT'; payload: string }
   | { type: 'SET_EPISODE_PROMPT'; payload: string }
@@ -262,5 +262,4 @@ export type AppAction =
   | { type: 'DELETE_TIME_CONTEXT'; payload: string }
   | { type: 'ADD_TIME_CONTEXT_TO_SCENE_CARD'; payload: { sceneId: string; timeContextId: string } }
   | { type: 'REMOVE_TIME_CONTEXT_FROM_SCENE_CARD'; payload: { sceneId: string; timeContextId: string } }
-  | { type: 'REORDER_SCENE_CARDS'; payload: SceneCard[] }
-  | { type: 'INSERT_SCENE_CARD_AFTER'; payload: { targetSceneId: string; newSceneCard: SceneCard; newCharacters: Character[]; newLocations: Location[] } };
+  | { type: 'REORDER_SCENE_CARDS'; payload: SceneCard[] };
