@@ -167,26 +167,12 @@ export function RightPanel({
     const reordered = [...scenes];
     const [moved] = reordered.splice(fromIndex, 1);
     
-    // Float ordering logic (Average of previous and next scene numbers)
-    let newNumber = 1;
-    if (reordered.length === 0) {
-      newNumber = 1;
-    } else if (dropIndex === 0) {
-      // Dropped at the very beginning
-      newNumber = reordered[0].number - 1;
-    } else if (dropIndex >= reordered.length) {
-      // Dropped at the very end
-      newNumber = reordered[reordered.length - 1].number + 1;
-    } else {
-      // Dropped between two scenes
-      const prevNumber = reordered[dropIndex - 1].number;
-      const nextNumber = reordered[dropIndex].number;
-      newNumber = (prevNumber + nextNumber) / 2;
-    }
-
-    // Assign the newly calculated float number
-    moved.number = newNumber;
     reordered.splice(dropIndex, 0, moved);
+
+    // Re-index all scenes continuously
+    reordered.forEach((s, idx) => {
+      s.number = idx + 1;
+    });
 
     onReorderScenes?.(reordered);
     setDragOverIndex(null);
@@ -221,25 +207,12 @@ export function RightPanel({
     const reordered = [...sceneCards];
     const [moved] = reordered.splice(fromIndex, 1);
 
-    // Float ordering logic (Average of previous and next scene numbers)
-    let newNumber = 1;
-    if (reordered.length === 0) {
-      newNumber = 1;
-    } else if (dropIndex === 0) {
-      // Dropped at the very beginning — use half of first card's number to stay positive
-      newNumber = reordered[0].sceneNumber / 2;
-    } else if (dropIndex >= reordered.length) {
-      // Dropped at the very end
-      newNumber = reordered[reordered.length - 1].sceneNumber + 1;
-    } else {
-      // Dropped between two cards
-      const prevNumber = reordered[dropIndex - 1].sceneNumber;
-      const nextNumber = reordered[dropIndex].sceneNumber;
-      newNumber = (prevNumber + nextNumber) / 2;
-    }
-
-    moved.sceneNumber = newNumber;
     reordered.splice(dropIndex, 0, moved);
+
+    // Re-index all scene cards continuously
+    reordered.forEach((sc, idx) => {
+      sc.sceneNumber = idx + 1;
+    });
 
     onReorderSceneCards?.(reordered);
     setDragOverSceneCardIndex(null);

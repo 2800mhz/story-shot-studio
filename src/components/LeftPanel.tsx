@@ -277,6 +277,9 @@ export function LeftPanel({
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">
               Bölüm Stili (Episode Prompt)
             </label>
+            <p className="text-[10px] text-muted-foreground/80 mb-2 leading-tight">
+              Tüm sahneler üretilirken ana vizyon ve atmosfer olarak bu kutudaki kurallar öncelikli baz alınır.
+            </p>
             <textarea
               className="w-full text-xs min-h-[60px] resize-none rounded-md border bg-background px-2 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary scrollbar-thin"
               placeholder="Örn: Kabus atmosferi, karanlık ve sisli, 35mm film grain..."
