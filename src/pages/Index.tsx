@@ -38,7 +38,6 @@ const Index = () => {
   const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [analysisLog, setAnalysisLog] = useState<string[]>([]);
-  const [maxScenes, setMaxScenes] = useState<number>(50);
   const [project, setProject] = useState<{ title: string; master_prompt?: string } | null>(null);
   const [episode, setEpisode] = useState<{ title: string; document_text?: string } | null>(null);
   const [noKeysWarning, setNoKeysWarning] = useState(false);
@@ -863,8 +862,7 @@ const Index = () => {
         undefined,
         (message: string) => {
           setAnalysisLog(prev => [...prev, message]);
-        },
-        maxScenes
+        }
       );
       dispatch({ type: 'FINISH_ANALYSIS', payload: result });
       setTimeout(() => setAnalysisLog([]), 3000);
@@ -877,34 +875,7 @@ const Index = () => {
       });
       dispatch({ type: 'FINISH_ANALYSIS', payload: { sceneCards: [], characters: [], locations: [] } });
     }
-  }, [dispatch, toast, maxScenes]);
-
-  const handleReanalyze = useCallback(async (newMaxScenes: number) => {
-    if (!state.mainText || state.isAnalyzing) return;
-    dispatch({ type: 'START_ANALYSIS' });
-    setAnalysisLog([]);
-    try {
-      const result = await analyzeTextIntoScenes(
-        state.mainText,
-        undefined,
-        undefined,
-        (message: string) => {
-          setAnalysisLog(prev => [...prev, message]);
-        },
-        newMaxScenes
-      );
-      dispatch({ type: 'REPLACE_ANALYSIS', payload: result });
-      setTimeout(() => setAnalysisLog([]), 3000);
-    } catch (error) {
-      console.error('Re-analysis error:', error);
-      toast({
-        title: 'Yeniden analiz başarısız',
-        description: error instanceof Error ? error.message : 'Hata oluştu',
-        variant: 'destructive'
-      });
-      dispatch({ type: 'REPLACE_ANALYSIS', payload: { sceneCards: [], characters: [], locations: [], suggestedTimeContexts: [] } });
-    }
-  }, [state.mainText, state.isAnalyzing, dispatch, toast]);
+  }, [dispatch, toast]);
 
   const handleGeneratePromptsForScene = useCallback(async (sceneId: string, isRegeneration: boolean = false): Promise<boolean> => {
     const scene = state.sceneCards.find(s => s.id === sceneId);
@@ -1291,9 +1262,6 @@ const Index = () => {
             onAnalyzeText={handleAnalyzeText}
             isAnalyzing={state.isAnalyzing}
             analysisLog={analysisLog}
-            maxScenes={maxScenes}
-            onMaxScenesChange={setMaxScenes}
-            onReanalyze={handleReanalyze}
           />
         </div>
 

@@ -13,9 +13,6 @@ interface CenterPanelProps {
   onAnalyzeText?: (text: string) => void;
   isAnalyzing?: boolean;
   analysisLog?: string[];
-  maxScenes: number;
-  onMaxScenesChange: (value: number) => void;
-  onReanalyze?: (newMaxScenes: number) => void;
 }
 
 export function CenterPanel({
@@ -23,8 +20,6 @@ export function CenterPanel({
   scrollToIndex, onScrollComplete,
   onSetActiveScene, onRemoveScene,
   onAnalyzeText, isAnalyzing, analysisLog,
-  maxScenes, onMaxScenesChange,
-  onReanalyze,
 }: CenterPanelProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const activeSceneRef = useRef<HTMLDivElement>(null);
@@ -132,41 +127,8 @@ export function CenterPanel({
     return (
       <div className="flex h-full flex-col bg-background">
         <div className="border-b p-3 bg-muted/30 shrink-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-medium">📄 Metin Görünümü</div>
-              <div className="text-xs text-muted-foreground">{scenes.length} sahne tespit edildi</div>
-            </div>
-            {onReanalyze && (
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => {
-                    const newVal = Math.max(10, maxScenes - 20);
-                    onMaxScenesChange(newVal);
-                    onReanalyze(newVal);
-                  }}
-                  disabled={isAnalyzing || maxScenes <= 10}
-                  className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  title={`Daha az sahne üret (şu an: ~${maxScenes})`}
-                >
-                  ➖ Daha Az
-                </button>
-                <span className="text-[10px] text-muted-foreground/60 font-mono tabular-nums">~{maxScenes}</span>
-                <button
-                  onClick={() => {
-                    const newVal = maxScenes + 20;
-                    onMaxScenesChange(newVal);
-                    onReanalyze(newVal);
-                  }}
-                  disabled={isAnalyzing}
-                  className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  title={`Daha fazla sahne üret (şu an: ~${maxScenes})`}
-                >
-                  ➕ Daha Fazla
-                </button>
-              </div>
-            )}
-          </div>
+          <div className="text-sm font-medium">📄 Metin Görünümü</div>
+          <div className="text-xs text-muted-foreground">{scenes.length} sahne tespit edildi</div>
         </div>
 
         <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin">
@@ -241,8 +203,6 @@ export function CenterPanel({
           onAnalyzeWithAI={handleAnalyzeFromSelection}
           onDismiss={dismissToolbar}
           isAnalyzing={isAnalyzing}
-          maxScenes={maxScenes}
-          onMaxScenesChange={onMaxScenesChange}
         />
       )}
     </div>
