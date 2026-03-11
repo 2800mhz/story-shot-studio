@@ -243,6 +243,7 @@ const Index = () => {
             document_text: state.documentText || undefined,
             character_data: JSON.stringify(state.characters),
             location_data: JSON.stringify(state.locations),
+            episode_prompt: state.episodePrompt || undefined,
           });
           await saveTimeContexts(episodeId, state.timeContexts);
         } catch (err) {
@@ -252,7 +253,7 @@ const Index = () => {
       const id = setTimeout(saveEpisodeData, AUTO_SAVE_DEBOUNCE_MS);
       return () => clearTimeout(id);
     }
-  }, [state.documentText, state.characters, state.locations, state.timeContexts, episodeId, loadingData, episode]);
+  }, [state.documentText, state.characters, state.locations, state.episodePrompt, state.timeContexts, episodeId, loadingData, episode]);
 
   // Auto-save scenes to Supabase whenever sceneCards change
   const isSavingRef = useRef(false);
