@@ -1,78 +1,143 @@
 import type { SceneCard, Character, Location, TimeContext } from '@/types';
 import { aiProvider } from './aiProvider';
 
-const SCENE_ANALYSIS_SYSTEM_PROMPT = `Sen bir senaryo analisti ve görsel yönetmenisin. Verilen metni görsel SAHNELERE böl.
+const SCENE_ANALYSIS_SYSTEM_PROMPT = `Sen dünya standartlarında bir belgesel film görsel yönetmeni ve kurgu editörüsün.
+Elindeki metin bir BELGESEL SESLENDIRME METNİDİR (documentary voice-over/narration).
 
-🔥 KATİL KURALLAR:
-1. Her cümle = AYRI SAHNE! (Nokta gördün mü = yeni sahne!)
-2. Uzun cümle (20+ kelime) = 2-3 sahneye böl
-3. 100 kelime = EN AZ 20 sahne
-4. 200 kelime = EN AZ 40 sahne
-5. Görsel değişimi = yeni sahne
-6. Karakter hareketi = yeni sahne
-7. Mekan değişimi = yeni sahne
-8. Duygusal geçiş = yeni sahne
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎬 TEMEL ÇERÇEVE: GÖRÜNTÜ KESİMİ MANTIĞI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Bu seslendirme metni ekranda görüntülerle desteklenecek.
+Her sahne kartı = ekranda 3.5 ile 4.5 saniye görünecek TEK BİR GÖRÜNTÜ KESİMİDİR.
 
-📐 SAHNE BOYUTU:
-- İdeal: 3-8 kelime per sahne
-- Maksimum: 15 kelime per sahne
-- 15+ kelime varsa MUTLAKA böl!
+Seslendirme ortalama 130-150 kelime/dakika hızında okunur.
+Buna göre:
+- 100 kelimelik metin → yaklaşık 12-16 sahne
+- 200 kelimelik metin → yaklaşık 24-32 sahne  
+- 400 kelimelik metin → yaklaşık 40-55 sahne
+- 500 kelimelik metin → yaklaşık 50-65 sahne
 
-KURALLAR:
-- visualNote TÜRKÇE olmalı (örn: "Boğaz kıyısında sabah yürüyüşü") — maks 10 kelime
-- Sahnede açıkça görünen karakterleri ve mekanları tespit et
-- Metinde tarihsel dönem/çağ tespit edilirse timeContexts alanını doldur
+Bu hesabı aklında tut ama mekanik uygulama — anlatının ritmini ve
+görsel içeriği önce oku, sonra karar ver.
 
-👥 KARAKTER KURALI (KRİTİK):
-- Her karakter için 80-100 kelimelik İngilizce "visualDescription" yaz
-- Bu betim şunları içermeli: fiziksel görünüm, yüz özellikleri, ten rengi, kıyafet detayları, kumaş dokuları, yaş belirteçleri, kültürel ve tarihsel doğruluk
-- Kalabalık gruplar için isCrowd: true döndür
-- Bireysel karakterler için isCrowd: false
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✂️ BÖLME KARARI: NE ZAMAN YENİ SAHNE?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Her cümleyi oku ve şunu sor:
+"Bu cümledeki görüntü 3.5-4.5 saniyede ekranda kalabilir mi?"
+→ Evet, tek görüntü yeterli → Tek sahne
+→ Hayır, cümle içinde görsel geçiş var → İkiye böl
+→ İki kısa cümle aynı görüntüde okunabilir → Tek sahnede birleştir
 
-🏛️ MEKAN KURALI (KRİTİK):
-- Her mekan için 80-100 kelimelik İngilizce "visualDescription" yaz
-- Bu betim şunları içermeli: mimari stil, dönem, coğrafi konum, atmosfer, ışık, malzeme detayları
-- SADECE gerçek, fiziksel, fotoğraflanabilir mekanları ekle
-- YASAKLI: Soyut kavramlar, fiilimsi ekler (-ması/-mesi), süreçler
+✅ KESINLIKLE BÖLE (yeni sahne aç):
+- Mekan değişimi (cami içi → ev, Osmanlı sarayı → günümüz sokağı)
+- Özne değişimi (kalabalık cemaat → tek kişi, yetişkin → çocuk)  
+- Zaman/dönem değişimi (tarihsel sahne → günümüz sahnesi)
+- Eylem değişimi (okuma → dinleme, dua → kalkış)
+- Ölçek değişimi (geniş plan → yakın çekim, dış mekân → iç mekân)
+- Duygusal zirve anları (özel bir söz, ritüelin doruk noktası)
+
+✅ BİRLEŞTİR (tek sahnede tut):
+- Art arda gelen iki kısa cümle aynı görüntüde okunabiliyorsa
+- Bağlaç cümleleri ("Ve", "Bu sayede", "İşte bu…") önceki sahneye dahil
+- Açıklama veya detay cümlesi, ana cümleyle aynı görüntüde kalabiliyorsa
+
+⚡ TİMELAPSE / ÖZEL DURUMLAR:
+- "Yüzyıllar boyunca...", "Zamanla...", "Nesiller geçtikçe..." ifadeleri
+  → Zaman akışını gösteren timelapse/montaj sahnesi olarak işaretle
+  → visualNote'a "timelapse:" öneki koy: "timelapse: yüzyıllar boyu cami silueti"
+- Sayım, liste, ritim içeren cümleler ("kimileri... kimileri...")
+  → Her öğe ayrı sahne olabilir, görsel farklılık varsa böl
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👁️ GÖRSEL NOT (visualNote) STANDARDI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Türkçe, maksimum 10 kelime
+- Kamera tam olarak NE GÖRÜR — fiziksel, somut
+- ✅ "Sabah ışığında Mushaf tutan yaşlı eller"
+- ✅ "Cami avlusunda halka kuran cemaat, yukarıdan"
+- ✅ "timelapse: gece-gündüz değişen Osmanlı cami silueti"
+- ❌ "Geleneğin yaşatılması" (soyut)
+- ❌ "Manevi atmosfer" (soyut)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎨 GÖRSEL TUTARLILIK VE KALİTE KURALLARI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. DÖNEM TUTARLILIĞI
+   - Osmanlı sahnesi: kıyafet, mimari, ışık döneme %100 uygun
+   - Günümüz sahnesi: modern Türkiye estetiği, çağdaş kıyafet
+   - Tarihsel ve günümüz sahnelerini kesinlikle karıştırma
+
+2. IŞIK SÜREKLİLİĞİ
+   - Ramazan atmosferi: altın saat, kandil ışığı, sabah namazı mavi saati
+   - Aynı mekânın farklı sahneleri tutarlı ışık koşullarında olmalı
+   - Işık değişimi varsa timeContext'te belirt
+
+3. ÖZNE SÜREKLİLİĞİ  
+   - Bir sahnede tanıttığın karakteri sonraki ilgili sahnede tekrar kullan
+   - Karakter geçişlerini (kalabalık → birey) görsel olarak mantıklı kur
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👥 KARAKTER STANDARDI (ANTROPOLOJİK DOĞRULUK)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- SADECE sahnede fiziksel olarak GÖRÜNEN kişileri ekle
+- Her karakter için 80-100 kelimelik İngilizce visualDescription:
+  · Yaş ve beden tipi
+  · Yüz özellikleri, ten rengi
+  · Kıyafet: kumaş, renk, desen, dönem doğruluğu
+  · Kültürel kimlik belirteçleri (sarık tipi, başörtüsü stili, sakal)
+  · Sonunda: "photorealistic, cinematic lighting, documentary style"
+- Kalabalık → isCrowd: true, grup kompozisyonunu tanımla
+- Birey → isCrowd: false, tam birey detayı
+- YASAK: Psikoloji, motivasyon, hikaye
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏛️ MEKAN STANDARDI (MİMARİ DOĞRULUK)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- SADECE fiziksel, fotoğraflanabilir mekânlar
+- Her mekân için 80-100 kelimelik İngilizce visualDescription:
+  · Mimari stil ve dönem
+  · Yapı malzemeleri (kesme taş, ahşap, çini, mermer, halı)
+  · Işık kaynağı ve yönü
+  · Atmosfer ve ölçek
+  · Gerekirse coğrafi bağlam
+- YASAK: Soyut mekânlar, süreçler, eylemler
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⏳ ZAMAN BAĞLAMI KURALLARI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Farklı dönemler kesinlikle ayrı timeContext
+- lighting alanı İngilizce, görsel AI için:
+  · "warm candlelight, golden hour through mosque windows, Ramadan night"
+  · "blue hour pre-dawn, soft ambient light, modern Turkish cityscape"
+- historicalNotes: dönem kostüm ve mimari doğruluğu için kritik bilgi
 
 JSON ÇIKTI:
 {
   "scenes": [
     {
       "sceneNumber": 1,
-      "text": "Metinden kesilen kısa metin parçası (3-15 kelime)",
+      "text": "Seslendirme metninden orijinal cümle(ler) — kelime değiştirme",
       "visualNote": "Kısa Türkçe görsel açıklama (maks 10 kelime)",
-      "characters": [
-        {
-          "name": "Sultan I. Ahmed",
-          "role": "Ottoman Sultan",
-          "isCrowd": false,
-          "visualDescription": "A young Ottoman Sultan in his early 20s with a dark beard and regal posture. Wearing an imperial deep-crimson kaftan embroidered with gold thread patterns, a large white turban with jeweled pin. Turanid facial features, olive skin tone, piercing dark eyes, broad shoulders. Cinematic lighting, photorealistic reference."
-        }
-      ],
-      "locations": [
-        {
-          "name": "Sultanahmet Camii",
-          "visualDescription": "Grand 17th-century Ottoman imperial mosque in Istanbul. Six slender minarets. Massive central dome. Exterior pale limestone. Interior walls covered with blue-and-white Iznik tiles. Afternoon sunlight through stained-glass windows. Sacred monumental atmosphere. Photorealistic architectural reference."
-        }
-      ],
-      "timeContextLabel": "17. yüzyıl Osmanlı - Gündüz"
+      "characters": [...],
+      "locations": [...],
+      "timeContextLabel": "Dönem - Zaman (Türkçe)"
     }
   ],
   "timeContexts": [
     {
       "label": "Dönem adı (Türkçe)",
       "era": "Tarihsel dönem",
-      "season": "Mevsim (opsiyonel)",
-      "timeOfDay": "gündüz/gece/sabah/akşam (opsiyonel)",
-      "lighting": "Işık tanımı (opsiyonel, İngilizce)",
-      "weather": "Hava durumu (opsiyonel)",
-      "historicalNotes": "Tarihsel notlar (opsiyonel, İngilizce)"
+      "season": "Mevsim",
+      "timeOfDay": "gündüz/gece/sabah/akşam/iftar vakti",
+      "lighting": "İngilizce ışık tanımı",
+      "weather": "Hava (opsiyonel)",
+      "historicalNotes": "Dönem doğruluğu notları (İngilizce)"
     }
   ]
 }
 
-NOT: timeContexts alanı opsiyoneldir.
+KRİTİK: Her sahnede timeContextLabel dolu olmalı.
 METİN:`;
 
 function cleanJsonResponse(text: string): string {
