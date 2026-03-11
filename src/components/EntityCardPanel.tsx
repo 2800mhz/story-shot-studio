@@ -298,7 +298,7 @@ export function EntityCardPanel({
   });
 
   return (
-    <div className="flex flex-col gap-3 p-3 overflow-y-auto">
+    <div className="flex flex-col gap-3 p-3 overflow-y-auto scrollbar-thin">
       {/* ── Characters ── */}
       <Card className="border-amber-800/40 bg-card">
         <CardHeader
