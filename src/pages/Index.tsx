@@ -1278,7 +1278,7 @@ const Index = () => {
         onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
 
       <div className="flex flex-1 overflow-hidden">
-        <PanelGroup direction="horizontal">
+        <PanelGroup direction="horizontal" autoSaveId="story-shot-layout">
           <Panel defaultSize={20} minSize={15}>
             <LeftPanel
               episodes={state.episodes}
@@ -1335,7 +1335,7 @@ const Index = () => {
                     <span className="text-sm font-medium">🎭 Varlıklar</span>
                     <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={() => setShowEntityPanel(false)}>✕</Button>
                   </div>
-                  <div className="flex-1 overflow-y-auto">
+                  <div className="flex-1 overflow-y-auto scrollbar-thin">
                     <EntityCardPanel
                       characters={state.characters}
                       locations={state.locations}
