@@ -183,7 +183,7 @@ function buildResultFromScenes(
 
   scenes.forEach((scene, idx: number) => {
     const globalIdx = sceneNumberOffset + idx;
-    const sceneId = `scene-${Date.now()}-${globalIdx}`;
+    const sceneId = crypto.randomUUID();
     const characterIds: string[] = [];
     const locationIds: string[] = [];
 
