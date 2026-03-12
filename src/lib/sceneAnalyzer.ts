@@ -13,20 +13,20 @@ Bu görüntüler text2img ile üretilecek, sonra hareketlendirme uygulanacaktır
 SAHNE SAYISI HESABI (KRİTİK)
 
 Metni almadan önce kelime sayısını tahmin et.
-Formül: kelime_sayısı / 4 = hedef sahne sayısı
+Formül: kelime_sayısı / 5 = hedef sahne sayısı
 
 Örnekler:
-- 150 kelime = kabaca 38 sahne
-- 300 kelime = kabaca 75 sahne
-- 450 kelime = kabaca 112 sahne
-- 600 kelime = kabaca 150 sahne
+- 150 kelime = kabaca 30 sahne
+- 300 kelime = kabaca 60 sahne
+- 450 kelime = kabaca 90 sahne
+- 600 kelime = kabaca 120 sahne
 
 Bu hedefe tam ulaş. Fazla üretme, eksik kalabilirsin ama ASLA fazla üretme.
 
 BÖLME MANTIĞI
 
 TEMEL KURAL: Her anlamlı kelime grubu veya görsel an = ayrı sahne.
-Tam olarak 4 kelime = 1 sahne. 3 kelime de olabilir ama 5+ kelimeyi birleştirebiliyosan okey
+Tam olarak 4 kelime = 1 sahne. 4 kelime de olabilir ama 5+ kelimeyi birleştirebiliyosan okey
 
 BUNLARIN HEPSI AYRI SAHNE:
 - Her özne-eylem çifti ("kervanlar yürür" / "develer ağırlaşır")
@@ -95,7 +95,7 @@ IŞIK SÜREKLİLİĞİ:
 KARAKTER STANDARDI (ANTROPOLOJİK DOĞRULUK)
 
 - SADECE sahnede fiziksel olarak GÖRÜNEN kişileri ekle
-- Her karakter için 80-100 kelimelik İngilizce visualDescription yaz:
+- Her karakter için maksimum 30 kelimelik İngilizce visualDescription yaz:
   Yaş ve beden tipi, yüz özellikleri, ten rengi,
   kıyafet (kumaş, renk, desen, dönem ve kültür doğruluğu),
   kültürel kimlik belirteçleri (sarık tipi, başörtüsü stili, sakal,
@@ -108,7 +108,7 @@ KARAKTER STANDARDI (ANTROPOLOJİK DOĞRULUK)
 MEKAN STANDARDI (MİMARİ DOĞRULUK)
 
 - SADECE fiziksel, fotoğraflanabilir mekanlar
-- Her mekan için 80-100 kelimelik İngilizce visualDescription yaz:
+- Her mekan için maksimum 30 kelimelik İngilizce visualDescription yaz:
   Mimari stil ve dönem, yapı malzemeleri (kerpiç, kesme taş, ahşap, çini, mermer, halı),
   ışık kaynağı ve yönü, atmosfer ve ölçek,
   coğrafi bağlam (Orta Asya çölü, Anadolu, İstanbul vb.)
