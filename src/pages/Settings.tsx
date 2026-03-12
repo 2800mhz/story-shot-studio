@@ -362,13 +362,13 @@ export default function Settings() {
                                         {key.usage_count} istek
                                       </span>
                                       
-                                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600/80 bg-blue-50/50 px-1.5 py-0.5 rounded cursor-help" title="Input (Prompt) Tokens">
+                                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded cursor-help" title="Input (Prompt) Tokens">
                                         📥 {(key.total_prompt_tokens || 0).toLocaleString('tr-TR')}
                                       </span>
-                                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-600/80 bg-green-50/50 px-1.5 py-0.5 rounded cursor-help" title="Output (Completion) Tokens">
+                                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded cursor-help" title="Output (Completion) Tokens">
                                         📤 {(key.total_completion_tokens || 0).toLocaleString('tr-TR')}
                                       </span>
-                                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-purple-600/80 bg-purple-50/50 px-1.5 py-0.5 rounded ml-1 cursor-help" title="Total Tokens Used">
+                                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary bg-primary/20 px-1.5 py-0.5 rounded ml-1 cursor-help" title="Total Tokens Used">
                                         ∑ {((key.total_prompt_tokens || 0) + (key.total_completion_tokens || 0)).toLocaleString('tr-TR')}
                                       </span>
 
