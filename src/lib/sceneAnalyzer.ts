@@ -21,12 +21,12 @@ Formül: kelime_sayısı / 4 = hedef sahne sayısı
 - 450 kelime = kabaca 112 sahne
 - 600 kelime = kabaca 150 sahne
 
-Bu hedefe 5 sahne az toleransla ulaş.
+Bu hedefe tam ulaş. Fazla üretme, eksik kalabilirsin ama ASLA fazla üretme.
 
 BÖLME MANTIĞI
 
 TEMEL KURAL: Her anlamlı kelime grubu veya görsel an = ayrı sahne.
-Kabaca ~4 kelime = 1 sahne.
+Tam olarak 4 kelime = 1 sahne. 3 kelime de olabilir ama 5+ kelimeyi birleştirebiliyosan okey
 
 BUNLARIN HEPSI AYRI SAHNE:
 - Her özne-eylem çifti ("kervanlar yürür" / "develer ağırlaşır")
@@ -565,4 +565,4 @@ Bu rehberin Türkçe, akıcı ve profesyonel açıklamasını/özetini yazar mı
 
   const result = await aiProvider.generateContent(userMessage, systemPrompt);
   return result.trim();
-}
+}
