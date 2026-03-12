@@ -58,11 +58,11 @@ class AIProviderManager {
     return this.model;
   }
 
-  async generateContent(prompt: string, systemInstruction?: string): Promise<string> {
-    return this._generateWithRetry(prompt, systemInstruction, 0);
+  async generateContent(prompt: string, systemInstruction?: string, options?: { operationType?: string }): Promise<string> {
+    return this._generateWithRetry(prompt, systemInstruction, 0, options?.operationType);
   }
 
-  private async _generateWithRetry(prompt: string, systemInstruction: string | undefined, retryCount: number): Promise<string> {
+  private async _generateWithRetry(prompt: string, systemInstruction: string | undefined, retryCount: number, operationType: string = 'api_request'): Promise<string> {
     const maxRetries = 25; // Increase max retries to accommodate 19+ keys
 
     if (retryCount >= maxRetries) {
@@ -78,8 +78,8 @@ class AIProviderManager {
     try {
       console.log(`🤖 Trying ${key.provider} (key ${this.currentKeyIndex + 1})`);
       const result = await this.callProvider(key, prompt, systemInstruction);
-      await this.updateKeyUsage(key.id);
-      return result;
+      await this.updateKeyUsage(key.id, result.promptTokens, result.completionTokens, operationType);
+      return result.text;
     } catch (error: unknown) {
       const err = error as { status?: number; message?: string };
       console.error(`❌ Error with ${this.currentProvider}:`, error);
@@ -95,7 +95,7 @@ class AIProviderManager {
       
       // Add a small delay before retrying to avoid hammering a downed API or getting instantly rate-limited again
       await new Promise(resolve => setTimeout(resolve, 1000));
-      return this._generateWithRetry(prompt, systemInstruction, retryCount + 1);
+      return this._generateWithRetry(prompt, systemInstruction, retryCount + 1, operationType);
     }
   }
 
@@ -128,7 +128,7 @@ class AIProviderManager {
     }
   }
 
-  private async callProvider(key: APIKey, prompt: string, systemInstruction?: string): Promise<string> {
+  private async callProvider(key: APIKey, prompt: string, systemInstruction?: string): Promise<{ text: string; promptTokens: number; completionTokens: number }> {
     const decryptedKey = decryptKey(key.api_key);
 
     switch (key.provider) {
@@ -159,9 +159,14 @@ class AIProviderManager {
         const candidate = data.candidates?.[0];
         if (candidate?.finishReason === 'SAFETY') {
           console.warn('⚠️ Gemini blocked response due to safety filters.');
-          return '[İçerik güvenlik filtresine takıldı. Lütfen sahne metnini gözden geçirin.]';
+          return { text: '[İçerik güvenlik filtresine takıldı. Lütfen sahne metnini gözden geçirin.]', promptTokens: 0, completionTokens: 0 };
         }
-        return candidate?.content?.parts?.[0]?.text || '';
+        
+        const text = candidate?.content?.parts?.[0]?.text || '';
+        const promptTokens = data.usageMetadata?.promptTokenCount || 0;
+        const completionTokens = data.usageMetadata?.candidatesTokenCount || 0;
+        
+        return { text, promptTokens, completionTokens };
       }
 
       case 'openai': {
@@ -189,7 +194,10 @@ class AIProviderManager {
           throw err;
         }
         const data = await response.json();
-        return data.choices[0].message.content;
+        const text = data.choices[0].message.content;
+        const promptTokens = data.usage?.prompt_tokens || 0;
+        const completionTokens = data.usage?.completion_tokens || 0;
+        return { text, promptTokens, completionTokens };
       }
 
       case 'anthropic': {
@@ -213,7 +221,10 @@ class AIProviderManager {
           throw err;
         }
         const data = await response.json();
-        return data.content[0].text;
+        const text = data.content[0].text;
+        const promptTokens = data.usage?.input_tokens || 0;
+        const completionTokens = data.usage?.output_tokens || 0;
+        return { text, promptTokens, completionTokens };
       }
 
       default:
@@ -221,8 +232,13 @@ class AIProviderManager {
     }
   }
 
-  private async updateKeyUsage(keyId: string) {
-    await supabase.rpc('increment_api_key_usage', { key_id: keyId });
+  private async updateKeyUsage(keyId: string, promptTokens: number, completionTokens: number, operationType: string) {
+    await supabase.rpc('increment_api_key_usage', { 
+      key_id: keyId,
+      p_prompt_tokens: promptTokens,
+      p_completion_tokens: completionTokens,
+      p_operation_type: operationType
+    });
   }
 
   private async markRateLimited(key: APIKey) {

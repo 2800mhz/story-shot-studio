@@ -277,7 +277,7 @@ export async function generatePromptsForScene(
 
   userMessage += `3 farklı açıdan sinematik prompt üret. Her prompt'ta "${scene.visualNote}" notunun ruhunu koru. Her prompt sonuna "--ar ${aspectRatio} --v 6" ekle.`;
 
-  const content = await aiProvider.generateContent(userMessage, PROMPT_GENERATION_SYSTEM_PROMPT);
+  const content = await aiProvider.generateContent(userMessage, PROMPT_GENERATION_SYSTEM_PROMPT, { operationType: 'prompt_generation' });
 
   // Helper: try to parse the AI response as JSON, stripping any markdown fences first.
   function tryParseJSON(raw: string) {
@@ -299,7 +299,7 @@ export async function generatePromptsForScene(
     console.error('Malformed response:', content);
     onRetry?.();
     const retryMessage = userMessage + '\n\nIMPORTANT: Return ONLY valid JSON. No markdown, no explanation, no code fences.';
-    const retryContent = await aiProvider.generateContent(retryMessage, PROMPT_GENERATION_SYSTEM_PROMPT);
+    const retryContent = await aiProvider.generateContent(retryMessage, PROMPT_GENERATION_SYSTEM_PROMPT, { operationType: 'prompt_generation_retry' });
     try {
       parsed = tryParseJSON(retryContent);
     } catch (secondErr) {
@@ -373,7 +373,8 @@ export async function revisePrompt(
   try {
     const rawContent = await aiProvider.generateContent(
       userMessage,
-      REVISION_SYSTEM_PROMPT
+      REVISION_SYSTEM_PROMPT,
+      { operationType: 'prompt_revision' }
     );
 
     // Clean up markdown fences or surrounding quotes the model might add
@@ -427,7 +428,7 @@ export async function autoSelectBestPrompt(
   const userMessage = `SAHNE METNİ:\n${sceneText}\n\nTÜRKÇE GÖRSEL NOT: "${visualNote}"\n\nÜRETİLEN PROMPTLAR:\n${promptList}\n\nHangi prompt bu sahne için en etkili, en anlamlı ve kurguya en uygun? selectedIndex ve reason döndür.`;
 
   try {
-    const rawContent = await aiProvider.generateContent(userMessage, AUTO_PIN_SYSTEM_PROMPT);
+    const rawContent = await aiProvider.generateContent(userMessage, AUTO_PIN_SYSTEM_PROMPT, { operationType: 'auto_pin_selection' });
     const cleaned = rawContent
       .replace(/```json\n?/g, '')
       .replace(/```\n?/g, '')

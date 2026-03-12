@@ -410,7 +410,7 @@ type TimeContextRaw = Omit<TimeContext, 'id'>;
 async function analyzeChunk(
   chunk: string
 ): Promise<AnalysisPayload> {
-  const content = await aiProvider.generateContent(chunk, SCENE_ANALYSIS_SYSTEM_PROMPT);
+  const content = await aiProvider.generateContent(chunk, SCENE_ANALYSIS_SYSTEM_PROMPT, { operationType: 'scene_analysis' });
 
   console.log('🤖 Raw Gemini response:', content.substring(0, 1000));
 
