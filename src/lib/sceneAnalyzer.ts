@@ -125,14 +125,18 @@ ZAMAN BAGLAMI KURALLARI
 
 JSON CIKTI:
 {
-  "scenes": [
+  "characters": [
     {
-      "sceneNumber": 1,
-      "text": "Seslendirme metninden orijinal kelime grubu, degistirme",
-      "visualNote": "Kısa Türkçe görsel açıklama (maks 10 kelime)",
-      "characters": [...],
-      "locations": [...],
-      "timeContextLabel": "Dönem - Zaman (Türkçe)"
+      "name": "Karakter Adı",
+      "role": "Rolü/kimliği (opsiyonel)",
+      "isCrowd": false,
+      "visualDescription": "Maksimum 30 kelimelik İngilizce görsel betimleme"
+    }
+  ],
+  "locations": [
+    {
+      "name": "Mekan Adı",
+      "visualDescription": "Maksimum 30 kelimelik İngilizce görsel betimleme"
     }
   ],
   "timeContexts": [
@@ -144,6 +148,16 @@ JSON CIKTI:
       "lighting": "İngilizce ışık tanımı",
       "weather": "Hava (opsiyonel)",
       "historicalNotes": "Dönem doğruluğu notları (İngilizce)"
+    }
+  ],
+  "scenes": [
+    {
+      "sceneNumber": 1,
+      "text": "Seslendirme metninden orijinal kelime grubu, degistirme",
+      "visualNote": "Kısa Türkçe görsel açıklama (maks 10 kelime)",
+      "characterNames": ["Karakter Adı"],
+      "locationNames": ["Mekan Adı"],
+      "timeContextLabel": "Dönem - Zaman (Türkçe)"
     }
   ]
 }
@@ -214,6 +228,9 @@ type SceneRaw = {
   text?: string;
   visualNote?: string;
   timeContextLabel?: string;
+  characterNames?: string[];
+  locationNames?: string[];
+  // Legacy support for older API drafts
   characters?: {
     name: string;
     role?: string;
@@ -224,6 +241,14 @@ type SceneRaw = {
     name: string;
     visualDescription?: string;
   }[];
+};
+
+type AnalysisPayload = {
+  characters?: { name: string; role?: string; isCrowd?: boolean; visualDescription?: string; }[];
+  locations?: { name: string; visualDescription?: string; }[];
+  scenes?: SceneRaw[];
+  timeContexts?: TimeContextRaw[];
+  timeContext?: TimeContextRaw;
 };
 
 /**
@@ -297,6 +322,11 @@ function buildResultFromScenes(
     const characterIds: string[] = [];
     const locationIds: string[] = [];
 
+    scene.characterNames?.forEach(name => {
+      const charId = `char-${name.replace(/\s+/g, '-').toLocaleLowerCase('tr-TR')}`;
+      if (characterMap.has(charId) && !characterIds.includes(charId)) characterIds.push(charId);
+    });
+
     scene.characters?.forEach((char) => {
       if (!char.name) return;
       const charId = `char-${char.name.replace(/\s+/g, '-').toLocaleLowerCase('tr-TR')}`;
@@ -309,16 +339,20 @@ function buildResultFromScenes(
           visualDescription: char.visualDescription,
         });
       }
-      characterIds.push(charId);
+      if (!characterIds.includes(charId)) characterIds.push(charId);
+    });
+
+    scene.locationNames?.forEach(name => {
+      const normalizedName = normalizeTurkishLocationName(name);
+      const existingId = locationNormalizedIndex.get(normalizedName);
+      if (existingId && !locationIds.includes(existingId)) locationIds.push(existingId);
     });
 
     scene.locations?.forEach((loc) => {
       if (!loc.name) return;
       const normalizedName = normalizeTurkishLocationName(loc.name);
-      // Check if a location with the same normalized name already exists
       const existingId = locationNormalizedIndex.get(normalizedName);
       if (existingId) {
-        // Reuse the existing location id (deduplication)
         if (!locationIds.includes(existingId)) locationIds.push(existingId);
       } else {
         const locId = `loc-${loc.name.replace(/\s+/g, '-').toLocaleLowerCase('tr-TR')}`;
@@ -375,28 +409,28 @@ type TimeContextRaw = Omit<TimeContext, 'id'>;
 
 async function analyzeChunk(
   chunk: string
-): Promise<{ scenes?: SceneRaw[]; timeContexts?: TimeContextRaw[]; timeContext?: TimeContextRaw }> {
+): Promise<AnalysisPayload> {
   const content = await aiProvider.generateContent(chunk, SCENE_ANALYSIS_SYSTEM_PROMPT);
 
-  console.log('🤖 Raw Gemini response:', content.substring(0, 200));
+  console.log('🤖 Raw Gemini response:', content.substring(0, 1000));
 
   let cleanedContent: string;
   try {
     cleanedContent = cleanJsonResponse(content);
-    console.log('🧹 Cleaned JSON:', cleanedContent.substring(0, 200));
+    console.log('🧹 Cleaned JSON string length:', cleanedContent.length);
   } catch {
     cleanedContent = content;
   }
 
   try {
-    return JSON.parse(cleanedContent) as { scenes?: SceneRaw[]; timeContexts?: TimeContextRaw[]; timeContext?: TimeContextRaw };
+    return JSON.parse(cleanedContent) as AnalysisPayload;
   } catch (error) {
     console.error('❌ Scene analysis JSON parse error:', error);
     // Last-resort recovery attempt
     try {
       const recovered = recoverTruncatedJson(cleanedContent);
       console.warn('⚠️ Recovered truncated JSON for chunk');
-      return JSON.parse(recovered) as { scenes?: SceneRaw[]; timeContexts?: TimeContextRaw[]; timeContext?: TimeContextRaw };
+      return JSON.parse(recovered) as AnalysisPayload;
     } catch {
       if (error instanceof SyntaxError) {
         throw new Error(`JSON parsing failed: ${error.message}. Check Gemini API response format.`);
@@ -443,6 +477,48 @@ export async function analyzeTextIntoScenes(
     console.log(`🔍 Analyzing chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
     onProgress?.(`🤖 Parça ${i + 1}/${chunks.length} yapay zekaya gönderiliyor...`);
     const parsed = await analyzeChunk(chunks[i]);
+    
+    // Process top-level globally defined characters and locations
+    if (parsed.characters) {
+      parsed.characters.forEach(char => {
+        if (!char.name) return;
+        const charId = `char-${char.name.replace(/\s+/g, '-').toLocaleLowerCase('tr-TR')}`;
+        if (!characterMap.has(charId)) {
+          characterMap.set(charId, {
+            id: charId,
+            name: char.name,
+            role: char.role,
+            isCrowd: char.isCrowd ?? false,
+            visualDescription: char.visualDescription,
+          });
+        }
+      });
+    }
+
+    if (parsed.locations) {
+      parsed.locations.forEach(loc => {
+        if (!loc.name) return;
+        const normalizedName = normalizeTurkishLocationName(loc.name);
+        
+        // Find existing ID across all parsed chunks so far using normalized name
+        let existingId: string | null = null;
+        for (const [id, l] of locationMap.entries()) {
+          if (normalizeTurkishLocationName(l.name) === normalizedName) {
+            existingId = id; break;
+          }
+        }
+        
+        if (!existingId) {
+          const locId = `loc-${loc.name.replace(/\s+/g, '-').toLocaleLowerCase('tr-TR')}`;
+          locationMap.set(locId, {
+            id: locId,
+            name: loc.name,
+            visualDescription: loc.visualDescription,
+          });
+        }
+      });
+    }
+
     const scenes = parsed.scenes ?? [];
     const cards = buildResultFromScenes(scenes, sceneNumberOffset, characterMap, locationMap, timeContextLabelMap, text, searchState);
     allSceneCards.push(...cards);
