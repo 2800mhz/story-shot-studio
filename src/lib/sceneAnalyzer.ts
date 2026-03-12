@@ -128,7 +128,7 @@ JSON CIKTI:
   "characters": [
     {
       "name": "Karakter Adı",
-      "role": "Rolü/kimliği (opsiyonel)",
+      "role": "Rolü/mesleği/kimliği (örn: 'Süvari', 'Padişah')",
       "isCrowd": false,
       "visualDescription": "Maksimum 30 kelimelik İngilizce görsel betimleme"
     }
