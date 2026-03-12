@@ -20,6 +20,8 @@ interface APIKeyRecord {
   label: string | null;
   is_active: boolean;
   usage_count: number;
+  total_prompt_tokens: number;
+  total_completion_tokens: number;
   last_used_at: string | null;
   rate_limited_until: string | null;
 }
@@ -355,21 +357,32 @@ export default function Settings() {
                                   {key.label && (
                                     <div className="text-xs text-muted-foreground">{key.label}</div>
                                   )}
-                                  <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                                    <span className="text-xs text-muted-foreground">
-                                      {key.usage_count} kullanım
-                                    </span>
-                                    {key.last_used_at && (
-                                      <span className="text-xs text-muted-foreground">
-                                        · Son: {new Date(key.last_used_at).toLocaleDateString('tr-TR')}
+                                    <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                                      <span className="text-xs text-muted-foreground mr-2">
+                                        {key.usage_count} istek
                                       </span>
-                                    )}
-                                    {isRateLimited && (
-                                      <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50 text-[10px] px-1 py-0">
-                                        ⚠️ Rate limited
-                                      </Badge>
-                                    )}
-                                  </div>
+                                      
+                                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600/80 bg-blue-50/50 px-1.5 py-0.5 rounded cursor-help" title="Input (Prompt) Tokens">
+                                        📥 {(key.total_prompt_tokens || 0).toLocaleString('tr-TR')}
+                                      </span>
+                                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-600/80 bg-green-50/50 px-1.5 py-0.5 rounded cursor-help" title="Output (Completion) Tokens">
+                                        📤 {(key.total_completion_tokens || 0).toLocaleString('tr-TR')}
+                                      </span>
+                                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-purple-600/80 bg-purple-50/50 px-1.5 py-0.5 rounded ml-1 cursor-help" title="Total Tokens Used">
+                                        ∑ {((key.total_prompt_tokens || 0) + (key.total_completion_tokens || 0)).toLocaleString('tr-TR')}
+                                      </span>
+
+                                      {key.last_used_at && (
+                                        <span className="text-[10px] text-muted-foreground ml-2">
+                                          · Son: {new Date(key.last_used_at).toLocaleDateString('tr-TR')}
+                                        </span>
+                                      )}
+                                      {isRateLimited && (
+                                        <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50 text-[10px] px-1 py-0 ml-1">
+                                          ⚠️ Rate limited
+                                        </Badge>
+                                      )}
+                                    </div>
                                 </div>
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
