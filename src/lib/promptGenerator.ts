@@ -391,3 +391,55 @@ export async function revisePrompt(
     throw error;
   }
 }
+
+// ─── AI Auto-Pin (Raptiye) System ────────────────────────────────────────────
+
+const AUTO_PIN_SYSTEM_PROMPT = `Sen deneyimli bir film yapımcısı ve görsel roman kurgucususun.
+Sana bir sahne metni ve birkaç farklı kamera açısından üretilmiş sinematik İngilizce prompt verilecek.
+Her promptu bir kurgucu gözüyle değerlendir:
+- Hikayenin duygusal ağırlığını ne kadar yansıtıyor?
+- Görsel olarak ne kadar etkileyici ve anlamlı?
+- Sahnenin ruhunu en iyi hangisi yakalıyor?
+- Anlatıya katkısı en büyük hangisi?
+
+SADECE şu JSON formatında yanıt ver, başka hiçbir şey yazma:
+{ "selectedIndex": 0, "reason": "Türkçe kısa gerekçe (max 1 cümle)" }
+
+selectedIndex: 0 = ilk prompt, 1 = ikinci prompt, 2 = üçüncü prompt`;
+
+/**
+ * Uses AI to automatically select the best prompt for a scene card.
+ * Acts as a "director/writer" evaluating cinematic, emotional, and narrative quality.
+ * Returns the index (0-based) of the best prompt and a brief reasoning.
+ */
+export async function autoSelectBestPrompt(
+  prompts: PromptCard[],
+  sceneText: string,
+  visualNote: string
+): Promise<{ selectedIndex: number; reason: string }> {
+  if (prompts.length === 0) return { selectedIndex: 0, reason: '' };
+  if (prompts.length === 1) return { selectedIndex: 0, reason: 'Tek seçenek' };
+
+  const promptList = prompts
+    .map((p, i) => `[Prompt ${i + 1} — ${p.shotType}]\n${p.promptText}`)
+    .join('\n\n');
+
+  const userMessage = `SAHNE METNİ:\n${sceneText}\n\nTÜRKÇE GÖRSEL NOT: "${visualNote}"\n\nÜRETİLEN PROMPTLAR:\n${promptList}\n\nHangi prompt bu sahne için en etkili, en anlamlı ve kurguya en uygun? selectedIndex ve reason döndür.`;
+
+  try {
+    const rawContent = await aiProvider.generateContent(userMessage, AUTO_PIN_SYSTEM_PROMPT);
+    const cleaned = rawContent
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
+    const parsed = JSON.parse(cleaned) as { selectedIndex: number; reason: string };
+    const idx = Number(parsed.selectedIndex);
+    if (isNaN(idx) || idx < 0 || idx >= prompts.length) {
+      return { selectedIndex: 0, reason: parsed.reason || '' };
+    }
+    return { selectedIndex: idx, reason: parsed.reason || '' };
+  } catch (err) {
+    console.warn('[autoSelectBestPrompt] Parse error, defaulting to first prompt:', err);
+    return { selectedIndex: 0, reason: 'Varsayılan seçim' };
+  }
+}

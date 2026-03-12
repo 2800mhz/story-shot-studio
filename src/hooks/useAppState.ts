@@ -261,13 +261,13 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
         scenes: state.scenes.map(s =>
           s.id === action.payload.sceneId
             ? {
-                ...s,
-                subScenes: (s.subScenes || []).map(ss =>
-                  ss.id === action.payload.subSceneId
-                    ? { ...ss, prompts: ss.prompts.filter(p => p.id !== action.payload.promptId), status: ss.prompts.filter(p => p.id !== action.payload.promptId).length === 0 ? 'pending' : ss.status }
-                    : ss
-                ),
-              }
+              ...s,
+              subScenes: (s.subScenes || []).map(ss =>
+                ss.id === action.payload.subSceneId
+                  ? { ...ss, prompts: ss.prompts.filter(p => p.id !== action.payload.promptId), status: ss.prompts.filter(p => p.id !== action.payload.promptId).length === 0 ? 'pending' : ss.status }
+                  : ss
+              ),
+            }
             : s
         ),
       };
@@ -434,9 +434,9 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       return {
         ...state,
         sceneCards: state.sceneCards.map(sc =>
-          sc.id === action.payload.sceneId ? { 
-            ...sc, 
-            prompts: action.payload.prompts, 
+          sc.id === action.payload.sceneId ? {
+            ...sc,
+            prompts: action.payload.prompts,
             status: 'ready',
             analysis: action.payload.analysis,
             optimizations: action.payload.optimizations,
@@ -560,6 +560,24 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       };
     case 'REORDER_SCENE_CARDS':
       return { ...state, sceneCards: action.payload };
+    case 'SET_PINNED_PROMPT': {
+      const { sceneId, promptId, byAI } = action.payload;
+      return {
+        ...state,
+        sceneCards: state.sceneCards.map(sc =>
+          sc.id === sceneId
+            ? {
+                ...sc,
+                prompts: sc.prompts.map(p => ({
+                  ...p,
+                  isPinned: p.id === promptId,
+                  isPinnedByAI: byAI ? p.id === promptId : false,
+                })),
+              }
+            : sc
+        ),
+      };
+    }
     default:
       return state;
   }

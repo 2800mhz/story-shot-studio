@@ -17,8 +17,8 @@ import { parseDocument } from '@/lib/documentParser';
 import { parseEpisodes } from '@/lib/contextDetection';
 import { generatePrompts, loadSystemPrompt } from '@/lib/geminiApi';
 import { analyzeTextIntoScenes, generateEpisodePrompt, generateEpisodePromptTurkishExplanation } from '@/lib/sceneAnalyzer';
-import { generatePromptsForScene, revisePrompt } from '@/lib/promptGenerator';
-import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetchAllPromptsForScenes, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts } from '@/lib/supabaseQueries';
+import { generatePromptsForScene, revisePrompt, autoSelectBestPrompt } from '@/lib/promptGenerator';
+import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetchAllPromptsForScenes, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts, setPinnedPrompt } from '@/lib/supabaseQueries';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
@@ -213,7 +213,9 @@ const Index = () => {
               explanation: p.explanation,
               promptText: p.prompt_text,
               aspectRatio: p.aspect_ratio,
-              versions: [p.prompt_text]
+              versions: [p.prompt_text],
+              isPinned: p.is_pinned ?? false,
+              isPinnedByAI: false,
             }));
             dispatch({
               type: 'FINISH_PROMPT_GENERATION',
@@ -956,6 +958,30 @@ const Index = () => {
           optimizations: result.optimizations,
         } 
       });
+
+      // ── Auto-pin: AI selects the best prompt ──
+      if (result.prompts.length > 1) {
+        try {
+          const sceneForPin = state.sceneCards.find(s => s.id === sceneId);
+          const { selectedIndex, reason } = await autoSelectBestPrompt(
+            result.prompts,
+            sceneForPin?.text || '',
+            sceneForPin?.visualNote || ''
+          );
+          const bestPrompt = result.prompts[selectedIndex];
+          if (bestPrompt) {
+            console.log(`[autoPin] Scene ${sceneId}: selected prompt ${selectedIndex} — ${reason}`);
+            dispatch({ type: 'SET_PINNED_PROMPT', payload: { sceneId, promptId: bestPrompt.id, byAI: true } });
+            // Persist to DB (fire-and-forget)
+            setPinnedPrompt(sceneId, bestPrompt.id).catch(err =>
+              console.warn('[autoPin] DB save failed:', err)
+            );
+          }
+        } catch (pinErr) {
+          console.warn('[autoPin] Auto-selection failed, skipping:', pinErr);
+        }
+      }
+
       return true;
     } catch (error) {
       console.error('Prompt generation error:', error);
@@ -1131,6 +1157,18 @@ const Index = () => {
       toast({ title: 'Hata', description: 'Prompt revize edilemedi.', variant: 'destructive' });
     }
   }, [state, dispatch, toast]);
+
+  const handleSetPinnedPrompt = useCallback(async (sceneId: string, promptId: string) => {
+    // Update state immediately (optimistic)
+    dispatch({ type: 'SET_PINNED_PROMPT', payload: { sceneId, promptId, byAI: false } });
+    // Persist to DB
+    try {
+      await setPinnedPrompt(sceneId, promptId);
+    } catch (err) {
+      console.error('[handleSetPinnedPrompt] DB error:', err);
+      toast({ title: 'Hata', description: 'Raptiye kaydedilemedi.', variant: 'destructive' });
+    }
+  }, [dispatch, toast]);
 
   const handleAddNewCharacterToSceneCard = useCallback((sceneId: string, name: string) => {
     const character = {
@@ -1414,6 +1452,7 @@ const Index = () => {
               isBulkGeneratingPrompts={isBulkGeneratingPrompts}
               bulkPromptsProgress={bulkPromptsProgress}
               onCancelBulkPrompts={handleCancelBulkPrompts}
+              onSetPinnedPrompt={handleSetPinnedPrompt}
             />
           </Panel>
         </PanelGroup>

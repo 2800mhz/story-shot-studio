@@ -219,7 +219,7 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
       if (error) throw error;
       return data || [];
     }, 'Fetch existing scene IDs');
-    
+
     const existingIds = existingIdsObj.map(row => row.id);
     const incomingIds = scenesToUpsert.map(s => s.id);
     const idsToDelete = existingIds.filter(id => !incomingIds.includes(id));
@@ -235,7 +235,7 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
     // ── Step 4: Upsert all incoming scenes ──────────────────────────────────────────────
     const allSaved: any[] = [];
     const BATCH_SIZE = 10;
-    
+
     for (let i = 0; i < scenesToUpsert.length; i += BATCH_SIZE) {
       const chunk = scenesToUpsert.slice(i, i + BATCH_SIZE);
       const data = await withRetry(async () => {
@@ -300,7 +300,7 @@ export async function savePrompts(sceneId: string, prompts: any[]) {
     const promptsToUpsert = prompts.map(prompt => {
       // Look for an existing UUID to avoid Postgres assigning a new one blindly on insert
       const isValidUUID = prompt.id && prompt.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
-      
+
       return {
         ...(isValidUUID ? { id: prompt.id } : {}), // only send id if it's a valid uuid (not a temporary client ID like prompt-1234)
         scene_id: sceneId,
@@ -314,6 +314,7 @@ export async function savePrompts(sceneId: string, prompts: any[]) {
         generation_type: prompt.generationType || 'initial',
         revision_prompt: prompt.revisionPrompt || null,
         is_active: true,
+        is_pinned: prompt.isPinned ?? false,
       };
     });
 
@@ -341,7 +342,32 @@ export async function fetchPrompts(sceneId: string) {
     .eq('is_active', true);
 
   if (error) throw error;
-  return data || [];
+  return (data || []).map((p: any) => ({ ...p, isPinned: p.is_pinned ?? false }));
+}
+
+/**
+ * Atomically sets is_pinned=true for promptId and is_pinned=false for all
+ * other active prompts in the same scene. Ensures only one pin per scene.
+ */
+export async function setPinnedPrompt(sceneId: string, promptId: string): Promise<void> {
+  // 1. Unpin all active prompts for this scene
+  await withRetry(async () => {
+    const { error } = await supabase
+      .from('prompts')
+      .update({ is_pinned: false })
+      .eq('scene_id', sceneId)
+      .eq('is_active', true);
+    if (error) throw error;
+  }, `Unpin all prompts for scene ${sceneId}`);
+
+  // 2. Pin only the selected prompt
+  await withRetry(async () => {
+    const { error } = await supabase
+      .from('prompts')
+      .update({ is_pinned: true })
+      .eq('id', promptId);
+    if (error) throw error;
+  }, `Pin prompt ${promptId}`);
 }
 
 /**
@@ -367,7 +393,7 @@ export async function fetchPromptHistory(sceneId: string) {
     console.error('fetchPromptHistory Error:', error);
     throw error;
   }
-  
+
   return data || [];
 }
 

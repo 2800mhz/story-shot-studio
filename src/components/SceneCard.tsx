@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Sparkles, Edit2, Trash2, Check, X, Copy, RefreshCw, Plus, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { Sparkles, Edit2, Trash2, Check, X, Copy, RefreshCw, Plus, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, Clock, Pin } from 'lucide-react';
 import type { SceneCard as SceneCardType, Character, Location, TimeContext, PromptCard } from '@/types';
 import { PromptHistoryModal, type HistoryEntry } from './PromptHistoryModal';
 
@@ -25,6 +25,7 @@ interface SceneCardProps {
   onRevisePrompt?: (sceneId: string, promptId: string, instruction: string) => Promise<void>;
   onDeletePrompt?: (sceneId: string, promptId: string) => void;
   onRestorePreviousPrompt?: (sceneId: string, entry: HistoryEntry) => void;
+  onSetPinnedPrompt?: (sceneId: string, promptId: string) => void;
 }
 
 function InlinePromptCard({
@@ -32,11 +33,13 @@ function InlinePromptCard({
   sceneId,
   onRevise,
   onDelete,
+  onPin,
 }: {
   prompt: PromptCard;
   sceneId: string;
   onRevise?: (sceneId: string, promptId: string, instruction: string) => Promise<void>;
   onDelete?: (sceneId: string, promptId: string) => void;
+  onPin?: (sceneId: string, promptId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [isRevising, setIsRevising] = useState(false);
@@ -56,7 +59,7 @@ function InlinePromptCard({
   };
 
   return (
-    <div className={`relative border rounded-md p-2.5 my-2 bg-muted/10 transition-all ${isSubmitting ? 'opacity-60 pointer-events-none' : ''}`}>
+    <div className={`relative border rounded-md p-2.5 my-2 transition-all ${prompt.isPinned ? 'border-primary ring-1 ring-primary/40 bg-primary/5' : 'bg-muted/10'} ${isSubmitting ? 'opacity-60 pointer-events-none' : ''}`}>
       {isSubmitting && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-[1px] rounded-md">
           <div className="flex flex-col items-center text-primary">
@@ -77,6 +80,13 @@ function InlinePromptCard({
             <Badge variant="secondary" className="text-xs ml-1.5">
               {prompt.aspectRatio}
             </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          {prompt.isPinned && prompt.isPinnedByAI && (
+            <span className="text-[9px] bg-blue-500/10 text-blue-500 px-1.5 py-0.5 rounded-full font-medium" title="AI tarafından seçildi">
+              🤖 AI
+            </span>
           )}
         </div>
         <div className="flex items-center gap-1">
@@ -105,6 +115,19 @@ function InlinePromptCard({
           >
             <Copy className="h-3 w-3" />
           </button>
+          {onPin && (
+            <button
+              onClick={() => onPin(sceneId, prompt.id)}
+              className={`rounded p-0.5 transition-colors ${
+                prompt.isPinned
+                  ? 'text-primary'
+                  : 'text-muted-foreground hover:text-primary'
+              }`}
+              title={prompt.isPinned ? 'Raptiye kaldır' : 'Raptiye bas (bu promptu seç)'}
+            >
+              <Pin className={`h-3.5 w-3.5 ${prompt.isPinned ? 'fill-primary' : ''}`} />
+            </button>
+          )}
         </div>
       </div>
       {prompt.summary && (
@@ -188,6 +211,7 @@ export function SceneCard({
   onRevisePrompt,
   onDeletePrompt,
   onRestorePreviousPrompt,
+  onSetPinnedPrompt,
 }: SceneCardProps) {
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [editedNote, setEditedNote] = useState(scene.visualNote);
@@ -521,6 +545,7 @@ export function SceneCard({
               sceneId={scene.id}
               onRevise={onRevisePrompt}
               onDelete={onDeletePrompt}
+              onPin={onSetPinnedPrompt}
             />
           ))}
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">

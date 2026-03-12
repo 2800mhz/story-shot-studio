@@ -121,6 +121,8 @@ export interface PromptCard {
   aspectRatio?: '16:9' | '4:3' | '1:1' | '9:16';
   generationType?: 'initial' | 'regenerate' | 'revision';
   revisionPrompt?: string;
+  isPinned?: boolean; // Raptiye: AI or user marks the best prompt per card
+  isPinnedByAI?: boolean; // true if AI auto-selected this prompt
 }
 
 export interface PromptAnalysis {
@@ -238,15 +240,15 @@ export type AppAction =
   | { type: 'ADD_NEW_CHARACTER_TO_SCENE_CARD'; payload: { sceneId: string; character: Character } }
   | { type: 'ADD_NEW_LOCATION_TO_SCENE_CARD'; payload: { sceneId: string; location: Location } }
   | { type: 'START_PROMPT_GENERATION'; payload: { sceneId: string } }
-  | { 
-      type: 'FINISH_PROMPT_GENERATION'; 
-      payload: { 
-        sceneId: string; 
-        prompts: PromptCard[];
-        analysis?: PromptAnalysis;
-        optimizations?: string[];
-      } 
+  | {
+    type: 'FINISH_PROMPT_GENERATION';
+    payload: {
+      sceneId: string;
+      prompts: PromptCard[];
+      analysis?: PromptAnalysis;
+      optimizations?: string[];
     }
+  }
   | { type: 'DELETE_SCENE_CARD'; payload: string }
   | { type: 'SET_MASTER_PROMPT'; payload: string }
   | { type: 'SET_EPISODE_PROMPT'; payload: string }
@@ -265,4 +267,5 @@ export type AppAction =
   | { type: 'DELETE_TIME_CONTEXT'; payload: string }
   | { type: 'ADD_TIME_CONTEXT_TO_SCENE_CARD'; payload: { sceneId: string; timeContextId: string } }
   | { type: 'REMOVE_TIME_CONTEXT_FROM_SCENE_CARD'; payload: { sceneId: string; timeContextId: string } }
-  | { type: 'REORDER_SCENE_CARDS'; payload: SceneCard[] };
+  | { type: 'REORDER_SCENE_CARDS'; payload: SceneCard[] }
+  | { type: 'SET_PINNED_PROMPT'; payload: { sceneId: string; promptId: string; byAI?: boolean } };

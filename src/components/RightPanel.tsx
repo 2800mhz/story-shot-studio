@@ -64,6 +64,7 @@ interface RightPanelProps {
   isBulkGeneratingPrompts?: boolean;
   bulkPromptsProgress?: { done: number; total: number };
   onCancelBulkPrompts?: () => void;
+  onSetPinnedPrompt?: (sceneId: string, promptId: string) => void;
 }
 
 function GroupNoteEditor({ group, onSave }: { group: ConsistencyGroup; onSave: (note: string) => void }) {
@@ -127,6 +128,7 @@ export function RightPanel({
   onAddTimeContextToSceneCard, onRemoveTimeContextFromSceneCard,
   onAddVariation, onRegenerateAllPrompts_, onRevisePrompt, onDeletePrompt, onRestorePreviousPrompt_,
   isBulkGeneratingPrompts, bulkPromptsProgress, onCancelBulkPrompts,
+  onSetPinnedPrompt,
 }: RightPanelProps) {
   const doneCount = scenes.filter(s => s.status === 'done').length;
   const pendingCount = scenes.filter(s => s.status === 'pending').length;
@@ -487,6 +489,7 @@ export function RightPanel({
                   onRevisePrompt={onRevisePrompt}
                   onDeletePrompt={onDeletePrompt}
                   onRestorePreviousPrompt={onRestorePreviousPrompt_}
+                  onSetPinnedPrompt={onSetPinnedPrompt}
                 />
                     </div>
                   </div>
