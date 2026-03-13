@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Film, Plus, LogOut, Folder, Clock, Settings as SettingsIcon, Key, Trash2, Pencil, Check, X, ExternalLink } from 'lucide-react';
+import { Film, Plus, LogOut, Folder, Clock, Settings as SettingsIcon, Key, Trash2, Pencil, Check, X, ExternalLink, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -43,6 +43,7 @@ export default function Dashboard() {
   useEffect(() => {
     fetchProjects();
     fetchKeyCount();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -239,6 +240,30 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-12">
+        {/* Stack.AI Banner */}
+        <div
+          className="mb-8 rounded-xl border border-violet-500/30 bg-gradient-to-r from-violet-500/10 via-purple-600/5 to-transparent p-5 flex items-center justify-between cursor-pointer hover:border-violet-500/50 hover:bg-violet-500/15 transition-all"
+          onClick={() => navigate('/stack-ai')}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center shrink-0">
+              <Sparkles className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h3 className="font-bold text-foreground">Stack.AI</h3>
+              <p className="text-sm text-muted-foreground">
+                AI-powered free tool advisor for developers
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            className="bg-violet-600 hover:bg-violet-500 text-white border-0 shrink-0"
+          >
+            Open Stack.AI
+          </Button>
+        </div>
+
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-3xl font-bold">Projelerim</h2>

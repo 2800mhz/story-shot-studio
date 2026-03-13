@@ -12,6 +12,7 @@ import Index from "./pages/Index";
 import ProjectWorkspace from "./pages/ProjectWorkspace";
 import MotionPrompt from "./pages/MotionPrompt";
 import Settings from "./pages/Settings";
+import StackAI from "./pages/StackAI";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -52,6 +53,11 @@ const App = () => (
             <Route path="/settings" element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            } />
+            <Route path="/stack-ai" element={
+              <ProtectedRoute>
+                <StackAI />
               </ProtectedRoute>
             } />
 
