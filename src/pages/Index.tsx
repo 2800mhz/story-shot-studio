@@ -95,6 +95,9 @@ const Index = () => {
       setProject(projectData);
       setEpisode(episodeData);
 
+      // Add references to state
+      dispatch({ type: 'SET_REFERENCES', payload: referencesData || [] });
+
       // Load master prompt from project
       if (projectData.master_prompt) {
         dispatch({ type: 'SET_MASTER_PROMPT', payload: projectData.master_prompt });
