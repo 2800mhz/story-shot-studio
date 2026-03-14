@@ -1476,7 +1476,7 @@ const Index = () => {
                     <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={() => setShowReferencePanel(false)}>✕</Button>
                   </div>
                   <div className="flex-1 overflow-hidden min-h-0">
-                    <ReferencePanel />
+                    <ReferencePanel episodeId={episodeId ?? null} />
                   </div>
                 </div>
               </Panel>
