@@ -274,31 +274,66 @@ function fuzzyFindText(fullText: string, searchStr: string, startIndex: number):
   // 1. Exact match
   let exact = fullText.indexOf(cleanSearch, startIndex);
   if (exact !== -1) return { start: exact, end: exact + cleanSearch.length };
-
-  // 2. Exact match from beginning
   exact = fullText.indexOf(cleanSearch, 0);
   if (exact !== -1) return { start: exact, end: exact + cleanSearch.length };
 
-  // 3. Case-insensitive match
+  // 2. Case-insensitive exact match
   const lowerFull = fullText.toLocaleLowerCase('tr-TR');
   const lowerSearch = cleanSearch.toLocaleLowerCase('tr-TR');
-  let caseInsensitive = lowerFull.indexOf(lowerSearch, startIndex);
-  if (caseInsensitive === -1) caseInsensitive = lowerFull.indexOf(lowerSearch, 0);
-  if (caseInsensitive !== -1) return { start: caseInsensitive, end: caseInsensitive + cleanSearch.length };
+  let ci = lowerFull.indexOf(lowerSearch, startIndex);
+  if (ci === -1) ci = lowerFull.indexOf(lowerSearch, 0);
+  if (ci !== -1) return { start: ci, end: ci + cleanSearch.length };
 
-  // 4. Normalize whitespace then match
-  const normalizedFull = fullText.replace(/\s+/g, ' ');
-  const normalizedSearch = cleanSearch.replace(/\s+/g, ' ');
-  const normalizedIdx = normalizedFull.indexOf(normalizedSearch, startIndex);
-  if (normalizedIdx !== -1) return { start: normalizedIdx, end: normalizedIdx + normalizedSearch.length };
+  // 3. Kelime-kelime sliding window match
+  // Orijinal metni token'lara böl (kelime + pozisyon)
+  const tokenRegex = /\S+/g;
+  const fullTokens: { word: string; index: number }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = tokenRegex.exec(fullText)) !== null) {
+    fullTokens.push({ word: m[0].toLocaleLowerCase('tr-TR').replace(/[^\wışğüçöıİŞĞÜÇÖ]/g, ''), index: m.index });
+  }
 
-  // 5. Prefix match (ilk 20 karakter)
-  if (cleanSearch.length > 15) {
-    const prefix = cleanSearch.substring(0, 20).trim();
-    let prefixMatch = fullText.indexOf(prefix, Math.max(0, startIndex - 100));
-    if (prefixMatch === -1) prefixMatch = fullText.indexOf(prefix, 0);
-    if (prefixMatch !== -1) {
-      return { start: prefixMatch, end: prefixMatch + cleanSearch.length };
+  const searchTokens = cleanSearch
+    .split(/\s+/)
+    .map(w => w.toLocaleLowerCase('tr-TR').replace(/[^\wışğüçöıİŞĞÜÇÖ]/g, ''))
+    .filter(w => w.length > 0);
+
+  if (searchTokens.length === 0) return null;
+
+  // startIndex'ten sonraki token'lardan başla
+  const startTokenIdx = fullTokens.findIndex(t => t.index >= Math.max(0, startIndex - 50));
+  const searchFrom = startTokenIdx >= 0 ? startTokenIdx : 0;
+
+  for (let i = searchFrom; i <= fullTokens.length - searchTokens.length; i++) {
+    let matchCount = 0;
+    for (let j = 0; j < searchTokens.length; j++) {
+      const ft = fullTokens[i + j]?.word || '';
+      const st = searchTokens[j];
+      // Tam eşleşme veya biri diğerinin prefix'i (suffix farkı toleransı)
+      if (ft === st || ft.startsWith(st) || st.startsWith(ft)) {
+        matchCount++;
+      }
+    }
+    // %80 eşleşme yeterli
+    if (matchCount >= Math.ceil(searchTokens.length * 0.8)) {
+      const startPos = fullTokens[i].index;
+      const realEnd = Math.min(startPos + cleanSearch.length + 10, fullText.length);
+      return { start: startPos, end: realEnd };
+    }
+  }
+
+  // 4. startIndex'ten önce de ara
+  for (let i = 0; i < Math.min(searchFrom, fullTokens.length - searchTokens.length); i++) {
+    let matchCount = 0;
+    for (let j = 0; j < searchTokens.length; j++) {
+      const ft = fullTokens[i + j]?.word || '';
+      const st = searchTokens[j];
+      if (ft === st || ft.startsWith(st) || st.startsWith(ft)) matchCount++;
+    }
+    if (matchCount >= Math.ceil(searchTokens.length * 0.8)) {
+      const startPos = fullTokens[i].index;
+      const realEnd = Math.min(startPos + cleanSearch.length + 10, fullText.length);
+      return { start: startPos, end: realEnd };
     }
   }
 
