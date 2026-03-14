@@ -23,6 +23,7 @@ const initialState: AppState = {
   extractedEntities: [],
   sceneAnalyses: {},
   consistencyGroups: [],
+  references: [],
   activeSceneId: null,
   selectionMode: 'scene',
   apiKeys: loadKeys('gemini_api_keys'),
@@ -51,7 +52,7 @@ const initialState: AppState = {
 const NON_UNDOABLE = new Set<string>([
   'SET_ACTIVE_SCENE', 'SET_SELECTION_MODE', 'SET_CURRENT_KEY_INDEX',
   'ROTATE_API_KEY', 'SET_API_KEYS', 'SET_IMAGE_API_KEYS', 'SET_SETTINGS',
-  'START_ANALYSIS', 'START_PROMPT_GENERATION',
+  'START_ANALYSIS', 'START_PROMPT_GENERATION', 'SET_REFERENCES',
 ]);
 
 // Merge two arrays by id, preferring existing items
@@ -180,6 +181,17 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
             ? { ...s, segments: [...s.segments, action.payload.segment] }
             : s
         ),
+      };
+    case 'SET_REFERENCES':
+      return { ...state, references: action.payload };
+    case 'ADD_REFERENCE':
+      return { ...state, references: [...state.references, action.payload] };
+    case 'REMOVE_REFERENCE':
+      return { ...state, references: state.references.filter(r => r.id !== action.payload) };
+    case 'UPDATE_REFERENCE':
+      return {
+        ...state,
+        references: state.references.map(r => r.id === action.payload.id ? action.payload : r)
       };
     case 'ADD_SUBJECT_REFERENCE':
       return {

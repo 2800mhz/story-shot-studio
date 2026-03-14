@@ -58,8 +58,8 @@ class AIProviderManager {
     return this.model;
   }
 
-  async generateContent(prompt: string, systemInstruction?: string, options?: { operationType?: string }): Promise<string> {
-    return this._generateWithRetry(prompt, systemInstruction, 0, options?.operationType);
+  async generateContent(prompt: string, systemInstruction?: string, options?: { operationType?: string, images?: Array<{ inlineData: { data: string, mimeType: string } }> }): Promise<string> {
+    return this._generateWithRetry(prompt, systemInstruction, 0, options?.operationType, options?.images);
   }
 
   async generateContentStream(
@@ -73,7 +73,7 @@ class AIProviderManager {
     return this._generateWithRetryStream(prompt, systemInstruction, 0, options?.operationType, options?.onChunk);
   }
 
-  private async _generateWithRetry(prompt: string, systemInstruction: string | undefined, retryCount: number, operationType: string = 'api_request'): Promise<string> {
+  private async _generateWithRetry(prompt: string, systemInstruction: string | undefined, retryCount: number, operationType: string = 'api_request', images?: Array<{ inlineData: { data: string, mimeType: string } }>): Promise<string> {
     const maxRetries = 25; // Increase max retries to accommodate 19+ keys
 
     if (retryCount >= maxRetries) {
@@ -88,7 +88,7 @@ class AIProviderManager {
 
     try {
       console.log(`🤖 Trying ${key.provider} (key ${this.currentKeyIndex + 1})`);
-      const result = await this.callProvider(key, prompt, systemInstruction);
+      const result = await this.callProvider(key, prompt, systemInstruction, images);
       await this.updateKeyUsage(key.id, result.promptTokens, result.completionTokens, operationType);
       return result.text;
     } catch (error: unknown) {
@@ -106,7 +106,7 @@ class AIProviderManager {
       
       // Add a small delay before retrying to avoid hammering a downed API or getting instantly rate-limited again
       await new Promise(resolve => setTimeout(resolve, 1000));
-      return this._generateWithRetry(prompt, systemInstruction, retryCount + 1, operationType);
+      return this._generateWithRetry(prompt, systemInstruction, retryCount + 1, operationType, images);
     }
   }
 
@@ -274,13 +274,18 @@ class AIProviderManager {
     }
   }
 
-  private async callProvider(key: APIKey, prompt: string, systemInstruction?: string): Promise<{ text: string; promptTokens: number; completionTokens: number }> {
+  private async callProvider(key: APIKey, prompt: string, systemInstruction?: string, images?: Array<{ inlineData: { data: string, mimeType: string } }>): Promise<{ text: string; promptTokens: number; completionTokens: number }> {
     const decryptedKey = decryptKey(key.api_key);
 
     switch (key.provider) {
       case 'gemini': {
+        const parts: any[] = [{ text: prompt }];
+        if (images && images.length > 0) {
+          parts.push(...images);
+        }
+
         const body: Record<string, unknown> = {
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          contents: [{ role: 'user', parts }],
           generationConfig: {
             temperature: 0.7,
             maxOutputTokens: 65536,

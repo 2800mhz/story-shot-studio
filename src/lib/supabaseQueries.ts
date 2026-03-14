@@ -523,3 +523,75 @@ export async function upsertGlobalLocation(projectId: string, location: {
   if (error) throw error;
   return data;
 }
+
+// ============================================
+// REFERENCE QUERIES
+// ============================================
+
+export async function fetchReferences(episodeId: string) {
+  const { data, error } = await supabase
+    .from('references')
+    .select('*')
+    .eq('episode_id', episodeId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+  
+  // Convert snake_case back to camelCase mapping for the UI
+  return (data || []).map(row => ({
+    id: row.id,
+    episodeId: row.episode_id,
+    filePath: row.file_path,
+    fileUrl: row.file_url,
+    description: row.description,
+    referenceType: row.reference_type,
+    aiAnalysis: row.ai_analysis,
+    assignedSceneIds: row.assigned_scene_ids || [],
+    createdAt: row.created_at,
+  }));
+}
+
+export async function saveReference(ref: any) {
+  const payload = {
+    id: ref.id,
+    episode_id: ref.episodeId,
+    // user_id is typically handled by RLS natively when authenticated via supabase client, or sent in payload.
+    // Assuming episode scoping is enough given the current schema.
+    file_path: ref.filePath,
+    file_url: ref.fileUrl,
+    description: ref.description,
+    reference_type: ref.referenceType,
+    ai_analysis: ref.aiAnalysis,
+    assigned_scene_ids: ref.assignedSceneIds || [],
+  };
+
+  const { data, error } = await supabase
+    .from('references')
+    .insert(payload)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteReference(id: string) {
+  const { error } = await supabase
+    .from('references')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
+export async function updateReferenceAssignments(id: string, sceneIds: string[]) {
+  const { data, error } = await supabase
+    .from('references')
+    .update({ assigned_scene_ids: sceneIds })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Sparkles, Edit2, Trash2, Check, X, Copy, RefreshCw, Plus, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, Clock, Pin } from 'lucide-react';
+import { Sparkles, Edit2, Trash2, Check, X, Copy, RefreshCw, Plus, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, Clock, Pin, ImageIcon } from 'lucide-react';
 import type { SceneCard as SceneCardType, Character, Location, TimeContext, PromptCard } from '@/types';
 import { PromptHistoryModal, type HistoryEntry } from './PromptHistoryModal';
 
@@ -80,6 +80,11 @@ function InlinePromptCard({
             <Badge variant="secondary" className="text-xs ml-1.5">
               {prompt.aspectRatio}
             </Badge>
+          )}
+          {prompt.hasSubjectReference && (
+            <span className="inline-flex items-center ml-2 border border-blue-500/30 bg-blue-500/10 text-blue-400 text-[10px] px-1.5 py-0.5 rounded gap-1" title="Referans Görsel Uygulandı">
+              <ImageIcon className="h-3 w-3" /> ref
+            </span>
           )}
         </div>
         <div className="flex items-center gap-1">

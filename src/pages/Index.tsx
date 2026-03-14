@@ -11,6 +11,7 @@ import { InfoModal } from '@/components/InfoModal';
 import { ExportModal } from '@/components/ExportModal';
 import { EntityCardPanel } from '@/components/EntityCardPanel';
 import { EpisodeStylePanel } from '@/components/EpisodeStylePanel';
+import { ReferencePanel } from '@/components/ReferencePanel';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useAppState } from '@/hooks/useAppState';
 import { parseDocument } from '@/lib/documentParser';
@@ -18,7 +19,7 @@ import { parseEpisodes } from '@/lib/contextDetection';
 import { generatePrompts, loadSystemPrompt } from '@/lib/geminiApi';
 import { analyzeTextIntoScenes, generateEpisodePrompt, generateEpisodePromptTurkishExplanation } from '@/lib/sceneAnalyzer';
 import { generatePromptsForScene, revisePrompt, autoSelectBestPrompt } from '@/lib/promptGenerator';
-import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetchAllPromptsForScenes, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts, setPinnedPrompt } from '@/lib/supabaseQueries';
+import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetchAllPromptsForScenes, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts, setPinnedPrompt, fetchReferences } from '@/lib/supabaseQueries';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
@@ -75,12 +76,13 @@ const Index = () => {
     try {
       console.log('📥 Loading episode data:', episodeId);
 
-      const [projectData, episodeData, scenesData, globalChars, globalLocs] = await Promise.all([
+      const [projectData, episodeData, scenesData, globalChars, globalLocs, referencesData] = await Promise.all([
         fetchProject(projectId!),
         fetchEpisode(episodeId!),
         fetchScenes(episodeId!),
         fetchGlobalCharacters(projectId!),
-        fetchGlobalLocations(projectId!)
+        fetchGlobalLocations(projectId!),
+        fetchReferences(episodeId!)
       ]);
 
       console.log('✅ Loaded:', {
@@ -941,6 +943,7 @@ const Index = () => {
         state.sceneAnalyses[sceneId],
         sceneTimeContexts,
         state.episodePrompt || undefined,
+        state.references,
         isRegeneration ? 'regenerate' : 'initial',
         () => {
           toast({
@@ -1120,6 +1123,7 @@ const Index = () => {
         state.sceneAnalyses[sceneId],
         sceneTimeContexts,
         state.episodePrompt || undefined,
+        state.references,
         'regenerate',
         () => {
           toast({
@@ -1379,18 +1383,25 @@ const Index = () => {
       <div className="flex flex-1 overflow-hidden">
         <PanelGroup direction="horizontal" autoSaveId="story-shot-layout">
           <Panel defaultSize={20} minSize={15}>
-            <LeftPanel
-              episodes={state.episodes}
-              scenes={state.scenes}
-              consistencyGroups={state.consistencyGroups}
-              activeSceneId={state.activeSceneId}
-              mainFileName={state.mainFileName}
-              isAnalyzing={state.isAnalyzing}
-              onEpisodeClick={(ep) => setScrollToIndex(ep.startIndex)}
-              onSceneClick={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
-              onMoveEpisode={(episodeId, newParentId) => dispatch({ type: 'MOVE_EPISODE', payload: { episodeId, newParentId } })}
-              onReorderEpisodes={(eps) => dispatch({ type: 'REORDER_EPISODES', payload: eps })}
-            />
+            <div className="flex h-full flex-col">
+              <div className="flex-1 min-h-[30%]">
+                <LeftPanel
+                  episodes={state.episodes}
+                  scenes={state.scenes}
+                  consistencyGroups={state.consistencyGroups}
+                  activeSceneId={state.activeSceneId}
+                  mainFileName={state.mainFileName}
+                  isAnalyzing={state.isAnalyzing}
+                  onEpisodeClick={(ep) => setScrollToIndex(ep.startIndex)}
+                  onSceneClick={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
+                  onMoveEpisode={(episodeId, newParentId) => dispatch({ type: 'MOVE_EPISODE', payload: { episodeId, newParentId } })}
+                  onReorderEpisodes={(eps) => dispatch({ type: 'REORDER_EPISODES', payload: eps })}
+                />
+              </div>
+              <div className="h-[40%] border-t border-border min-h-[250px] overflow-hidden">
+                <ReferencePanel />
+              </div>
+            </div>
           </Panel>
 
           <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/50 cursor-col-resize transition-colors" />

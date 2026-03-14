@@ -5,6 +5,18 @@ export interface TextSegment {
   endIndex: number;
 }
 
+export interface SceneReference {
+  id: string;
+  episodeId: string;
+  filePath: string;
+  fileUrl: string;
+  description?: string;
+  referenceType: 'subject' | 'style' | 'scene';
+  aiAnalysis?: string;
+  assignedSceneIds: string[];
+  createdAt: string;
+}
+
 export interface PromptVariant {
   id: string;
   shotType: string;
@@ -123,6 +135,7 @@ export interface PromptCard {
   revisionPrompt?: string;
   isPinned?: boolean; // Raptiye: AI or user marks the best prompt per card
   isPinnedByAI?: boolean; // true if AI auto-selected this prompt
+  hasSubjectReference?: boolean;
 }
 
 export interface PromptAnalysis {
@@ -167,6 +180,7 @@ export interface AppState {
   extractedEntities: ExtractedEntity[];
   sceneAnalyses: Record<string, SceneAnalysis>;
   consistencyGroups: ConsistencyGroup[];
+  references: SceneReference[];
   activeSceneId: string | null;
   selectionMode: SelectionMode;
   apiKeys: string[];
@@ -212,6 +226,10 @@ export type AppAction =
   | { type: 'SET_CURRENT_KEY_INDEX'; payload: number }
   | { type: 'ROTATE_API_KEY' }
   | { type: 'SET_SETTINGS'; payload: Partial<AppState['settings']> }
+  | { type: 'SET_REFERENCES'; payload: SceneReference[] }
+  | { type: 'ADD_REFERENCE'; payload: SceneReference }
+  | { type: 'REMOVE_REFERENCE'; payload: string }
+  | { type: 'UPDATE_REFERENCE'; payload: SceneReference }
   | { type: 'ADD_SEGMENT_TO_SCENE'; payload: { sceneId: string; segment: TextSegment } }
   | { type: 'ADD_SUBJECT_REFERENCE'; payload: { sceneId: string; segment: TextSegment } }
   | { type: 'ADD_CONSISTENCY_GROUP'; payload: ConsistencyGroup }

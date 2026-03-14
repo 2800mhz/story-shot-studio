@@ -1,4 +1,4 @@
-import type { SceneCard, Character, Location, TimeContext, PromptCard, PromptAnalysis, GenerationResult, SceneAnalysis } from '@/types';
+import type { SceneCard, Character, Location, TimeContext, PromptCard, PromptAnalysis, GenerationResult, SceneAnalysis, SceneReference } from '@/types';
 import { aiProvider } from './aiProvider';
 
 const PROMPT_GENERATION_SYSTEM_PROMPT = `Sen sinematik görsel prompt üreticisisin. AI görsel üretim araçları için (Midjourney, DALL-E, Runway) detaylı prompt'lar yazıyorsun.
@@ -196,6 +196,7 @@ export async function generatePromptsForScene(
   sceneAnalysis?: SceneAnalysis,
   timeContexts?: TimeContext[],
   episodePrompt?: string,
+  references?: SceneReference[],
   generationType: 'initial' | 'regenerate' = 'initial',
   onRetry?: () => void
 ): Promise<GenerationResult> {
@@ -245,6 +246,19 @@ export async function generatePromptsForScene(
 
   if (entityContext) {
     userMessage += entityContext;
+  }
+
+  // Inject References if available
+  const sceneRefs = references?.filter(r => r.assignedSceneIds.includes(scene.id)) || [];
+  if (sceneRefs.length > 0) {
+    userMessage += 'REFERENCE IMAGES FOR THIS SCENE:\n';
+    sceneRefs.forEach(ref => {
+      userMessage += `- [${ref.referenceType.toUpperCase()}] ${ref.description || 'No description provided'}\n`;
+      if (ref.aiAnalysis) {
+        userMessage += `  (AI Note: ${ref.aiAnalysis})\n`;
+      }
+    });
+    userMessage += '\n';
   }
 
   // Episode prompt overrides/extends master prompt when present.
@@ -333,6 +347,7 @@ export async function generatePromptsForScene(
       versions: [promptText],
       aspectRatio,
       generationType,
+      hasSubjectReference: sceneRefs.some(r => r.referenceType === 'subject'),
     };
   });
 
