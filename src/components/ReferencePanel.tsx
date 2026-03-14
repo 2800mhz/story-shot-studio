@@ -20,6 +20,8 @@ export function ReferencePanel({ episodeId }: ReferencePanelProps) {
   const { state, dispatch } = useAppState();
   const { toast } = useToast();
   
+  console.log('🖼️ ReferencePanel state.references:', state.references?.length, state.references);
+  
   interface UploadItem {
     id: string;
     file: File;
