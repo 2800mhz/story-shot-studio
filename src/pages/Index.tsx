@@ -1007,10 +1007,14 @@ const Index = () => {
     }
   }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, dispatch, aspectRatio]);
 
+  const WORKER_COUNT = 3;
+
   const handleGenerateAllPrompts = useCallback(async () => {
     if (isBulkGeneratingPrompts) return;
 
-    const scenesWithoutPrompts = state.sceneCards.filter(s => s.prompts.length === 0 && s.status !== 'generating');
+    const scenesWithoutPrompts = state.sceneCards.filter(
+      s => s.prompts.length === 0 && s.status !== 'generating'
+    );
     if (scenesWithoutPrompts.length === 0) return;
 
     const controller = new AbortController();
@@ -1018,32 +1022,84 @@ const Index = () => {
     setIsBulkGeneratingPrompts(true);
     setBulkPromptsProgress({ done: 0, total: scenesWithoutPrompts.length });
 
-    try {
-      for (let i = 0; i < scenesWithoutPrompts.length; i++) {
-        if (controller.signal.aborted) break;
-        const scene = scenesWithoutPrompts[i];
-        const success = await handleGeneratePromptsForScene(scene.id);
-        
-        if (!success) {
-          toast({
-            title: 'Toplu Üretim Durduruldu',
-            description: `${i+1}. sahnede API hatası veya limit aşımı yaşandı. Üretim iptal edildi.`,
-            variant: 'destructive'
-          });
-          break; // Stop going through the rest of the scenes if the API is failing
-        }
+    // Paylaşılan kuyruk
+    const queue = [...scenesWithoutPrompts];
+    const failedScenes: typeof scenesWithoutPrompts = [];
+    let done = 0;
+    let consecutiveFailures = 0;
 
-        setBulkPromptsProgress({ done: i + 1, total: scenesWithoutPrompts.length });
-        if (i < scenesWithoutPrompts.length - 1 && !controller.signal.aborted) {
-          await new Promise(resolve => setTimeout(resolve, PROMPT_GENERATION_DELAY_MS));
+    const processScene = async (scene: typeof scenesWithoutPrompts[0]): Promise<void> => {
+      if (controller.signal.aborted) return;
+      
+      const success = await handleGeneratePromptsForScene(scene.id);
+      
+      if (success) {
+        done++;
+        consecutiveFailures = 0;
+        setBulkPromptsProgress({ done, total: scenesWithoutPrompts.length });
+      } else {
+        consecutiveFailures++;
+        failedScenes.push(scene);
+        
+        // Ardışık 5 hata = tüm keyler rate limit yedi, 10sn bekle
+        if (consecutiveFailures >= 5) {
+          toast({
+            title: '⚠️ Rate limit — 10sn bekleniyor...',
+            description: 'Tüm API anahtarları geçici olarak limit yedi.',
+          });
+          await new Promise(r => setTimeout(r, 10000));
+          consecutiveFailures = 0;
+        }
+      }
+    };
+
+    // Worker fonksiyonu — kuyruktan sahne çeker
+    const worker = async (): Promise<void> => {
+      while (queue.length > 0 && !controller.signal.aborted) {
+        const scene = queue.shift();
+        if (!scene) break;
+        await processScene(scene);
+        // Worker'lar arası küçük offset (rate limit dağıtımı)
+        await new Promise(r => setTimeout(r, 200));
+      }
+    };
+
+    try {
+      // 3 worker paralel çalışır
+      await Promise.all(
+        Array.from({ length: WORKER_COUNT }, () => worker())
+      );
+
+      // Hata worker: başarısız sahneleri tekrar dene
+      if (failedScenes.length > 0 && !controller.signal.aborted) {
+        toast({
+          title: `🔄 ${failedScenes.length} sahne yeniden deneniyor...`,
+        });
+        // 5sn bekle, sonra tek tek dene
+        await new Promise(r => setTimeout(r, 5000));
+        for (const scene of failedScenes) {
+          if (controller.signal.aborted) break;
+          await processScene(scene);
+          await new Promise(r => setTimeout(r, 500));
         }
       }
     } finally {
       setIsBulkGeneratingPrompts(false);
       bulkPromptsAbortRef.current = null;
       setBulkPromptsProgress({ done: 0, total: 0 });
+      
+      const stillFailed = failedScenes.filter(
+        s => state.sceneCards.find(sc => sc.id === s.id)?.prompts.length === 0
+      );
+      if (stillFailed.length > 0) {
+        toast({
+          title: `❌ ${stillFailed.length} sahne üretilemedi`,
+          description: 'Manuel olarak tekrar deneyebilirsiniz.',
+          variant: 'destructive'
+        });
+      }
     }
-  }, [isBulkGeneratingPrompts, state.sceneCards, handleGeneratePromptsForScene]);
+  }, [isBulkGeneratingPrompts, state.sceneCards, handleGeneratePromptsForScene, toast]);
 
   const handleCancelBulkPrompts = useCallback(() => {
     bulkPromptsAbortRef.current?.abort();
