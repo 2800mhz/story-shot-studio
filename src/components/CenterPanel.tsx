@@ -1,10 +1,17 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import type { Scene } from '@/types';
 import { FloatingToolbar } from './FloatingToolbar';
+
+interface SceneSlim {
+  id: string;
+  number: number;
+  text: string;
+  startIndex?: number;
+  endIndex?: number;
+}
 
 interface CenterPanelProps {
   mainText: string;
-  scenes: Scene[];
+  scenes: SceneSlim[];
   activeSceneId: string | null;
   scrollToIndex: number | null;
   onScrollComplete: () => void;

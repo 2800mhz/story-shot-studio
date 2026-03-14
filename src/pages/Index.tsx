@@ -1447,7 +1447,13 @@ const Index = () => {
           <Panel defaultSize={40} minSize={20}>
             <CenterPanel
               mainText={state.mainText}
-              scenes={state.scenes}
+              scenes={state.sceneCards.map(sc => ({
+                id: sc.id,
+                number: sc.sceneNumber,
+                text: sc.text,
+                startIndex: sc.startIndex,
+                endIndex: sc.endIndex,
+              }))}
               activeSceneId={state.activeSceneId}
               scrollToIndex={scrollToIndex}
               onScrollComplete={() => setScrollToIndex(null)}
