@@ -4,7 +4,7 @@ import { FloatingToolbar } from './FloatingToolbar';
 interface SceneSlim {
   id: string;
   number: number;
-  text: string;
+  text?: string;
   startIndex?: number;
   endIndex?: number;
 }
