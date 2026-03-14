@@ -12,6 +12,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { encryptKey, maskKey } from '@/lib/encryption';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import { Progress } from '@/components/ui/progress';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Activity } from 'lucide-react';
 
 interface APIKeyRecord {
   id: string;
@@ -32,6 +36,13 @@ export default function Settings() {
   const { toast } = useToast();
 
   const [keys, setKeys] = useState<APIKeyRecord[]>([]);
+  const [logs, setLogs] = useState<{
+    operation_type: string;
+    provider: string;
+    prompt_tokens: number;
+    completion_tokens: number;
+    created_at: string;
+  }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showKeys, setShowKeys] = useState<Set<string>>(new Set());
 
@@ -60,6 +71,14 @@ export default function Settings() {
 
       if (error) throw error;
       setKeys(data || []);
+
+      const { data: logData } = await supabase
+        .from('api_key_logs')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      setLogs(logData || []);
     } catch (error) {
       console.error('Error loading keys:', error);
     } finally {
@@ -186,6 +205,41 @@ export default function Settings() {
 
   const activeGeminiCount = keys.filter(k => k.provider === 'gemini' && k.is_active).length;
   const rateLimitedCount = keys.filter(k => k.rate_limited_until && new Date(k.rate_limited_until) > new Date()).length;
+
+  // --- Bilanço Hesaplamaları ---
+  const totalRequests = logs.length;
+  const totalInputTokens = logs.reduce((sum, log) => sum + (log.prompt_tokens || 0), 0);
+  const totalOutputTokens = logs.reduce((sum, log) => sum + (log.completion_tokens || 0), 0);
+  const totalTokens = totalInputTokens + totalOutputTokens;
+
+  const operationTypeStats = logs.reduce((acc, log) => {
+    const type = log.operation_type || 'unknown';
+    const tokens = (log.prompt_tokens || 0) + (log.completion_tokens || 0);
+    acc[type] = (acc[type] || 0) + tokens;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const maxOperationTokens = Math.max(...Object.values(operationTypeStats), 1);
+
+  // Chart Data (Son 7 gün)
+  const chartDataMap = logs.reduce((acc, log) => {
+    const dateStr = new Date(log.created_at).toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' });
+    const tokens = (log.prompt_tokens || 0) + (log.completion_tokens || 0);
+    if (!acc[dateStr]) acc[dateStr] = 0;
+    acc[dateStr] += tokens;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    return d.toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' });
+  }).reverse();
+
+  const chartData = last7Days.map(date => ({
+    date,
+    tokens: chartDataMap[date] || 0
+  }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -414,6 +468,126 @@ export default function Settings() {
             )}
           </div>
         </div>
+
+        {/* ── API Bilanço Section ── */}
+        <div className="pt-8 border-t">
+          <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+            <Activity className="h-6 w-6 text-primary" />
+            API Bilanço
+          </h2>
+
+          {/* Özet Kartları */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <Card className="p-4 flex flex-col items-center justify-center text-center">
+              <span className="text-sm text-muted-foreground mb-1">Top. İstek Sayısı</span>
+              <span className="text-2xl font-bold">{totalRequests.toLocaleString('tr-TR')}</span>
+            </Card>
+            <Card className="p-4 flex flex-col items-center justify-center text-center">
+              <span className="text-sm text-muted-foreground mb-1">Top. Input Token</span>
+              <span className="text-2xl font-bold text-blue-600">{totalInputTokens.toLocaleString('tr-TR')}</span>
+            </Card>
+            <Card className="p-4 flex flex-col items-center justify-center text-center">
+              <span className="text-sm text-muted-foreground mb-1">Top. Output Token</span>
+              <span className="text-2xl font-bold text-green-600">{totalOutputTokens.toLocaleString('tr-TR')}</span>
+            </Card>
+            <Card className="p-4 flex flex-col items-center justify-center text-center">
+              <span className="text-sm text-muted-foreground mb-1">Toplam Token</span>
+              <span className="text-2xl font-bold text-primary">{totalTokens.toLocaleString('tr-TR')}</span>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            {/* Operation Type Dağılımı */}
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-4 text-foreground/80">İşlem Tipi Dağılımı</h3>
+              {Object.keys(operationTypeStats).length === 0 ? (
+                <div className="text-sm text-muted-foreground py-4">Veri bulunamadı.</div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(operationTypeStats)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([type, tokens]) => (
+                      <div key={type}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="font-medium">{type}</span>
+                          <span className="text-muted-foreground">{tokens.toLocaleString('tr-TR')} token</span>
+                        </div>
+                        <Progress value={(tokens / maxOperationTokens) * 100} className="h-2" />
+                      </div>
+                    ))}
+                </div>
+              )}
+            </Card>
+
+            {/* Günlük Token Kullanımı (Chart) */}
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-4 text-foreground/80">Günlük Kullanım (Son 7 Gün)</h3>
+              <div className="h-[200px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ccc" opacity={0.5} />
+                    <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val >= 1000 ? (val / 1000).toFixed(1) + 'k' : val}`} width={40} />
+                    <RechartsTooltip 
+                      formatter={(value: number) => [value.toLocaleString('tr-TR'), 'Token']}
+                      labelStyle={{ color: '#000' }}
+                    />
+                    <Bar dataKey="tokens" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+          </div>
+
+          {/* Son 20 İşlem Tablosu */}
+          <Card className="p-6 overflow-hidden">
+            <h3 className="text-lg font-semibold mb-4 text-foreground/80">Son 20 İşlem</h3>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tarih</TableHead>
+                    <TableHead>Sağlayıcı</TableHead>
+                    <TableHead>İşlem Tipi</TableHead>
+                    <TableHead className="text-right">Input</TableHead>
+                    <TableHead className="text-right">Output</TableHead>
+                    <TableHead className="text-right text-foreground font-semibold">Toplam</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {logs.slice(0, 20).map((log, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                        {new Date(log.created_at).toLocaleString('tr-TR', { 
+                          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+                        })}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-[10px] capitalize">
+                          {log.provider}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs font-medium whitespace-nowrap">{log.operation_type}</TableCell>
+                      <TableCell className="text-right text-xs text-blue-600">{(log.prompt_tokens || 0).toLocaleString('tr-TR')}</TableCell>
+                      <TableCell className="text-right text-xs text-green-600">{(log.completion_tokens || 0).toLocaleString('tr-TR')}</TableCell>
+                      <TableCell className="text-right text-xs font-bold text-foreground">
+                        {((log.prompt_tokens || 0) + (log.completion_tokens || 0)).toLocaleString('tr-TR')}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {logs.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        Henüz işlem bulunmuyor.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        </div>
+
       </main>
     </div>
   );
