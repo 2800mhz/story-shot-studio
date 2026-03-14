@@ -51,7 +51,7 @@ export function CenterPanel({
     if (hasAiScenes) {
       const targetScene = scenes.find(
         s => s.startIndex !== undefined && s.endIndex !== undefined &&
-             scrollToIndex >= s.startIndex && scrollToIndex < s.endIndex
+          scrollToIndex >= s.startIndex && scrollToIndex < s.endIndex
       );
       if (targetScene) {
         onSetActiveScene(targetScene.id);
@@ -100,18 +100,14 @@ export function CenterPanel({
             </div>
             {/* Live progress log */}
             {analysisLog && analysisLog.length > 0 && (
-              <div className="rounded-lg border border-border bg-card/60 p-3 space-y-1.5 max-h-64 overflow-y-auto">
-                {analysisLog.map((msg, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs">
-                    <span aria-hidden="true" className="text-muted-foreground shrink-0 font-mono">{String(i + 1).padStart(2, '0')}</span>
-                    <span className={i === analysisLog.length - 1 ? 'text-foreground font-medium' : 'text-muted-foreground'}>{msg}</span>
+              <div className="rounded-lg border border-border bg-card/60 p-3 space-y-0.5 max-h-64 overflow-y-auto">
+                {analysisLog.slice(-5).map((log, i, arr) => (
+                  <div key={i} className={`text-xs font-mono transition-opacity ${
+                    i === arr.length - 1 ? 'text-amber-400 opacity-100' : 'text-zinc-500 opacity-50'
+                  }`}>
+                    {log}
                   </div>
                 ))}
-                {/* Blinking cursor on the last line */}
-                <div className="flex items-center gap-1 text-xs text-primary">
-                  <span className="animate-pulse">▋</span>
-                  <span className="text-muted-foreground">işleniyor...</span>
-                </div>
               </div>
             )}
             {(!analysisLog || analysisLog.length === 0) && (
@@ -139,11 +135,10 @@ export function CenterPanel({
                 <div key={scene.id}>
                   <div
                     ref={activeSceneId === scene.id ? activeSceneRef : undefined}
-                    className={`whitespace-pre-wrap transition-all duration-200 cursor-pointer rounded-md py-3 px-4 my-1 ${
-                      activeSceneId === scene.id
+                    className={`whitespace-pre-wrap transition-all duration-200 cursor-pointer rounded-md py-3 px-4 my-1 ${activeSceneId === scene.id
                         ? 'bg-yellow-200/70 dark:bg-yellow-500/30 border-l-4 border-yellow-500 font-medium shadow-sm'
                         : 'hover:bg-muted/40 hover:border-l-2 hover:border-muted-foreground/30'
-                    }`}
+                      }`}
                     onClick={() => onSetActiveScene(scene.id)}
                   >
                     {scene.text}
@@ -165,7 +160,7 @@ export function CenterPanel({
               // INLINE HIGHLIGHT RENDERING
               const elements: React.ReactNode[] = [];
               let currentIndex = 0;
-              
+
               // Sort scenes by startIndex to process sequentially
               const sortedScenes = [...scenes]
                 .filter(s => s.startIndex !== undefined && s.endIndex !== undefined)
@@ -195,15 +190,13 @@ export function CenterPanel({
                       if (activeSceneRef) (activeSceneRef as any).current = el;
                     } : undefined}
                     onClick={() => onSetActiveScene(scene.id)}
-                    className={`relative cursor-pointer transition-colors duration-200 rounded px-1 -mx-1 ${
-                      isSelected
+                    className={`relative cursor-pointer transition-colors duration-200 rounded px-1 -mx-1 ${isSelected
                         ? 'bg-amber-600/30 text-amber-200 outline outline-1 outline-amber-500/50 shadow-sm z-10'
                         : 'hover:bg-amber-900/30 text-amber-100/90'
-                    }`}
+                      }`}
                   >
-                    <span className={`inline-flex items-center justify-center rounded-full text-[10px] w-5 h-5 mr-1.5 -ml-1 align-middle select-none transition-colors ${
-                      isSelected ? 'bg-amber-500 text-amber-950 font-bold shadow-sm shadow-amber-900/50' : 'bg-amber-800/80 text-amber-100 border border-amber-600/50'
-                    }`}>
+                    <span className={`inline-flex items-center justify-center rounded-full text-[10px] w-5 h-5 mr-1.5 -ml-1 align-middle select-none transition-colors ${isSelected ? 'bg-amber-500 text-amber-950 font-bold shadow-sm shadow-amber-900/50' : 'bg-amber-800/80 text-amber-100 border border-amber-600/50'
+                      }`}>
                       {scene.number}
                     </span>
                     {mainText.substring(start, end)}

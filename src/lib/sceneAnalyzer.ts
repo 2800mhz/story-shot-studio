@@ -460,10 +460,10 @@ export async function analyzeTextIntoScenes(
   locations: Location[];
   suggestedTimeContexts: TimeContext[];
 }> {
-  onProgress?.(`📄 Metin analiz için hazırlanıyor... (${text.length} karakter)`);
+  onProgress?.(` Metin hazırlanıyor... (${text.length} karakter, ~${Math.round(text.split(' ').length)} kelime)`);
   const chunks = splitTextIntoChunks(text);
   console.log(`📦 Splitting text into ${chunks.length} chunk(s) for analysis`);
-  onProgress?.(`📦 Metin ${chunks.length} parçaya bölündü`);
+  onProgress?.(` ${chunks.length} parçaya bölündü`);
 
   const characterMap = new Map<string, Character>();
   const locationMap = new Map<string, Location>();
@@ -475,9 +475,9 @@ export async function analyzeTextIntoScenes(
 
   for (let i = 0; i < chunks.length; i++) {
     console.log(`🔍 Analyzing chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
-    onProgress?.(`🤖 Parça ${i + 1}/${chunks.length} yapay zekaya gönderiliyor...`);
+    onProgress?.(` Yapay zeka analiz ediyor... (Parça ${i + 1}/${chunks.length})`);
     const parsed = await analyzeChunk(chunks[i]);
-    
+
     // Process top-level globally defined characters and locations
     if (parsed.characters) {
       parsed.characters.forEach(char => {
@@ -499,7 +499,7 @@ export async function analyzeTextIntoScenes(
       parsed.locations.forEach(loc => {
         if (!loc.name) return;
         const normalizedName = normalizeTurkishLocationName(loc.name);
-        
+
         // Find existing ID across all parsed chunks so far using normalized name
         let existingId: string | null = null;
         for (const [id, l] of locationMap.entries()) {
@@ -507,7 +507,7 @@ export async function analyzeTextIntoScenes(
             existingId = id; break;
           }
         }
-        
+
         if (!existingId) {
           const locId = `loc-${loc.name.replace(/\s+/g, '-').toLocaleLowerCase('tr-TR')}`;
           locationMap.set(locId, {
@@ -523,7 +523,7 @@ export async function analyzeTextIntoScenes(
     const cards = buildResultFromScenes(scenes, sceneNumberOffset, characterMap, locationMap, timeContextLabelMap, text, searchState);
     allSceneCards.push(...cards);
     sceneNumberOffset += scenes.length;
-    onProgress?.(`🎬 ${cards.length} sahne kartı oluşturuldu (toplam: ${allSceneCards.length})`);
+    onProgress?.(` ${cards.length} sahne kartı oluşturuldu`);
 
     // Normalize time contexts from this chunk (support both array and legacy single object)
     const rawContexts: typeof parsed.timeContexts =
@@ -547,10 +547,12 @@ export async function analyzeTextIntoScenes(
       }));
 
     suggestedTimeContexts = mergeTimeContextsByLabel(suggestedTimeContexts, chunkTimeContexts);
-    onProgress?.(`👤 ${characterMap.size} karakter · 🏛️ ${locationMap.size} mekan tespit edildi`);
+    onProgress?.(` ${characterMap.size} karakter tespit edildi`);
+    onProgress?.(` ${locationMap.size} mekan tespit edildi`);
   }
 
-  onProgress?.(`🕐 Zaman bağlamları atanıyor... (${suggestedTimeContexts.length} bağlam)`);
+  onProgress?.(` ${suggestedTimeContexts.length} zaman bağlamı oluşturuldu`);
+  onProgress?.(` Sahnelere karakter ve mekan bağlanıyor...`);
 
   // Post-process: assign timeContextIds to scene cards based on timeContextLabel
   const labelToId = new Map(suggestedTimeContexts.map(tc => [tc.label, tc.id]));
@@ -566,7 +568,8 @@ export async function analyzeTextIntoScenes(
     }
   }
 
-  onProgress?.(`✅ Analiz tamamlandı! ${allSceneCards.length} sahne · ${characterMap.size} karakter · ${locationMap.size} mekan`);
+  onProgress?.(` Veriler kayıt için hazırlanıyor...`);
+  onProgress?.(` Analiz tamamlandı! ${allSceneCards.length} sahne hazır`);
 
   return {
     sceneCards: allSceneCards,
