@@ -883,6 +883,37 @@ const Index = () => {
         }
       );
       dispatch({ type: 'FINISH_ANALYSIS', payload: result });
+
+      // Mevcut referansları yeni sahnelere ata
+      if (state.references.length > 0) {
+        setAnalysisLog(prev => [...prev, '🖼️ Referanslar sahnelere atanıyor...']);
+        try {
+          for (const ref of state.references) {
+            const base64Response = await fetch(ref.fileUrl);
+            const blob = await base64Response.blob();
+            const base64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve((reader.result as string).split(',')[1]);
+              reader.readAsDataURL(blob);
+            });
+            
+            const { assignedSceneIds, aiAnalysis } = await analyzeReferenceImage(
+              base64,
+              blob.type,
+              ref.description || '',
+              ref.referenceType,
+              result.sceneCards
+            );
+            
+            dispatch({ type: 'UPDATE_REFERENCE', payload: { ...ref, assignedSceneIds, aiAnalysis }});
+            await updateReferenceAssignments(ref.id, assignedSceneIds);
+          }
+          setAnalysisLog(prev => [...prev, `✅ ${state.references.length} referans sahnelere atandı`]);
+        } catch (refErr) {
+          console.warn('Referans atama hatası:', refErr);
+        }
+      }
+
       setTimeout(() => setAnalysisLog([]), 3000);
 
       try {
