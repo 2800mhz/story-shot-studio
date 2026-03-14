@@ -355,6 +355,7 @@ const Index = () => {
   const [exportOpen, setExportOpen] = React.useState(false);
   const [showEntityPanel, setShowEntityPanel] = useState(false);
   const [showEpisodeStylePanel, setShowEpisodeStylePanel] = useState(false);
+  const [showReferencePanel, setShowReferencePanel] = useState(false);
   const [scrollToIndex, setScrollToIndex] = useState<number | null>(null);
   const mainFileRef = useRef<HTMLInputElement>(null);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
@@ -1350,6 +1351,14 @@ const Index = () => {
         >
           🎨 Bölüm Stili
         </Button>
+        <Button
+          size="sm"
+          variant={showReferencePanel ? 'default' : 'outline'}
+          className="h-7 text-xs"
+          onClick={() => setShowReferencePanel(v => !v)}
+        >
+          🖼️ Referanslar
+        </Button>
       </div>
 
       {/* No API keys banner */}
@@ -1383,25 +1392,18 @@ const Index = () => {
       <div className="flex flex-1 overflow-hidden">
         <PanelGroup direction="horizontal" autoSaveId="story-shot-layout">
           <Panel defaultSize={20} minSize={15}>
-            <div className="flex h-full flex-col">
-              <div className="flex-1 min-h-[30%]">
-                <LeftPanel
-                  episodes={state.episodes}
-                  scenes={state.scenes}
-                  consistencyGroups={state.consistencyGroups}
-                  activeSceneId={state.activeSceneId}
-                  mainFileName={state.mainFileName}
-                  isAnalyzing={state.isAnalyzing}
-                  onEpisodeClick={(ep) => setScrollToIndex(ep.startIndex)}
-                  onSceneClick={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
-                  onMoveEpisode={(episodeId, newParentId) => dispatch({ type: 'MOVE_EPISODE', payload: { episodeId, newParentId } })}
-                  onReorderEpisodes={(eps) => dispatch({ type: 'REORDER_EPISODES', payload: eps })}
-                />
-              </div>
-              <div className="h-[40%] border-t border-border min-h-[250px] overflow-hidden">
-                <ReferencePanel />
-              </div>
-            </div>
+            <LeftPanel
+              episodes={state.episodes}
+              scenes={state.scenes}
+              consistencyGroups={state.consistencyGroups}
+              activeSceneId={state.activeSceneId}
+              mainFileName={state.mainFileName}
+              isAnalyzing={state.isAnalyzing}
+              onEpisodeClick={(ep) => setScrollToIndex(ep.startIndex)}
+              onSceneClick={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
+              onMoveEpisode={(episodeId, newParentId) => dispatch({ type: 'MOVE_EPISODE', payload: { episodeId, newParentId } })}
+              onReorderEpisodes={(eps) => dispatch({ type: 'REORDER_EPISODES', payload: eps })}
+            />
           </Panel>
 
           <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/50 cursor-col-resize transition-colors" />
@@ -1458,6 +1460,23 @@ const Index = () => {
                       onUpdateTimeContext={(t) => dispatch({ type: 'UPDATE_TIME_CONTEXT', payload: t })}
                       onDeleteTimeContext={(id) => dispatch({ type: 'DELETE_TIME_CONTEXT', payload: id })}
                     />
+                  </div>
+                </div>
+              </Panel>
+            </>
+          )}
+
+          {showReferencePanel && (
+            <>
+              <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/50 cursor-col-resize transition-colors" />
+              <Panel defaultSize={20} minSize={15}>
+                <div className="flex h-full flex-col border-l border-border bg-card">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                    <span className="text-sm font-medium">🖼️ Referanslar</span>
+                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={() => setShowReferencePanel(false)}>✕</Button>
+                  </div>
+                  <div className="flex-1 overflow-hidden min-h-0">
+                    <ReferencePanel />
                   </div>
                 </div>
               </Panel>
