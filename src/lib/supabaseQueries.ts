@@ -552,12 +552,11 @@ export async function fetchReferences(episodeId: string) {
 }
 
 export async function saveReference(ref: any) {
+  const { data: { user } } = await supabase.auth.getUser();
   const payload = {
     id: ref.id,
     episode_id: ref.episodeId,
-    // user_id is typically handled by RLS natively when authenticated via supabase client, or sent in payload.
-    // Assuming episode scoping is enough given the current schema.
-    user_id: user?.id,  // BUNU EKLE
+    user_id: user?.id,
     file_path: ref.filePath,
     file_url: ref.fileUrl,
     description: ref.description,
