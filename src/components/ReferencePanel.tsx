@@ -12,7 +12,11 @@ import { analyzeReferenceImage } from '@/lib/referenceAnalyzer';
 import { saveReference, deleteReference } from '@/lib/supabaseQueries';
 import { useAppState } from '@/hooks/useAppState';
 
-export function ReferencePanel() {
+interface ReferencePanelProps {
+  episodeId: string | null;
+}
+
+export function ReferencePanel({ episodeId }: ReferencePanelProps) {
   const { state, dispatch } = useAppState();
   const { toast } = useToast();
   
@@ -26,9 +30,6 @@ export function ReferencePanel() {
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadItems, setUploadItems] = useState<UploadItem[]>([]);
-  
-  const activeEpisode = state.episodes.find(e => e.id === state.episodes[0]?.id); // We'll just grab the first one if active isn't tracked globally for now, or you can add to AppState. Assuming single-episode view mostly.
-  const episodeId = activeEpisode?.id;
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
