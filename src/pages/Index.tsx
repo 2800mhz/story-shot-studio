@@ -947,18 +947,6 @@ const Index = () => {
             title: '⚠️ Yapay Zeka Yanıtı Onarılıyor',
             description: 'Yapay zeka yanıtı bozuk geldi, otomatik onarım deneniyor...',
           });
-        },
-        (partialPrompts) => {
-          // Streaming partial update
-          dispatch({ 
-            type: 'FINISH_PROMPT_GENERATION', 
-            payload: { 
-              sceneId, 
-              prompts: partialPrompts,
-              analysis: scene.analysis,
-              optimizations: scene.optimizations
-            } 
-          });
         }
       );
       // Final dispatch with complete result
@@ -1137,13 +1125,6 @@ const Index = () => {
           toast({
             title: '⚠️ Yapay Zeka Yanıtı Onarılıyor',
             description: 'Yapay zeka yanıtı bozuk geldi, otomatik onarım deneniyor...',
-          });
-        },
-        (partialPrompts) => {
-          // Streaming partial update for variations
-          dispatch({
-            type: 'FINISH_PROMPT_GENERATION',
-            payload: { sceneId, prompts: [...existingPrompts, ...partialPrompts] },
           });
         }
       );
