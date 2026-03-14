@@ -947,8 +947,21 @@ const Index = () => {
             title: '⚠️ Yapay Zeka Yanıtı Onarılıyor',
             description: 'Yapay zeka yanıtı bozuk geldi, otomatik onarım deneniyor...',
           });
+        },
+        (partialPrompts) => {
+          // Streaming partial update
+          dispatch({ 
+            type: 'FINISH_PROMPT_GENERATION', 
+            payload: { 
+              sceneId, 
+              prompts: partialPrompts,
+              analysis: scene.analysis,
+              optimizations: scene.optimizations
+            } 
+          });
         }
       );
+      // Final dispatch with complete result
       dispatch({ 
         type: 'FINISH_PROMPT_GENERATION', 
         payload: { 
@@ -1069,8 +1082,17 @@ const Index = () => {
             title: '⚠️ Yapay Zeka Yanıtı Onarılıyor',
             description: 'Yapay zeka yanıtı bozuk geldi, otomatik onarım deneniyor...',
           });
+        },
+        (partialPrompts) => {
+          // Streaming partial update for variations
+          dispatch({
+            type: 'FINISH_PROMPT_GENERATION',
+            payload: { sceneId, prompts: [...existingPrompts, ...partialPrompts] },
+          });
         }
       );
+      
+      // Final complete update
       dispatch({
         type: 'FINISH_PROMPT_GENERATION',
         payload: { sceneId, prompts: [...existingPrompts, ...result.prompts] },

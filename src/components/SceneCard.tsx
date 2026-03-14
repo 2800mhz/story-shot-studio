@@ -529,12 +529,11 @@ export function SceneCard({
       {hasPrompts ? (
         <div className="p-3 relative">
           {scene.status === 'generating' && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-[2px] rounded-b-lg">
-              <div className="flex flex-col items-center bg-background/90 p-4 rounded-lg shadow-sm border text-primary">
-                <RefreshCw className="h-6 w-6 animate-spin mb-2" />
-                <span className="text-xs font-semibold">AI Promptları Üretiyor...</span>
-                <span className="text-[10px] text-muted-foreground mt-1">Lütfen bekleyin</span>
-              </div>
+            <div className="absolute inset-0 z-10 bg-background/50 backdrop-blur-[1px] rounded-b-lg border-t flex flex-col items-center justify-center p-4">
+               <div className="flex items-center gap-2 text-primary bg-background/80 px-4 py-2 rounded-full shadow-sm border border-primary/20">
+                  <Sparkles className="h-4 w-4 animate-pulse" />
+                  <span className="text-xs font-medium animate-pulse">⚡ Yapay Zeka Yazıyor...</span>
+               </div>
             </div>
           )}
           <div className="text-xs font-semibold text-muted-foreground mb-1">Üretilen Promptlar:</div>
@@ -578,10 +577,20 @@ export function SceneCard({
             size="sm"
             onClick={() => onGeneratePrompts(scene.id)}
             disabled={scene.status === 'generating'}
-            className="h-8 text-xs"
+            className="h-8 text-xs relative overflow-hidden"
           >
-            <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-            {scene.status === 'generating' ? 'Üretiliyor...' : 'Promptları Üret'}
+            {scene.status === 'generating' ? (
+              <div className="flex items-center">
+                 <Sparkles className="mr-1.5 h-3.5 w-3.5 animate-pulse" />
+                 <span className="animate-pulse">⚡ Yazılıyor...</span>
+                 <div className="absolute inset-0 bg-primary/10 animate-[shimmer_1.5s_infinite] -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+              </div>
+            ) : (
+              <>
+                 <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                 Promptları Üret
+              </>
+            )}
           </Button>
         </div>
       )}

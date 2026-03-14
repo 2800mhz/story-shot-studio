@@ -62,6 +62,17 @@ class AIProviderManager {
     return this._generateWithRetry(prompt, systemInstruction, 0, options?.operationType);
   }
 
+  async generateContentStream(
+    prompt: string,
+    systemInstruction?: string,
+    options?: {
+      operationType?: string;
+      onChunk?: (text: string) => void;
+    }
+  ): Promise<string> {
+    return this._generateWithRetryStream(prompt, systemInstruction, 0, options?.operationType, options?.onChunk);
+  }
+
   private async _generateWithRetry(prompt: string, systemInstruction: string | undefined, retryCount: number, operationType: string = 'api_request'): Promise<string> {
     const maxRetries = 25; // Increase max retries to accommodate 19+ keys
 
@@ -125,6 +136,141 @@ class AIProviderManager {
       const currentIndex = providers.indexOf(this.currentProvider);
       const nextIndex = (currentIndex + 1) % providers.length;
       this.currentProvider = providers[nextIndex];
+    }
+  }
+
+  private async _generateWithRetryStream(
+    prompt: string,
+    systemInstruction: string | undefined,
+    retryCount: number,
+    operationType: string = 'api_request',
+    onChunk?: (text: string) => void
+  ): Promise<string> {
+    const maxRetries = 25;
+
+    if (retryCount >= maxRetries) {
+      throw new Error('All AI providers exhausted. Please add more API keys in Settings.');
+    }
+
+    const key = this.getCurrentKey();
+    if (!key) {
+      throw new Error('No active API keys available. Please add keys in Settings.');
+    }
+
+    try {
+      console.log(`🤖 Trying ${key.provider} (key ${this.currentKeyIndex + 1}) [STREAMING]`);
+      const result = await this.callProviderStream(key, prompt, systemInstruction, onChunk);
+      await this.updateKeyUsage(key.id, result.promptTokens, result.completionTokens, operationType);
+      return result.text;
+    } catch (error: unknown) {
+      const err = error as { status?: number; message?: string };
+      console.error(`❌ Error with ${this.currentProvider} [STREAMING]:`, error);
+
+      if (err.status === 429 || err.message?.includes('429') || err.message?.includes('quota')) {
+        console.warn(`⚠️ Rate limit hit for ${this.currentProvider}, rotating...`);
+        await this.markRateLimited(key);
+      } else if (err.status === 503 || err.status === 500) {
+        console.warn(`⚠️ Server error ${err.status} for ${this.currentProvider}, rotating and waiting...`);
+      }
+
+      this.rotateKey();
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return this._generateWithRetryStream(prompt, systemInstruction, retryCount + 1, operationType, onChunk);
+    }
+  }
+
+  private async callProviderStream(
+    key: APIKey,
+    prompt: string,
+    systemInstruction?: string,
+    onChunk?: (text: string) => void
+  ): Promise<{ text: string; promptTokens: number; completionTokens: number }> {
+    const decryptedKey = decryptKey(key.api_key);
+
+    switch (key.provider) {
+      case 'gemini': {
+        const body: Record<string, unknown> = {
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 65536,
+          },
+        };
+        if (systemInstruction) {
+          body.system_instruction = { parts: [{ text: systemInstruction }] };
+        }
+        
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:streamGenerateContent?alt=sse&key=${decryptedKey}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        
+        if (!response.ok) {
+          const err = new Error(`Gemini API error: ${response.status}`) as Error & { status: number };
+          err.status = response.status;
+          throw err;
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error('Response body is not readable');
+        
+        const decoder = new TextDecoder();
+        let fullText = '';
+        let inputTokens = 0;
+        let outputTokens = 0;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\\n').filter(l => l.startsWith('data: '));
+
+          for (const line of lines) {
+            try {
+              const jsonStr = line.replace('data: ', '').trim();
+              if (!jsonStr) continue;
+              
+              const json = JSON.parse(jsonStr);
+              
+              const candidate = json.candidates?.[0];
+              if (candidate?.finishReason === 'SAFETY') {
+                console.warn('⚠️ Gemini blocked response due to safety filters.');
+                return { text: '[İçerik güvenlik filtresine takıldı. Lütfen sahne metnini gözden geçirin.]', promptTokens: 0, completionTokens: 0 };
+              }
+              
+              const textChunk = candidate?.content?.parts?.[0]?.text || '';
+              if (textChunk) {
+                fullText += textChunk;
+                onChunk?.(fullText);
+              }
+              
+              if (json.usageMetadata) {
+                inputTokens = json.usageMetadata.promptTokenCount || inputTokens;
+                outputTokens = json.usageMetadata.candidatesTokenCount || outputTokens;
+              }
+            } catch (e) {
+              console.warn('Failed to parse SSE line:', e);
+            }
+          }
+        }
+        
+        return { text: fullText, promptTokens: inputTokens, completionTokens: outputTokens };
+      }
+      
+      // For OpenAI and Anthropic, fallback to non-streaming for now but simulate onChunk 
+      // when it completes to maintain API compatibility
+      case 'openai':
+      case 'anthropic': {
+        const result = await this.callProvider(key, prompt, systemInstruction);
+        onChunk?.(result.text);
+        return result;
+      }
+
+      default:
+        throw new Error(`Unknown provider: ${key.provider}`);
     }
   }
 

@@ -197,7 +197,8 @@ export async function generatePromptsForScene(
   timeContexts?: TimeContext[],
   episodePrompt?: string,
   generationType: 'initial' | 'regenerate' = 'initial',
-  onRetry?: () => void
+  onRetry?: () => void,
+  onStreamChunk?: (partialPrompts: PromptCard[]) => void
 ): Promise<GenerationResult> {
   let userMessage = `SAHNE METNİ:\n${scene.text}\n\n`;
   userMessage += `TÜRKÇE GÖRSEL NOT: "${scene.visualNote}"\n\n`;
@@ -277,13 +278,73 @@ export async function generatePromptsForScene(
 
   userMessage += `3 farklı açıdan sinematik prompt üret. Her prompt'ta "${scene.visualNote}" notunun ruhunu koru. Her prompt sonuna "--ar ${aspectRatio} --v 6" ekle.`;
 
-  const content = await aiProvider.generateContent(userMessage, PROMPT_GENERATION_SYSTEM_PROMPT, { operationType: 'prompt_generation' });
-
   // Helper: try to parse the AI response as JSON, stripping any markdown fences first.
   function tryParseJSON(raw: string) {
     const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     return JSON.parse(cleaned);
   }
+
+  // Parse partial JSON for streaming updates
+  function parsePartialJSON(raw: string): PromptCard[] {
+    try {
+      const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      // Add missing bracket just in case it was cut off
+      let validJsonStr = cleaned;
+      if (!cleaned.endsWith('}')) {
+        const lastBrace = cleaned.lastIndexOf('}');
+        if (lastBrace !== -1) {
+             validJsonStr = cleaned.substring(0, lastBrace + 1);
+             // Ensure it has closing bracket for array if needed, though we just try to parse what we can
+             if (validJsonStr.includes('"prompts": [') && !validJsonStr.endsWith(']')) {
+                 validJsonStr += ']}';
+             }
+        }
+      }
+
+      // We will try a very forgiving parsing strategy or regex fallback if it fails
+      
+      const parsedMatch = validJsonStr.match(/"prompts"\s*:\s*\[([\s\S]*?)\]/);
+      if (!parsedMatch) return [];
+
+      const arrayString = '[' + parsedMatch[1].replace(/},\s*$/, '}') + ']';
+      const parsedPrompts = eval('(' + arrayString + ')') as any[];
+
+      const arSuffix = `--ar ${aspectRatio} --v 6`;
+      return parsedPrompts.filter(p => p && (p.prompt || p.summary || p.shotType)).map((p, idx) => {
+        const labels = ['Prompt A', 'Prompt B', 'Prompt C'];
+        const types: Array<'wide' | 'medium' | 'closeup'> = ['wide', 'medium', 'closeup'];
+        const rawPrompt = p.prompt || '';
+        const promptText = /--ar\s+[\d:]+/.test(rawPrompt) ? rawPrompt : (rawPrompt ? `${rawPrompt} ${arSuffix}`.trim() : '');
+        return {
+          id: crypto.randomUUID(),
+          type: types[idx] ?? 'wide',
+          label: labels[idx] ?? `Prompt ${idx + 1}`,
+          shotType: p.shotType || 'Generating...',
+          summary: p.summary || 'Yazılıyor...',
+          explanation: p.explanation || '',
+          promptText,
+          versions: promptText ? [promptText] : [],
+          aspectRatio,
+          generationType,
+        };
+      });
+
+    } catch (e) {
+      return [];
+    }
+  }
+
+  const content = await aiProvider.generateContentStream(userMessage, PROMPT_GENERATION_SYSTEM_PROMPT, { 
+    operationType: 'prompt_generation',
+    onChunk: (textChunk) => {
+      if (onStreamChunk) {
+        const partialPrompts = parsePartialJSON(textChunk);
+        if (partialPrompts && partialPrompts.length > 0) {
+          onStreamChunk(partialPrompts);
+        }
+      }
+    }
+  });
 
   let parsed: {
     prompts?: Array<{ shotType?: string; summary?: string; explanation?: string; prompt?: string }>;
