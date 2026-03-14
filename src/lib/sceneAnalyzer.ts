@@ -271,28 +271,34 @@ function fuzzyFindText(fullText: string, searchStr: string, startIndex: number):
   const cleanSearch = searchStr.trim();
   if (!cleanSearch) return null;
 
-  // 1. Exact match from the last known good position
+  // 1. Exact match
   let exact = fullText.indexOf(cleanSearch, startIndex);
   if (exact !== -1) return { start: exact, end: exact + cleanSearch.length };
 
-  // 2. Exact match from anywhere (lastIndex might have jumped too far)
+  // 2. Exact match from beginning
   exact = fullText.indexOf(cleanSearch, 0);
   if (exact !== -1) return { start: exact, end: exact + cleanSearch.length };
 
-  // 3. Fallback: Prefix/Suffix match. AI often changes middle spacing or punctuation.
-  if (cleanSearch.length > 20) {
-    const prefix = cleanSearch.substring(0, 15).trim();
-    let startMatch = fullText.indexOf(prefix, Math.max(0, startIndex - 200));
-    if (startMatch === -1) startMatch = fullText.indexOf(prefix, 0);
+  // 3. Case-insensitive match
+  const lowerFull = fullText.toLocaleLowerCase('tr-TR');
+  const lowerSearch = cleanSearch.toLocaleLowerCase('tr-TR');
+  let caseInsensitive = lowerFull.indexOf(lowerSearch, startIndex);
+  if (caseInsensitive === -1) caseInsensitive = lowerFull.indexOf(lowerSearch, 0);
+  if (caseInsensitive !== -1) return { start: caseInsensitive, end: caseInsensitive + cleanSearch.length };
 
-    if (startMatch !== -1) {
-      const suffix = cleanSearch.substring(cleanSearch.length - 15).trim();
-      let endMatch = fullText.indexOf(suffix, startMatch);
-      if (endMatch !== -1 && (endMatch - startMatch) < cleanSearch.length * 1.5) {
-        return { start: startMatch, end: endMatch + suffix.length };
-      }
-      // If end not found but start is found, just use the assumed length
-      return { start: startMatch, end: startMatch + cleanSearch.length };
+  // 4. Normalize whitespace then match
+  const normalizedFull = fullText.replace(/\s+/g, ' ');
+  const normalizedSearch = cleanSearch.replace(/\s+/g, ' ');
+  const normalizedIdx = normalizedFull.indexOf(normalizedSearch, startIndex);
+  if (normalizedIdx !== -1) return { start: normalizedIdx, end: normalizedIdx + normalizedSearch.length };
+
+  // 5. Prefix match (ilk 20 karakter)
+  if (cleanSearch.length > 15) {
+    const prefix = cleanSearch.substring(0, 20).trim();
+    let prefixMatch = fullText.indexOf(prefix, Math.max(0, startIndex - 100));
+    if (prefixMatch === -1) prefixMatch = fullText.indexOf(prefix, 0);
+    if (prefixMatch !== -1) {
+      return { start: prefixMatch, end: prefixMatch + cleanSearch.length };
     }
   }
 
