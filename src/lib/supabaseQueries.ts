@@ -536,7 +536,7 @@ export async function fetchReferences(episodeId: string) {
     .order('created_at', { ascending: true });
 
   if (error) throw error;
-  
+
   // Convert snake_case back to camelCase mapping for the UI
   return (data || []).map(row => ({
     id: row.id,
@@ -557,6 +557,7 @@ export async function saveReference(ref: any) {
     episode_id: ref.episodeId,
     // user_id is typically handled by RLS natively when authenticated via supabase client, or sent in payload.
     // Assuming episode scoping is enough given the current schema.
+    user_id: user?.id,  // BUNU EKLE
     file_path: ref.filePath,
     file_url: ref.fileUrl,
     description: ref.description,
