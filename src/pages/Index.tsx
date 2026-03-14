@@ -1515,7 +1515,6 @@ const Index = () => {
                     <ReferencePanel
                       episodeId={episodeId ?? null}
                       references={state.references}
-                      sceneCards={state.sceneCards}
                       dispatch={dispatch}
                     />
                   </div>

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { UploadCloud, Image as ImageIcon, Trash2, Tag, Loader2, Sparkles } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
@@ -6,9 +6,8 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
-import { analyzeReferenceImage } from '@/lib/referenceAnalyzer';
 import { saveReference, deleteReference } from '@/lib/supabaseQueries';
-import type { AppAction, SceneReference, SceneCard } from '@/types';
+import type { AppAction, SceneReference } from '@/types';
 
 interface UploadItem {
   id: string;
@@ -21,11 +20,10 @@ interface UploadItem {
 interface ReferencePanelProps {
   episodeId: string | null;
   references: SceneReference[];
-  sceneCards: SceneCard[];
-  dispatch: (action: AppAction) => void;
+  dispatch: React.Dispatch<AppAction>;
 }
 
-export function ReferencePanel({ episodeId, references, sceneCards, dispatch }: ReferencePanelProps) {
+export function ReferencePanel({ episodeId, references, dispatch }: ReferencePanelProps) {
   const { toast } = useToast();
 
   const [isUploading, setIsUploading] = useState(false);
@@ -93,7 +91,6 @@ export function ReferencePanel({ episodeId, references, sceneCards, dispatch }: 
 
     try {
       const results = [];
-      const hasSceneCards = sceneCards.length > 0;
 
       for (const item of uploadItems) {
         toast({ title: 'Yükleniyor...', description: item.file.name });
@@ -113,24 +110,8 @@ export function ReferencePanel({ episodeId, references, sceneCards, dispatch }: 
           .from('references')
           .getPublicUrl(filePath);
 
-        let aiAnalysis = '';
-        let assignedSceneIds: string[] = [];
-
-        // 2. Yalnızca sahne kartları mevcutsa anında AI analizi yap
-        if (hasSceneCards) {
-          toast({ title: 'AI Analizi Başladı', description: `${item.file.name} eşleştiriliyor...` });
-          
-          const base64 = await fileToBase64(item.file);
-          const aiResult = await analyzeReferenceImage(
-            base64,
-            item.file.type,
-            item.description,
-            item.referenceType,
-            sceneCards
-          );
-          aiAnalysis = aiResult.aiAnalysis;
-          assignedSceneIds = aiResult.assignedSceneIds;
-        }
+        const aiAnalysis = '';
+        const assignedSceneIds: string[] = [];
 
         // 3. Save to DB
         const refId = crypto.randomUUID();
@@ -155,7 +136,7 @@ export function ReferencePanel({ episodeId, references, sceneCards, dispatch }: 
 
       toast({ 
         title: 'Referanslar Eklendi ✨', 
-        description: `${results.length} fotoğraf yüklendi${hasSceneCards ? ' ve sahnelerle eşleştirildi.' : '. Sahne analizi sonrasında eşleştirilecekler.'}`
+        description: `${results.length} fotoğraf yüklendi. Sahne analizi sonrasında sahnelere atanacaklar.`
       });
 
       // Clear uploads
