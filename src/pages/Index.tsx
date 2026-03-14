@@ -1512,7 +1512,12 @@ const Index = () => {
                     <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={() => setShowReferencePanel(false)}>✕</Button>
                   </div>
                   <div className="flex-1 overflow-hidden min-h-0">
-                    <ReferencePanel episodeId={episodeId ?? null} />
+                    <ReferencePanel
+                      episodeId={episodeId ?? null}
+                      references={state.references}
+                      sceneCards={state.sceneCards}
+                      dispatch={dispatch}
+                    />
                   </div>
                 </div>
               </Panel>

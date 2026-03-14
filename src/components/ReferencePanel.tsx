@@ -1,34 +1,32 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { UploadCloud, Image as ImageIcon, Trash2, Tag, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { UploadCloud, Image as ImageIcon, Trash2, Tag, Loader2, Sparkles } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import { analyzeReferenceImage } from '@/lib/referenceAnalyzer';
 import { saveReference, deleteReference } from '@/lib/supabaseQueries';
-import { useAppState } from '@/hooks/useAppState';
+import type { AppAction, SceneReference, SceneCard } from '@/types';
+
+interface UploadItem {
+  id: string;
+  file: File;
+  previewUrl: string;
+  description: string;
+  referenceType: 'subject' | 'style' | 'scene';
+}
 
 interface ReferencePanelProps {
   episodeId: string | null;
+  references: SceneReference[];
+  sceneCards: SceneCard[];
+  dispatch: (action: AppAction) => void;
 }
 
-export function ReferencePanel({ episodeId }: ReferencePanelProps) {
-  const { state, dispatch } = useAppState();
+export function ReferencePanel({ episodeId, references, sceneCards, dispatch }: ReferencePanelProps) {
   const { toast } = useToast();
-  
-  console.log('🖼️ ReferencePanel state.references:', state.references?.length, state.references);
-  
-  interface UploadItem {
-    id: string;
-    file: File;
-    previewUrl: string;
-    description: string;
-    referenceType: 'subject' | 'style' | 'scene';
-  }
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadItems, setUploadItems] = useState<UploadItem[]>([]);
@@ -37,7 +35,6 @@ export function ReferencePanel({ episodeId }: ReferencePanelProps) {
     if (acceptedFiles.length === 0) return;
     
     const newItems = acceptedFiles.filter(f => f.type.startsWith('image/')).map(file => {
-      // Get filename without extension for default description
       const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
       return {
         id: crypto.randomUUID(),
@@ -72,14 +69,12 @@ export function ReferencePanel({ episodeId }: ReferencePanelProps) {
     setUploadItems(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
   };
 
-  // Read file as base64 for Gemini Vision
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = () => {
         const result = reader.result as string;
-        // Strip out the data:image/jpeg;base64, prefix
         const base64 = result.split(',')[1];
         resolve(base64);
       };
@@ -98,7 +93,7 @@ export function ReferencePanel({ episodeId }: ReferencePanelProps) {
 
     try {
       const results = [];
-      const hasSceneCards = state.sceneCards.length > 0;
+      const hasSceneCards = sceneCards.length > 0;
 
       for (const item of uploadItems) {
         toast({ title: 'Yükleniyor...', description: item.file.name });
@@ -131,7 +126,7 @@ export function ReferencePanel({ episodeId }: ReferencePanelProps) {
             item.file.type,
             item.description,
             item.referenceType,
-            state.sceneCards
+            sceneCards
           );
           aiAnalysis = aiResult.aiAnalysis;
           assignedSceneIds = aiResult.assignedSceneIds;
@@ -153,14 +148,14 @@ export function ReferencePanel({ episodeId }: ReferencePanelProps) {
 
         await saveReference(newRef);
 
-        // 4. Update Redux State
+        // 4. Update State
         dispatch({ type: 'ADD_REFERENCE', payload: newRef });
         results.push(newRef);
       }
 
       toast({ 
         title: 'Referanslar Eklendi ✨', 
-        description: `${results.length} fotoğraf yüklendi${hasSceneCards ? ' ve sahnelerle eşleştirildi.' : '. Sahne analizi sonrasında eşleştirilecekler.'}` 
+        description: `${results.length} fotoğraf yüklendi${hasSceneCards ? ' ve sahnelerle eşleştirildi.' : '. Sahne analizi sonrasında eşleştirilecekler.'}`
       });
 
       // Clear uploads
@@ -176,7 +171,6 @@ export function ReferencePanel({ episodeId }: ReferencePanelProps) {
 
   const handleDelete = async (id: string, filePath: string) => {
     try {
-      // Optimistic URL delete isn't strictly necessary but good practice
       await supabase.storage.from('references').remove([filePath]);
       await deleteReference(id);
       dispatch({ type: 'REMOVE_REFERENCE', payload: id });
@@ -199,7 +193,6 @@ export function ReferencePanel({ episodeId }: ReferencePanelProps) {
       </div>
 
       <div className="p-4 border-b border-zinc-800/50 flex flex-col gap-4">
-        {/* Uploader UI */}
         {uploadItems.length === 0 ? (
           <div 
             {...getRootProps()} 
@@ -289,13 +282,13 @@ export function ReferencePanel({ episodeId }: ReferencePanelProps) {
 
       <ScrollArea className="flex-1 p-4">
         <div className="flex flex-col gap-3">
-          {state.references.length === 0 ? (
+          {references.length === 0 ? (
             <div className="text-center py-8 text-zinc-600 flex flex-col items-center gap-2">
               <Tag className="w-6 h-6 opacity-30" />
               <p className="text-sm">Henüz referans eklenmedi.</p>
             </div>
           ) : (
-            state.references.map(ref => (
+            references.map(ref => (
               <div key={ref.id} className="group relative flex gap-3 p-3 rounded-lg border border-zinc-800/50 bg-zinc-900/30 hover:bg-zinc-900/80 hover:border-zinc-700/50 transition-colors">
                 
                 <div className="w-16 h-16 rounded-md overflow-hidden bg-zinc-950 flex-shrink-0 border border-zinc-800">
