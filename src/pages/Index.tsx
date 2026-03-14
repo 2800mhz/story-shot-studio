@@ -95,8 +95,10 @@ const Index = () => {
       setProject(projectData);
       setEpisode(episodeData);
 
+      console.log('📎 References from DB:', referencesData?.length, referencesData);
       // Add references to state
       dispatch({ type: 'SET_REFERENCES', payload: referencesData || [] });
+      console.log('📎 SET_REFERENCES dispatched');
 
       // Load master prompt from project
       if (projectData.master_prompt) {
