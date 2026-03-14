@@ -16,39 +16,58 @@ export function ReferencePanel() {
   const { state, dispatch } = useAppState();
   const { toast } = useToast();
   
+  interface UploadItem {
+    id: string;
+    file: File;
+    previewUrl: string;
+    description: string;
+    referenceType: 'subject' | 'style' | 'scene';
+  }
+
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  
-  const [refType, setRefType] = useState<'subject' | 'style' | 'scene'>('subject');
-  const [description, setDescription] = useState('');
+  const [uploadItems, setUploadItems] = useState<UploadItem[]>([]);
   
   const activeEpisode = state.episodes.find(e => e.id === state.episodes[0]?.id); // We'll just grab the first one if active isn't tracked globally for now, or you can add to AppState. Assuming single-episode view mostly.
   const episodeId = activeEpisode?.id;
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
-    const file = acceptedFiles[0];
-    if (!file.type.startsWith('image/')) {
-      toast({ title: 'Hatalı dosya', description: 'Sadece resim yükleyebilirsiniz.', variant: 'destructive' });
-      return;
+    
+    const newItems = acceptedFiles.filter(f => f.type.startsWith('image/')).map(file => {
+      // Get filename without extension for default description
+      const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+      return {
+        id: crypto.randomUUID(),
+        file,
+        previewUrl: URL.createObjectURL(file),
+        description: nameWithoutExt,
+        referenceType: 'subject' as const
+      };
+    });
+    
+    if (newItems.length !== acceptedFiles.length) {
+      toast({ title: 'Hatalı dosya formatı', description: 'Sadece resim dosyaları yüklenebilir.', variant: 'destructive' });
     }
-    setUploadFile(file);
-    setPreviewUrl(URL.createObjectURL(file));
+    
+    setUploadItems(prev => [...prev, ...newItems]);
   }, [toast]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'image/*': [] },
-    maxFiles: 1,
+    accept: { 'image/*': [] }
   });
 
-  const clearUpload = useCallback(() => {
-    setUploadFile(null);
-    setDescription('');
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(null);
-  }, [previewUrl]);
+  const handleRemoveItem = (id: string) => {
+    setUploadItems(prev => {
+      const item = prev.find(i => i.id === id);
+      if (item) URL.revokeObjectURL(item.previewUrl);
+      return prev.filter(i => i.id !== id);
+    });
+  };
+
+  const handleUpdateItem = (id: string, updates: Partial<UploadItem>) => {
+    setUploadItems(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+  };
 
   // Read file as base64 for Gemini Vision
   const fileToBase64 = (file: File): Promise<string> => {
@@ -65,8 +84,8 @@ export function ReferencePanel() {
     });
   };
 
-  const handleCreateReference = async () => {
-    if (!uploadFile) return;
+  const handleCreateReferences = async () => {
+    if (uploadItems.length === 0) return;
     if (!episodeId) {
       toast({ title: 'Bölüm Bulunamadı', description: 'Referans eklemek için bir bölüm açık olmalıdır.', variant: 'destructive' });
       return;
@@ -75,61 +94,78 @@ export function ReferencePanel() {
     setIsUploading(true);
 
     try {
-      // 1. Upload to Supabase Storage
-      const fileExt = uploadFile.name.split('.').pop();
-      const fileName = `${crypto.randomUUID()}.${fileExt}`;
-      const filePath = `${episodeId}/${fileName}`;
-      
-      const { data: storageData, error: storageError } = await supabase.storage
-        .from('references')
-        .upload(filePath, uploadFile);
+      const results = [];
+      const hasSceneCards = state.sceneCards.length > 0;
 
-      if (storageError) throw storageError;
+      for (const item of uploadItems) {
+        toast({ title: 'Yükleniyor...', description: item.file.name });
+        
+        // 1. Upload to Supabase Storage
+        const fileExt = item.file.name.split('.').pop();
+        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        const filePath = `${episodeId}/${fileName}`;
+        
+        const { error: storageError } = await supabase.storage
+          .from('references')
+          .upload(filePath, item.file);
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('references')
-        .getPublicUrl(filePath);
+        if (storageError) throw storageError;
 
-      // 2. Read as base64 and analyze with AI
-      toast({ title: 'AI Analizi Başladı', description: 'Fotoğraf sahnelerle eşleştiriliyor...' });
-      
-      const base64 = await fileToBase64(uploadFile);
-      const aiResult = await analyzeReferenceImage(
-        base64,
-        uploadFile.type,
-        description,
-        refType,
-        state.sceneCards
-      );
+        const { data: { publicUrl } } = supabase.storage
+          .from('references')
+          .getPublicUrl(filePath);
 
-      // 3. Save to DB
-      const refId = crypto.randomUUID();
-      const newRef = {
-        id: refId,
-        episodeId: episodeId,
-        filePath: filePath,
-        fileUrl: publicUrl,
-        description: description,
-        referenceType: refType,
-        aiAnalysis: aiResult.aiAnalysis,
-        assignedSceneIds: aiResult.assignedSceneIds,
-        createdAt: new Date().toISOString()
-      };
+        let aiAnalysis = '';
+        let assignedSceneIds: string[] = [];
 
-      await saveReference(newRef);
+        // 2. Yalnızca sahne kartları mevcutsa anında AI analizi yap
+        if (hasSceneCards) {
+          toast({ title: 'AI Analizi Başladı', description: `${item.file.name} eşleştiriliyor...` });
+          
+          const base64 = await fileToBase64(item.file);
+          const aiResult = await analyzeReferenceImage(
+            base64,
+            item.file.type,
+            item.description,
+            item.referenceType,
+            state.sceneCards
+          );
+          aiAnalysis = aiResult.aiAnalysis;
+          assignedSceneIds = aiResult.assignedSceneIds;
+        }
 
-      // 4. Update Redux State
-      dispatch({ type: 'ADD_REFERENCE', payload: newRef });
+        // 3. Save to DB
+        const refId = crypto.randomUUID();
+        const newRef = {
+          id: refId,
+          episodeId: episodeId,
+          filePath: filePath,
+          fileUrl: publicUrl,
+          description: item.description,
+          referenceType: item.referenceType,
+          aiAnalysis: aiAnalysis,
+          assignedSceneIds: assignedSceneIds,
+          createdAt: new Date().toISOString()
+        };
+
+        await saveReference(newRef);
+
+        // 4. Update Redux State
+        dispatch({ type: 'ADD_REFERENCE', payload: newRef });
+        results.push(newRef);
+      }
 
       toast({ 
-        title: 'Referans Eklendi ✨', 
-        description: `Yapay zeka bu referansı ${aiResult.assignedSceneIds.length} sahneyle eşleştirdi.` 
+        title: 'Referanslar Eklendi ✨', 
+        description: `${results.length} fotoğraf yüklendi${hasSceneCards ? ' ve sahnelerle eşleştirildi.' : '. Sahne analizi sonrasında eşleştirilecekler.'}` 
       });
 
-      clearUpload();
+      // Clear uploads
+      uploadItems.forEach(i => URL.revokeObjectURL(i.previewUrl));
+      setUploadItems([]);
     } catch (error) {
       console.error('Upload error:', error);
-      toast({ title: 'Yükleme Hatası', description: 'Referans yüklenirken bir sorun oluştu.', variant: 'destructive' });
+      toast({ title: 'Yükleme Hatası', description: 'Referanslar yüklenirken bir sorun oluştu.', variant: 'destructive' });
     } finally {
       setIsUploading(false);
     }
@@ -161,7 +197,7 @@ export function ReferencePanel() {
 
       <div className="p-4 border-b border-zinc-800/50 flex flex-col gap-4">
         {/* Uploader UI */}
-        {!uploadFile ? (
+        {uploadItems.length === 0 ? (
           <div 
             {...getRootProps()} 
             className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors ${isDragActive ? 'border-indigo-500 bg-indigo-500/10' : 'border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50'}`}
@@ -169,67 +205,78 @@ export function ReferencePanel() {
             <input {...getInputProps()} />
             <UploadCloud className="w-8 h-8 text-zinc-500" />
             <span className="text-sm text-zinc-400 text-center">
-              Resim sürükle veya <span className="text-indigo-400">seç</span>
+              Resim sürükle veya <span className="text-indigo-400">seç</span><br/>
+              <span className="text-[10px] text-zinc-500">(Çoklu dosya seçebilirsiniz)</span>
             </span>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            <div className="relative aspect-video rounded-lg overflow-hidden bg-zinc-900 border border-zinc-800">
-              <img src={previewUrl!} alt="Preview" className="w-full h-full object-cover" />
-              <button 
-                onClick={clearUpload}
-                disabled={isUploading}
-                className="absolute top-2 right-2 p-1.5 bg-black/60 rounded-full hover:bg-black/80 transition text-zinc-300"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+            <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-700">
+              {uploadItems.map(item => (
+                <div key={item.id} className="flex flex-col gap-2 p-2.5 rounded-lg border border-zinc-800 bg-zinc-900/50 relative">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded overflow-hidden bg-zinc-950 flex-shrink-0 border border-zinc-800">
+                      <img src={item.previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0 font-medium text-xs text-zinc-300 truncate" title={item.file.name}>
+                      {item.file.name}
+                    </div>
+                    <button 
+                      onClick={() => handleRemoveItem(item.id)}
+                      disabled={isUploading}
+                      className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                      title="Listeden Çıkar"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Input 
+                      value={item.description}
+                      onChange={e => handleUpdateItem(item.id, { description: e.target.value })}
+                      placeholder="Kısa açıklama (hedef)"
+                      className="h-8 flex-1 bg-zinc-950 border-zinc-800 text-xs"
+                      disabled={isUploading}
+                    />
+                    <select 
+                      value={item.referenceType}
+                      onChange={e => handleUpdateItem(item.id, { referenceType: e.target.value as 'subject' | 'style' | 'scene' })}
+                      className="h-8 rounded-md border border-zinc-800 bg-zinc-950 px-2 text-xs text-zinc-300 w-full sm:w-24 flex-shrink-0 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      disabled={isUploading}
+                    >
+                      <option value="subject">Subject</option>
+                      <option value="style">Style</option>
+                      <option value="scene">Scene</option>
+                    </select>
+                  </div>
+                </div>
+              ))}
             </div>
-            
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <Label className="text-xs text-zinc-500">Tür</Label>
-                <RadioGroup 
-                  value={refType} 
-                  onValueChange={(v: any) => setRefType(v)}
-                  className="flex gap-4"
-                  disabled={isUploading}
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="subject" id="r-sub" />
-                    <Label htmlFor="r-sub" className="text-sm font-normal cursor-pointer text-zinc-300">Subject</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="style" id="r-sty" />
-                    <Label htmlFor="r-sty" className="text-sm font-normal cursor-pointer text-zinc-300">Style</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="scene" id="r-sce" />
-                    <Label htmlFor="r-sce" className="text-sm font-normal cursor-pointer text-zinc-300">Scene</Label>
-                  </div>
-                </RadioGroup>
-              </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs text-zinc-500">Açıklama / Hedef</Label>
-                <Input 
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                  placeholder="örn. Yaşlı derviş karakteri..."
-                  className="bg-zinc-900/50 border-zinc-800 h-8"
-                  disabled={isUploading}
-                />
-              </div>
-
+            <div className="flex gap-2 pt-1 border-t border-zinc-800/50">
               <Button 
-                onClick={handleCreateReference}
+                onClick={() => {
+                  uploadItems.forEach(i => URL.revokeObjectURL(i.previewUrl));
+                  setUploadItems([]);
+                }}
                 disabled={isUploading}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white"
+                variant="outline"
+                className="w-1/3 border-zinc-800 text-zinc-400 hover:bg-zinc-800"
+                size="sm"
+              >
+                İptal Et
+              </Button>
+              <Button 
+                onClick={handleCreateReferences}
+                disabled={isUploading}
+                className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white"
                 size="sm"
               >
                 {isUploading ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analiz Ediliyor...</>
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Yükleniyor...</>
                 ) : (
-                  <><Sparkles className="w-4 h-4 mr-2" /> Kaydet & Eşleştir</>
+                  <><Sparkles className="w-4 h-4 mr-2" /> Tümünü Yükle ({uploadItems.length})</>
                 )}
               </Button>
             </div>
