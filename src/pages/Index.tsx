@@ -910,38 +910,6 @@ const Index = () => {
           variant: 'destructive'
         });
       }
-
-      // Mevcut referansları sahnelere ata
-      if (state.references.length > 0) {
-        setAnalysisLog(prev => [...prev, '🖼️ Referans görseller okunuyor ve sahnelere atanıyor...']);
-        for (const ref of state.references) {
-          try {
-            const resp = await fetch(ref.fileUrl);
-            const blob = await resp.blob();
-            const mimeType = blob.type;
-            const base64 = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.readAsDataURL(blob);
-              reader.onloadend = () => {
-                const res = reader.result as string;
-                resolve(res.split(',')[1]);
-              };
-              reader.onerror = reject;
-            });
-            
-            const { assignedSceneIds, aiAnalysis } = await analyzeReferenceImage(
-              base64, mimeType, ref.description || '', ref.referenceType as 'subject' | 'style' | 'scene', result.sceneCards
-            );
-            
-            dispatch({ type: 'UPDATE_REFERENCE', payload: { ...ref, assignedSceneIds, aiAnalysis }});
-            await updateReferenceAssignments(ref.id, assignedSceneIds);
-          } catch (e) {
-             console.error('Reference assignment error:', e);
-          }
-        }
-        setAnalysisLog(prev => [...prev, '✅ Referans atamaları tamamlandı.']);
-      }
-
     } catch (error) {
       console.error('Scene analysis error:', error);
       toast({

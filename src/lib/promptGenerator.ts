@@ -248,17 +248,15 @@ export async function generatePromptsForScene(
     userMessage += entityContext;
   }
 
-  // Inject References if available
-  const sceneRefs = references?.filter(r => r.assignedSceneIds.includes(scene.id)) || [];
-  if (sceneRefs.length > 0) {
-    userMessage += 'REFERENCE IMAGES FOR THIS SCENE:\n';
-    sceneRefs.forEach(ref => {
-      userMessage += `- [${ref.referenceType.toUpperCase()}] ${ref.description || 'No description provided'}\n`;
-      if (ref.aiAnalysis) {
-        userMessage += `  (AI Note: ${ref.aiAnalysis})\n`;
-      }
-    });
-    userMessage += '\n';
+  // Inject References
+  const subjectRefs = references?.filter(r => r.referenceType === 'subject') || [];
+  const styleRefs = references?.filter(r => r.referenceType === 'style') || [];
+
+  if (subjectRefs.length > 0) {
+    userMessage += `\nSUBJECT REFERENCES:\n${subjectRefs.map(r => `- ${r.description || r.filePath}`).join('\n')}\n`;
+  }
+  if (styleRefs.length > 0) {
+    userMessage += `\nSTYLE REFERENCES:\n${styleRefs.map(r => `- ${r.description || r.filePath}`).join('\n')}\n`;
   }
 
   // Episode prompt overrides/extends master prompt when present.
@@ -347,7 +345,7 @@ export async function generatePromptsForScene(
       versions: [promptText],
       aspectRatio,
       generationType,
-      hasSubjectReference: sceneRefs.some(r => r.referenceType === 'subject'),
+      hasSubjectReference: subjectRefs.length > 0,
     };
   });
 
