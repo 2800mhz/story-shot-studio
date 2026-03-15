@@ -69,7 +69,7 @@ export function ScriptUploader({ onComplete, onProgress, onClose }: ScriptUpload
       addLog('🔍 Senaryo ayrıştırılıyor...');
       const rawText = await parseDocxFile(file);
       const scenes = parseScriptText(rawText);
-      const chunks = chunkScriptScenes(scenes, 4);
+      const chunks = chunkScriptScenes(scenes, 6);
       addLog(`📦 ${chunks.length} parçaya bölündü, analiz başlıyor...`);
 
       const result = await analyzeFullScript(chunks, addLog);

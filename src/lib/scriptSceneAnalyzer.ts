@@ -25,8 +25,9 @@ BİRLEŞTİR (sadece bu durumlarda):
 - Tek kelimelik bağlaçlar ("Ve", "Ama")
 - Aynı nesnenin 2 kelimelik devamı
 
-HEDEF: Her GÖRÜNTÜ bloğundan ortalama 4-5 sahne kartı çıkar.
-Bir bloktan 1-2 sahne çıkıyorsa az bölüyorsun demektir.
+HEDEF: Her GÖRÜNTÜ bloğundan ortalama 2-3 sahne kartı çıkar.
+Bir bloktan 1 sahne çıkıyorsa az bölüyorsun.
+5+ sahne çıkıyorsa fazla bölüyorsun, birleştir.
 
 HER SAHNE İÇİN:
 - text: O sahnenin Türkçe kısa özeti (5-10 kelime)
