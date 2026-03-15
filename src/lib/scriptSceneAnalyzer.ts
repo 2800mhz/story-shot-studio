@@ -149,7 +149,7 @@ export async function analyzeScriptChunk(
 
   const sceneCards: SceneCard[] = (parsed.scenes || []).map((s, idx) => ({
     id: crypto.randomUUID(),
-    sceneNumber: (chunk.chunkIndex * 100) + idx + 1,
+    sceneNumber: idx + 1, // Placeholder, will be reassigned in analyzeFullScript
     text: s.text || '',
     visualNote: s.visualNote || '',
     characterIds: (s.characterNames || []).map((n) =>
@@ -188,6 +188,7 @@ export async function analyzeFullScript(
 
   const WORKER_COUNT = 2;
   const queue = [...chunks];
+  let globalSceneNumber = 0;
 
   const worker = async () => {
     while (queue.length > 0) {
@@ -197,7 +198,8 @@ export async function analyzeFullScript(
       const result = await analyzeScriptChunk(chunk, onProgress);
 
       result.sceneCards.forEach(sc => {
-        sc.sceneNumber = allSceneCards.length + sc.sceneNumber;
+        globalSceneNumber++;
+        sc.sceneNumber = globalSceneNumber;
         allSceneCards.push(sc);
       });
 
