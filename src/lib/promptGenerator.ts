@@ -35,6 +35,21 @@ HISTORICAL ACCURACY:
 - Reference architectural style specific to time period (Ottoman, Byzantine, Seljuk, etc.)
 - Use period-accurate costume and material descriptions
 
+ANTHROPOLOGICAL & HISTORICAL ACCURACY (CRITICAL):
+All prompts must reflect strict anthropological and historical authenticity:
+- NEVER base any historical figure on film, TV, or cinematic adaptations
+- ALWAYS derive appearance from: period paintings, manuscripts, miniatures, coins, archaeological evidence, academic historical reconstructions
+- Ethnic and physical features must match the actual historical population:
+  * Central Asian Turkic: specific facial features, skin tone, bone structure
+  * Ottoman: period-accurate ethnic diversity, not modern Turkish TV aesthetics
+  * Arab/Persian: region and era-specific anthropological features
+  * Byzantine/Roman: Mediterranean features per archaeological evidence
+- Clothing must reflect actual archaeological and iconographic evidence:
+  * Fabric types, dyeing techniques, and patterns period-accurate
+  * No anachronistic elements under any circumstances
+- Architecture and objects: based on surviving examples and excavations
+- Every historical figure description must end with: "anthropologically accurate, based on period manuscripts and historical paintings, not film or television adaptations, documentary realism"
+
 TIMELAPSE / TEMPORAL SEQUENCES:
 - If hasTransformation=true in scene analysis: show clear visual progression between the 3 prompts
   * Prompt 1 (Wide Shot): Beginning state — establish the scene before transformation
@@ -43,36 +58,36 @@ TIMELAPSE / TEMPORAL SEQUENCES:
 - Each prompt must be visually distinct but narratively connected
 - Do NOT use motion verbs like "transforming", "changing", "morphing" — describe static moments
 
-📊 ÖNCE ANALİZ YAP:
+ÖNCE ANALİZ YAP:
 1. Sahne karmaşıklığı (minimal/low/medium/high/extreme)
 2. Kalabalık var mı? (5+ kişi)
 3. Transformasyon/time-lapse var mı?
 4. Mimari detay var mı?
 5. Tarihsel figür var mı?
 
-⚡ OPTİMİZASYON KURALLARI:
+ OPTİMİZASYON KURALLARI:
 
-🚫 KALABALIK SAHNELER (5+ kişi):
+ KALABALIK SAHNELER (5+ kişi):
 → Wide/extreme wide shot kullan
 → "Silhouetted figures" veya "backlit crowd"
 → "Atmospheric haze" ekle
 → Örnek: "Wide shot of silhouetted crowd in courtyard, backlit by warm ambient glow"
 
-🏛️ MİMARİ DETAY:
+ MİMARİ DETAY:
 → Mimari stil belirt (Ottoman, Byzantine, Modern)
 → "Atmospheric perspective" kullan
 → Örnek: "Ottoman mosque in atmospheric evening light"
 
-🔄 TRANSFORMASYON/MORPH:
+ TRANSFORMASYON/MORPH:
 → SPLIT into multiple static scenes
 → VEYA illustrated/schematic style kullan
 → AVOID: "transforming", "changing", "morphing"
 
-👑 TARİHSEL FİGÜR:
+ TARİHSEL FİGÜR:
 → "Illustrated style" veya "Ottoman miniature painting"
 → AVOID: photorealistic close-ups
 
-📝 RESPONSE FORMAT (JSON):
+ RESPONSE FORMAT (JSON):
 {
   "analysis": {
     "complexity": "low|medium|high|extreme",

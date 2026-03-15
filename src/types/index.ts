@@ -102,12 +102,20 @@ export interface Character {
   role?: string;
   isCrowd?: boolean;
   visualDescription?: string; // 80-100 word anthropological visual reference (English)
+  age?: string;
+  ethnicity?: string;
+  clothing?: string;
+  physicalFeatures?: string;
 }
 
 export interface Location {
   id: string;
   name: string;
   visualDescription?: string; // 80-100 word photographic visual reference (English)
+  period?: string;
+  geography?: string;
+  architecture?: string;
+  atmosphere?: string;
 }
 
 export interface TimeContext {

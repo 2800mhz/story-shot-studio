@@ -93,6 +93,44 @@ function CharacterEditor({ initial, onSave, onCancel }: CharacterEditorProps) {
           />
         </div>
       </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label className="text-xs text-amber-300">Yaş / Dönem</Label>
+          <Input
+            className="h-7 text-xs bg-background border-amber-800/50"
+            value={form.age ?? ''}
+            onChange={e => set('age', e.target.value)}
+            placeholder="Örn: 40'lı yaşlar, Genç"
+          />
+        </div>
+        <div>
+          <Label className="text-xs text-amber-300">Etnisite / Fenotip</Label>
+          <Input
+            className="h-7 text-xs bg-background border-amber-800/50"
+            value={form.ethnicity ?? ''}
+            onChange={e => set('ethnicity', e.target.value)}
+            placeholder="Örn: Orta Asya Türk"
+          />
+        </div>
+        <div>
+          <Label className="text-xs text-amber-300">Giyim / Kostüm</Label>
+          <Input
+            className="h-7 text-xs bg-background border-amber-800/50"
+            value={form.clothing ?? ''}
+            onChange={e => set('clothing', e.target.value)}
+            placeholder="Örn: Kaftan, Börk"
+          />
+        </div>
+        <div>
+          <Label className="text-xs text-amber-300">Fiziksel Özellikler</Label>
+          <Input
+            className="h-7 text-xs bg-background border-amber-800/50"
+            value={form.physicalFeatures ?? ''}
+            onChange={e => set('physicalFeatures', e.target.value)}
+            placeholder="Örn: Elmacık kemikleri belirgin"
+          />
+        </div>
+      </div>
       <div>
         <Label className="text-xs text-amber-300">Görsel Betimleme (AI tarafından otomatik doldurulur)</Label>
         <Textarea
@@ -132,6 +170,44 @@ function LocationEditor({ initial, onSave, onCancel }: LocationEditorProps) {
           onChange={e => set('name', e.target.value)}
           placeholder="Topkapı Sarayı"
         />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label className="text-xs text-blue-300">Dönem</Label>
+          <Input
+            className="h-7 text-xs bg-background border-blue-800/50"
+            value={form.period ?? ''}
+            onChange={e => set('period', e.target.value)}
+            placeholder="Örn: 13. Yüzyıl"
+          />
+        </div>
+        <div>
+          <Label className="text-xs text-blue-300">Coğrafya</Label>
+          <Input
+            className="h-7 text-xs bg-background border-blue-800/50"
+            value={form.geography ?? ''}
+            onChange={e => set('geography', e.target.value)}
+            placeholder="Örn: İç Anadolu Stepleri"
+          />
+        </div>
+        <div>
+          <Label className="text-xs text-blue-300">Mimari Stil</Label>
+          <Input
+            className="h-7 text-xs bg-background border-blue-800/50"
+            value={form.architecture ?? ''}
+            onChange={e => set('architecture', e.target.value)}
+            placeholder="Örn: Selçuklu Mimarisi"
+          />
+        </div>
+        <div>
+          <Label className="text-xs text-blue-300">Atmosfer</Label>
+          <Input
+            className="h-7 text-xs bg-background border-blue-800/50"
+            value={form.atmosphere ?? ''}
+            onChange={e => set('atmosphere', e.target.value)}
+            placeholder="Örn: Tozlu ve Sıcak"
+          />
+        </div>
       </div>
       <div>
         <Label className="text-xs text-blue-300">Görsel Betimleme (AI tarafından otomatik doldurulur)</Label>
