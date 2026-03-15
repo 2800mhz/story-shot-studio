@@ -37,6 +37,10 @@ export function parseScriptText(rawText: string): ScriptScene[] {
   let inVisual = false;
   let inVO = false;
 
+  let perdeCount = 0;
+  let pushCount = 0;
+  let goruntuCount = 0;
+
   const SKIP_PATTERNS = [
     /^SES:/i, /SESİ \(V\.O\.\)/i, /^FADE TO/i, /^CUT TO/i,
     /^\(/, /^MÜZİK/i, /^SESİN /i
@@ -46,6 +50,9 @@ export function parseScriptText(rawText: string): ScriptScene[] {
 
   for (const line of lines) {
     if (/^PERDE \d+/.test(line)) {
+      perdeCount++;
+      console.log(`PERDE bulundu #${perdeCount}: "${line}" — mevcut visual: "${currentVisual.substring(0, 50)}"`);
+      
       if (currentPerde) {
         if (currentVisual.trim()) {
           scenes.push({
@@ -54,6 +61,8 @@ export function parseScriptText(rawText: string): ScriptScene[] {
             visualBlock: currentVisual.trim(),
             voContext: currentVO.trim()
           });
+          pushCount++;
+          console.log(`Push #${pushCount} (PERDE değişiminde): ${currentPerde}, visual uzunluk: ${currentVisual.length}`);
         }
       }
       currentPerde = line;
@@ -66,6 +75,9 @@ export function parseScriptText(rawText: string): ScriptScene[] {
     }
 
     if (line === 'GÖRÜNTÜ:' || line === 'SON GÖRÜNTÜ:') {
+      goruntuCount++;
+      console.log(`GÖRÜNTÜ bloğu #${goruntuCount}: ${currentPerde}`);
+      
       if (currentVisual.trim()) {
         scenes.push({
           perdeNo: currentPerde,
@@ -73,6 +85,8 @@ export function parseScriptText(rawText: string): ScriptScene[] {
           visualBlock: currentVisual.trim(),
           voContext: currentVO.trim()
         });
+        pushCount++;
+        console.log(`Push #${pushCount} (GÖRÜNTÜ bloğunda): ${currentPerde}, visual uzunluk: ${currentVisual.length}`);
         currentVisual = '';
         currentVO = '';
       }
@@ -111,6 +125,8 @@ export function parseScriptText(rawText: string): ScriptScene[] {
       visualBlock: currentVisual.trim(),
       voContext: currentVO.trim()
     });
+    pushCount++;
+    console.log(`Push #${pushCount} (Dosya sonunda): ${currentPerde}, visual uzunluk: ${currentVisual.length}`);
   }
 
   return scenes;
