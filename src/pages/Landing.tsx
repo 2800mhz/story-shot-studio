@@ -23,7 +23,7 @@ export default function Landing() {
           <div className="flex items-center justify-center gap-3">
             <Film className="h-16 w-16 text-primary" />
             <h1 className="font-serif text-6xl font-bold text-white tracking-wide">
-              Prompt Forge
+              Story Shot Studio
             </h1>
           </div>
 
