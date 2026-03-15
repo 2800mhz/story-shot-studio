@@ -74,7 +74,7 @@ export function parseScriptText(rawText: string): ScriptScene[] {
       continue;
     }
 
-    if (line === 'GÖRÜNTÜ:' || line === 'SON GÖRÜNTÜ:') {
+    if (/^(GÖRÜNTÜ|SON GÖRÜNTÜ)/.test(line) && line.includes(':')) {
       goruntuCount++;
       console.log(`GÖRÜNTÜ bloğu #${goruntuCount}: ${currentPerde}`);
       
