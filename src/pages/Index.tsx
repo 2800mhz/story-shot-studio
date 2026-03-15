@@ -299,6 +299,13 @@ const Index = () => {
       // Save scenes - using native UUIDs from React state directly
       const savedScenes = await saveScenes(episodeId, state.sceneCards);
 
+      // Save time contexts and episode prompts
+      await updateEpisode(episodeId, {
+        time_contexts: state.timeContexts,
+        episode_prompt: state.episodePrompt,
+        episode_prompt_tr: state.episodePromptTr
+      });
+
       // Save prompts in parallel batches (5 at a time) with error isolation
       const PROMPT_BATCH = 5;
       const scenesWithPrompts = state.sceneCards.filter(scene => scene.prompts.length > 0);
@@ -349,14 +356,14 @@ const Index = () => {
         doSave();
       }
     }
-  }, [episodeId, state.sceneCards, toast]);
+  }, [episodeId, state.sceneCards, state.timeContexts, state.episodePrompt, state.episodePromptTr, toast]);
 
   useEffect(() => {
     if (!loadingData && state.sceneCards.length > 0 && episodeId) {
       const timeoutId = setTimeout(doSave, AUTO_SAVE_DEBOUNCE_MS);
       return () => clearTimeout(timeoutId);
     }
-  }, [state.sceneCards, episodeId, loadingData, doSave]);
+  }, [state.sceneCards, state.timeContexts, state.episodePrompt, state.episodePromptTr, episodeId, loadingData, doSave]);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [infoOpen, setInfoOpen] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
