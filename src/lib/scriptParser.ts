@@ -116,6 +116,12 @@ export function parseScriptText(rawText: string): ScriptScene[] {
 
     if (inVisual) currentVisual += line + '\n';
     else if (inVO) currentVO += line + '\n';
+    else if (currentPerde && currentTitle) {
+      // GÖRÜNTÜ: başlığı olmayan perde — içerik implicit olarak visual sayılır
+      console.log(`📌 Implicit visual: ${currentPerde} — "${line.substring(0, 60)}"`);
+      inVisual = true;
+      currentVisual += line + '\n';
+    }
   }
 
   if (currentPerde && currentVisual.trim()) {
