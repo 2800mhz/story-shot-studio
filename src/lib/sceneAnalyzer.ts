@@ -7,7 +7,7 @@ Elindeki metin bir BELGESEL SESLENDIRME METNİDİR (documentary voice-over/narra
 TEMEL CERCEVE
 
 Bu metin ekranda kısa görüntü kesimleriyle desteklenecek.
-Her sahne kartı = ekranda 2.5-4.5 saniyelik TEK BİR GÖRÜNTÜ KESİMİDİR.
+Her sahne kartı = ekranda 3-5 saniyelik TEK BİR GÖRÜNTÜ KESİMİDİR.
 Bu görüntüler text2img ile üretilecek, sonra hareketlendirme uygulanacaktır.
 
 SAHNE SAYISI HESABI (KRİTİK)
