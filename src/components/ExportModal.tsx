@@ -5,67 +5,122 @@ import {
 import { Button } from '@/components/ui/button';
 import { FileSpreadsheet, FileText, FileJson } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import type { SceneCard } from '@/types';
+import type { SceneCard, Character, Location, TimeContext } from '@/types';
 
 interface ExportModalProps {
   open: boolean;
   onClose: () => void;
   sceneCards: SceneCard[];
+  characters: Character[];
+  locations: Location[];
+  timeContexts: TimeContext[];
   episodeTitle: string;
   episodeId: string;
+  episodePrompt?: string;
+  episodePromptTr?: string;
 }
 
-export function ExportModal({ open, onClose, sceneCards, episodeTitle, episodeId }: ExportModalProps) {
+export function ExportModal({ 
+  open, 
+  onClose, 
+  sceneCards, 
+  characters, 
+  locations, 
+  timeContexts, 
+  episodeTitle, 
+  episodeId,
+  episodePrompt,
+  episodePromptTr
+}: ExportModalProps) {
   const filename = `${episodeTitle.replace(/\s+/g, '_')}_promptforge_${episodeId.substring(0, 8)}`;
 
   const getExportData = () => {
-    return sceneCards
-      .filter(sc => sc.prompts.length > 0)
-      .map(sc => {
-        const pinnedPrompt = sc.prompts.find(p => p.isPinned) || sc.prompts[0];
-        return {
-          sceneNumber: sc.sceneNumber,
-          text: sc.text,
-          visualNote: sc.visualNote,
-          shotType: pinnedPrompt?.shotType || '',
-          prompt: pinnedPrompt?.promptText || '',
-          summary: pinnedPrompt?.summary || '',
-          isPinned: !!sc.prompts.find(p => p.isPinned),
-          allPrompts: sc.prompts.map(p => ({
-            shotType: p.shotType,
-            prompt: p.promptText,
-            isPinned: p.isPinned
-          }))
-        };
-      });
+    return sceneCards.map(sc => {
+      const pinnedPrompt = sc.prompts.find(p => p.isPinned) || sc.prompts[0];
+      return {
+        sceneNumber: sc.sceneNumber,
+        text: sc.text,
+        visualNote: sc.visualNote,
+        visualStyle: sc.visualStyle || 'realistic',
+        characterIds: sc.characterIds,
+        locationIds: sc.locationIds,
+        timeContextIds: sc.timeContextIds,
+        activePrompt: pinnedPrompt ? {
+          shotType: pinnedPrompt.shotType,
+          promptText: pinnedPrompt.promptText,
+          summary: pinnedPrompt.summary,
+          isPinned: pinnedPrompt.isPinned
+        } : null,
+        allPrompts: sc.prompts.map(p => ({
+          shotType: p.shotType,
+          prompt: p.promptText,
+          isPinned: p.isPinned
+        }))
+      };
+    });
   };
 
   const exportExcel = () => {
-    const data = getExportData();
-    const rows = data.map(d => ({
-      'Sahne #': d.sceneNumber,
-      'Görsel Not': d.visualNote,
-      'Shot Type': d.shotType,
-      'Prompt': d.prompt,
-      'Pinli mi': d.isPinned ? 'Evet' : 'Hayır'
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Prompts');
+
+    // 1. Scenes Sheet
+    const data = getExportData();
+    const sceneRows = data.map(d => ({
+      'Sahne #': d.sceneNumber,
+      'Stil': d.visualStyle,
+      'Görsel Not': d.visualNote,
+      'Orijinal Metin': d.text,
+      'Aktif Shot Type': d.activePrompt?.shotType || '-',
+      'Aktif Prompt': d.activePrompt?.promptText || '-'
+    }));
+    const wsScenes = XLSX.utils.json_to_sheet(sceneRows);
+    XLSX.utils.book_append_sheet(wb, wsScenes, 'Sahneler');
+
+    // 2. Entities Sheet
+    const entityRows: any[] = [];
+    characters.forEach(c => entityRows.push({ Tür: 'Karakter', İsim: c.name, Detay: c.visualDescription || c.role || '' }));
+    locations.forEach(l => entityRows.push({ Tür: 'Mekan', İsim: l.name, Detay: l.visualDescription || '' }));
+    timeContexts.forEach(t => entityRows.push({ Tür: 'Zaman', İsim: t.label, Detay: `${t.era || ''} ${t.timeOfDay || ''} ${t.lighting || ''}`.trim() }));
+    const wsEntities = XLSX.utils.json_to_sheet(entityRows);
+    XLSX.utils.book_append_sheet(wb, wsEntities, 'Varlıklar');
+
+    // 3. Episode Style Sheet
+    const styleRows = [
+      { Alan: 'Bölüm Başlığı', İçerik: episodeTitle },
+      { Alan: 'Bölüm Stili (EN)', İçerik: episodePrompt || '' },
+      { Alan: 'Bölüm Stili (TR)', İçerik: episodePromptTr || '' }
+    ];
+    const wsStyle = XLSX.utils.json_to_sheet(styleRows);
+    XLSX.utils.book_append_sheet(wb, wsStyle, 'Bölüm Stili');
+
     XLSX.writeFile(wb, `${filename}.xlsx`);
     onClose();
   };
 
   const exportTxt = () => {
     const data = getExportData();
-    let content = `EXPORTS FOR: ${episodeTitle}\nID: ${episodeId}\n-----------------------------------\n\n`;
+    let content = `EPISODE EXPORT: ${episodeTitle}\nID: ${episodeId}\n`;
+    content += `====================================================\n\n`;
+
+    content += `[BÖLÜM STİLİ]\n${episodePrompt || 'Tanımlanmadı'}\n\n`;
+    if (episodePromptTr) content += `[BÖLÜM STİLİ - TR]\n${episodePromptTr}\n\n`;
+
+    content += `[VARLIKLAR]\n`;
+    characters.forEach(c => content += `- KARAKTER: ${c.name} (${c.visualDescription || 'No desc'})\n`);
+    locations.forEach(l => content += `- MEKAN: ${l.name} (${l.visualDescription || 'No desc'})\n`);
+    timeContexts.forEach(t => content += `- ZAMAN: ${t.label}\n`);
+    content += `\n-----------------------------------\n\n`;
     
     data.forEach(d => {
-      content += `=== SAHNE ${d.sceneNumber} ===\n`;
+      content += `=== SAHNE ${d.sceneNumber} [${d.visualStyle.toUpperCase()}] ===\n`;
       content += `GÖRSEL NOT: ${d.visualNote}\n`;
       content += `METİN ÖZETİ: ${d.text}\n`;
-      content += `AKTİF PROMPT [${d.shotType}]:\n${d.prompt}\n\n`;
+      if (d.activePrompt) {
+        content += `AKTİF PROMPT [${d.activePrompt.shotType}]:\n${d.activePrompt.promptText}\n`;
+      } else {
+        content += `(Prompt henüz üretilmedi)\n`;
+      }
+      content += `\n`;
     });
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -77,7 +132,20 @@ export function ExportModal({ open, onClose, sceneCards, episodeTitle, episodeId
   };
 
   const exportJson = () => {
-    const data = getExportData();
+    const data = {
+      episodeId,
+      episodeTitle,
+      style: {
+        en: episodePrompt,
+        tr: episodePromptTr
+      },
+      entities: {
+        characters,
+        locations,
+        timeContexts
+      },
+      scenes: getExportData()
+    };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

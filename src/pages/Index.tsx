@@ -1640,8 +1640,13 @@ const Index = () => {
         open={exportOpen}
         onClose={() => setExportOpen(false)}
         sceneCards={state.sceneCards}
+        characters={state.characters}
+        locations={state.locations}
+        timeContexts={state.timeContexts}
         episodeTitle={episode?.title || 'episode'}
         episodeId={episodeId || ''}
+        episodePrompt={state.episodePrompt}
+        episodePromptTr={state.episodePromptTr}
       />
 
       <InfoModal
