@@ -1,79 +1,87 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { FileSpreadsheet, FileText, FileJson } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import type { Scene, ConsistencyGroup } from '@/types';
+import type { SceneCard } from '@/types';
 
 interface ExportModalProps {
   open: boolean;
   onClose: () => void;
-  scenes: Scene[];
-  consistencyGroups: ConsistencyGroup[];
+  sceneCards: SceneCard[];
+  episodeTitle: string;
+  episodeId: string;
 }
 
-export function ExportModal({ open, onClose, scenes, consistencyGroups }: ExportModalProps) {
-  const getGroupLabel = (scene: Scene) => {
-    if (!scene.consistencyGroupIds || scene.consistencyGroupIds.length === 0) return '';
-    const labels = scene.consistencyGroupIds
-      .map(gId => consistencyGroups.find(gr => gr.id === gId))
-      .filter(Boolean)
-      .map(g => `Grup ${g!.label}`);
-    return labels.join(', ');
+export function ExportModal({ open, onClose, sceneCards, episodeTitle, episodeId }: ExportModalProps) {
+  const filename = `${episodeTitle.replace(/\s+/g, '_')}_promptforge_${episodeId.substring(0, 8)}`;
+
+  const getExportData = () => {
+    return sceneCards
+      .filter(sc => sc.prompts.length > 0)
+      .map(sc => {
+        const pinnedPrompt = sc.prompts.find(p => p.isPinned) || sc.prompts[0];
+        return {
+          sceneNumber: sc.sceneNumber,
+          text: sc.text,
+          visualNote: sc.visualNote,
+          shotType: pinnedPrompt?.shotType || '',
+          prompt: pinnedPrompt?.promptText || '',
+          summary: pinnedPrompt?.summary || '',
+          isPinned: !!sc.prompts.find(p => p.isPinned),
+          allPrompts: sc.prompts.map(p => ({
+            shotType: p.shotType,
+            prompt: p.promptText,
+            isPinned: p.isPinned
+          }))
+        };
+      });
   };
 
   const exportExcel = () => {
-    const rows = scenes.flatMap((scene, si) =>
-      scene.prompts.map(p => ({
-        'Sahne #': si + 1,
-        'Bölüm': scene.episodeTitle,
-        'Türkçe Metin': scene.segments.map(s => s.text).join(' '),
-        'Shot Type': p.shotType,
-        'Prompt': p.text,
-        'Grup': getGroupLabel(scene),
-      }))
-    );
+    const data = getExportData();
+    const rows = data.map(d => ({
+      'Sahne #': d.sceneNumber,
+      'Görsel Not': d.visualNote,
+      'Shot Type': d.shotType,
+      'Prompt': d.prompt,
+      'Pinli mi': d.isPinned ? 'Evet' : 'Hayır'
+    }));
+
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Prompts');
-    XLSX.writeFile(wb, 'prompts.xlsx');
+    XLSX.writeFile(wb, `${filename}.xlsx`);
     onClose();
   };
 
   const exportTxt = () => {
-    let content = '';
-    scenes.forEach((scene, si) => {
-      content += `\n=== SAHNE ${si + 1} — ${scene.episodeTitle} ===\n`;
-      const gl = getGroupLabel(scene);
-      if (gl) content += `[${gl}]\n`;
-      content += `Metin: ${scene.segments.map(s => s.text).join(' ')}\n\n`;
-      scene.prompts.forEach((p, pi) => {
-        content += `PROMPT ${pi + 1} [${p.shotType}]:\n${p.text}\n\n`;
-      });
+    const data = getExportData();
+    let content = `EXPORTS FOR: ${episodeTitle}\nID: ${episodeId}\n-----------------------------------\n\n`;
+    
+    data.forEach(d => {
+      content += `=== SAHNE ${d.sceneNumber} ===\n`;
+      content += `GÖRSEL NOT: ${d.visualNote}\n`;
+      content += `METİN ÖZETİ: ${d.text}\n`;
+      content += `AKTİF PROMPT [${d.shotType}]:\n${d.prompt}\n\n`;
     });
+
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'prompts.txt'; a.click();
+    a.href = url; a.download = `${filename}.txt`; a.click();
     URL.revokeObjectURL(url);
     onClose();
   };
 
   const exportJson = () => {
-    const data = scenes.map((scene, si) => ({
-      sceneNumber: si + 1,
-      episodeTitle: scene.episodeTitle,
-      consistencyGroup: getGroupLabel(scene),
-      segments: scene.segments,
-      subjectReferences: scene.subjectReferences,
-      prompts: scene.prompts.map(p => ({ shotType: p.shotType, text: p.text, versions: p.versions })),
-    }));
+    const data = getExportData();
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'prompts.json'; a.click();
+    a.href = url; a.download = `${filename}.json`; a.click();
     URL.revokeObjectURL(url);
     onClose();
   };

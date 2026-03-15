@@ -1639,8 +1639,9 @@ const Index = () => {
       <ExportModal
         open={exportOpen}
         onClose={() => setExportOpen(false)}
-        scenes={state.scenes}
-        consistencyGroups={state.consistencyGroups}
+        sceneCards={state.sceneCards}
+        episodeTitle={episode?.title || 'episode'}
+        episodeId={episodeId || ''}
       />
 
       <InfoModal
