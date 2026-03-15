@@ -96,9 +96,17 @@ export async function analyzeScriptChunk(
   locations: Location[];
   suggestedTimeContexts: TimeContext[];
 }> {
-  const chunkText = chunk.scenes.map(s =>
+  const totalBlocks = chunk.scenes.reduce((sum, s) => {
+    return sum + (s.visualBlock.split('\n').filter(l => l.trim()).length);
+  }, 0);
+
+  const targetScenes = Math.round(totalBlocks * 1.5);
+
+  const chunkScenesText = chunk.scenes.map(s =>
     `${s.perdeNo} — ${s.perdeTitle}\nGÖRÜNTÜ:\n${s.visualBlock}\n${s.voContext ? `V.O. BAĞLAM: ${s.voContext}` : ''}`
   ).join('\n\n---\n\n');
+
+  const chunkText = `HEDEF SAHNE SAYISI: Bu chunk için tam olarak ${targetScenes} sahne üret. Ne az ne fazla.\n\n${chunkScenesText}`;
 
   onProgress?.(`🎬 Chunk ${chunk.chunkIndex + 1}/${chunk.totalChunks} analiz ediliyor...`);
 
