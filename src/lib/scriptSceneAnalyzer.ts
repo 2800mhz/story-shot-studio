@@ -25,9 +25,11 @@ BİRLEŞTİR (sadece bu durumlarda):
 - Tek kelimelik bağlaçlar ("Ve", "Ama")
 - Aynı nesnenin 2 kelimelik devamı
 
-HEDEF: Her GÖRÜNTÜ bloğundan ortalama 2-3 sahne kartı çıkar.
-Bir bloktan 1 sahne çıkıyorsa az bölüyorsun.
-5+ sahne çıkıyorsa fazla bölüyorsun, birleştir.
+HEDEF SAHNE SAYISI (KRİTİK):
+Toplam görüntü bloğu sayısı × 2 = hedef sahne sayısı.
+Yani ortalama her bloktan 2 sahne çıkar.
+Fazla bölme. Bir bloktan maksimum 3 sahne çıkar.
+3'ten fazla sahne çıkıyorsa mutlaka birleştir.
 
 HER SAHNE İÇİN:
 - text: O sahnenin Türkçe kısa özeti (5-10 kelime)
