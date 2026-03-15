@@ -124,6 +124,8 @@ export async function analyzeScriptChunk(
   try {
     const clean = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     parsed = JSON.parse(clean);
+    console.log(`📊 Chunk ${chunk.chunkIndex + 1}: ${chunk.scenes.length} perde → ${parsed.scenes?.length} sahne üretildi`);
+    console.log(`📝 İlk sahne örneği:`, JSON.stringify(parsed.scenes?.[0], null, 2));
   } catch {
     console.error('Script chunk parse error');
     return { sceneCards: [], characters: [], locations: [], suggestedTimeContexts: [] };
