@@ -135,6 +135,7 @@ export function parseScriptText(rawText: string): ScriptScene[] {
     console.log(`Push #${pushCount} (Dosya sonunda): ${currentPerde}, visual uzunluk: ${currentVisual.length}`);
   }
 
+  console.log('🏁 Kaydedilen benzersiz PERDE listesi:', [...new Set(scenes.map(s => s.perdeNo))]);
   return scenes;
 }
 
