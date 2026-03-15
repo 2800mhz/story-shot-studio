@@ -9,12 +9,24 @@ Her blok bir perdeye ait, içinde birden fazla görsel an olabilir.
 GÖREV:
 Her GÖRÜNTÜ bloğunu analiz et ve görsel olarak üretilebilir ayrı çekimlere böl.
 
-BÖLME MANTIĞI:
-- Farklı odak noktası = ayrı sahne (gökyüzü, ufuk, otlar = 3 sahne)
-- Farklı nesne/karakter = ayrı sahne
-- Aynı nesnenin devamı = tek sahne
-- Timelapse ifadesi = tek sahne ("timelapse:" öneki ile visualNote'a)
-- Ses/müzik/yönerge satırları = atla
+BÖLME MANTIĞI (KRİTİK - AGRESIF BÖLE):
+Her GÖRÜNTÜ bloğunu MAKSIMUM granülaritede böl.
+
+BUNLARIN HEPSİ AYRI SAHNE:
+- Her ayrı nesne veya odak noktası ("gökyüzü" / "ufuk" / "otlar")
+- Her ayrı karakter hareketi veya duruşu
+- Her kamera açısı değişimi (geniş plan → yakın plan)
+- Her ":" ile ayrılmış görsel tanım satırı
+- Her doğa elementi (ateş, su, rüzgar, toprak ayrı ayrı)
+- Başlık satırları: "GENİŞ PLAN:", "YAKIN PLAN:", "AŞIRI YAKIN PLAN:" her biri ayrı sahne
+- Liste halinde verilen öğeler ("Rüzgar silüeti / Ay ışığı / Ağaçlar" = 3 ayrı sahne)
+
+BİRLEŞTİR (sadece bu durumlarda):
+- Tek kelimelik bağlaçlar ("Ve", "Ama")
+- Aynı nesnenin 2 kelimelik devamı
+
+HEDEF: Her GÖRÜNTÜ bloğundan ortalama 4-5 sahne kartı çıkar.
+Bir bloktan 1-2 sahne çıkıyorsa az bölüyorsun demektir.
 
 HER SAHNE İÇİN:
 - text: O sahnenin Türkçe kısa özeti (5-10 kelime)
