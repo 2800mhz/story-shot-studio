@@ -218,6 +218,15 @@ export async function generatePromptsForScene(
   let userMessage = `SAHNE METNİ:\n${scene.text}\n\n`;
   userMessage += `TÜRKÇE GÖRSEL NOT: "${scene.visualNote}"\n\n`;
 
+  const styleNote = scene.visualStyle === 'symbolic' 
+    ? `\nVISUAL STYLE: This is a symbolic/metaphorical scene inspired by Central Asian Tengrist art traditions. 
+Use painterly, ethereal aesthetics. Reference: Turkic shamanic iconography, Inner Asian manuscript 
+illumination, cosmic symbolism. NOT photorealistic — more like a painted vision or dream sequence.
+Avoid literal interpretation of metaphors.\n`
+    : `\nVISUAL STYLE: Photorealistic, cinematic documentary style.\n`;
+
+  userMessage += styleNote;
+
   // Build entity context string
   let entityContext = '';
 

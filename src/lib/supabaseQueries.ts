@@ -200,6 +200,7 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
         scene_number: scene.sceneNumber ?? idx + 1,
         text: scene.text || '',
         visual_note: scene.visualNote || null,
+        visual_style: scene.visualStyle || 'realistic',
         character_ids: characterIds,
         location_ids: locationIds,
         time_context_ids: timeContextIds,

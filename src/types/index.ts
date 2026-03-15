@@ -168,6 +168,7 @@ export interface SceneCard {
   sceneNumber: number;
   text: string;
   visualNote: string;
+  visualStyle?: 'realistic' | 'symbolic';
   characterIds: string[];
   locationIds: string[];
   timeContextIds: string[];

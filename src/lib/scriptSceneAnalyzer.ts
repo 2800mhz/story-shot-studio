@@ -50,6 +50,20 @@ Maksimum 5-8 zaman bağlamı üret. Benzer zamanları birleştir.
 "Ötüken - Gece" tek bir bağlam olsun, her sahne için ayrı bağlam üretme.
 Sadece gerçekten farklı dönem/ışık/atmosfer için yeni bağlam ekle.
 
+GÖRSEL STİL TESPİTİ (KRİTİK):
+Her sahne için visualStyle belirle:
+
+"realistic" — kamera gerçekten görebilir:
+- Fiziksel insan, hayvan, nesne
+- Gerçek mekan, gökyüzü, doğa
+- Somut eylem (yürümek, bakmak, çarpmak)
+
+"symbolic" — metaforik, soyut, mistik:
+- Sesin görsel hali ("mavi halka", "titreşim çizgileri")
+- Ruhların/doğa güçlerinin fiziksel tezahürü
+- Işık oyunları, enerji halkları, soyut şekiller
+- "insansı silüet oluşturur", "damgalar belirir" gibi ifadeler
+
 JSON ÇIKTI:
 {
   "scenes": [
@@ -58,6 +72,7 @@ JSON ÇIKTI:
       "sceneNumber": 1,
       "text": "Çivit mavisi gökyüzü gece başlangıcında",
       "visualNote": "Boş çivit mavisi gökyüzü yıldızsız",
+      "visualStyle": "realistic",
       "characterNames": [],
       "locationNames": ["Ötüken Düzlüğü"],
       "timeContextLabel": "Ötüken - Gece"
@@ -122,6 +137,7 @@ export async function analyzeScriptChunk(
       sceneNumber?: number;
       text?: string;
       visualNote?: string;
+      visualStyle?: 'realistic' | 'symbolic';
       characterNames?: string[];
       locationNames?: string[];
       timeContextLabel?: string;
@@ -181,6 +197,7 @@ export async function analyzeScriptChunk(
     sceneNumber: idx + 1, // Placeholder, will be reassigned in analyzeFullScript
     text: s.text || '',
     visualNote: s.visualNote || '',
+    visualStyle: s.visualStyle === 'symbolic' ? 'symbolic' : 'realistic',
     characterIds: (s.characterNames || []).map((n) =>
       `char-${n.replace(/\s+/g, '-').toLocaleLowerCase('tr-TR')}`
     ).filter((id) => characterMap.has(id)),
