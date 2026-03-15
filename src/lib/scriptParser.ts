@@ -21,6 +21,13 @@ export async function parseDocxFile(file: File): Promise<string> {
 
 export function parseScriptText(rawText: string): ScriptScene[] {
   const lines = rawText.split('\n').map(l => l.trim()).filter(l => l);
+  const perdeLines = lines.filter(l => l.includes('PERDE'));
+  console.log('🎬 PERDE içeren satırlar:', perdeLines.slice(0, 20));
+  console.log('🎬 Toplam PERDE satırı:', perdeLines.length);
+
+  const matchedPerdes = lines.filter(l => /^PERDE \d+/.test(l));
+  console.log('✅ Regex ile eşleşen PERDE:', matchedPerdes.length);
+
   const scenes: ScriptScene[] = [];
 
   let currentPerde = '';
