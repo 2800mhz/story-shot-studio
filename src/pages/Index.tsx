@@ -12,6 +12,7 @@ import { ExportModal } from '@/components/ExportModal';
 import { EntityCardPanel } from '@/components/EntityCardPanel';
 import { EpisodeStylePanel } from '@/components/EpisodeStylePanel';
 import { ReferencePanel } from '@/components/ReferencePanel';
+import { ScriptUploader } from '@/components/ScriptUploader';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useAppState } from '@/hooks/useAppState';
 import { parseDocument } from '@/lib/documentParser';
@@ -362,7 +363,18 @@ const Index = () => {
   const [showEntityPanel, setShowEntityPanel] = useState(false);
   const [showEpisodeStylePanel, setShowEpisodeStylePanel] = useState(false);
   const [showReferencePanel, setShowReferencePanel] = useState(false);
+  const [showScriptUploader, setShowScriptUploader] = useState(false);
   const [scrollToIndex, setScrollToIndex] = useState<number | null>(null);
+
+  const handleScriptComplete = useCallback((result: {
+    sceneCards: import('@/types').SceneCard[];
+    characters: import('@/types').Character[];
+    locations: import('@/types').Location[];
+    suggestedTimeContexts?: import('@/types').TimeContext[];
+  }) => {
+    dispatch({ type: 'FINISH_ANALYSIS', payload: result });
+    setShowScriptUploader(false);
+  }, [dispatch]);
   const mainFileRef = useRef<HTMLInputElement>(null);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const bulkAbortRef = useRef<AbortController | null>(null);
@@ -1365,6 +1377,7 @@ const Index = () => {
       )}
       <Header
         onUploadMain={() => mainFileRef.current?.click()}
+        onUploadScript={() => setShowScriptUploader(true)}
         onExport={() => setExportOpen(true)}
         onSettings={() => setSettingsOpen(true)}
         onInfo={() => setInfoOpen(true)}
@@ -1424,6 +1437,14 @@ const Index = () => {
 
       <input ref={mainFileRef} type="file" accept=".docx,.txt" className="hidden"
         onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
+
+      {showScriptUploader && (
+        <ScriptUploader
+          onComplete={handleScriptComplete}
+          onProgress={(msg) => setAnalysisLog(prev => [...prev, msg])}
+          onClose={() => setShowScriptUploader(false)}
+        />
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         <PanelGroup direction="horizontal" autoSaveId="story-shot-layout">

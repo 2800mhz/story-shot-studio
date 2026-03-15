@@ -1,17 +1,24 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Settings, Download, Film, Upload, Info, Video } from 'lucide-react';
+import { Settings, Download, Film, Upload, Info, Video, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface HeaderProps {
   onUploadMain: () => void;
+  onUploadScript: () => void;
   onExport: () => void;
   onSettings: () => void;
   onInfo: () => void;
   mainFileName: string;
 }
 
-export function Header({ onUploadMain, onExport, onSettings, onInfo, mainFileName }: HeaderProps) {
+export function Header({ onUploadMain, onUploadScript, onExport, onSettings, onInfo, mainFileName }: HeaderProps) {
   return (
     <header className="film-grain flex items-center justify-between border-b bg-card px-5 py-3">
       <div className="flex items-center gap-3">
@@ -24,10 +31,23 @@ export function Header({ onUploadMain, onExport, onSettings, onInfo, mainFileNam
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={onUploadMain} className="max-w-[180px]">
-          <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{mainFileName || 'Ana Metin'}</span>
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="max-w-[200px]">
+              <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{mainFileName || 'Metin Yükle'}</span>
+              <ChevronDown className="ml-1 h-3 w-3 shrink-0 text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onUploadMain}>
+              📄 Seslendirme Metni
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onUploadScript}>
+              🎬 Senaryo (.docx)
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button variant="outline" size="sm" onClick={onExport}>
           <Download className="mr-1.5 h-3.5 w-3.5" />
           Dışa Aktar
