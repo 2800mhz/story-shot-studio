@@ -371,8 +371,16 @@ const Index = () => {
     characters: import('@/types').Character[];
     locations: import('@/types').Location[];
     suggestedTimeContexts?: import('@/types').TimeContext[];
+    episodePrompt?: string;
+    episodePromptTr?: string;
   }) => {
     dispatch({ type: 'FINISH_ANALYSIS', payload: result });
+    if (result.episodePrompt) {
+      dispatch({ type: 'SET_EPISODE_PROMPT', payload: result.episodePrompt });
+    }
+    if (result.episodePromptTr) {
+      dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: result.episodePromptTr });
+    }
     setShowScriptUploader(false);
   }, [dispatch]);
   const mainFileRef = useRef<HTMLInputElement>(null);

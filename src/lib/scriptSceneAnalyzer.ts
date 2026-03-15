@@ -26,10 +26,9 @@ BİRLEŞTİR (sadece bu durumlarda):
 - Aynı nesnenin 2 kelimelik devamı
 
 HEDEF SAHNE SAYISI (KRİTİK):
-Toplam görüntü bloğu sayısı × 2 = hedef sahne sayısı.
-Yani ortalama her bloktan 2 sahne çıkar.
-Fazla bölme. Bir bloktan maksimum 3 sahne çıkar.
-3'ten fazla sahne çıkıyorsa mutlaka birleştir.
+Her GÖRÜNTÜ bloğundan ortalama 1.5 sahne çıkar.
+Maksimum 2 sahne per blok. 2'den fazla üretme.
+Birbirine çok yakın görsel anları birleştir.
 
 HER SAHNE İÇİN:
 - text: O sahnenin Türkçe kısa özeti (5-10 kelime)
@@ -45,6 +44,11 @@ KARAKTER STANDARDI (ANTROPOLOJİK DOĞRULUK):
 MEKAN STANDARDI:
 - Sadece fiziksel, fotoğraflanabilir mekanlar
 - Max 30 kelimelik İngilizce visualDescription
+
+ZAMAN BAĞLAMI KURALI (KRİTİK):
+Maksimum 5-8 zaman bağlamı üret. Benzer zamanları birleştir.
+"Ötüken - Gece" tek bir bağlam olsun, her sahne için ayrı bağlam üretme.
+Sadece gerçekten farklı dönem/ışık/atmosfer için yeni bağlam ekle.
 
 JSON ÇIKTI:
 {

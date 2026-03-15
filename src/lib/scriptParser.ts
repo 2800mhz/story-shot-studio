@@ -139,7 +139,7 @@ export function parseScriptText(rawText: string): ScriptScene[] {
   return scenes;
 }
 
-export function chunkScriptScenes(scenes: ScriptScene[], perdePerChunk = 6): ScriptChunk[] {
+export function chunkScriptScenes(scenes: ScriptScene[], perdePerChunk = 8): ScriptChunk[] {
   const chunks: ScriptChunk[] = [];
   for (let i = 0; i < scenes.length; i += perdePerChunk) {
     chunks.push({

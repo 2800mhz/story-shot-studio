@@ -12,6 +12,8 @@ interface ScriptUploaderProps {
     characters: Character[];
     locations: Location[];
     suggestedTimeContexts: TimeContext[];
+    episodePrompt?: string;
+    episodePromptTr?: string;
   }) => void;
   onProgress: (msg: string) => void;
   onClose: () => void;
@@ -69,13 +71,23 @@ export function ScriptUploader({ onComplete, onProgress, onClose }: ScriptUpload
       addLog('🔍 Senaryo ayrıştırılıyor...');
       const rawText = await parseDocxFile(file);
       const scenes = parseScriptText(rawText);
-      const chunks = chunkScriptScenes(scenes, 6);
+      const chunks = chunkScriptScenes(scenes, 8);
       addLog(`📦 ${chunks.length} parçaya bölündü, analiz başlıyor...`);
 
       const result = await analyzeFullScript(chunks, addLog);
 
-      addLog(`✅ Analiz tamamlandı! ${result.sceneCards.length} sahne, ${result.characters.length} karakter, ${result.locations.length} mekan`);
-      onComplete(result);
+      addLog('🎨 Bölüm stili üretiliyor...');
+      try {
+        const { generateEpisodePrompt, generateEpisodePromptTurkishExplanation } = await import('@/lib/sceneAnalyzer');
+        const sampleText = chunks.slice(0, 3).flatMap(c => c.scenes).map(s => s.voContext).filter(Boolean).join('\n').substring(0, 1500);
+        const episodePrompt = await generateEpisodePrompt(sampleText, result.characters, result.locations);
+        const episodePromptTr = await generateEpisodePromptTurkishExplanation(episodePrompt);
+        addLog(`✅ Analiz tamamlandı! ${result.sceneCards.length} sahne, ${result.characters.length} karakter, ${result.locations.length} mekan`);
+        onComplete({ ...result, episodePrompt, episodePromptTr });
+      } catch (e) {
+        addLog(`✅ Analiz tamamlandı! ${result.sceneCards.length} sahne, ${result.characters.length} karakter, ${result.locations.length} mekan`);
+        onComplete(result);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Analiz başarısız';
       setError(msg);
