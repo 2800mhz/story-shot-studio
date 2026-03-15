@@ -46,13 +46,15 @@ export function parseScriptText(rawText: string): ScriptScene[] {
 
   for (const line of lines) {
     if (/^PERDE \d+/.test(line)) {
-      if (currentVisual.trim()) {
-        scenes.push({
-          perdeNo: currentPerde,
-          perdeTitle: currentTitle,
-          visualBlock: currentVisual.trim(),
-          voContext: currentVO.trim()
-        });
+      if (currentPerde) {
+        if (currentVisual.trim()) {
+          scenes.push({
+            perdeNo: currentPerde,
+            perdeTitle: currentTitle,
+            visualBlock: currentVisual.trim(),
+            voContext: currentVO.trim()
+          });
+        }
       }
       currentPerde = line;
       currentTitle = '';
@@ -102,7 +104,7 @@ export function parseScriptText(rawText: string): ScriptScene[] {
     else if (inVO) currentVO += line + '\n';
   }
 
-  if (currentVisual.trim()) {
+  if (currentPerde && currentVisual.trim()) {
     scenes.push({
       perdeNo: currentPerde,
       perdeTitle: currentTitle,
