@@ -227,54 +227,64 @@ Avoid literal interpretation of metaphors.\n`
 
   userMessage += styleNote;
 
-  // Build entity context string
-  let entityContext = '';
+  // Karakter bilgilerini userMessage'ın EN BAŞINA ekle
+  let entityHeader = '';
 
-  // KARAKTERLER
   if (characters.length > 0) {
-    entityContext += '⚠️ CHARACTER CONSISTENCY (CRITICAL — SAME PERSON EVERY SCENE):\n';
-    characters.forEach(char => {
-      if (char.isCrowd) {
-        entityContext += `[CROWD] ${char.name}${char.role ? ` — ${char.role}` : ''}\n`;
-        if (char.visualDescription) entityContext += `Group appearance: ${char.visualDescription}\n`;
-      } else {
-        entityContext += `[CHARACTER] ${char.name}${char.role ? ` (${char.role})` : ''}\n`;
-        if (char.visualDescription) {
-          entityContext += `EXACT APPEARANCE: ${char.visualDescription}\n`;
-          entityContext += `→ Maintain IDENTICAL appearance. Do NOT vary age, face, clothing, ethnicity.\n`;
-        }
+    characters.filter(c => !c.isCrowd).forEach(char => {
+      if (char.visualDescription) {
+        entityHeader += `=== CHARACTER TO DEPICT: ${char.name} ===\n`;
+        if (char.age) entityHeader += `Age: ${char.age}\n`;
+        if (char.ethnicity) entityHeader += `Phenotype: ${char.ethnicity}\n`;
+        if (char.physicalFeatures) entityHeader += `Face: ${char.physicalFeatures}\n`;
+        if (char.clothing) entityHeader += `Costume: ${char.clothing}\n`;
+        entityHeader += `Full description: ${char.visualDescription}\n`;
+        entityHeader += `⚠️ USE THESE EXACT PHYSICAL DETAILS IN THE PROMPT.\n\n`;
       }
-      entityContext += '\n';
+    });
+
+    // Handle crowds separately if needed, to maintain consistency
+    const crowds = characters.filter(c => c.isCrowd);
+    if (crowds.length > 0) {
+      entityHeader += '⚠️ CROWD CONSISTENCY:\n';
+      crowds.forEach(char => {
+        entityHeader += `[CROWD] ${char.name}${char.role ? ` — ${char.role}` : ''}\n`;
+        if (char.visualDescription) entityHeader += `Group appearance: ${char.visualDescription}\n`;
+        entityHeader += '\n';
+      });
+    }
+  }
+
+  if (locations.length > 0) {
+    locations.forEach(loc => {
+      if (loc.visualDescription) {
+        entityHeader += `=== LOCATION TO DEPICT: ${loc.name} ===\n`;
+        entityHeader += `${loc.visualDescription}\n`;
+        entityHeader += `⚠️ MAINTAIN THIS EXACT LOCATION APPEARANCE.\n\n`;
+      }
     });
   }
 
-  // MEKANLAR
-  if (locations.length > 0) {
-    entityContext += '⚠️ LOCATION CONSISTENCY (CRITICAL — SAME PLACE EVERY SCENE):\n';
-    locations.forEach(loc => {
-      entityContext += `[LOCATION] ${loc.name}\n`;
-      if (loc.visualDescription) {
-        entityContext += `EXACT APPEARANCE: ${loc.visualDescription}\n`;
-        entityContext += `→ Maintain IDENTICAL architecture, materials, atmosphere. Do NOT vary.\n`;
-      }
-      entityContext += '\n';
-    });
-  }
+  // userMessage'ın en başına ekle
+  userMessage = entityHeader + userMessage;
+
+  // Diğer (Zaman) bağlamlarını message'ın sonuna eklemek için yeni bir buffer
+  let additionalContext = '';
 
   // ZAMAN BAĞLAMI
   if (timeContexts && timeContexts.length > 0) {
-    entityContext += '⚠️ TIME & LIGHTING CONSISTENCY:\n';
+    additionalContext += '⚠️ TIME & LIGHTING CONSISTENCY:\n';
     timeContexts.forEach(tc => {
-      entityContext += `[TIME CONTEXT] ${tc.label}${tc.era ? ` — ${tc.era}` : ''}\n`;
-      if (tc.lighting) entityContext += `Lighting: ${tc.lighting}\n`;
-      if (tc.timeOfDay) entityContext += `Time of day: ${tc.timeOfDay}\n`;
-      if (tc.historicalNotes) entityContext += `Historical accuracy: ${tc.historicalNotes}\n`;
-      entityContext += `→ All scenes in this time context must share IDENTICAL lighting and color palette.\n\n`;
+      additionalContext += `[TIME CONTEXT] ${tc.label}${tc.era ? ` — ${tc.era}` : ''}\n`;
+      if (tc.lighting) additionalContext += `Lighting: ${tc.lighting}\n`;
+      if (tc.timeOfDay) additionalContext += `Time of day: ${tc.timeOfDay}\n`;
+      if (tc.historicalNotes) additionalContext += `Historical accuracy: ${tc.historicalNotes}\n`;
+      additionalContext += `→ All scenes in this time context must share IDENTICAL lighting and color palette.\n\n`;
     });
   }
 
-  if (entityContext) {
-    userMessage += entityContext;
+  if (additionalContext) {
+    userMessage += additionalContext;
   }
 
   // Inject References
