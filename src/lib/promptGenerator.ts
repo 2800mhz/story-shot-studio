@@ -230,42 +230,47 @@ Avoid literal interpretation of metaphors.\n`
   // Build entity context string
   let entityContext = '';
 
+  // KARAKTERLER
   if (characters.length > 0) {
-    entityContext += 'CHARACTERS IN THIS SCENE:\n';
+    entityContext += '⚠️ CHARACTER CONSISTENCY (CRITICAL — SAME PERSON EVERY SCENE):\n';
     characters.forEach(char => {
-      const prefix = char.isCrowd
-        ? `- [CROWD] ${char.name}`
-        : `- ${char.name}${char.role ? ` (${char.role})` : ''}`;
-      const desc = char.visualDescription
-        ? ` — ${char.visualDescription}`
-        : '';
-      entityContext += prefix + desc + '\n';
+      if (char.isCrowd) {
+        entityContext += `[CROWD] ${char.name}${char.role ? ` — ${char.role}` : ''}\n`;
+        if (char.visualDescription) entityContext += `Group appearance: ${char.visualDescription}\n`;
+      } else {
+        entityContext += `[CHARACTER] ${char.name}${char.role ? ` (${char.role})` : ''}\n`;
+        if (char.visualDescription) {
+          entityContext += `EXACT APPEARANCE: ${char.visualDescription}\n`;
+          entityContext += `→ Maintain IDENTICAL appearance. Do NOT vary age, face, clothing, ethnicity.\n`;
+        }
+      }
+      entityContext += '\n';
     });
-    entityContext += '\n';
   }
 
+  // MEKANLAR
   if (locations.length > 0) {
-    entityContext += 'LOCATIONS IN THIS SCENE:\n';
+    entityContext += '⚠️ LOCATION CONSISTENCY (CRITICAL — SAME PLACE EVERY SCENE):\n';
     locations.forEach(loc => {
-      const desc = loc.visualDescription ? ` — ${loc.visualDescription}` : '';
-      entityContext += `- ${loc.name}${desc}\n`;
+      entityContext += `[LOCATION] ${loc.name}\n`;
+      if (loc.visualDescription) {
+        entityContext += `EXACT APPEARANCE: ${loc.visualDescription}\n`;
+        entityContext += `→ Maintain IDENTICAL architecture, materials, atmosphere. Do NOT vary.\n`;
+      }
+      entityContext += '\n';
     });
-    entityContext += '\n';
   }
 
+  // ZAMAN BAĞLAMI
   if (timeContexts && timeContexts.length > 0) {
-    entityContext += 'HISTORICAL/TEMPORAL CONTEXT:\n';
+    entityContext += '⚠️ TIME & LIGHTING CONSISTENCY:\n';
     timeContexts.forEach(tc => {
-      let tDesc = `- ${tc.label}`;
-      if (tc.era) tDesc += ` (${tc.era})`;
-      if (tc.season) tDesc += `, ${tc.season}`;
-      if (tc.timeOfDay) tDesc += `, ${tc.timeOfDay}`;
-      if (tc.lighting) tDesc += `, lighting: ${tc.lighting}`;
-      if (tc.weather) tDesc += `, weather: ${tc.weather}`;
-      if (tc.historicalNotes) tDesc += `. Historical notes: ${tc.historicalNotes}`;
-      entityContext += tDesc + '\n';
+      entityContext += `[TIME CONTEXT] ${tc.label}${tc.era ? ` — ${tc.era}` : ''}\n`;
+      if (tc.lighting) entityContext += `Lighting: ${tc.lighting}\n`;
+      if (tc.timeOfDay) entityContext += `Time of day: ${tc.timeOfDay}\n`;
+      if (tc.historicalNotes) entityContext += `Historical accuracy: ${tc.historicalNotes}\n`;
+      entityContext += `→ All scenes in this time context must share IDENTICAL lighting and color palette.\n\n`;
     });
-    entityContext += '\n';
   }
 
   if (entityContext) {
