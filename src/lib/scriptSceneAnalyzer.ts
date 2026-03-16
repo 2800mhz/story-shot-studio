@@ -35,11 +35,50 @@ HER SAHNE İÇİN:
 - visualNote: Kameranın tam olarak ne gördüğü (max 10 kelime, somut, Türkçe)
 - V.O. bağlamı varsa karakterleri/mekanları tespit et
 
-KARAKTER STANDARDI (ANTROPOLOJİK DOĞRULUK):
-- Sadece fiziksel olarak GÖRÜNEN kişiler
-- Max 30 kelimelik İngilizce visualDescription
-- ASLA film/dizi adaptasyonlarına dayandırma
-- Dönem, etnisite, kıyafet akademik doğrulukla
+KARAKTER STANDARDI (ANTROPOLOJİK DOĞRULUK — DETAYLI):
+Her karakter için İngilizce visualDescription yazarken şu sırayı takip et:
+
+1. FİZİKSEL ANTROPOLOJİ TİPİ:
+   Turanid, Mongoloid, Alpinid, Mediterranid vb.
+   Örn: "Turanid-Mongoloid phenotype"
+
+2. YÜZ YAPISI:
+   - Kafa şekli (broad/narrow/round)
+   - Elmacık kemikleri (prominent/flat/high)
+   - Göz (narrow/wide, epicanthic fold varsa belirt)
+   - Burun (low/high bridge, wide/narrow nostrils)
+   - Çene (strong/soft/square)
+
+3. CİLT:
+   - Ton (bronze/olive/dark/light)
+   - Doku (weathered/smooth/lined)
+   - Özel detay (sun-damaged, steppe exposure vb.)
+
+4. SAÇ (KRİTİK — TUTARLILIK İÇİN):
+   - Renk (black/dark brown/grey vb.)
+   - Uzunluk (short/medium/long/very long)
+   - Stil (braided/loose/tied/shaved sides)
+   - Durum (clean/matted/oiled vb.)
+
+5. SAKAL/BIYIK (KRİTİK):
+   - Var mı yok mu (clean-shaven/stubble/full beard)
+   - Uzunluk ve stil (short beard/long beard/mustache only)
+   - Renk ve doku
+
+6. YAŞ & BEDEN:
+   - Yaş aralığı (örn: mid-40s to 50s)
+   - Beden tipi (lean/muscular/stocky/thin)
+   - Boy (tall/medium/short)
+
+7. KIYAFETLERİN TAMAMI:
+   - Her parça ayrı ayrı (üst, alt, ayakkabı, başlık, aksesuar)
+   - Kumaş tipi, renk, desen
+   - Dönem ve kültürel doğruluk
+
+8. SONUNDA MUTLAKA:
+   "photorealistic, cinematic lighting, documentary style, anthropologically accurate, based on period manuscripts, NOT film or television adaptations"
+
+YASAK: Psikoloji, motivasyon, hikaye, soyut nitelikler
 
 MEKAN STANDARDI:
 - Sadece fiziksel, fotoğraflanabilir mekanlar
