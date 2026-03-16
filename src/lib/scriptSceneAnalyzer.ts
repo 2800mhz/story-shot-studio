@@ -122,6 +122,12 @@ JSON ÇIKTI:
       "name": "Kam",
       "role": "Şaman",
       "isCrowd": false,
+      "age": "mid-40s to 50s",
+      "ethnicity": "Turanid-Mongoloid",
+      "physicalFeatures": "broad flat face, prominent cheekbones, narrow epicanthic eyes, low nasal bridge, bronze-olive skin, deep facial lines",
+      "hair": "black, long, braided",
+      "beard": "short dark beard",
+      "clothing": "deer-hide shamanic coat with bone/metal talismans, feathered headpiece",
       "visualDescription": "..."
     }
   ],
@@ -181,7 +187,18 @@ export async function analyzeScriptChunk(
       locationNames?: string[];
       timeContextLabel?: string;
     }>;
-    characters?: Array<{ name?: string; role?: string; isCrowd?: boolean; visualDescription?: string }>;
+    characters?: Array<{
+      name?: string;
+      role?: string;
+      isCrowd?: boolean;
+      age?: string;
+      ethnicity?: string;
+      physicalFeatures?: string;
+      hair?: string;
+      beard?: string;
+      clothing?: string;
+      visualDescription?: string;
+    }>;
     locations?: Array<{ name?: string; visualDescription?: string }>;
     timeContexts?: Array<{
       label?: string;
@@ -208,7 +225,19 @@ export async function analyzeScriptChunk(
     if (!c.name) return;
     const id = `char-${c.name.replace(/\s+/g, '-').toLocaleLowerCase('tr-TR')}`;
     if (!characterMap.has(id)) {
-      characterMap.set(id, { id, name: c.name, role: c.role, isCrowd: c.isCrowd ?? false, visualDescription: c.visualDescription });
+      characterMap.set(id, {
+        id,
+        name: c.name,
+        role: c.role,
+        isCrowd: c.isCrowd ?? false,
+        age: c.age,
+        ethnicity: c.ethnicity,
+        physicalFeatures: c.physicalFeatures,
+        hair: c.hair,
+        beard: c.beard,
+        clothing: c.clothing,
+        visualDescription: c.visualDescription,
+      });
     }
   });
 

@@ -106,6 +106,8 @@ export interface Character {
   ethnicity?: string;
   clothing?: string;
   physicalFeatures?: string;
+  hair?: string;
+  beard?: string;
 }
 
 export interface Location {
