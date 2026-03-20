@@ -231,17 +231,36 @@ Avoid literal interpretation of metaphors.\n`
   let entityHeader = '';
 
   if (characters.length > 0) {
-    characters.filter(c => !c.isCrowd).forEach(char => {
-      if (char.visualDescription) {
-        entityHeader += `=== CHARACTER TO DEPICT: ${char.name} ===\n`;
+    const individualChars = characters.filter(c => !c.isCrowd);
+
+    if (individualChars.length === 1) {
+      const char = individualChars[0];
+      entityHeader += `=== CHARACTER TO DEPICT: ${char.name} ===\n`;
+      if (char.age) entityHeader += `Age: ${char.age}\n`;
+      if (char.ethnicity) entityHeader += `Phenotype: ${char.ethnicity}\n`;
+      if (char.physicalFeatures) entityHeader += `Face: ${char.physicalFeatures}\n`;
+      if (char.hair) entityHeader += `Hair: ${char.hair}\n`;
+      if (char.beard) entityHeader += `Beard/Facial hair: ${char.beard}\n`;
+      if (char.clothing) entityHeader += `Costume: ${char.clothing}\n`;
+      if (char.visualDescription) entityHeader += `Full description: ${char.visualDescription}\n`;
+      entityHeader += `⚠️ USE THESE EXACT PHYSICAL DETAILS. MAINTAIN IDENTICAL APPEARANCE.\n\n`;
+
+    } else if (individualChars.length > 1) {
+      entityHeader += `=== MULTIPLE CHARACTERS IN THIS SCENE ===\n`;
+      entityHeader += `Compose ALL characters in the SAME frame.\n\n`;
+      individualChars.forEach((char, idx) => {
+        const position = idx === 0 ? 'FOREGROUND' : idx === 1 ? 'MIDGROUND' : 'BACKGROUND';
+        entityHeader += `[${position}] ${char.name}${char.role ? ` (${char.role})` : ''}:\n`;
         if (char.age) entityHeader += `Age: ${char.age}\n`;
         if (char.ethnicity) entityHeader += `Phenotype: ${char.ethnicity}\n`;
         if (char.physicalFeatures) entityHeader += `Face: ${char.physicalFeatures}\n`;
+        if (char.hair) entityHeader += `Hair: ${char.hair}\n`;
+        if (char.beard) entityHeader += `Beard/Facial hair: ${char.beard}\n`;
         if (char.clothing) entityHeader += `Costume: ${char.clothing}\n`;
-        entityHeader += `Full description: ${char.visualDescription}\n`;
-        entityHeader += `⚠️ USE THESE EXACT PHYSICAL DETAILS IN THE PROMPT.\n\n`;
-      }
-    });
+        if (char.visualDescription) entityHeader += `Full description: ${char.visualDescription}\n`;
+        entityHeader += `⚠️ MAINTAIN EXACT APPEARANCE.\n\n`;
+      });
+    }
 
     // Handle crowds separately if needed, to maintain consistency
     const crowds = characters.filter(c => c.isCrowd);
@@ -256,13 +275,20 @@ Avoid literal interpretation of metaphors.\n`
   }
 
   if (locations.length > 0) {
-    locations.forEach(loc => {
-      if (loc.visualDescription) {
-        entityHeader += `=== LOCATION TO DEPICT: ${loc.name} ===\n`;
-        entityHeader += `${loc.visualDescription}\n`;
-        entityHeader += `⚠️ MAINTAIN THIS EXACT LOCATION APPEARANCE.\n\n`;
-      }
-    });
+    if (locations.length === 1) {
+      const loc = locations[0];
+      entityHeader += `=== LOCATION TO DEPICT: ${loc.name} ===\n`;
+      if (loc.visualDescription) entityHeader += `${loc.visualDescription}\n`;
+      entityHeader += `⚠️ MAINTAIN THIS EXACT LOCATION APPEARANCE.\n\n`;
+    } else if (locations.length > 1) {
+      entityHeader += `=== MULTIPLE LOCATIONS IN THIS SCENE ===\n`;
+      locations.forEach((loc, idx) => {
+        const pos = idx === 0 ? 'PRIMARY' : 'SECONDARY';
+        entityHeader += `[${pos} LOCATION] ${loc.name}:\n`;
+        if (loc.visualDescription) entityHeader += `${loc.visualDescription}\n`;
+        entityHeader += '\n';
+      });
+    }
   }
 
   // userMessage'ın en başına ekle
