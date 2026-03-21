@@ -57,6 +57,13 @@ LIGHTING SAFETY (CRITICAL):
 - For daytime/natural: use "diffused daylight", "soft ambient light", "warm side light"
 - Eyes should NEVER be described as glowing, white, or lit from within
 
+SCENE SETTING RULE (CRITICAL — HIGHEST PRIORITY):
+The === SCENE SETTING === block defines the mandatory TIME and LOCATION.
+- If it says "gece" (night) — the scene MUST be set at night. Deep dark sky, stars, moonlight only. NO daylight, NO sunset, NO orange sky.
+- If it specifies a steppe/bozkır — NO forests, NO dense trees, NO rocks clustered together. Open flat grassland horizon ONLY.
+- If it specifies a location name (e.g. "Ötüken Düzlüğü") — that exact landscape type MUST appear in every prompt.
+- NEVER override or reinterpret the Scene Setting. It is an absolute constraint, not a suggestion.
+
 TIMELAPSE / TEMPORAL SEQUENCES:
 - If hasTransformation=true in scene analysis: show clear visual progression between the 3 prompts
   * Prompt 1 (Wide Shot): Beginning state — establish the scene before transformation
@@ -298,13 +305,6 @@ Avoid literal interpretation of metaphors.\n`
     }
   }
 
-  // userMessage'ın en başına ekle
-  userMessage = entityHeader + userMessage;
-
-  // Diğer (Zaman) bağlamlarını message'ın sonuna eklemek için yeni bir buffer
-  let additionalContext = '';
-
-  // ZAMAN BAĞLAMI
   // Agresif ışık ifadelerini yumuşat — "blinding", "supernatural" gibi kelimeler
   // Flow modelinde gözlerin beyaz parlak üretilmesine veya yüzün yıkanmasına yol açıyor.
   function sanitizeLighting(raw: string): string {
@@ -317,27 +317,30 @@ Avoid literal interpretation of metaphors.\n`
       .replace(/\bethereal white[- ]gold\b/gi, 'soft gold')
       .replace(/\bcosmically bright\b/gi, 'softly luminous')
       .replace(/\bcosmically\b/gi, 'distantly')
-      .replace(/\bcosmically\b/gi, 'distantly')
       .replace(/\bwhite[- ]gold cosmic\b/gi, 'warm amber')
       .replace(/\bfrozen light\b/gi, 'still, quiet light')
       .replace(/\bglowing eyes\b/gi, 'reflective eyes')
       .replace(/\beyes.*?glow\b/gi, 'eyes with a faint inner warmth');
   }
 
+  // ZAMAN BAĞLAMI — entityHeader'ın EN BAŞINA eklenir, karakterden önce.
+  // AI mesajı baştan okur; en kuvvetli kısıtı en üste koymak uyumu artırır.
   if (timeContexts && timeContexts.length > 0) {
-    additionalContext += '⚠️ TIME & LIGHTING CONSISTENCY:\n';
+    let timeHeader = `=== SCENE SETTING (CRITICAL — DO NOT IGNORE) ===\n`;
     timeContexts.forEach(tc => {
-      additionalContext += `[TIME CONTEXT] ${tc.label}${tc.era ? ` — ${tc.era}` : ''}\n`;
-      if (tc.lighting) additionalContext += `Lighting: ${sanitizeLighting(tc.lighting)}\n`;
-      if (tc.timeOfDay) additionalContext += `Time of day: ${tc.timeOfDay}\n`;
-      if (tc.historicalNotes) additionalContext += `Historical accuracy: ${tc.historicalNotes}\n`;
-      additionalContext += `→ All scenes in this time context must share IDENTICAL lighting and color palette.\n\n`;
+      timeHeader += `Time/Era: ${tc.label}${tc.era ? ` (${tc.era})` : ''}\n`;
+      if (tc.timeOfDay) timeHeader += `Time of day: ${tc.timeOfDay} — THIS IS THE MANDATORY LIGHTING CONDITION\n`;
+      if (tc.lighting) timeHeader += `Lighting: ${sanitizeLighting(tc.lighting)}\n`;
+      if (tc.historicalNotes) timeHeader += `Historical context: ${tc.historicalNotes}\n`;
     });
+    timeHeader += `⚠️ THE SCENE MUST BE SET IN THIS TIME AND LOCATION. DO NOT CHANGE TO DAY / SUNSET / FOREST / ROCKS.\n\n`;
+    entityHeader = timeHeader + entityHeader;
   }
 
-  if (additionalContext) {
-    userMessage += additionalContext;
-  }
+  // userMessage'ın en başına entityHeader'ı (zaman bağlamı dahil) ekle
+  userMessage = entityHeader + userMessage;
+
+  const additionalContext = '';
 
   // Inject References
   const subjectRefs = references?.filter(r => r.referenceType === 'subject') || [];
