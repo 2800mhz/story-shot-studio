@@ -1,107 +1,75 @@
 import type { SceneCard, Character, Location, TimeContext, PromptCard, PromptAnalysis, GenerationResult, SceneAnalysis, SceneReference } from '@/types';
 import { aiProvider } from './aiProvider';
 
-const PROMPT_GENERATION_SYSTEM_PROMPT = `Sen sinematik görsel prompt üreticisisin. AI görsel üretim araçları için (Midjourney, DALL-E, Runway) detaylı prompt'lar yazıyorsun.
+const PROMPT_GENERATION_SYSTEM_PROMPT = `You are an elite cinematic prompt engineer for AI image generation tools (Midjourney, Runway, Flow AI).
+Your prompts are used for a DOCUMENTARY film — every image must feel like a frame from a real historical documentary, not a fantasy or game.
 
-GÖREV: Verilen sahne bilgilerini analiz et, zorluk derecesini belirle ve 3 FARKLI açıdan sinematik İngilizce prompt üret.
+PRIMARY OBJECTIVE:
+Read the === SCENE SETTING ===, === CHARACTER === and === LOCATION === blocks carefully.
+You MUST embed every single field from those blocks verbatim into your prompts — age, ethnicity, phenotype, exact facial features, hair, beard, clothing, location description, lighting — nothing can be omitted or summarized.
 
-KURALLAR:
-1. Her prompt FARKLI bir kamera açısı olmalı:
-   - Prompt 1: Wide Shot / Establishing Shot
-   - Prompt 2: Medium Shot / Action Shot
-   - Prompt 3: Close-up / Detail Shot
-2. Her prompt 120-150 kelime olmalı
-3. Teknik detaylar ekle: kamera, lens, ışık, kompozisyon
-4. Karakter/mekan açıklamalarını doğal şekilde entegre et
-5. Türkçe notun ruhunu koru ama prompt İngilizce olmalı
+TASK:
+Analyze the scene and produce 3 DIFFERENT cinematic English prompts from different camera angles:
+- Prompt 1: Wide Shot / Establishing Shot — environment, atmosphere, subject in full
+- Prompt 2: Medium Shot — subject + action + context
+- Prompt 3: Close-up / Detail Shot — face, costume detail, texture
 
-TEKNİK ÖZELLİKLER:
-- Kamera: ARRI Alexa, RED Komodo, cinema camera
-- Lens: focal length (24mm, 50mm, 85mm)
-- Işık: soft/hard, direction, color temperature
-- Renk paleti: cinematic color grading
-- Kompozisyon: rule of thirds, depth of field
+PROMPT LENGTH: Each prompt must be 200-250 words. NEVER shorter. Longer is better.
+All character physical details MUST be written explicitly inside each prompt sentence by sentence.
 
-ANIMATION-FRIENDLY COMPOSITION:
-- Maximum 3 subjects per frame
-- Prefer static or slow single-direction movement
-- Avoid: complex crowd scenes, flowing water/fabric, particle effects
-- Use shallow depth of field to isolate subjects
-- Simple geometric backgrounds preferred
+DOCUMENTARY ATMOSPHERE (CRITICAL):
+- Tone: National Geographic / BBC documentary, not Hollywood blockbuster
+- Every frame must feel like it could be a real photograph or archival footage
+- No fantasy elements, no Hollywood lighting unless the scene is symbolic
+- Color grading: desaturated earth tones, muted blues and greens, warmed shadows
+- Texture must be visible: weathered skin, rough fabric, dry grass, aged leather
+- The word "documentary realism" or "photographic realism" must appear in every prompt
 
-HISTORICAL ACCURACY:
-- Include specific era (century, dynasty, geographic region)
-- Specify ethnic phenotype based on geographic region
-- Reference architectural style specific to time period (Ottoman, Byzantine, Seljuk, etc.)
-- Use period-accurate costume and material descriptions
+CHARACTER INTEGRATION RULE (CRITICAL):
+Every character attribute given to you MUST appear in the prompt:
+- Age → write "a man in his [age]"
+- Phenotype/Ethnicity → write the exact phenotype phrase
+- Facial features → describe them as seen through the camera lens
+- Hair → describe length, style, color explicitly
+- Beard → describe style, density, color
+- Clothing → describe each garment, fabric, and accessory one by one
+- Full description → integrate it naturally into the prose
+NEVER summarize. If the character has "deer-hide shamanic coat with bone talismans" — write it exactly so.
 
-ANTHROPOLOGICAL & HISTORICAL ACCURACY (CRITICAL):
-All prompts must reflect strict anthropological and historical authenticity:
-- NEVER base any historical figure on film, TV, or cinematic adaptations
-- ALWAYS derive appearance from: period paintings, manuscripts, miniatures, coins, archaeological evidence, academic historical reconstructions
-- Ethnic and physical features must match the actual historical population:
-  * Central Asian Turkic: specific facial features, skin tone, bone structure
-  * Ottoman: period-accurate ethnic diversity, not modern Turkish TV aesthetics
-  * Arab/Persian: region and era-specific anthropological features
-  * Byzantine/Roman: Mediterranean features per archaeological evidence
-- Clothing must reflect actual archaeological and iconographic evidence:
-  * Fabric types, dyeing techniques, and patterns period-accurate
-  * No anachronistic elements under any circumstances
-- Architecture and objects: based on surviving examples and excavations
-- Every historical figure description must end with: "anthropologically accurate, based on period manuscripts and historical paintings, not film or television adaptations, documentary realism"
+LOCATION INTEGRATION RULE:
+- The location visual description must be embedded into the wide shot and medium shot
+- Describe the terrain, sky, vegetation (or lack of), architecture if any
+- The landscape in every prompt must match the location exactly
+
+TECHNICAL SPECIFICATIONS:
+- Camera: ARRI Alexa 35, RED Komodo, cinema camera
+- Lens: specify focal length (24mm wide, 50mm medium, 85mm close-up, 135mm intimate)
+- Depth of field: shallow for close-ups, moderate for medium, deep for wide
+- Lighting: must match the === SCENE SETTING === time of day exactly
+- Color temperature: describe Kelvin or tone (warm amber, cool blue moonlight, etc.)
 
 LIGHTING SAFETY (CRITICAL):
-- NEVER use: blinding, blinding white, pure white light, glowing eyes, supernatural glow on face, heavenly light flooding face
+- NEVER use: blinding, blinding white, pure white light, glowing eyes, supernatural glow on face
 - NEVER describe light that washes out facial features or causes eyes to glow white
-- For mystical/cosmic scenes: use "faint distant glow", "soft warm luminescence", "subtle rim light", "gentle aureole"
-- For daytime/natural: use "diffused daylight", "soft ambient light", "warm side light"
+- For mystical/cosmic scenes: use "faint distant glow", "soft warm luminescence", "subtle rim light"
 - Eyes should NEVER be described as glowing, white, or lit from within
 
 SCENE SETTING RULE (CRITICAL — HIGHEST PRIORITY):
 The === SCENE SETTING === block defines the mandatory TIME and LOCATION.
 - If it says "gece" (night) — the scene MUST be set at night. Deep dark sky, stars, moonlight only. NO daylight, NO sunset, NO orange sky.
-- If it specifies a steppe/bozkır — NO forests, NO dense trees, NO rocks clustered together. Open flat grassland horizon ONLY.
-- If it specifies a location name (e.g. "Ötüken Düzlüğü") — that exact landscape type MUST appear in every prompt.
-- NEVER override or reinterpret the Scene Setting. It is an absolute constraint, not a suggestion.
+- If it specifies a steppe/bozkır — NO forests, NO dense trees, NO rocks. Open flat grassland horizon ONLY.
+- If it specifies a location name — that exact landscape type MUST appear verbatim in every prompt.
+- NEVER override or reinterpret the Scene Setting. It is an absolute constraint.
 
-TIMELAPSE / TEMPORAL SEQUENCES:
-- If hasTransformation=true in scene analysis: show clear visual progression between the 3 prompts
-  * Prompt 1 (Wide Shot): Beginning state — establish the scene before transformation
-  * Prompt 2 (Medium Shot): Mid-transition state — capture the moment of change
-  * Prompt 3 (Close-up): Final/transformed state — reveal the result
-- Each prompt must be visually distinct but narratively connected
-- Do NOT use motion verbs like "transforming", "changing", "morphing" — describe static moments
+SYMBOLIC SCENES:
+- If VISUAL STYLE = symbolic: use painterly, ethereal aesthetics inspired by Tengrist manuscript art
+- Still keep the character and location details, but render them in a painterly, illustrated style
+- Reference: Inner Asian shamanic iconography, not Western fantasy
 
-ÖNCE ANALİZ YAP:
-1. Sahne karmaşıklığı (minimal/low/medium/high/extreme)
-2. Kalabalık var mı? (5+ kişi)
-3. Transformasyon/time-lapse var mı?
-4. Mimari detay var mı?
-5. Tarihsel figür var mı?
+ENDING OF EVERY PROMPT:
+Every prompt must end with: "anthropologically accurate, based on period manuscripts and historical paintings, not film or television adaptations, documentary realism."
 
- OPTİMİZASYON KURALLARI:
-
- KALABALIK SAHNELER (5+ kişi):
-→ Wide/extreme wide shot kullan
-→ "Silhouetted figures" veya "backlit crowd"
-→ "Atmospheric haze" ekle
-→ Örnek: "Wide shot of silhouetted crowd in courtyard, backlit by warm ambient glow"
-
- MİMARİ DETAY:
-→ Mimari stil belirt (Ottoman, Byzantine, Modern)
-→ "Atmospheric perspective" kullan
-→ Örnek: "Ottoman mosque in atmospheric evening light"
-
- TRANSFORMASYON/MORPH:
-→ SPLIT into multiple static scenes
-→ VEYA illustrated/schematic style kullan
-→ AVOID: "transforming", "changing", "morphing"
-
- TARİHSEL FİGÜR:
-→ "Illustrated style" veya "Ottoman miniature painting"
-→ AVOID: photorealistic close-ups
-
- RESPONSE FORMAT (JSON):
+RESPONSE FORMAT (JSON only, no markdown):
 {
   "analysis": {
     "complexity": "low|medium|high|extreme",
@@ -116,24 +84,24 @@ TIMELAPSE / TEMPORAL SEQUENCES:
   "prompts": [
     {
       "shotType": "Wide Shot",
-      "summary": "Sahnenin Türkçe notu (aynen kopyala)",
+      "summary": "Turkish scene note (copy verbatim)",
       "explanation": "Bu görselin ne gösterdiğinin Türkçe açıklaması (1 cümle, 'Bu görsel...' formatında)",
-      "prompt": "Detailed English prompt, 120-150 words, technical specifications included"
+      "prompt": "Detailed English prompt, 200-250 words minimum, ALL character and location details embedded verbatim"
     },
     {
       "shotType": "Medium Shot",
-      "summary": "Sahnenin Türkçe notu (aynen kopyala)",
-      "explanation": "Bu görselin ne gösterdiğinin Türkçe açıklaması (1 cümle)",
-      "prompt": "Different angle/composition, 120-150 words"
+      "summary": "Turkish scene note (copy verbatim)",
+      "explanation": "Türkçe açıklama (1 cümle)",
+      "prompt": "200-250 words minimum, full character detail embedded"
     },
     {
       "shotType": "Close-up",
-      "summary": "Sahnenin Türkçe notu (aynen kopyala)",
-      "explanation": "Bu görselin ne gösterdiğinin Türkçe açıklaması (1 cümle)",
-      "prompt": "Intimate detail shot, 120-150 words"
+      "summary": "Turkish scene note (copy verbatim)",
+      "explanation": "Türkçe açıklama (1 cümle)",
+      "prompt": "200-250 words minimum, extreme facial/costume detail, every attribute described"
     }
   ],
-  "optimizations": ["Applied optimization", ...]
+  "optimizations": ["optimization applied", ...]
 }`;
 
 const ASPECT_RATIO_HINTS: Record<string, string> = {
@@ -249,37 +217,37 @@ Avoid literal interpretation of metaphors.\n`
 
     if (individualChars.length === 1) {
       const char = individualChars[0];
-      entityHeader += `=== CHARACTER TO DEPICT: ${char.name} ===\n`;
+      entityHeader += `=== CHARACTER TO DEPICT: ${char.name}${char.role ? ` (${char.role})` : ''} ===\n`;
+      entityHeader += `⚠️ EMBED ALL OF THE FOLLOWING FIELDS VERBATIM INTO EVERY PROMPT. DO NOT OMIT OR SUMMARIZE ANY FIELD.\n`;
       if (char.age) entityHeader += `Age: ${char.age}\n`;
-      if (char.ethnicity) entityHeader += `Phenotype: ${char.ethnicity}\n`;
-      if (char.physicalFeatures) entityHeader += `Face: ${char.physicalFeatures}\n`;
-      if (char.hair) entityHeader += `Hair: ${char.hair}\n`;
-      if (char.beard) entityHeader += `Beard/Facial hair: ${char.beard}\n`;
-      if (char.clothing) entityHeader += `Costume: ${char.clothing}\n`;
-      if (char.visualDescription) entityHeader += `Full description: ${char.visualDescription}\n`;
-      entityHeader += `⚠️ USE THESE EXACT PHYSICAL DETAILS. MAINTAIN IDENTICAL APPEARANCE.\n\n`;
+      if (char.ethnicity) entityHeader += `Phenotype/Ethnicity: ${char.ethnicity}\n`;
+      if (char.physicalFeatures) entityHeader += `Facial features: ${char.physicalFeatures}\n`;
+      if (char.hair) entityHeader += `Hair (color, length, style — describe exactly): ${char.hair}\n`;
+      if (char.beard) entityHeader += `Beard/Facial hair (describe exactly): ${char.beard}\n`;
+      if (char.clothing) entityHeader += `Costume (every garment and accessory — describe each): ${char.clothing}\n`;
+      if (char.visualDescription) entityHeader += `Full visual description (integrate sentence by sentence): ${char.visualDescription}\n`;
+      entityHeader += `⚠️ MAINTAIN THIS EXACT APPEARANCE ACROSS ALL 3 PROMPTS. ANY DEVIATION IS AN ERROR.\n\n`;
 
     } else if (individualChars.length > 1) {
       entityHeader += `=== MULTIPLE CHARACTERS IN THIS SCENE ===\n`;
-      entityHeader += `Compose ALL characters in the SAME frame.\n\n`;
+      entityHeader += `Compose ALL characters in the SAME frame. Embed ALL fields of EACH character verbatim.\n\n`;
       individualChars.forEach((char, idx) => {
         const position = idx === 0 ? 'FOREGROUND' : idx === 1 ? 'MIDGROUND' : 'BACKGROUND';
         entityHeader += `[${position}] ${char.name}${char.role ? ` (${char.role})` : ''}:\n`;
-        if (char.age) entityHeader += `Age: ${char.age}\n`;
-        if (char.ethnicity) entityHeader += `Phenotype: ${char.ethnicity}\n`;
-        if (char.physicalFeatures) entityHeader += `Face: ${char.physicalFeatures}\n`;
-        if (char.hair) entityHeader += `Hair: ${char.hair}\n`;
-        if (char.beard) entityHeader += `Beard/Facial hair: ${char.beard}\n`;
-        if (char.clothing) entityHeader += `Costume: ${char.clothing}\n`;
-        if (char.visualDescription) entityHeader += `Full description: ${char.visualDescription}\n`;
-        entityHeader += `⚠️ MAINTAIN EXACT APPEARANCE.\n\n`;
+        if (char.age) entityHeader += `  Age: ${char.age}\n`;
+        if (char.ethnicity) entityHeader += `  Phenotype/Ethnicity: ${char.ethnicity}\n`;
+        if (char.physicalFeatures) entityHeader += `  Facial features: ${char.physicalFeatures}\n`;
+        if (char.hair) entityHeader += `  Hair: ${char.hair}\n`;
+        if (char.beard) entityHeader += `  Beard/Facial hair: ${char.beard}\n`;
+        if (char.clothing) entityHeader += `  Costume: ${char.clothing}\n`;
+        if (char.visualDescription) entityHeader += `  Full description: ${char.visualDescription}\n`;
+        entityHeader += `  ⚠️ MAINTAIN EXACT APPEARANCE.\n\n`;
       });
     }
 
-    // Handle crowds separately if needed, to maintain consistency
     const crowds = characters.filter(c => c.isCrowd);
     if (crowds.length > 0) {
-      entityHeader += '⚠️ CROWD CONSISTENCY:\n';
+      entityHeader += '=== CROWD IN THIS SCENE ===\n';
       crowds.forEach(char => {
         entityHeader += `[CROWD] ${char.name}${char.role ? ` — ${char.role}` : ''}\n`;
         if (char.visualDescription) entityHeader += `Group appearance: ${char.visualDescription}\n`;
@@ -292,8 +260,9 @@ Avoid literal interpretation of metaphors.\n`
     if (locations.length === 1) {
       const loc = locations[0];
       entityHeader += `=== LOCATION TO DEPICT: ${loc.name} ===\n`;
+      entityHeader += `⚠️ EMBED THIS LOCATION DESCRIPTION VERBATIM IN EVERY WIDE AND MEDIUM SHOT.\n`;
       if (loc.visualDescription) entityHeader += `${loc.visualDescription}\n`;
-      entityHeader += `⚠️ MAINTAIN THIS EXACT LOCATION APPEARANCE.\n\n`;
+      entityHeader += `⚠️ THIS EXACT TERRAIN AND LANDSCAPE MUST APPEAR. NO SUBSTITUTION.\n\n`;
     } else if (locations.length > 1) {
       entityHeader += `=== MULTIPLE LOCATIONS IN THIS SCENE ===\n`;
       locations.forEach((loc, idx) => {
