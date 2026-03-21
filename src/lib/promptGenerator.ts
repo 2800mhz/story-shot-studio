@@ -1,80 +1,63 @@
 import type { SceneCard, Character, Location, TimeContext, PromptCard, PromptAnalysis, GenerationResult, SceneAnalysis, SceneReference } from '@/types';
 import { aiProvider } from './aiProvider';
 
-const PROMPT_GENERATION_SYSTEM_PROMPT = `You are an elite cinematic prompt engineer for AI image generation tools (Midjourney, Runway, Flow AI).
-Your prompts are used for a DOCUMENTARY film — every image must feel like a frame from a real historical documentary, not a fantasy or game.
+const PROMPT_GENERATION_SYSTEM_PROMPT = `You are an elite cinematic prompt engineer for AI image generation (Midjourney, Runway, Flow AI).
+Your prompts are used for documentary and historical films. Every image must feel like a real photograph or archival footage frame.
 
 PRIMARY OBJECTIVE:
-Read the === SCENE SETTING ===, === CHARACTER === and === LOCATION === blocks carefully.
-You MUST embed every single field from those blocks verbatim into your prompts — age, ethnicity, phenotype, exact facial features, hair, beard, clothing, location description, lighting — nothing can be omitted or summarized.
+Read the === SCENE SETTING ===, === CHARACTER === and === LOCATION === blocks.
+These blocks are your ONLY source of truth. Do NOT add, assume, or invent anything not stated in these blocks.
+Embed every single field verbatim into your prompts.
 
 TASK:
-Analyze the scene and produce 3 DIFFERENT cinematic English prompts from different camera angles:
-- Prompt 1: Wide Shot / Establishing Shot — environment, atmosphere, subject in full
-- Prompt 2: Medium Shot — subject + action + context
-- Prompt 3: Close-up / Detail Shot — face, costume detail, texture
+Produce 3 DIFFERENT cinematic English prompts from different camera angles:
+- Prompt 1: Wide Shot — environment, atmosphere, subject in full context
+- Prompt 2: Medium Shot — subject + action + immediate surroundings
+- Prompt 3: Close-up — face, costume detail, texture, expression
 
-PROMPT LENGTH: Each prompt must be 200-250 words. NEVER shorter. Longer is better.
-All character physical details MUST be written explicitly inside each prompt sentence by sentence.
+PROMPT LENGTH: 150-200 words each. Be specific and precise, not verbose.
 
-DOCUMENTARY ATMOSPHERE (CRITICAL):
-- Tone: National Geographic / BBC documentary, not Hollywood blockbuster
-- Every frame must feel like it could be a real photograph or archival footage
-- No fantasy elements, no Hollywood lighting unless the scene is symbolic
-- Color grading: desaturated earth tones, muted blues and greens, warmed shadows
-- Texture must be visible: weathered skin, rough fabric, dry grass, aged leather
-- The word "documentary realism" or "photographic realism" must appear in every prompt
+ENTITY INTEGRATION (CRITICAL):
+Every field from CHARACTER, LOCATION, and SCENE SETTING blocks MUST appear in every prompt:
+- Age, phenotype, facial features, hair, beard, clothing → write each explicitly
+- Location terrain, architecture, sky, vegetation → describe exactly as given
+- Time of day, lighting, weather → must match SCENE SETTING exactly
+NEVER summarize. Write every detail as given.
 
-CHARACTER INTEGRATION RULE (CRITICAL):
-Every character attribute given to you MUST appear in the prompt:
-- Age → write "a man in his [age]"
-- Phenotype/Ethnicity → write the exact phenotype phrase
-- Facial features → describe them as seen through the camera lens
-- Hair → describe length, style, color explicitly
-- Beard → describe style, density, color
-- Clothing → describe each garment, fabric, and accessory one by one
-- Full description → integrate it naturally into the prose
-NEVER summarize. If the character has "deer-hide shamanic coat with bone talismans" — write it exactly so.
+CHARACTER RECURRENCE:
+Every prompt (Wide, Medium, Close-up) must repeat ALL character physical attributes.
+Do NOT assume the model remembers from Prompt 1.
 
-LOCATION INTEGRATION RULE:
-- The location visual description must be embedded into the wide shot and medium shot
-- Describe the terrain, sky, vegetation (or lack of), architecture if any
-- The landscape in every prompt must match the location exactly
+NATURAL EYES RULE:
+- Eyes: natural, dark brown, with soft catchlights only
+- FORBIDDEN: glowing eyes, lit-from-within eyes, colored glowing pupils
+- Face lighting: naturalistic, directional, rim light only
+- NEVER wash out skin texture with light
 
-TECHNICAL SPECIFICATIONS:
-- Camera: ARRI Alexa 35, RED Komodo, cinema camera
-- Lens: specify focal length (24mm wide, 50mm medium, 85mm close-up, 135mm intimate)
-- Depth of field: shallow for close-ups, moderate for medium, deep for wide
-- Lighting: must match the === SCENE SETTING === time of day exactly
-- Color temperature: describe Kelvin or tone (warm amber, cool blue moonlight, etc.)
+SCENE SETTING RULE (HIGHEST PRIORITY):
+- Time of day stated in SCENE SETTING is absolute — do not change it
+- Location type stated is absolute — do not substitute terrain, architecture, or environment
+- Period/era stated is absolute — costumes, architecture must match exactly
 
-CHARACTER & COSTUME RECURRENCE (CRITICAL):
-- Every single entity attribute (age, phenotype, facial features, hair style, beard style, and EVERY piece of clothing/headpiece) MUST be mentioned in EVERY prompt.
-- Do NOT assume the model remembers the character from Prompt 1. 
-- If the character has a "braided hair with metal pieces" and a "feathered headpiece", these MUST be described in the Wide, Medium, and Close-up prompts verbatim.
-- Describe the texture of the costume (leather, fur, bone, wool) in every shot.
+HISTORICAL ACCURACY:
+- All costumes, weapons, architecture must match the period and culture given in entity blocks
+- Base appearance on archaeological findings and period manuscripts
+- NOT on film, TV adaptations, or Western artistic conventions
+- If phenotype is specified, depict it exactly as described
 
-ANTI-GLOW / NATURAL EYES RULE:
-- Eyes MUST be described as "natural", "dark", "brown", or "amber" with "soft natural reflections" or "catchlights".
-- ABSOLUTELY FORBIDDEN: glowing eyes, eyes emitting light, eyes lit from within, laser eyes, pink/red/white glowing pupils.
-- Face lighting must be "naturalistic", "directional", or "rim lighting". 
-- NEVER wash out facial features with light. Maintain "deep shadows" and "visible skin texture".
+ANIMATION READINESS:
+- Prefer static, tension-filled moments over mid-motion blur
+- Clear subject separation from background (depth of field)
+- Strong composition: rule of thirds, clear focal point
 
-SCENE SETTING RULE (CRITICAL — HIGHEST PRIORITY):
-The === SCENE SETTING === block defines the mandatory TIME and LOCATION.
-- If it says "gece" (night) — the scene MUST be set at night. Deep dark sky, stars, moonlight only. NO daylight, NO sunset, NO orange sky.
-- If it specifies a steppe/bozkır — NO forests, NO dense trees, NO rocks. Open flat grassland horizon ONLY.
-- If it specifies a location name — that exact landscape type MUST appear verbatim in every prompt.
-- NEVER override or reinterpret the Scene Setting. It is an absolute constraint.
+SYMBOLIC SCENES (visualStyle = symbolic):
+- Painterly, illustrated aesthetic
+- Style based on the cultural tradition stated in entity blocks
+- Character and location details still apply
+- Eyes remain natural — no glowing
 
-SYMBOLIC SCENES:
-- If VISUAL STYLE = symbolic: use painterly, ethereal aesthetics inspired by Tengrist manuscript art.
-- Still keep the character and location details, but render them in a painterly, illustrated style.
-- Reference: Inner Asian shamanic iconography, not Western fantasy.
-- IMPORTANT: Even in symbolic scenes, EYES MUST REMAIN NATURAL. No pink/red glowing eyes.
-
-ENDING OF EVERY PROMPT:
-Every prompt must end with: "anthropologically accurate, based on period manuscripts and historical paintings, not film or television adaptations, documentary realism."
+END EVERY PROMPT WITH:
+"based on period archaeological evidence and historical manuscripts, not film or television adaptations, documentary realism."
 
 RESPONSE FORMAT (JSON only, no markdown):
 {
@@ -91,21 +74,21 @@ RESPONSE FORMAT (JSON only, no markdown):
   "prompts": [
     {
       "shotType": "Wide Shot",
-      "summary": "Turkish scene note (copy verbatim)",
-      "explanation": "Bu görselin ne gösterdiğinin Türkçe açıklaması (1 cümle, 'Bu görsel...' formatında)",
-      "prompt": "Detailed English prompt, 200-250 words minimum, ALL character and location details embedded verbatim"
+      "summary": "Turkish scene note (copy verbatim from input)",
+      "explanation": "Bu görselin ne gösterdiğinin Türkçe açıklaması (1 cümle, 'Bu görsel...' ile başla)",
+      "prompt": "150-200 words, all entity fields embedded verbatim"
     },
     {
       "shotType": "Medium Shot",
       "summary": "Turkish scene note (copy verbatim)",
       "explanation": "Türkçe açıklama (1 cümle)",
-      "prompt": "200-250 words minimum, full character detail embedded"
+      "prompt": "150-200 words, full character and location detail"
     },
     {
       "shotType": "Close-up",
       "summary": "Turkish scene note (copy verbatim)",
       "explanation": "Türkçe açıklama (1 cümle)",
-      "prompt": "200-250 words minimum, extreme facial/costume detail, every attribute described"
+      "prompt": "150-200 words, extreme facial and costume detail"
     }
   ],
   "optimizations": ["optimization applied", ...]
@@ -207,7 +190,7 @@ export async function generatePromptsForScene(
   let userMessage = `SAHNE METNİ:\n${scene.text}\n\n`;
   userMessage += `TÜRKÇE GÖRSEL NOT: "${scene.visualNote}"\n\n`;
 
-  const styleNote = scene.visualStyle === 'symbolic' 
+  const styleNote = scene.visualStyle === 'symbolic'
     ? `\nVISUAL STYLE: This is a symbolic/metaphorical scene inspired by Central Asian Tengrist art traditions. 
 Use painterly, ethereal aesthetics. Reference: Turkic shamanic iconography, Inner Asian manuscript 
 illumination, cosmic symbolism. NOT photorealistic — more like a painted vision or dream sequence.
