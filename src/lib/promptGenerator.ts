@@ -10,7 +10,7 @@ KURALLAR:
    - Prompt 1: Wide Shot / Establishing Shot
    - Prompt 2: Medium Shot / Action Shot
    - Prompt 3: Close-up / Detail Shot
-2. Her prompt 80-120 kelime olmalı
+2. Her prompt 120-150 kelime olmalı
 3. Teknik detaylar ekle: kamera, lens, ışık, kompozisyon
 4. Karakter/mekan açıklamalarını doğal şekilde entegre et
 5. Türkçe notun ruhunu koru ama prompt İngilizce olmalı
@@ -49,6 +49,13 @@ All prompts must reflect strict anthropological and historical authenticity:
   * No anachronistic elements under any circumstances
 - Architecture and objects: based on surviving examples and excavations
 - Every historical figure description must end with: "anthropologically accurate, based on period manuscripts and historical paintings, not film or television adaptations, documentary realism"
+
+LIGHTING SAFETY (CRITICAL):
+- NEVER use: blinding, blinding white, pure white light, glowing eyes, supernatural glow on face, heavenly light flooding face
+- NEVER describe light that washes out facial features or causes eyes to glow white
+- For mystical/cosmic scenes: use "faint distant glow", "soft warm luminescence", "subtle rim light", "gentle aureole"
+- For daytime/natural: use "diffused daylight", "soft ambient light", "warm side light"
+- Eyes should NEVER be described as glowing, white, or lit from within
 
 TIMELAPSE / TEMPORAL SEQUENCES:
 - If hasTransformation=true in scene analysis: show clear visual progression between the 3 prompts
@@ -104,19 +111,19 @@ TIMELAPSE / TEMPORAL SEQUENCES:
       "shotType": "Wide Shot",
       "summary": "Sahnenin Türkçe notu (aynen kopyala)",
       "explanation": "Bu görselin ne gösterdiğinin Türkçe açıklaması (1 cümle, 'Bu görsel...' formatında)",
-      "prompt": "Detailed English prompt, 80-120 words, technical specifications included"
+      "prompt": "Detailed English prompt, 120-150 words, technical specifications included"
     },
     {
       "shotType": "Medium Shot",
       "summary": "Sahnenin Türkçe notu (aynen kopyala)",
       "explanation": "Bu görselin ne gösterdiğinin Türkçe açıklaması (1 cümle)",
-      "prompt": "Different angle/composition, 80-120 words"
+      "prompt": "Different angle/composition, 120-150 words"
     },
     {
       "shotType": "Close-up",
       "summary": "Sahnenin Türkçe notu (aynen kopyala)",
       "explanation": "Bu görselin ne gösterdiğinin Türkçe açıklaması (1 cümle)",
-      "prompt": "Intimate detail shot, 80-120 words"
+      "prompt": "Intimate detail shot, 120-150 words"
     }
   ],
   "optimizations": ["Applied optimization", ...]
@@ -298,11 +305,30 @@ Avoid literal interpretation of metaphors.\n`
   let additionalContext = '';
 
   // ZAMAN BAĞLAMI
+  // Agresif ışık ifadelerini yumuşat — "blinding", "supernatural" gibi kelimeler
+  // Flow modelinde gözlerin beyaz parlak üretilmesine veya yüzün yıkanmasına yol açıyor.
+  function sanitizeLighting(raw: string): string {
+    return raw
+      .replace(/\bblinding\b/gi, 'intense')
+      .replace(/\bblinding white[- ]gold\b/gi, 'warm gold')
+      .replace(/\bblinding white\b/gi, 'bright')
+      .replace(/\bsupernatural stillness\b/gi, 'ethereal stillness')
+      .replace(/\bsupernatural\b/gi, 'otherworldly')
+      .replace(/\bethereal white[- ]gold\b/gi, 'soft gold')
+      .replace(/\bcosmically bright\b/gi, 'softly luminous')
+      .replace(/\bcosmically\b/gi, 'distantly')
+      .replace(/\bcosmically\b/gi, 'distantly')
+      .replace(/\bwhite[- ]gold cosmic\b/gi, 'warm amber')
+      .replace(/\bfrozen light\b/gi, 'still, quiet light')
+      .replace(/\bglowing eyes\b/gi, 'reflective eyes')
+      .replace(/\beyes.*?glow\b/gi, 'eyes with a faint inner warmth');
+  }
+
   if (timeContexts && timeContexts.length > 0) {
     additionalContext += '⚠️ TIME & LIGHTING CONSISTENCY:\n';
     timeContexts.forEach(tc => {
       additionalContext += `[TIME CONTEXT] ${tc.label}${tc.era ? ` — ${tc.era}` : ''}\n`;
-      if (tc.lighting) additionalContext += `Lighting: ${tc.lighting}\n`;
+      if (tc.lighting) additionalContext += `Lighting: ${sanitizeLighting(tc.lighting)}\n`;
       if (tc.timeOfDay) additionalContext += `Time of day: ${tc.timeOfDay}\n`;
       if (tc.historicalNotes) additionalContext += `Historical accuracy: ${tc.historicalNotes}\n`;
       additionalContext += `→ All scenes in this time context must share IDENTICAL lighting and color palette.\n\n`;
