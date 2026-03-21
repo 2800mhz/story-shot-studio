@@ -90,18 +90,19 @@ Maksimum 5-8 zaman bağlamı üret. Benzer zamanları birleştir.
 Sadece gerçekten farklı dönem/ışık/atmosfer için yeni bağlam ekle.
 
 GÖRSEL STİL TESPİTİ (KRİTİK):
-Her sahne için visualStyle belirle:
+"symbolic" seç eğer sahne şunları içeriyorsa:
+- Doğaüstü ışık (enerji halkası, kozmik ışık, altın şok dalgası)
+- Donmuş zaman/hareket (donmuş su, donmuş yaprak, hareketsiz rüzgar)
+- Görünmez güçlerin görsel hali (ses dalgası, titreşim, enerji ağı)
+- Ruhların fiziksel tezahürü, şekil alması, dönüşümü
+- Gök Tengri, Umay Ana, ruhani varlıklar
 
-"realistic" — kamera gerçekten görebilir:
-- Fiziksel insan, hayvan, nesne
-- Gerçek mekan, gökyüzü, doğa
-- Somut eylem (yürümek, bakmak, çarpmak)
+"realistic" seç sadece gerçek fiziksel çekim için:
+- Gerçek insan, hayvan
+- Gerçek doğa, mekan
+- Fizik yasalarına uygun hareket
 
-"symbolic" — metaforik, soyut, mistik:
-- Sesin görsel hali ("mavi halka", "titreşim çizgileri")
-- Ruhların/doğa güçlerinin fiziksel tezahürü
-- Işık oyunları, enerji halkları, soyut şekiller
-- "insansı silüet oluşturur", "damgalar belirir" gibi ifadeler
+VARSAYILAN: Emin değilsen "symbolic" seç.
 
 JSON ÇIKTI:
 {
@@ -265,7 +266,20 @@ export async function analyzeScriptChunk(
     sceneNumber: idx + 1, // Placeholder, will be reassigned in analyzeFullScript
     text: s.text || '',
     visualNote: s.visualNote || '',
-    visualStyle: s.visualStyle === 'symbolic' ? 'symbolic' : 'realistic',
+    visualStyle: (() => {
+      if (s.visualStyle === 'symbolic') return 'symbolic';
+      // AI 'symbolic' demese bile metin içeriğine bakarak tespit et
+      const note = (s.visualNote || '').toLowerCase();
+      const text = (s.text || '').toLowerCase();
+      const symbolicKeywords = [
+        'enerji', 'halka', 'ışık halkası', 'donmuş', 'asılı', 'titreşim',
+        'kozmik', 'şekil alır', 'dönüşür', 'yükselir', 'havada', 'siyah',
+        'ses dalgası', 'mavi halka', 'altın şok', 'enerji ağı', 'silüet oluşur',
+        'gök tengri', 'umay ana', 'ruh', 'tezahür'
+      ];
+      const isSymbolic = symbolicKeywords.some(k => note.includes(k) || text.includes(k));
+      return isSymbolic ? 'symbolic' : 'realistic';
+    })(),
     characterIds: (s.characterNames || []).map((n) =>
       `char-${n.replace(/\s+/g, '-').toLocaleLowerCase('tr-TR')}`
     ).filter((id) => characterMap.has(id)),
