@@ -48,11 +48,17 @@ TECHNICAL SPECIFICATIONS:
 - Lighting: must match the === SCENE SETTING === time of day exactly
 - Color temperature: describe Kelvin or tone (warm amber, cool blue moonlight, etc.)
 
-LIGHTING SAFETY (CRITICAL):
-- NEVER use: blinding, blinding white, pure white light, glowing eyes, supernatural glow on face
-- NEVER describe light that washes out facial features or causes eyes to glow white
-- For mystical/cosmic scenes: use "faint distant glow", "soft warm luminescence", "subtle rim light"
-- Eyes should NEVER be described as glowing, white, or lit from within
+CHARACTER & COSTUME RECURRENCE (CRITICAL):
+- Every single entity attribute (age, phenotype, facial features, hair style, beard style, and EVERY piece of clothing/headpiece) MUST be mentioned in EVERY prompt.
+- Do NOT assume the model remembers the character from Prompt 1. 
+- If the character has a "braided hair with metal pieces" and a "feathered headpiece", these MUST be described in the Wide, Medium, and Close-up prompts verbatim.
+- Describe the texture of the costume (leather, fur, bone, wool) in every shot.
+
+ANTI-GLOW / NATURAL EYES RULE:
+- Eyes MUST be described as "natural", "dark", "brown", or "amber" with "soft natural reflections" or "catchlights".
+- ABSOLUTELY FORBIDDEN: glowing eyes, eyes emitting light, eyes lit from within, laser eyes, pink/red/white glowing pupils.
+- Face lighting must be "naturalistic", "directional", or "rim lighting". 
+- NEVER wash out facial features with light. Maintain "deep shadows" and "visible skin texture".
 
 SCENE SETTING RULE (CRITICAL — HIGHEST PRIORITY):
 The === SCENE SETTING === block defines the mandatory TIME and LOCATION.
@@ -62,9 +68,10 @@ The === SCENE SETTING === block defines the mandatory TIME and LOCATION.
 - NEVER override or reinterpret the Scene Setting. It is an absolute constraint.
 
 SYMBOLIC SCENES:
-- If VISUAL STYLE = symbolic: use painterly, ethereal aesthetics inspired by Tengrist manuscript art
-- Still keep the character and location details, but render them in a painterly, illustrated style
-- Reference: Inner Asian shamanic iconography, not Western fantasy
+- If VISUAL STYLE = symbolic: use painterly, ethereal aesthetics inspired by Tengrist manuscript art.
+- Still keep the character and location details, but render them in a painterly, illustrated style.
+- Reference: Inner Asian shamanic iconography, not Western fantasy.
+- IMPORTANT: Even in symbolic scenes, EYES MUST REMAIN NATURAL. No pink/red glowing eyes.
 
 ENDING OF EVERY PROMPT:
 Every prompt must end with: "anthropologically accurate, based on period manuscripts and historical paintings, not film or television adaptations, documentary realism."
@@ -288,8 +295,13 @@ Avoid literal interpretation of metaphors.\n`
       .replace(/\bcosmically\b/gi, 'distantly')
       .replace(/\bwhite[- ]gold cosmic\b/gi, 'warm amber')
       .replace(/\bfrozen light\b/gi, 'still, quiet light')
-      .replace(/\bglowing eyes\b/gi, 'reflective eyes')
-      .replace(/\beyes.*?glow\b/gi, 'eyes with a faint inner warmth');
+      .replace(/\bglowing eyes\b/gi, 'natural eyes with soft catchlights')
+      .replace(/\beyes.*?glow\b/gi, 'natural eyes with realistic reflections')
+      .replace(/\bmystical glow\b/gi, 'soft ambient light')
+      .replace(/\bspiritual light\b/gi, 'faint radiance')
+      .replace(/\bhale\b/gi, 'subtle rim light')
+      .replace(/\baura\b/gi, 'gentle illumination')
+      .replace(/\bcosmic\b/gi, 'celestial');
   }
 
   // ZAMAN BAĞLAMI — entityHeader'ın EN BAŞINA eklenir, karakterden önce.
