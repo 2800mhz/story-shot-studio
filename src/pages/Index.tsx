@@ -901,7 +901,7 @@ const Index = () => {
   }, [handleGenerate]);
 
   // ─── Two-stage AI workflow handlers ─────────────────────────────
-  const handleAnalyzeText = useCallback(async (selectedText: string) => {
+  const handleAnalyzeText = useCallback(async (selectedText: string, targetSceneCount?: number) => {
     dispatch({ type: 'START_ANALYSIS' });
     setAnalysisLog([]);
 
@@ -912,7 +912,8 @@ const Index = () => {
         undefined,
         (message: string) => {
           setAnalysisLog(prev => [...prev, message]);
-        }
+        },
+        targetSceneCount
       );
       dispatch({ type: 'FINISH_ANALYSIS', payload: result });
 

@@ -17,7 +17,7 @@ interface CenterPanelProps {
   onScrollComplete: () => void;
   onSetActiveScene: (id: string | null) => void;
   onRemoveScene: (id: string) => void;
-  onAnalyzeText?: (text: string) => void;
+  onAnalyzeText?: (text: string, targetSceneCount?: number) => void;
   isAnalyzing?: boolean;
   analysisLog?: string[];
 }
@@ -89,9 +89,9 @@ export function CenterPanel({
     window.getSelection()?.removeAllRanges();
   }, []);
 
-  const handleAnalyzeFromSelection = useCallback(() => {
+  const handleAnalyzeFromSelection = useCallback((targetSceneCount?: number) => {
     if (!toolbar?.selectedText || !onAnalyzeText) return;
-    onAnalyzeText(toolbar.selectedText);
+    onAnalyzeText(toolbar.selectedText, targetSceneCount);
     dismissToolbar();
   }, [toolbar, onAnalyzeText, dismissToolbar]);
 

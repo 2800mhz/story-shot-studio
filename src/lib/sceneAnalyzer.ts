@@ -1,7 +1,12 @@
 import type { SceneCard, Character, Location, TimeContext } from '@/types';
 import { aiProvider } from './aiProvider';
 
-const SCENE_ANALYSIS_SYSTEM_PROMPT = `Sen dünya standartlarında bir belgesel film görsel yönetmeni ve kurgu editörüsün.
+export function getSceneAnalysisSystemPrompt(targetSceneCount?: number): string {
+  const targetInstruction = targetSceneCount 
+    ? `KULLANICI HEDEF SAHNE SAYISI: ${targetSceneCount}\n\nKullanıcı bu metnin tam olarak ${targetSceneCount} sahnede (±2) işlenmesini istiyor. Lütfen metni bölerken hedef sahne sayısına ulaşmaya çalış.` 
+    : `SAHNE SAYISI HESABI (KRİTİK)\n\nMetni almadan önce kelime sayısını tahmin et.\nFormül: kelime_sayısı / 5 = hedef sahne sayısı\n\nÖrnekler:\n- 150 kelime = kabaca 30 sahne\n- 300 kelime = kabaca 60 sahne\n- 450 kelime = kabaca 90 sahne\n- 600 kelime = kabaca 120 sahne\n\nBu hedefe tam ulaş. Fazla üretme, eksik kalabilirsin ama ASLA fazla üretme.`;
+
+  return `Sen dünya standartlarında bir belgesel film görsel yönetmeni ve kurgu editörüsün.
 Elindeki metin bir BELGESEL SESLENDIRME METNİDİR (documentary voice-over/narration).
 
 TEMEL CERCEVE
@@ -10,18 +15,7 @@ Bu metin ekranda kısa görüntü kesimleriyle desteklenecek.
 Her sahne kartı = ekranda 3-5 saniyelik TEK BİR GÖRÜNTÜ KESİMİDİR.
 Bu görüntüler text2img ile üretilecek, sonra hareketlendirme uygulanacaktır.
 
-SAHNE SAYISI HESABI (KRİTİK)
-
-Metni almadan önce kelime sayısını tahmin et.
-Formül: kelime_sayısı / 5 = hedef sahne sayısı
-
-Örnekler:
-- 150 kelime = kabaca 30 sahne
-- 300 kelime = kabaca 60 sahne
-- 450 kelime = kabaca 90 sahne
-- 600 kelime = kabaca 120 sahne
-
-Bu hedefe tam ulaş. Fazla üretme, eksik kalabilirsin ama ASLA fazla üretme.
+${targetInstruction}
 
 BÖLME MANTIĞI
 
@@ -164,6 +158,7 @@ JSON CIKTI:
 
 KRİTİK: Her sahnede timeContextLabel dolu olmalı. timeContexts en az 1 eleman içermeli.
 METİN:`;
+}
 
 function cleanJsonResponse(text: string): string {
   // Remove markdown code blocks
@@ -449,9 +444,10 @@ function buildResultFromScenes(
 type TimeContextRaw = Omit<TimeContext, 'id'>;
 
 async function analyzeChunk(
-  chunk: string
+  chunk: string,
+  targetSceneCount?: number
 ): Promise<AnalysisPayload> {
-  const content = await aiProvider.generateContent(chunk, SCENE_ANALYSIS_SYSTEM_PROMPT, { operationType: 'scene_analysis' });
+  const content = await aiProvider.generateContent(chunk, getSceneAnalysisSystemPrompt(targetSceneCount), { operationType: 'scene_analysis' });
 
   console.log('🤖 Raw Gemini response:', content.substring(0, 1000));
 
@@ -494,7 +490,8 @@ export async function analyzeTextIntoScenes(
   text: string,
   _apiKey?: string,
   _model?: string,
-  onProgress?: (message: string) => void
+  onProgress?: (message: string) => void,
+  targetSceneCount?: number
 ): Promise<{
   sceneCards: SceneCard[];
   characters: Character[];
@@ -517,7 +514,7 @@ export async function analyzeTextIntoScenes(
   for (let i = 0; i < chunks.length; i++) {
     console.log(`🔍 Analyzing chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
     onProgress?.(` Yapay zeka analiz ediyor... (Parça ${i + 1}/${chunks.length})`);
-    const parsed = await analyzeChunk(chunks[i]);
+    const parsed = await analyzeChunk(chunks[i], targetSceneCount);
 
     // Process top-level globally defined characters and locations
     if (parsed.characters) {
