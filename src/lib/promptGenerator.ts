@@ -547,6 +547,21 @@ Her promptu şu kriterlere göre değerlendir:
 4. ANLATIYA KATKI:
    - Hikayenin o anını en iyi hangisi yakalıyor?
 
+SHOT TYPE ÖNCELİK SIRASI:
+- Eğer sahne metni/görsel notu şunları içeriyorsa WIDE SHOT seç:
+  ordu, süvari, kalabalık, şehir, sur, ufuk, meydan, panorama, uzak, istila, kuşatma
+- Eğer şunları içeriyorsa MEDIUM SHOT seç:
+  karşılaşma, diyalog, eylem, hareket, yürüyüş, at, savaş
+- Eğer şunları içeriyorsa CLOSE-UP seç:
+  yüz, göz, el, detay, doku, ifade, yakın
+
+CLOSE-UP'I ASLA seçme eğer:
+- Sahnede 3+ kişi/asker varsa
+- Sahne bir mekan/şehir/doğa anlatıyorsa
+- Görsel notta "ordu", "kalabalık", "sur", "şehir" gibi kelimeler varsa
+
+VARSAYILAN: Eğer emin değilsen MEDIUM SHOT seç, CLOSE-UP değil.
+
 SADECE şu JSON formatında yanıt ver, başka hiçbir şey yazma:
 { "selectedIndex": 0, "reason": "Türkçe kısa gerekçe (max 1 cümle)" }
 selectedIndex: 0 = ilk prompt, 1 = ikinci prompt, 2 = üçüncü prompt`;
