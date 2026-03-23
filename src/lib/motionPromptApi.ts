@@ -45,16 +45,16 @@ PREFERRED motions:
 
 Write ONLY the motion prompt. Nothing else.`;
 
+import { aiProvider } from './aiProvider';
+
 export interface MotionPromptResult {
   imageFile: File;
   prompt: string;
-  apiKeyUsed: string;
   error?: string;
 }
 
 export async function generateMotionPrompt(
   imageFile: File,
-  apiKey: string,
   model: string,
   projectContext: string,
   globalNote: string,
@@ -70,42 +70,22 @@ export async function generateMotionPrompt(
   if (perImageNote.trim()) userText += `IMAGE-SPECIFIC NOTE:\n${perImageNote.trim()}\n\n`;
   userText += `Analyze this image and write a single motion prompt for AI video generation. Write ONLY the prompt text, nothing else.`;
 
-  const body = {
-    system_instruction: {
-      parts: [{ text: SYSTEM_INSTRUCTION }],
-    },
-    contents: [
-      {
-        parts: [
-          { inline_data: { mime_type: mimeType, data: base64 } },
-          { text: userText },
-        ],
-      },
-    ],
-    generationConfig: {
-      temperature: 0.65,
-      maxOutputTokens: 8192,
-    },
-  };
+  aiProvider.setModel(model);
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const images = [
+    { inlineData: { mimeType, data: base64 } }
+  ];
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const status = res.status;
-    const text = await res.text().catch(() => '');
-    throw new Error(`API_${status}: ${text.slice(0, 200)}`);
+  try {
+    const result = await aiProvider.generateContent(
+      userText,
+      SYSTEM_INSTRUCTION,
+      { operationType: 'motion_prompt', images }
+    );
+    return result.trim();
+  } catch (err: any) {
+    throw new Error(err.message || 'Error generating motion prompt');
   }
-
-  const json = await res.json();
-  const content = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!content) throw new Error('Empty response from Gemini');
-  return content.trim();
 }
 
 async function fileToBase64(file: File): Promise<string> {

@@ -98,10 +98,7 @@ export default function MotionPrompt() {
   }, [apiKeys, keyIndex]);
 
   const processQueue = useCallback(async () => {
-    if (apiKeys.length === 0) {
-      toast.error('API anahtarı bulunamadı. Ana sayfadaki Ayarlar\'dan ekleyin.');
-      return;
-    }
+    // We now rely on aiProvider keys
     setIsProcessing(true);
     abortRef.current = false;
     let currentKeyIdx = keyIndex;
@@ -113,25 +110,23 @@ export default function MotionPrompt() {
 
       setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: 'processing' } : i));
 
-      let attempts = 0;
       let success = false;
+      let attempts = 0;
 
-      while (attempts < apiKeys.length && !success) {
-        const key = apiKeys[currentKeyIdx];
+      while (attempts < 3 && !success) { // Retry up to 3 times via aiProvider
         try {
           const prompt = await generateMotionPrompt(
-            item.file, key, model, projectContext, globalNote, item.note
+            item.file, model, projectContext, globalNote, item.note
           );
           setQueue(prev => prev.map(i => i.id === item.id ? {
-            ...i, status: 'done', prompt, apiKeyUsed: key.slice(-6),
+            ...i, status: 'done', prompt, apiKeyUsed: 'auto'
           } : i));
           success = true;
         } catch (err: any) {
           const msg = err?.message || '';
           if (msg.includes('API_429') || msg.includes('API_403')) {
-            currentKeyIdx = (currentKeyIdx + 1) % apiKeys.length;
-            setKeyIndex(currentKeyIdx);
             attempts++;
+            await new Promise(r => setTimeout(r, 1000));
           } else {
             setQueue(prev => prev.map(i => i.id === item.id ? {
               ...i, status: 'error', error: msg,
@@ -143,7 +138,7 @@ export default function MotionPrompt() {
 
       if (!success) {
         setQueue(prev => prev.map(i => i.id === item.id ? {
-          ...i, status: 'error', error: 'Tüm API anahtarları rate-limit\'e ulaştı',
+          ...i, status: 'error', error: 'API hatası veya Rate Limit aşıldı',
         } : i));
       }
 
@@ -196,31 +191,24 @@ export default function MotionPrompt() {
 
   // ─── Regenerate single item ───
   const regenerateItem = useCallback(async (itemId: string) => {
-    if (apiKeys.length === 0) {
-      toast.error('API anahtarı bulunamadı.');
-      return;
-    }
     const item = queue.find(i => i.id === itemId);
     if (!item) return;
 
     setQueue(prev => prev.map(i => i.id === itemId ? { ...i, status: 'processing', prompt: undefined, error: undefined } : i));
 
-    let currentKeyIdx = keyIndex;
     let attempts = 0;
     let success = false;
 
-    while (attempts < apiKeys.length && !success) {
-      const key = apiKeys[currentKeyIdx];
+    while (attempts < 3 && !success) {
       try {
-        const prompt = await generateMotionPrompt(item.file, key, model, projectContext, globalNote, item.note);
-        setQueue(prev => prev.map(i => i.id === itemId ? { ...i, status: 'done', prompt, apiKeyUsed: key.slice(-6) } : i));
+        const prompt = await generateMotionPrompt(item.file, model, projectContext, globalNote, item.note);
+        setQueue(prev => prev.map(i => i.id === itemId ? { ...i, status: 'done', prompt, apiKeyUsed: 'auto' } : i));
         success = true;
       } catch (err: any) {
         const msg = err?.message || '';
         if (msg.includes('API_429') || msg.includes('API_403')) {
-          currentKeyIdx = (currentKeyIdx + 1) % apiKeys.length;
-          setKeyIndex(currentKeyIdx);
           attempts++;
+          await new Promise(r => setTimeout(r, 1000));
         } else {
           setQueue(prev => prev.map(i => i.id === itemId ? { ...i, status: 'error', error: msg } : i));
           success = true;
@@ -228,7 +216,7 @@ export default function MotionPrompt() {
       }
     }
     if (!success) {
-      setQueue(prev => prev.map(i => i.id === itemId ? { ...i, status: 'error', error: 'Tüm anahtarlar rate-limit' } : i));
+      setQueue(prev => prev.map(i => i.id === itemId ? { ...i, status: 'error', error: 'API hatası veya Rate Limit aşıldı' } : i));
     }
   }, [apiKeys, keyIndex, model, projectContext, globalNote, queue]);
 

@@ -89,7 +89,7 @@ class AIProviderManager {
     try {
       console.log(`🤖 Trying ${key.provider} (key ${this.currentKeyIndex + 1})`);
       const result = await this.callProvider(key, prompt, systemInstruction, images);
-      await this.updateKeyUsage(key.id, result.promptTokens, result.completionTokens, operationType);
+      await this.updateKeyUsage(key.id, result.promptTokens, result.completionTokens, operationType, result.modelUsed);
       return result.text;
     } catch (error: unknown) {
       const err = error as { status?: number; message?: string };
@@ -160,7 +160,7 @@ class AIProviderManager {
     try {
       console.log(`🤖 Trying ${key.provider} (key ${this.currentKeyIndex + 1}) [STREAMING]`);
       const result = await this.callProviderStream(key, prompt, systemInstruction, onChunk);
-      await this.updateKeyUsage(key.id, result.promptTokens, result.completionTokens, operationType);
+      await this.updateKeyUsage(key.id, result.promptTokens, result.completionTokens, operationType, result.modelUsed);
       return result.text;
     } catch (error: unknown) {
       const err = error as { status?: number; message?: string };
@@ -184,7 +184,7 @@ class AIProviderManager {
     prompt: string,
     systemInstruction?: string,
     onChunk?: (text: string) => void
-  ): Promise<{ text: string; promptTokens: number; completionTokens: number }> {
+  ): Promise<{ text: string; promptTokens: number; completionTokens: number; modelUsed: string }> {
     const decryptedKey = decryptKey(key.api_key);
 
     switch (key.provider) {
@@ -238,7 +238,7 @@ class AIProviderManager {
               const candidate = json.candidates?.[0];
               if (candidate?.finishReason === 'SAFETY') {
                 console.warn('⚠️ Gemini blocked response due to safety filters.');
-                return { text: '[İçerik güvenlik filtresine takıldı. Lütfen sahne metnini gözden geçirin.]', promptTokens: 0, completionTokens: 0 };
+                return { text: '[İçerik güvenlik filtresine takıldı. Lütfen sahne metnini gözden geçirin.]', promptTokens: 0, completionTokens: 0, modelUsed: this.model };
               }
               
               const textChunk = candidate?.content?.parts?.[0]?.text || '';
@@ -257,7 +257,7 @@ class AIProviderManager {
           }
         }
         
-        return { text: fullText, promptTokens: inputTokens, completionTokens: outputTokens };
+        return { text: fullText, promptTokens: inputTokens, completionTokens: outputTokens, modelUsed: this.model };
       }
       
       // For OpenAI and Anthropic, fallback to non-streaming for now but simulate onChunk 
@@ -274,7 +274,7 @@ class AIProviderManager {
     }
   }
 
-  private async callProvider(key: APIKey, prompt: string, systemInstruction?: string, images?: Array<{ inlineData: { data: string, mimeType: string } }>): Promise<{ text: string; promptTokens: number; completionTokens: number }> {
+  private async callProvider(key: APIKey, prompt: string, systemInstruction?: string, images?: Array<{ inlineData: { data: string, mimeType: string } }>): Promise<{ text: string; promptTokens: number; completionTokens: number; modelUsed: string }> {
     const decryptedKey = decryptKey(key.api_key);
 
     switch (key.provider) {
@@ -310,14 +310,14 @@ class AIProviderManager {
         const candidate = data.candidates?.[0];
         if (candidate?.finishReason === 'SAFETY') {
           console.warn('⚠️ Gemini blocked response due to safety filters.');
-          return { text: '[İçerik güvenlik filtresine takıldı. Lütfen sahne metnini gözden geçirin.]', promptTokens: 0, completionTokens: 0 };
+          return { text: '[İçerik güvenlik filtresine takıldı. Lütfen sahne metnini gözden geçirin.]', promptTokens: 0, completionTokens: 0, modelUsed: this.model };
         }
         
         const text = candidate?.content?.parts?.[0]?.text || '';
         const promptTokens = data.usageMetadata?.promptTokenCount || 0;
         const completionTokens = data.usageMetadata?.candidatesTokenCount || 0;
         
-        return { text, promptTokens, completionTokens };
+        return { text, promptTokens, completionTokens, modelUsed: this.model };
       }
 
       case 'openai': {
@@ -348,7 +348,7 @@ class AIProviderManager {
         const text = data.choices[0].message.content;
         const promptTokens = data.usage?.prompt_tokens || 0;
         const completionTokens = data.usage?.completion_tokens || 0;
-        return { text, promptTokens, completionTokens };
+        return { text, promptTokens, completionTokens, modelUsed: 'gpt-4-turbo-preview' };
       }
 
       case 'anthropic': {
@@ -375,7 +375,7 @@ class AIProviderManager {
         const text = data.content[0].text;
         const promptTokens = data.usage?.input_tokens || 0;
         const completionTokens = data.usage?.output_tokens || 0;
-        return { text, promptTokens, completionTokens };
+        return { text, promptTokens, completionTokens, modelUsed: 'claude-3-sonnet-20240229' };
       }
 
       default:
@@ -383,12 +383,13 @@ class AIProviderManager {
     }
   }
 
-  private async updateKeyUsage(keyId: string, promptTokens: number, completionTokens: number, operationType: string) {
+  private async updateKeyUsage(keyId: string, promptTokens: number, completionTokens: number, operationType: string, modelUsed: string) {
     await supabase.rpc('increment_api_key_usage', { 
       key_id: keyId,
       p_prompt_tokens: promptTokens,
       p_completion_tokens: completionTokens,
-      p_operation_type: operationType
+      p_operation_type: operationType,
+      p_model: modelUsed
     });
   }
 

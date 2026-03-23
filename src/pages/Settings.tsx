@@ -42,9 +42,11 @@ export default function Settings() {
     prompt_tokens: number;
     completion_tokens: number;
     created_at: string;
+    model?: string;
   }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showKeys, setShowKeys] = useState<Set<string>>(new Set());
+  const [timeFilter, setTimeFilter] = useState<'all' | 'week' | 'month'>('all');
 
   const [newProvider, setNewProvider] = useState<'gemini' | 'openai' | 'anthropic'>('gemini');
   const [newKey, setNewKey] = useState('');
@@ -77,7 +79,7 @@ export default function Settings() {
         .select('*')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(1000);
       setLogs(logData || []);
     } catch (error) {
       console.error('Error loading keys:', error);
@@ -207,22 +209,45 @@ export default function Settings() {
   const rateLimitedCount = keys.filter(k => k.rate_limited_until && new Date(k.rate_limited_until) > new Date()).length;
 
   // --- Bilanço Hesaplamaları ---
-  const totalRequests = logs.length;
-  const totalInputTokens = logs.reduce((sum, log) => sum + (log.prompt_tokens || 0), 0);
-  const totalOutputTokens = logs.reduce((sum, log) => sum + (log.completion_tokens || 0), 0);
+  const filteredLogs = logs.filter(log => {
+    if (timeFilter === 'all') return true;
+    const logDate = new Date(log.created_at);
+    const now = new Date();
+    if (timeFilter === 'week') {
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return logDate >= weekAgo;
+    }
+    if (timeFilter === 'month') {
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return logDate >= monthAgo;
+    }
+    return true;
+  });
+
+  const totalRequests = filteredLogs.length;
+  const totalInputTokens = filteredLogs.reduce((sum, log) => sum + (log.prompt_tokens || 0), 0);
+  const totalOutputTokens = filteredLogs.reduce((sum, log) => sum + (log.completion_tokens || 0), 0);
   const totalTokens = totalInputTokens + totalOutputTokens;
 
-  const operationTypeStats = logs.reduce((acc, log) => {
+  const operationTypeStats = filteredLogs.reduce((acc, log) => {
     const type = log.operation_type || 'unknown';
     const tokens = (log.prompt_tokens || 0) + (log.completion_tokens || 0);
     acc[type] = (acc[type] || 0) + tokens;
     return acc;
   }, {} as Record<string, number>);
 
+  const modelStats = filteredLogs.reduce((acc, log) => {
+    const model = log.model || 'Bilinmiyor';
+    const tokens = (log.prompt_tokens || 0) + (log.completion_tokens || 0);
+    acc[model] = (acc[model] || 0) + tokens;
+    return acc;
+  }, {} as Record<string, number>);
+
   const maxOperationTokens = Math.max(...Object.values(operationTypeStats), 1);
+  const maxModelTokens = Math.max(...Object.values(modelStats), 1);
 
   // Chart Data (Son 7 gün)
-  const chartDataMap = logs.reduce((acc, log) => {
+  const chartDataMap = filteredLogs.reduce((acc, log) => {
     const dateStr = new Date(log.created_at).toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' });
     const tokens = (log.prompt_tokens || 0) + (log.completion_tokens || 0);
     if (!acc[dateStr]) acc[dateStr] = 0;
@@ -471,10 +496,24 @@ export default function Settings() {
 
         {/* ── API Bilanço Section ── */}
         <div className="pt-8 border-t">
-          <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-            <Activity className="h-6 w-6 text-primary" />
-            API Bilanço
-          </h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <Activity className="h-6 w-6 text-primary" />
+              API Bilanço
+            </h2>
+            <div className="flex items-center gap-2">
+              <Label className="text-sm font-medium">Zaman:</Label>
+              <select
+                value={timeFilter}
+                onChange={(e) => setTimeFilter(e.target.value as 'all' | 'week' | 'month')}
+                className="px-3 py-1.5 border rounded-md bg-background text-sm"
+              >
+                <option value="all">Tüm Zamanlar</option>
+                <option value="month">Bu Ay</option>
+                <option value="week">Bu Hafta</option>
+              </select>
+            </div>
+          </div>
 
           {/* Özet Kartları */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
@@ -519,6 +558,28 @@ export default function Settings() {
               )}
             </Card>
 
+            {/* Model Dağılımı */}
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-4 text-foreground/80">Model Dağılımı</h3>
+              {Object.keys(modelStats).length === 0 ? (
+                <div className="text-sm text-muted-foreground py-4">Veri bulunamadı.</div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(modelStats)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([model, tokens]) => (
+                      <div key={model}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="font-medium truncate mr-2" title={model}>{model}</span>
+                          <span className="text-muted-foreground whitespace-nowrap">{tokens.toLocaleString('tr-TR')} token</span>
+                        </div>
+                        <Progress value={(tokens / maxModelTokens) * 100} className="h-2" />
+                      </div>
+                    ))}
+                </div>
+              )}
+            </Card>
+
             {/* Günlük Token Kullanımı (Chart) */}
             <Card className="p-6">
               <h3 className="text-lg font-semibold mb-4 text-foreground/80">Günlük Kullanım (Son 7 Gün)</h3>
@@ -539,7 +600,7 @@ export default function Settings() {
             </Card>
           </div>
 
-          {/* Son 20 İşlem Tablosu */}
+          {/* Son İşlem Tablosu */}
           <Card className="p-6 overflow-hidden">
             <h3 className="text-lg font-semibold mb-4 text-foreground/80">Son 20 İşlem</h3>
             <div className="overflow-x-auto">
@@ -549,13 +610,14 @@ export default function Settings() {
                     <TableHead>Tarih</TableHead>
                     <TableHead>Sağlayıcı</TableHead>
                     <TableHead>İşlem Tipi</TableHead>
+                    <TableHead>Model</TableHead>
                     <TableHead className="text-right">Input</TableHead>
                     <TableHead className="text-right">Output</TableHead>
                     <TableHead className="text-right text-foreground font-semibold">Toplam</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {logs.slice(0, 20).map((log, i) => (
+                  {filteredLogs.slice(0, 20).map((log, i) => (
                     <TableRow key={i}>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                         {new Date(log.created_at).toLocaleString('tr-TR', { 
@@ -568,6 +630,7 @@ export default function Settings() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs font-medium whitespace-nowrap">{log.operation_type}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground truncate max-w-[120px]" title={log.model}>{log.model || '-'}</TableCell>
                       <TableCell className="text-right text-xs text-blue-600">{(log.prompt_tokens || 0).toLocaleString('tr-TR')}</TableCell>
                       <TableCell className="text-right text-xs text-green-600">{(log.completion_tokens || 0).toLocaleString('tr-TR')}</TableCell>
                       <TableCell className="text-right text-xs font-bold text-foreground">
@@ -575,9 +638,9 @@ export default function Settings() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {logs.length === 0 && (
+                  {filteredLogs.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         Henüz işlem bulunmuyor.
                       </TableCell>
                     </TableRow>
