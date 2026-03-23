@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { encryptKey, maskKey } from '@/lib/encryption';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Activity } from 'lucide-react';
@@ -249,11 +249,14 @@ export default function Settings() {
   // Chart Data (Son 7 gün)
   const chartDataMap = filteredLogs.reduce((acc, log) => {
     const dateStr = new Date(log.created_at).toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' });
-    const tokens = (log.prompt_tokens || 0) + (log.completion_tokens || 0);
-    if (!acc[dateStr]) acc[dateStr] = 0;
-    acc[dateStr] += tokens;
+    const input = log.prompt_tokens || 0;
+    const output = log.completion_tokens || 0;
+    if (!acc[dateStr]) acc[dateStr] = { total: 0, input: 0, output: 0 };
+    acc[dateStr].total += (input + output);
+    acc[dateStr].input += input;
+    acc[dateStr].output += output;
     return acc;
-  }, {} as Record<string, number>);
+  }, {} as Record<string, { total: number, input: number, output: number }>);
 
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
@@ -263,7 +266,9 @@ export default function Settings() {
 
   const chartData = last7Days.map(date => ({
     date,
-    tokens: chartDataMap[date] || 0
+    tokens: chartDataMap[date]?.total || 0,
+    input: chartDataMap[date]?.input || 0,
+    output: chartDataMap[date]?.output || 0
   }));
 
   return (
@@ -580,9 +585,30 @@ export default function Settings() {
               )}
             </Card>
 
-            {/* Günlük Token Kullanımı (Chart) */}
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold mb-4 text-foreground/80">Günlük Kullanım (Son 7 Gün)</h3>
+            {/* Günlük Token Kullanımı (Line Chart) */}
+            <Card className="p-6 md:col-span-2">
+              <h3 className="text-lg font-semibold mb-4 text-foreground/80">Kullanım Trendi (Giriş vs Çıkış)</h3>
+              <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ccc" opacity={0.3} />
+                    <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val >= 1000 ? (val / 1000).toFixed(1) + 'k' : val}`} width={40} />
+                    <RechartsTooltip 
+                      formatter={(value: number) => [value.toLocaleString('tr-TR'), 'Token']}
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                    />
+                    <Legend verticalAlign="top" height={36} iconType="circle" />
+                    <Line name="Giriş (Input)" type="monotone" dataKey="input" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6' }} activeDot={{ r: 6 }} />
+                    <Line name="Çıkış (Output)" type="monotone" dataKey="output" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981' }} activeDot={{ r: 6 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+
+            {/* Toplam Günlük Kullanım (Bar Chart) */}
+            <Card className="p-6 md:col-span-2">
+              <h3 className="text-lg font-semibold mb-4 text-foreground/80">Günlük Toplam Kullanım (Son 7 Gün)</h3>
               <div className="h-[200px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData}>
@@ -593,7 +619,7 @@ export default function Settings() {
                       formatter={(value: number) => [value.toLocaleString('tr-TR'), 'Token']}
                       labelStyle={{ color: '#000' }}
                     />
-                    <Bar dataKey="tokens" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    <Bar name="Toplam Token" dataKey="tokens" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
