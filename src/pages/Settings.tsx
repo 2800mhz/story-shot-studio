@@ -47,6 +47,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [showKeys, setShowKeys] = useState<Set<string>>(new Set());
   const [timeFilter, setTimeFilter] = useState<'all' | 'week' | 'month'>('all');
+  const [trueTotalRequests, setTrueTotalRequests] = useState<number>(0);
 
   const [newProvider, setNewProvider] = useState<'gemini' | 'openai' | 'anthropic'>('gemini');
   const [newKey, setNewKey] = useState('');
@@ -74,13 +75,22 @@ export default function Settings() {
       if (error) throw error;
       setKeys(data || []);
 
+      // Fetch logs for charts/tables (increased limit for better visibility)
       const { data: logData } = await supabase
         .from('api_key_logs')
         .select('*')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false })
-        .limit(1000);
+        .limit(2000); // Increased limit
       setLogs(logData || []);
+
+      // Fetch actual total count for accuracy
+      const { count: totalCount } = await supabase
+        .from('api_key_logs')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user?.id);
+      
+      setTrueTotalRequests(totalCount || 0);
     } catch (error) {
       console.error('Error loading keys:', error);
     } finally {
@@ -224,9 +234,13 @@ export default function Settings() {
     return true;
   });
 
-  const totalRequests = filteredLogs.length;
-  const totalInputTokens = filteredLogs.reduce((sum, log) => sum + (log.prompt_tokens || 0), 0);
-  const totalOutputTokens = filteredLogs.reduce((sum, log) => sum + (log.completion_tokens || 0), 0);
+  const totalRequests = timeFilter === 'all' ? trueTotalRequests : filteredLogs.length;
+  const totalInputTokens = timeFilter === 'all'
+    ? keys.reduce((sum, k) => sum + (k.total_prompt_tokens || 0), 0)
+    : filteredLogs.reduce((sum, log) => sum + (log.prompt_tokens || 0), 0);
+  const totalOutputTokens = timeFilter === 'all'
+    ? keys.reduce((sum, k) => sum + (k.total_completion_tokens || 0), 0)
+    : filteredLogs.reduce((sum, log) => sum + (log.completion_tokens || 0), 0);
   const totalTokens = totalInputTokens + totalOutputTokens;
 
   const operationTypeStats = filteredLogs.reduce((acc, log) => {
