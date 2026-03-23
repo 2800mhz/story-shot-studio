@@ -372,6 +372,35 @@ Avoid literal interpretation of metaphors.\n`
     userMessage += '\n';
   }
 
+  const hasCharacters = characters.length > 0;
+  const hasLocations = locations.length > 0;
+
+  let focusDirective = '';
+
+  if (!hasCharacters && hasLocations) {
+    focusDirective = `
+SCENE FOCUS: No characters in this scene. This is an ENVIRONMENT/ARCHITECTURE shot.
+- Focus entirely on the location: texture, light, atmosphere, architectural detail
+- Wide shot: establish the full scale and grandeur of the location
+- Medium shot: focus on specific architectural or environmental details (doorways, walls, materials)
+- Close-up: extreme texture detail (cracked mud-brick, carved stone, worn wood, dust)
+- NO human figures unless absolutely necessary for scale
+- Emphasize: time of day atmosphere, weathering, historical authenticity of materials
+`;
+  } else if (!hasCharacters && !hasLocations) {
+    focusDirective = `
+SCENE FOCUS: Abstract or narrative scene with no entities.
+- Create atmospheric, evocative imagery based on the scene text and visual note only
+- Wide shot: environmental establishing shot
+- Medium shot: key symbolic object or environmental detail
+- Close-up: texture, material, or symbolic detail
+`;
+  }
+
+  if (focusDirective) {
+    userMessage += focusDirective;
+  }
+
   userMessage += `3 farklı açıdan sinematik prompt üret. Her prompt'ta "${scene.visualNote}" notunun ruhunu koru. Her prompt sonuna "--ar ${aspectRatio} --v 6" ekle.`;
 
   // Helper: try to parse the AI response as JSON, stripping any markdown fences first.
