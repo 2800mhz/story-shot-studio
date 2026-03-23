@@ -26,6 +26,35 @@ Every prompt (Wide, Medium, Close-up) must repeat ALL character physical attribu
 Do NOT assume the AI model remembers from Prompt 1.
 Hair style, beard, headpiece, every garment — repeat in all 3 prompts.
 
+NO ENTITY = NO FACE CLOSE-UP (CRITICAL):
+If NO === CHARACTER === block is provided, the Close-up prompt MUST NOT show any human face.
+Instead, for Prompt 3, depict an environmental or architectural detail: cracked stone, worn wood grain,
+rust on metal, dust on cobblestones, a distant flag, a doorway, an object — anything but a face.
+FORBIDDEN: inventing a random unnamed person and showing their face just to fill the close-up slot.
+If there is no character entity, treat Prompt 3 as a "Detail / Texture / Object" shot, not a face shot.
+
+DOCUMENTARY CANDID FEEL (CRITICAL — APPLIES TO ALL PROMPTS):
+Every image must feel like a camera happened to be there and caught the real moment — not a posed portrait.
+FORBIDDEN in every prompt:
+- People posing for the camera
+- Subjects looking directly into the lens (unless explicitly requested)
+- Theater-stage compositions where everyone is arranged facing forward
+- Still-life portrait lighting (flat studio look)
+- Symmetrical "hero pose" arrangements
+REQUIRED:
+- Use verbs like: moving through, scanning the horizon, gesturing toward, leaning over, turning away, crouching
+- Describe where subjects are looking: at the ground, toward the smoke, at each other, past the camera
+- Add environmental motion cues: dust rising, fabric shifting in wind, smoke drifting
+- Shoot from slightly off-angle, low or high vantage, as if the camera crew followed them in
+- "Candid documentary frame", "caught-in-motion", "unposed street photography style" are valid descriptors
+
+COLOR PALETTE CONSISTENCY (CRITICAL):
+Within a single episode, if time of day and location have NOT significantly changed, the color palette must remain consistent.
+- If the episode is set in morning/Istanbul, use the same warm golden light + stone-grey tones throughout
+- Do NOT suddenly shift to cool blue, or bright noon, or deep orange just because a new scene starts
+- Use the exact same color grading descriptors unless SCENE SETTING explicitly changes
+- Suggested approach: if no time/location shift → repeat the same palette keywords from Prompt 1 of the episode
+
 ANIMATION-FRIENDLY COMPOSITION:
 - Maximum 3 subjects per frame
 - Prefer static, tension-filled moments — NOT mid-motion blur
@@ -115,11 +144,12 @@ RESPONSE FORMAT (JSON only, no markdown):
       "shotType": "Close-up",
       "summary": "Turkish scene note (copy verbatim)",
       "explanation": "Türkçe açıklama (1 cümle)",
-      "prompt": "120-150 words, extreme facial and costume detail"
+      "prompt": "120-150 words, extreme facial and costume detail — OR texture/object detail if no CHARACTER entity"
     }
   ],
   "optimizations": ["optimization applied", ...]
 }`;
+
 
 const ASPECT_RATIO_HINTS: Record<string, string> = {
   '16:9': 'Landscape cinematic widescreen composition (16:9). Use horizontal space, rule of thirds, strong horizon lines.',
