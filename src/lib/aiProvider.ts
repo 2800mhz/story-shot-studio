@@ -87,7 +87,7 @@ class AIProviderManager {
     }
 
     try {
-      console.log(`🤖 Trying ${key.provider} (key ${this.currentKeyIndex + 1})`);
+      console.log(` Trying ${key.provider} (key ${this.currentKeyIndex + 1})`);
       const result = await this.callProvider(key, prompt, systemInstruction, images);
       await this.updateKeyUsage(key.id, result.promptTokens, result.completionTokens, operationType, result.modelUsed);
       return result.text;
@@ -103,7 +103,7 @@ class AIProviderManager {
       }
 
       this.rotateKey();
-      
+
       // Add a small delay before retrying to avoid hammering a downed API or getting instantly rate-limited again
       await new Promise(resolve => setTimeout(resolve, 1000));
       return this._generateWithRetry(prompt, systemInstruction, retryCount + 1, operationType, images);
@@ -158,7 +158,7 @@ class AIProviderManager {
     }
 
     try {
-      console.log(`🤖 Trying ${key.provider} (key ${this.currentKeyIndex + 1}) [STREAMING]`);
+      console.log(` Trying ${key.provider} (key ${this.currentKeyIndex + 1}) [STREAMING]`);
       const result = await this.callProviderStream(key, prompt, systemInstruction, onChunk);
       await this.updateKeyUsage(key.id, result.promptTokens, result.completionTokens, operationType, result.modelUsed);
       return result.text;
@@ -199,14 +199,14 @@ class AIProviderManager {
         if (systemInstruction) {
           body.system_instruction = { parts: [{ text: systemInstruction }] };
         }
-        
+
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:streamGenerateContent?alt=sse&key=${decryptedKey}`;
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         });
-        
+
         if (!response.ok) {
           const err = new Error(`Gemini API error: ${response.status}`) as Error & { status: number };
           err.status = response.status;
@@ -215,7 +215,7 @@ class AIProviderManager {
 
         const reader = response.body?.getReader();
         if (!reader) throw new Error('Response body is not readable');
-        
+
         const decoder = new TextDecoder();
         let fullText = '';
         let inputTokens = 0;
@@ -232,21 +232,21 @@ class AIProviderManager {
             try {
               const jsonStr = line.replace('data: ', '').trim();
               if (!jsonStr) continue;
-              
+
               const json = JSON.parse(jsonStr);
-              
+
               const candidate = json.candidates?.[0];
               if (candidate?.finishReason === 'SAFETY') {
                 console.warn('⚠️ Gemini blocked response due to safety filters.');
                 return { text: '[İçerik güvenlik filtresine takıldı. Lütfen sahne metnini gözden geçirin.]', promptTokens: 0, completionTokens: 0, modelUsed: this.model };
               }
-              
+
               const textChunk = candidate?.content?.parts?.[0]?.text || '';
               if (textChunk) {
                 fullText += textChunk;
                 onChunk?.(fullText);
               }
-              
+
               if (json.usageMetadata) {
                 inputTokens = json.usageMetadata.promptTokenCount || inputTokens;
                 outputTokens = json.usageMetadata.candidatesTokenCount || outputTokens;
@@ -256,10 +256,10 @@ class AIProviderManager {
             }
           }
         }
-        
+
         return { text: fullText, promptTokens: inputTokens, completionTokens: outputTokens, modelUsed: this.model };
       }
-      
+
       // For OpenAI and Anthropic, fallback to non-streaming for now but simulate onChunk 
       // when it completes to maintain API compatibility
       case 'openai':
@@ -312,11 +312,11 @@ class AIProviderManager {
           console.warn('⚠️ Gemini blocked response due to safety filters.');
           return { text: '[İçerik güvenlik filtresine takıldı. Lütfen sahne metnini gözden geçirin.]', promptTokens: 0, completionTokens: 0, modelUsed: this.model };
         }
-        
+
         const text = candidate?.content?.parts?.[0]?.text || '';
         const promptTokens = data.usageMetadata?.promptTokenCount || 0;
         const completionTokens = data.usageMetadata?.candidatesTokenCount || 0;
-        
+
         return { text, promptTokens, completionTokens, modelUsed: this.model };
       }
 
@@ -384,7 +384,7 @@ class AIProviderManager {
   }
 
   private async updateKeyUsage(keyId: string, promptTokens: number, completionTokens: number, operationType: string, modelUsed: string) {
-    await supabase.rpc('increment_api_key_usage', { 
+    await supabase.rpc('increment_api_key_usage', {
       key_id: keyId,
       p_prompt_tokens: promptTokens,
       p_completion_tokens: completionTokens,
