@@ -15,11 +15,42 @@ export interface ScriptChunk {
 
 export async function parseDocxFile(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
-  const result = await mammoth.extractRawText({ arrayBuffer });
-  return result.value;
+  
+  // Custom options to capture highlighting if possible via style map 
+  // or simply use convertToHtml which is richer than extractRawText
+  const options = {
+    styleMap: [
+      "u => u",
+      "strike => del",
+      "r[highlight='yellow'] => mark",
+      "r[highlight='green'] => mark",
+      "r[highlight='cyan'] => mark",
+      "r[highlight='magenta'] => mark",
+      "r[highlight='blue'] => mark",
+      "r[highlight='red'] => mark",
+      "r[highlight='darkYellow'] => mark",
+      "r[highlight='darkBlue'] => mark",
+      "r[highlight='darkCyan'] => mark",
+      "r[highlight='darkGreen'] => mark",
+      "r[highlight='darkMagenta'] => mark",
+      "r[highlight='darkRed'] => mark",
+      "r[highlight='black'] => mark"
+    ]
+  };
+
+  const result = await mammoth.convertToHtml({ arrayBuffer }, options);
+  
+  let html = result.value;
+  // Convert basic paragraph structure to line breaks while keeping internal tags
+  // We use a broader regex to catch <p> tags with attributes if any
+  html = html.replace(/<p[^>]*>/g, '').replace(/<\/p>/g, '\n');
+  
+  return html;
 }
 
 export function parseScriptText(rawText: string): ScriptScene[] {
+  // rawText now contains HTML tags like <mark> or <strong>
+  // We split by newline (which we added in parseDocxFile)
   const lines = rawText.split('\n').map(l => l.trim()).filter(l => l);
   const perdeLines = lines.filter(l => l.includes('PERDE'));
   console.log('🎬 PERDE içeren satırlar:', perdeLines.slice(0, 20));
@@ -49,7 +80,10 @@ export function parseScriptText(rawText: string): ScriptScene[] {
   const shouldSkip = (line: string) => SKIP_PATTERNS.some(p => p.test(line));
 
   for (const line of lines) {
-    if (/^PERDE \d+/.test(line)) {
+    // We use a helper to strip tags for regex matching but keep original line for content
+    const cleanLine = line.replace(/<[^>]*>/g, '').trim();
+
+    if (/^PERDE \d+/.test(cleanLine)) {
       perdeCount++;
       console.log(`PERDE bulundu #${perdeCount}: "${line}" — mevcut visual: "${currentVisual.substring(0, 50)}"`);
       
@@ -74,7 +108,7 @@ export function parseScriptText(rawText: string): ScriptScene[] {
       continue;
     }
 
-    if (/^(GÖRÜNTÜ|SON GÖRÜNTÜ)/.test(line) && line.includes(':')) {
+    if (/^(GÖRÜNTÜ|SON GÖRÜNTÜ)/.test(cleanLine) && cleanLine.includes(':')) {
       goruntuCount++;
       console.log(`GÖRÜNTÜ bloğu #${goruntuCount}: ${currentPerde}`);
       
@@ -95,19 +129,19 @@ export function parseScriptText(rawText: string): ScriptScene[] {
       continue;
     }
 
-    if (/ANLATICI \(V\.O\.\)|ANLATICI V\.O\./i.test(line)) {
+    if (/ANLATICI \(V\.O\.\)|ANLATICI V\.O\./i.test(cleanLine)) {
       inVO = true;
       inVisual = false;
       continue;
     }
 
-    if (/\(V\.O\.\)/.test(line) || /GÖK TENGRİ/.test(line)) {
+    if (/\(V\.O\.\)/.test(cleanLine) || /GÖK TENGRİ/.test(cleanLine)) {
       inVO = true;
       inVisual = false;
       continue;
     }
 
-    if (shouldSkip(line)) continue;
+    if (shouldSkip(cleanLine)) continue;
 
     if (currentPerde && !currentTitle && !inVisual && !inVO) {
       currentTitle = line;

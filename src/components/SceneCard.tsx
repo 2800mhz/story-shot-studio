@@ -312,9 +312,10 @@ export function SceneCard({
           <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground select-none">
             Sahne metni (tıkla göster)
           </summary>
-          <p className="text-xs text-muted-foreground mt-2 p-2 bg-background rounded leading-relaxed">
-            {scene.text}
-          </p>
+          <p 
+            className="text-xs text-muted-foreground mt-2 p-2 bg-background rounded leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: scene.text }}
+          />
         </details>
       </div>
 
