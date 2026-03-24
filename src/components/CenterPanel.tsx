@@ -148,7 +148,7 @@ export function CenterPanel({
                       }`}
                     onClick={() => onSetActiveScene(scene.id)}
                   >
-                    {scene.text}
+                    <div dangerouslySetInnerHTML={{ __html: scene.text || '' }} />
                   </div>
                   {idx < scenes.length - 1 && (
                     <div className="my-4 flex items-center gap-3">
@@ -180,9 +180,10 @@ export function CenterPanel({
                 // Add unhighlighted text before the scene
                 if (start > currentIndex) {
                   elements.push(
-                    <span key={`text-${currentIndex}`}>
-                      {mainText.substring(currentIndex, start)}
-                    </span>
+                    <span 
+                      key={`text-${currentIndex}`}
+                      dangerouslySetInnerHTML={{ __html: mainText.substring(currentIndex, start) }}
+                    />
                   );
                 }
 
@@ -206,7 +207,7 @@ export function CenterPanel({
                       }`}>
                       {scene.number}
                     </span>
-                    {mainText.substring(start, end)}
+                    <span dangerouslySetInnerHTML={{ __html: mainText.substring(start, end) }} />
                   </span>
                 );
 
@@ -216,9 +217,10 @@ export function CenterPanel({
               // Add remaining text after the last scene
               if (currentIndex < mainText.length) {
                 elements.push(
-                  <span key={`text-${currentIndex}`}>
-                    {mainText.substring(currentIndex)}
-                  </span>
+                  <span 
+                    key={`text-${currentIndex}`}
+                    dangerouslySetInnerHTML={{ __html: mainText.substring(currentIndex) }}
+                  />
                 );
               }
 
@@ -248,9 +250,8 @@ export function CenterPanel({
           <div
             className="font-serif text-[17px] leading-[1.8] text-foreground/90 selection:bg-primary/30"
             style={{ whiteSpace: 'pre-wrap' }}
-          >
-            {mainText}
-          </div>
+            dangerouslySetInnerHTML={{ __html: mainText }}
+          />
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground">
             <p className="text-center text-sm">Ana metni yüklemek için üst menüdeki "Ana Metin" butonunu kullanın</p>
