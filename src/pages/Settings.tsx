@@ -15,7 +15,7 @@ import { encryptKey, maskKey } from '@/lib/encryption';
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
-  ResponsiveContainer, Legend
+  ResponsiveContainer, Legend, PieChart, Pie, Cell
 } from 'recharts';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -330,14 +330,31 @@ export default function Settings() {
       providerStats[prov].count++;
     });
 
+    // Efficiency: Tokens per USD
+    const efficiency = totalCost > 0 ? totalTokens / totalCost : 0;
+    
+    // Projection: Cost if usage continues at same rate until end of month
+    const daysPassedInMonth = new Date().getDate();
+    const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+    const projectedCost = (totalCost / daysPassedInMonth) * daysInMonth;
+
     return {
       totalRequests, totalInputTokens, totalOutputTokens, totalTokens,
       totalCost, avgTokensPerRequest, avgCostPerRequest,
-      operationStats, modelStats, providerStats
+      operationStats, modelStats, providerStats, efficiency, projectedCost
     };
   }, [filteredLogs, trueTotalRequests, timeFilter, filterProvider, filterModel, filterOperation]);
 
   // ─── Chart Data (Daily — last 14 days) ──────────────────────────────────
+  
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
+
+  const modelPieData = useMemo(() => {
+    return Object.entries(billingStats.modelStats).map(([name, stat]) => ({
+      name,
+      value: stat.cost
+    })).sort((a, b) => b.value - a.value);
+  }, [billingStats.modelStats]);
 
   const chartData = useMemo(() => {
     const days = Array.from({ length: 14 }, (_, i) => {
@@ -715,27 +732,32 @@ export default function Settings() {
             </div>
           </Card>
 
-          {/* ── KPI Cards ── */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <Card className="p-4 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Toplam İstek</p>
-              <p className="text-2xl font-bold">{billingStats.totalRequests.toLocaleString('tr-TR')}</p>
+            <Card className="p-5 border-primary/10 bg-card/60 backdrop-blur-md shadow-xl">
+              <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-1">Toplam İstek</p>
+              <p className="text-3xl font-serif font-bold text-foreground">{billingStats.totalRequests.toLocaleString('tr-TR')}</p>
+              <p className="text-[10px] text-green-600 font-medium mt-1">Son 30 gün verisi</p>
             </Card>
-            <Card className="p-4 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Toplam Token</p>
-              <p className="text-2xl font-bold text-primary">{billingStats.totalTokens.toLocaleString('tr-TR')}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                📥 {billingStats.totalInputTokens.toLocaleString('tr-TR')} / 📤 {billingStats.totalOutputTokens.toLocaleString('tr-TR')}
-              </p>
+            <Card className="p-5 border-primary/10 bg-card/60 backdrop-blur-md shadow-xl">
+              <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-1">Toplam Token</p>
+              <p className="text-3xl font-serif font-bold text-primary">{billingStats.totalTokens.toLocaleString('tr-TR')}</p>
+              <div className="flex gap-2 mt-1">
+                <span className="text-[9px] font-bold text-blue-500 bg-blue-50 px-1 rounded">IN: {billingStats.totalInputTokens.toLocaleString('tr-TR')}</span>
+                <span className="text-[9px] font-bold text-emerald-500 bg-emerald-50 px-1 rounded">OUT: {billingStats.totalOutputTokens.toLocaleString('tr-TR')}</span>
+              </div>
             </Card>
-            <Card className="p-4 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Tahmini Maliyet</p>
-              <p className="text-2xl font-bold text-amber-600">{formatCost(billingStats.totalCost)}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Ort/istek: {formatCost(billingStats.avgCostPerRequest)}</p>
+            <Card className="p-5 border-amber-200 bg-amber-50/30 backdrop-blur-md shadow-xl overflow-hidden relative group">
+               <div className="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                <Activity className="h-20 w-20" />
+              </div>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-amber-700/60 mb-1">Toplam Maliyet</p>
+              <p className="text-3xl font-serif font-bold text-amber-600">{formatCost(billingStats.totalCost)}</p>
+              <p className="text-[10px] text-amber-800/50 font-medium mt-1">Projeksiyon: {formatCost(billingStats.projectedCost)}/ay</p>
             </Card>
-            <Card className="p-4 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Ort. Token/İstek</p>
-              <p className="text-2xl font-bold text-violet-600">{billingStats.avgTokensPerRequest.toLocaleString('tr-TR')}</p>
+            <Card className="p-5 border-violet-200 bg-violet-50/30 backdrop-blur-md shadow-xl">
+              <p className="text-[10px] uppercase font-bold tracking-widest text-violet-700/60 mb-1">Verimlilik</p>
+              <p className="text-3xl font-serif font-bold text-violet-600">{(billingStats.efficiency / 1000).toFixed(1)}k</p>
+              <p className="text-[10px] text-violet-800/50 font-medium mt-1">Token / $1.00</p>
             </Card>
           </div>
 
@@ -770,16 +792,49 @@ export default function Settings() {
               </div>
             </Card>
 
-            {/* Cost Trend */}
-            <Card className="p-6 md:col-span-2">
-              <h3 className="text-base font-semibold mb-4 text-foreground/80">Tahmini Maliyet Trendi ($) (Son 14 Gün)</h3>
+            {/* Cost Trend & Model Distribution */}
+            <Card className="p-6 md:col-span-1">
+              <h3 className="text-base font-semibold mb-4 text-foreground/80">Model Harcama Dağılımı</h3>
+              <div className="h-[200px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={modelPieData}
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {modelPieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip formatter={(value: number) => [formatCost(value), 'Harcanan']} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="mt-4 space-y-2">
+                {modelPieData.slice(0, 3).map((m, i) => (
+                  <div key={m.name} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                      <span className="font-medium truncate max-w-[120px]">{m.name}</span>
+                    </div>
+                    <span>{formatCost(m.value)}</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="p-6 md:col-span-1">
+              <h3 className="text-base font-semibold mb-4 text-foreground/80">Günlük Harcama Trendi</h3>
               <div className="h-[200px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ccc" opacity={0.3} />
-                    <XAxis dataKey="date" fontSize={11} tickLine={false} axisLine={false} />
-                    <YAxis fontSize={11} tickLine={false} axisLine={false} tickFormatter={v => `$${v.toFixed(3)}`} width={56} />
-                    <RechartsTooltip formatter={(value: number) => [`$${value.toFixed(5)}`, 'Maliyet']} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                    <XAxis dataKey="date" fontSize={10} tickLine={false} axisLine={false} />
+                    <YAxis fontSize={10} tickLine={false} axisLine={false} tickFormatter={v => `$${v.toFixed(2)}`} width={40} />
+                    <RechartsTooltip formatter={(value: number) => [`$${value.toFixed(5)}`, 'Maliyet']} />
                     <Bar name="Maliyet ($)" dataKey="cost" fill="#f59e0b" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
