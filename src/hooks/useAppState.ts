@@ -46,6 +46,8 @@ const initialState: AppState = {
   episodePromptTr: '',
   isAnalyzing: false,
   isGeneratingPrompts: false,
+  selectedSceneIds: [],
+  lastSelectedSceneId: null,
 };
 
 // Actions that should NOT push to undo history (transient / settings)
@@ -601,6 +603,43 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
         ),
       };
     }
+    case 'TOGGLE_SCENE_SELECTION': {
+      const { sceneId, multiSelect } = action.payload;
+      
+      if (multiSelect && state.lastSelectedSceneId) {
+        // Shift+Click logic
+        const currentIndex = state.sceneCards.findIndex(sc => sc.id === sceneId);
+        const lastIndex = state.sceneCards.findIndex(sc => sc.id === state.lastSelectedSceneId);
+        
+        if (currentIndex !== -1 && lastIndex !== -1) {
+          const start = Math.min(currentIndex, lastIndex);
+          const end = Math.max(currentIndex, lastIndex);
+          const idsInRange = state.sceneCards.slice(start, end + 1).map(sc => sc.id);
+          
+          // Combine existing selection with new range, avoiding duplicates
+          const newSelection = Array.from(new Set([...state.selectedSceneIds, ...idsInRange]));
+          return {
+            ...state,
+            selectedSceneIds: newSelection,
+            lastSelectedSceneId: sceneId
+          };
+        }
+      }
+      
+      // Normal Click Logic
+      const isSelected = state.selectedSceneIds.includes(sceneId);
+      return {
+        ...state,
+        selectedSceneIds: isSelected 
+          ? state.selectedSceneIds.filter(id => id !== sceneId)
+          : [...state.selectedSceneIds, sceneId],
+        lastSelectedSceneId: sceneId
+      };
+    }
+    case 'SET_SELECTED_SCENES':
+      return { ...state, selectedSceneIds: action.payload, lastSelectedSceneId: action.payload[action.payload.length - 1] || null };
+    case 'CLEAR_SELECTION':
+      return { ...state, selectedSceneIds: [], lastSelectedSceneId: null };
     default:
       return state;
   }
