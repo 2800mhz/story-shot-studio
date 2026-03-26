@@ -266,64 +266,68 @@ export function RightPanel({
   return (
     <div className="flex h-full flex-col border-l bg-card">
       <div className="flex items-center justify-between border-b px-4 py-3">
-        <div>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sahneler</h2>
-          {(scenes.length > 0 || sceneCards.length > 0) && (
-            <p className="text-[10px] text-muted-foreground mt-0.5">{scenes.length + sceneCards.length} sahne</p>
-          )}
+        <div className="flex flex-col">
+          <h2 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Çalışma Alanı</h2>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="text-sm font-semibold text-foreground">Sahneler</span>
+            {(scenes.length > 0 || sceneCards.length > 0) && (
+              <Badge variant="secondary" className="h-4 px-1.5 text-[9px] font-medium bg-primary/10 text-primary border-none">
+                {scenes.length + sceneCards.length}
+              </Badge>
+            )}
+          </div>
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex gap-2">
           {/* Export all prompts */}
           {(doneCount > 0 || sceneCards.some(sc => sc.prompts.length > 0)) && (
             <Button
               size="sm"
-              variant="outline"
-              className="h-7 text-xs"
+              variant="ghost"
+              className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary transition-colors"
               onClick={handleExportAll}
               title="Tüm promptları panoya kopyala"
             >
-              <Download className="mr-1 h-3 w-3" />
-              Dışa Aktar
+              <Download className="h-4 w-4" />
             </Button>
           )}
+          
           {isGeneratingAll ? (
-            <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={onCancelAll}>
-              <span className="mr-1">✕</span>
-              Toplu Üretimi İptal Et
+            <Button size="sm" variant="destructive" className="h-8 px-3 text-xs animate-pulse" onClick={onCancelAll}>
+              İptal Et
             </Button>
           ) : pendingCount > 0 ? (
-            <Button size="sm" className="h-7 text-xs bg-primary text-primary-foreground" onClick={onGenerateAll}>
-              <Sparkles className="mr-1 h-3 w-3" />
-              Tümünü Üret ({pendingCount})
+            <Button size="sm" className="h-8 px-3 text-xs bg-primary hover:bg-primary/90 shadow-sm shadow-primary/20" onClick={onGenerateAll}>
+              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              Tümünü Üret
             </Button>
           ) : onGenerateAllPrompts && sceneCards.length > 0 ? (
             isBulkGeneratingPrompts ? (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 bg-secondary rounded-md px-3 h-7 min-w-[120px]">
-                  <div className="relative flex-1 bg-background rounded-full h-1.5 overflow-hidden">
+              <div className="flex items-center gap-2 bg-secondary/50 rounded-lg px-2 py-1 border border-border/50">
+                <div className="flex flex-col gap-1 min-w-[100px]">
+                  <div className="flex justify-between text-[9px] font-medium text-muted-foreground">
+                    <span>Üretiliyor...</span>
+                    <span>%{bulkPromptsPercent}</span>
+                  </div>
+                  <div className="relative w-full bg-background/50 rounded-full h-1 overflow-hidden">
                     <div
-                      className="absolute left-0 top-0 h-full bg-primary rounded-full transition-all duration-300"
+                      className="absolute left-0 top-0 h-full bg-primary rounded-full transition-all duration-500 ease-out"
                       style={{ width: `${bulkPromptsPercent}%` }}
                     />
                   </div>
-                  <span className="text-[10px] text-muted-foreground shrink-0 font-medium">
-                    {bulkPromptsProgress?.done ?? 0}/{bulkPromptsProgress?.total ?? 0} üretiliyor...
-                  </span>
                 </div>
-                <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={onCancelBulkPrompts}>
-                  <span className="mr-1">✕</span>
-                  İptal
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive rounded-full" onClick={onCancelBulkPrompts}>
+                  <span className="text-lg leading-none">×</span>
                 </Button>
               </div>
             ) : (
               <Button
                 size="sm"
-                className="h-7 text-xs"
+                className="h-8 px-3 text-xs bg-primary hover:bg-primary/90 shadow-sm shadow-primary/20 border-none group"
                 disabled={isGeneratingPrompts}
                 onClick={onGenerateAllPrompts}
               >
-                <Sparkles className="mr-1 h-3 w-3" />
-                Tümü İçin Prompt Üret
+                <Zap className="mr-1.5 h-3.5 w-3.5 fill-current group-hover:animate-pulse" />
+                Toplu Prompt Üret
               </Button>
             )
           ) : null}

@@ -1581,6 +1581,25 @@ const Index = () => {
               onCancelAll={handleCancelAll}
               onGenerateAll={handleGenerateAll}
               isGeneratingAll={isGeneratingAll}
+              onGenerateAllPrompts={handleGenerateAllPrompts}
+              isBulkGeneratingPrompts={isBulkGeneratingPrompts}
+              bulkPromptsProgress={bulkPromptsProgress}
+              onCancelBulkPrompts={handleCancelBulkPrompts}
+              sceneCards={state.sceneCards}
+              characters={state.characters}
+              locations={state.locations}
+              timeContexts={state.timeContexts}
+              onGeneratePrompts={handleGeneratePromptsForScene}
+              onUpdateSceneCardNote={handleSetSceneNote}
+              onAddVariation={handleAddVariation}
+              onRegenerateAllPrompts_={handleRegenerateAllPrompts}
+              onRevisePrompt={handleRevisePrompt_}
+              onDeletePrompt={handleDeletePrompt_}
+              onRestorePreviousPrompt_={handleRestoreSceneCardPrompt}
+              onSetPinnedPrompt={handleSetPinnedPrompt}
+              onAddCharacterToSceneCard={handleAddNewCharacterToSceneCard}
+              onAddLocationToSceneCard={handleAddNewLocationToSceneCard}
+              onDeleteSceneCard={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
               onRevise={handleRevise}
               onRefreshAll={handleRefreshAll}
               isLoading={loadingData}
@@ -1603,30 +1622,6 @@ const Index = () => {
               onRemoveSubSceneFromGroup={handleRemoveSubSceneFromGroup}
               onReorderScenes={(reordered) => dispatch({ type: 'REORDER_SCENES', payload: reordered })}
               onReorderSceneCards={(reordered) => dispatch({ type: 'REORDER_SCENE_CARDS', payload: reordered })}
-              sceneCards={state.sceneCards}
-              characters={state.characters}
-              locations={state.locations}
-              timeContexts={state.timeContexts}
-              isGeneratingPrompts={state.isGeneratingPrompts}
-              onGeneratePrompts={handleGeneratePromptsForScene}
-              onGenerateAllPrompts={handleGenerateAllPrompts}
-              onDeleteSceneCard={(sceneId) => dispatch({ type: 'DELETE_SCENE_CARD', payload: sceneId })}
-              onUpdateSceneCardNote={(sceneId, note) => dispatch({ type: 'UPDATE_SCENE_CARD_NOTE', payload: { sceneId, note } })}
-              onRemoveCharacterFromSceneCard={(sceneId, characterId) => dispatch({ type: 'REMOVE_CHARACTER_FROM_SCENE_CARD', payload: { sceneId, characterId } })}
-              onRemoveLocationFromSceneCard={(sceneId, locationId) => dispatch({ type: 'REMOVE_LOCATION_FROM_SCENE_CARD', payload: { sceneId, locationId } })}
-              onAddCharacterToSceneCard={handleAddNewCharacterToSceneCard}
-              onAddLocationToSceneCard={handleAddNewLocationToSceneCard}
-              onAddTimeContextToSceneCard={(scene, tc) => dispatch({ type: 'ADD_TIME_CONTEXT_TO_SCENE_CARD', payload: { sceneId: scene, timeContextId: tc } })}
-              onRemoveTimeContextFromSceneCard={(scene, tc) => dispatch({ type: 'REMOVE_TIME_CONTEXT_FROM_SCENE_CARD', payload: { sceneId: scene, timeContextId: tc } })}
-              onAddVariation={handleAddVariation}
-              onRegenerateAllPrompts_={handleRegenerateAllPrompts}
-              onRevisePrompt={handleRevisePrompt_}
-              onDeletePrompt={handleDeletePrompt_}
-              onRestorePreviousPrompt_={handleRestoreSceneCardPrompt}
-              isBulkGeneratingPrompts={isBulkGeneratingPrompts}
-              bulkPromptsProgress={bulkPromptsProgress}
-              onCancelBulkPrompts={handleCancelBulkPrompts}
-              onSetPinnedPrompt={handleSetPinnedPrompt}
             />
           </Panel>
         </PanelGroup>
