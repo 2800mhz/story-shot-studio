@@ -178,13 +178,12 @@ export function InfoModal({ open, onClose }: InfoModalProps) {
               </ol>
             </section>
 
-            <div className="flex justify-center pt-4 opacity-20 hover:opacity-100 transition-opacity">
+            <div className="flex justify-center pt-4">
               <span
                 role="img"
                 aria-label="cat"
-                className="text-2xl cursor-pointer select-none"
+                className="text-2xl select-none"
                 onClick={handleCatClick}
-                title="Meow?"
               >
                 🐱
               </span>
