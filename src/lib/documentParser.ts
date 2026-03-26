@@ -9,7 +9,6 @@ export async function parseDocxFile(file: File): Promise<string> {
   console.log('[DocumentParser] Starting docx parsing...');
 
   try {
-    // 1. Unzip the docx to modify document.xml before mammoth sees it
     const zip = fflate.unzipSync(new Uint8Array(arrayBuffer));
     const docXmlBytes = zip['word/document.xml'];
     
@@ -17,7 +16,6 @@ export async function parseDocxFile(file: File): Promise<string> {
       console.log('[DocumentParser] Found document.xml, parsing...');
       const docXmlStr = fflate.strFromU8(docXmlBytes);
       
-      // 2. Parse XML
       const parser = new XMLParser({
         ignoreAttributes: false,
         preserveOrder: true,
@@ -26,9 +24,9 @@ export async function parseDocxFile(file: File): Promise<string> {
       });
       const docObj = parser.parse(docXmlStr);
 
-      // 3. Walk AST and modify yellow runs
       const YELLOW_HEX = new Set(['ffff00', 'ffd700', 'ffe700', 'ffcc00', 'f0e68c', 'fde047']);
       let modifiedRuns = 0;
+      let logCount = 0;
 
       function walk(node: any) {
         if (!node) return;
@@ -42,9 +40,23 @@ export async function parseDocxFile(file: File): Promise<string> {
           const run = node['w:r'];
           let isYellow = false;
           
+          let textSample = '';
+          const tNode = run.find((child: any) => child['w:t']);
+          if (tNode) {
+            textSample = typeof tNode['w:t'] === 'string' ? tNode['w:t'] : 
+                         (Array.isArray(tNode['w:t']) && tNode['w:t'].length > 0 && tNode['w:t'][0]['#text'] ? tNode['w:t'][0]['#text'] : '');
+          }
+
           const rPrNode = run.find((child: any) => child['w:rPr']);
           if (rPrNode) {
             const rPr = rPrNode['w:rPr'];
+            
+            // Log the first 20 run properties to reverse-engineer how the highlighting is stored
+            if (logCount < 20) {
+              console.log(`[DocumentParser] Run ${logCount} PR:`, JSON.stringify(rPr), 'TEXT:', textSample);
+              logCount++;
+            }
+
             rPr.forEach((prop: any) => {
               if (prop['w:highlight'] && prop['w:highlight'].length > 0) {
                 const val = prop['w:highlight'][0]['@_w:val'];
@@ -57,10 +69,17 @@ export async function parseDocxFile(file: File): Promise<string> {
                    if (YELLOW_HEX.has(val)) isYellow = true;
                 }
               }
+              // Check w:color
+              if (prop['w:color'] && prop['w:color'].length > 0) {
+                 let val = prop['w:color'][0]['@_w:val'] || '';
+                 if (val) {
+                    val = val.replace('#', '').toLowerCase();
+                    if (YELLOW_HEX.has(val)) isYellow = true;
+                 }
+              }
             });
 
             if (isYellow) {
-               // Force standard <w:highlight w:val="yellow"/>
                for (let i = rPr.length - 1; i >= 0; i--) {
                   if (rPr[i]['w:highlight']) rPr.splice(i, 1);
                }
@@ -82,7 +101,6 @@ export async function parseDocxFile(file: File): Promise<string> {
       walk(docObj);
       console.log(`[DocumentParser] Modified ${modifiedRuns} yellow runs in XML.`);
 
-      // 4. Rebuild XML if modifications were made
       if (modifiedRuns > 0) {
         const builder = new XMLBuilder({
           ignoreAttributes: false,
@@ -94,7 +112,6 @@ export async function parseDocxFile(file: File): Promise<string> {
         const newDocXmlStr = builder.build(docObj);
         zip['word/document.xml'] = fflate.strToU8(newDocXmlStr);
         
-        // 5. Re-zip
         const newZipBuffer = fflate.zipSync(zip);
         bufferToConvert = newZipBuffer.buffer as ArrayBuffer;
         console.log('[DocumentParser] Successfully rebuilt and zipped modified docx.');
@@ -106,7 +123,6 @@ export async function parseDocxFile(file: File): Promise<string> {
     }
   } catch (error) {
     console.error('[DocumentParser] Failed to modify OOXML:', error);
-    // Fall back to original un-modified arrayBuffer
     bufferToConvert = arrayBuffer;
   }
 
