@@ -51,38 +51,31 @@ export async function parseDocxFile(file: File): Promise<string> {
           if (rPrNode) {
             const rPr = rPrNode['w:rPr'];
             
-            // Log the first 20 run properties to reverse-engineer how the highlighting is stored
-            if (logCount < 20) {
-              console.log(`[DocumentParser] Run ${logCount} PR:`, JSON.stringify(rPr), 'TEXT:', textSample);
-              logCount++;
+            // Bulletproof detection: convert run properties to string and search for yellow/hex
+            const prStr = JSON.stringify(rPr).toLowerCase();
+            
+            // Check for standard highlight colors or shading hex codes
+            if (
+              prStr.includes('yellow') || 
+              prStr.includes('darkyellow') ||
+              prStr.includes('ffff00') || 
+              prStr.includes('ffd700') || 
+              prStr.includes('ffe700') || 
+              prStr.includes('ffcc00') || 
+              prStr.includes('f0e68c') || 
+              prStr.includes('fde047')
+            ) {
+              isYellow = true;
             }
 
-            rPr.forEach((prop: any) => {
-              if (prop['w:highlight'] && prop[':@']) {
-                const val = prop[':@']['@_w:val'];
-                if (val === 'yellow' || val === 'darkYellow') isYellow = true;
-              }
-              if (prop['w:shd'] && prop[':@']) {
-                let val = prop[':@']['@_w:fill'] || '';
-                if (val) {
-                   val = val.replace('#', '').toLowerCase();
-                   if (YELLOW_HEX.has(val)) isYellow = true;
-                }
-              }
-              // Check w:color
-              if (prop['w:color'] && prop[':@']) {
-                 let val = prop[':@']['@_w:val'] || '';
-                 if (val) {
-                    val = val.replace('#', '').toLowerCase();
-                    if (YELLOW_HEX.has(val)) isYellow = true;
-                 }
-              }
-            });
-
             if (isYellow) {
+               // Remove existing highlight tags to prevent Word XML errors
                for (let i = rPr.length - 1; i >= 0; i--) {
-                  if (rPr[i]['w:highlight']) rPr.splice(i, 1);
+                  if (rPr[i] && typeof rPr[i] === 'object' && ('w:highlight' in rPr[i])) {
+                     rPr.splice(i, 1);
+                  }
                }
+               // Inject standard w:highlight tag that Mammoth understands natively
                rPr.push({ 'w:highlight': [ { ':@': { '@_w:val': 'yellow' } } ] });
                modifiedRuns++;
             }
