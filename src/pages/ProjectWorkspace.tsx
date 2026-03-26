@@ -1,17 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Film, Trash2, FileText, Pencil } from 'lucide-react';
+import { ArrowLeft, Plus, Film, Trash2, FileText, Pencil, Search, SortAsc, Calendar, Clock, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchProject, fetchEpisodes, createEpisode, deleteEpisode, updateEpisode } from '@/lib/supabaseQueries';
+import { format } from 'date-fns';
+import { tr } from 'date-fns/locale';
 
 interface Episode {
   id: string;
   episode_number: number;
   title: string;
   created_at: string;
+  scene_count?: number;
 }
 
 interface Project {
@@ -32,6 +38,11 @@ export default function ProjectWorkspace() {
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  
+  // Search & Filter State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<'number' | 'newest' | 'oldest' | 'alphabetical'>('number');
+  const [dateFilter, setDateFilter] = useState<'all' | 'week' | 'month'>('all');
 
   useEffect(() => {
     if (projectId) {
@@ -92,6 +103,47 @@ export default function ProjectWorkspace() {
     }
   }
 
+  const filteredEpisodes = episodes
+    .filter(ep => {
+      const matchesSearch = ep.title.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      if (dateFilter === 'all') return matchesSearch;
+      
+      const createdAt = new Date(ep.created_at);
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - createdAt.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (dateFilter === 'week') return matchesSearch && diffDays <= 7;
+      if (dateFilter === 'month') return matchesSearch && diffDays <= 30;
+      
+      return matchesSearch;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'number') return a.episode_number - b.episode_number;
+      if (sortBy === 'newest') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (sortBy === 'oldest') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      if (sortBy === 'alphabetical') return a.title.localeCompare(b.title);
+      return 0;
+    });
+
+  const SkeletonEpisodeCard = () => (
+    <Card className="p-6 border-primary/10 bg-card/40 backdrop-blur-sm">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-6 w-6 rounded-md" />
+          <Skeleton className="h-4 w-20" />
+        </div>
+        <div className="flex gap-1">
+          <Skeleton className="h-8 w-8 rounded-full" />
+          <Skeleton className="h-8 w-8 rounded-full" />
+        </div>
+      </div>
+      <Skeleton className="h-7 w-full mb-3" />
+      <Skeleton className="h-4 w-32" />
+    </Card>
+  );
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -121,96 +173,165 @@ export default function ProjectWorkspace() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-12">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold">Episodes</h2>
-          <p className="text-muted-foreground mt-1">
-            {episodes.length} {episodes.length === 1 ? 'episode' : 'episodes'}
-          </p>
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+          <div>
+            <h2 className="text-4xl font-serif font-bold tracking-tight">Bölümler</h2>
+            <p className="text-muted-foreground mt-2 flex items-center gap-2">
+              <span className="inline-flex items-center justify-center bg-primary/10 text-primary font-bold px-2 py-0.5 rounded text-sm">
+                {episodes.length}
+              </span>
+              toplam bölüm hazır
+            </p>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-3 bg-card/30 backdrop-blur-md p-2 rounded-xl border border-primary/5 shadow-2xl">
+            <div className="relative w-full md:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Bölüm ara..." 
+                className="pl-9 bg-background/50 border-primary/10 focus:border-primary/30 transition-all"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+              <SelectTrigger className="w-[160px] bg-background/50 border-primary/10">
+                <SortAsc className="mr-2 h-4 w-4 opacity-50" />
+                <SelectValue placeholder="Sırala" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="number">Bölüm No</SelectItem>
+                <SelectItem value="newest">En Yeni</SelectItem>
+                <SelectItem value="oldest">En Eski</SelectItem>
+                <SelectItem value="alphabetical">A - Z</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={dateFilter} onValueChange={(v: any) => setDateFilter(v)}>
+              <SelectTrigger className="w-[160px] bg-background/50 border-primary/10">
+                <Filter className="mr-2 h-4 w-4 opacity-50" />
+                <SelectValue placeholder="Zaman" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tüm Zamanlar</SelectItem>
+                <SelectItem value="week">Son 1 Hafta</SelectItem>
+                <SelectItem value="month">Son 1 Ay</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-32">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map(i => <SkeletonEpisodeCard key={i} />)}
           </div>
-        ) : episodes.length === 0 ? (
-          <Card className="p-16 text-center">
-            <FileText className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No episodes yet</h3>
-            <p className="text-muted-foreground mb-6">
-              Create your first episode to start generating prompts
+        ) : filteredEpisodes.length === 0 ? (
+          <Card className="p-20 text-center bg-card/20 border-dashed border-2 border-primary/20 backdrop-blur-sm">
+            <div className="bg-primary/5 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <FileText className="h-10 w-10 text-primary/40" />
+            </div>
+            <h3 className="text-2xl font-serif font-semibold mb-2">Bölüm bulunamadı</h3>
+            <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
+              {searchTerm ? `"${searchTerm}" araması için sonuç bulunamadı.` : 'Bu proje için henüz bir bölüm oluşturulmamış.'}
             </p>
-            <Button onClick={handleCreateEpisode} disabled={creating}>
-              <Plus className="mr-2 h-4 w-4" />
-              {creating ? 'Creating...' : 'Create Episode'}
-            </Button>
+            {!searchTerm && (
+              <Button onClick={handleCreateEpisode} disabled={creating} size="lg" className="shadow-lg shadow-primary/20">
+                <Plus className="mr-2 h-5 w-5" />
+                {creating ? 'Oluşturuluyor...' : 'P İlk Bölümü Oluştur'}
+              </Button>
+            )}
+            {searchTerm && (
+              <Button variant="outline" onClick={() => setSearchTerm('')}>
+                Aramayı Temizle
+              </Button>
+            )}
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {episodes.map(episode => (
+            {filteredEpisodes.map(episode => (
               <Card
                 key={episode.id}
-                className="p-6 hover:shadow-lg transition-shadow cursor-pointer"
+                className="group relative overflow-hidden p-6 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-300 cursor-pointer border-primary/10 bg-card/60 backdrop-blur-md hover:-translate-y-1"
                 onClick={() => navigate(`/project/${projectId}/episode/${episode.id}`)}
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-6 w-6 text-primary" />
-                    <span className="text-xs text-muted-foreground font-medium">
-                      Episode {episode.episode_number}
-                    </span>
+                {/* Visual Accent */}
+                <div className="absolute top-0 right-0 p-8 -mr-8 -mt-8 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors" />
+                
+                <div className="flex items-start justify-between relative z-10 mb-6">
+                  <div className="flex items-center gap-2.5">
+                    <div className="bg-primary/20 p-2 rounded-lg group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-inner">
+                      <FileText className="h-5 w-5" />
+                    </div>
+                    <Badge variant="outline" className="text-[10px] font-bold tracking-wider uppercase border-primary/20 text-primary/70">
+                      BÖLÜM {episode.episode_number}
+                    </Badge>
                   </div>
                   <div className="flex items-center gap-1">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      className="h-8 w-8 rounded-full text-muted-foreground/40 hover:text-primary hover:bg-primary/5"
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditingId(episode.id);
                         setEditValue(episode.title);
                       }}
                     >
-                      <Pencil className="h-4 w-4" />
+                      <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      className="h-8 w-8 rounded-full text-muted-foreground/40 hover:text-destructive hover:bg-destructive/5"
                       onClick={(e) => handleDeleteEpisode(episode.id, e)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>
+
                 {editingId === episode.id ? (
-                  <Input
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    onBlur={() => handleRenameEpisode(episode.id, editValue)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleRenameEpisode(episode.id, editValue);
-                      if (e.key === 'Escape') setEditingId(null);
-                      e.stopPropagation();
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    autoFocus
-                    className="text-lg font-semibold"
-                  />
+                  <div className="relative z-10" onClick={e => e.stopPropagation()}>
+                    <Input
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onBlur={() => handleRenameEpisode(episode.id, editValue)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleRenameEpisode(episode.id, editValue);
+                        if (e.key === 'Escape') setEditingId(null);
+                        e.stopPropagation();
+                      }}
+                      autoFocus
+                      className="text-lg font-bold bg-background/80 shadow-inner border-primary/30"
+                    />
+                  </div>
                 ) : (
-                  <h3
-                    className="text-lg font-semibold line-clamp-2 cursor-pointer hover:text-primary"
-                    onDoubleClick={(e) => {
-                      e.stopPropagation();
-                      setEditingId(episode.id);
-                      setEditValue(episode.title);
-                    }}
-                  >
-                    {episode.title}
-                  </h3>
+                  <div className="relative z-10 min-h-[3rem]">
+                    <h3
+                      className="text-xl font-serif font-bold line-clamp-2 leading-tight group-hover:text-primary transition-colors"
+                    >
+                      {episode.title}
+                    </h3>
+                  </div>
                 )}
-                <p className="text-xs text-muted-foreground mt-2">
-                  {new Date(episode.created_at).toLocaleDateString()}
-                </p>
+                
+                <div className="mt-6 flex items-center justify-between relative z-10">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                      <Clock className="h-3 w-3 opacity-50" />
+                      {format(new Date(episode.created_at), 'd MMMM yyyy', { locale: tr })}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-primary/80">
+                      <Film className="h-3.5 w-3.5" />
+                      {episode.scene_count || 0} Sahne
+                    </div>
+                  </div>
+                  
+                  <div className="h-10 w-10 rounded-full border border-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-primary/5 group-hover:scale-110 shadow-lg shadow-primary/5">
+                    <ArrowLeft className="h-5 w-5 rotate-180 text-primary" />
+                  </div>
+                </div>
               </Card>
             ))}
           </div>

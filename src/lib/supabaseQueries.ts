@@ -75,12 +75,19 @@ export async function deleteProject(projectId: string) {
 export async function fetchEpisodes(projectId: string) {
   const { data, error } = await supabase
     .from('episodes')
-    .select('*')
+    .select(`
+      *,
+      scenes:scenes(count)
+    `)
     .eq('project_id', projectId)
     .order('episode_number', { ascending: true });
 
   if (error) throw error;
-  return data || [];
+  
+  return (data || []).map(ep => ({
+    ...ep,
+    scene_count: ep.scenes?.[0]?.count ?? 0
+  }));
 }
 
 export async function fetchEpisode(episodeId: string) {
