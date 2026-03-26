@@ -33,7 +33,10 @@ export function CenterPanel({
   const [toolbar, setToolbar] = useState<{
     position: { top: number; left: number };
     selectedText: string;
+    selectionCount?: number;
   } | null>(null);
+  
+  const [multiSelection, setMultiSelection] = useState<string[]>([]);
 
   // Check if scenes are AI-parsed (have text property)
   const hasAiScenes = scenes.length > 0 && scenes.some(s => s.text);
@@ -69,7 +72,7 @@ export function CenterPanel({
   }, [scrollToIndex, onScrollComplete, hasAiScenes, scenes, onSetActiveScene]);
 
   // Handle text selection for floating toolbar
-  const handleMouseUp = useCallback(() => {
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed || !selection.toString().trim()) {
       return;
@@ -78,14 +81,30 @@ export function CenterPanel({
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
 
+    let currentSelectionList = [...multiSelection];
+
+    // If Ctrl or Meta (Cmd) key is pressed, append to existing selection
+    if (e.ctrlKey || e.metaKey) {
+      if (!currentSelectionList.includes(selectedText)) {
+        currentSelectionList.push(selectedText);
+      }
+    } else {
+      // Otherwise, start a fresh selection
+      currentSelectionList = [selectedText];
+    }
+    
+    setMultiSelection(currentSelectionList);
+
     setToolbar({
       position: { top: rect.top + window.scrollY, left: Math.max(8, rect.left + window.scrollX) },
-      selectedText,
+      selectedText: currentSelectionList.join('\n\n'),
+      selectionCount: currentSelectionList.length
     });
-  }, []);
+  }, [multiSelection]);
 
   const dismissToolbar = useCallback(() => {
     setToolbar(null);
+    setMultiSelection([]);
     window.getSelection()?.removeAllRanges();
   }, []);
 
@@ -266,6 +285,7 @@ export function CenterPanel({
           onAnalyzeWithAI={handleAnalyzeFromSelection}
           onDismiss={dismissToolbar}
           isAnalyzing={isAnalyzing}
+          selectionCount={toolbar.selectionCount}
         />
       )}
     </div>

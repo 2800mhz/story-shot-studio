@@ -6,9 +6,10 @@ interface FloatingToolbarProps {
   onAnalyzeWithAI: (targetSceneCount?: number) => void;
   onDismiss: () => void;
   isAnalyzing?: boolean;
+  selectionCount?: number;
 }
 
-export function FloatingToolbar({ position, onAnalyzeWithAI, onDismiss, isAnalyzing }: FloatingToolbarProps) {
+export function FloatingToolbar({ position, onAnalyzeWithAI, onDismiss, isAnalyzing, selectionCount = 1 }: FloatingToolbarProps) {
   const [targetSceneCount, setTargetSceneCount] = useState<string>('');
 
   return (
@@ -36,7 +37,11 @@ export function FloatingToolbar({ position, onAnalyzeWithAI, onDismiss, isAnalyz
         className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 disabled:opacity-60"
       >
         <Bot className="h-3.5 w-3.5" />
-        {isAnalyzing ? 'Analiz Ediliyor...' : '🤖 AI ile Analiz Et'}
+        {isAnalyzing 
+          ? 'Analiz Ediliyor...' 
+          : selectionCount > 1 
+            ? `🤖 ${selectionCount} Parçayı Birleştir & Analiz Et` 
+            : '🤖 AI ile Analiz Et'}
       </button>
       <div className="h-4 w-px bg-border max-sm:hidden" />
       <button
