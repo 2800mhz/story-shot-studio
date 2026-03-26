@@ -9,6 +9,8 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { generateMotionPrompt } from '@/lib/motionPromptApi';
+import { useAuth } from '@/contexts/AuthContext';
+import { aiProvider } from '@/lib/aiProvider';
 
 // ─── Types ───
 interface QueueItem {
@@ -22,17 +24,12 @@ interface QueueItem {
   apiKeyUsed?: string;
 }
 
-// ─── Key helpers ───
-function loadKeys(): string[] {
-  try { return JSON.parse(localStorage.getItem('gemini_api_keys') || '[]'); } catch { return []; }
-}
 
 const MODEL_PRESETS = [
-  'gemini-2.0-flash',
-  'gemini-2.5-flash-preview-05-20',
-  'gemini-1.5-pro',
-  'gemini-2.5-pro-preview-05-06',
-  'gemini-2.0-flash-thinking-exp',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-3-flash-preview',
+  'gemini-3.1-flash-lite',
 ];
 
 const DELAYS = [
@@ -43,9 +40,10 @@ const DELAYS = [
 ];
 
 export default function MotionPrompt() {
+  const { user } = useAuth();
   // ─── State ───
-  const [apiKeys] = useState<string[]>(loadKeys);
-  const [keyIndex, setKeyIndex] = useState(0);
+  const [hasKeys, setHasKeys] = useState(false);
+  const [keysLoaded, setKeysLoaded] = useState(false);
   const [model, setModel] = useState(localStorage.getItem('motion_model') || 'gemini-2.0-flash');
   const [projectContext, setProjectContext] = useState('general');
   const [globalNote, setGlobalNote] = useState('');
@@ -57,6 +55,20 @@ export default function MotionPrompt() {
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => { localStorage.setItem('motion_model', model); }, [model]);
+
+  useEffect(() => {
+    if (user?.id) {
+      aiProvider.initialize(user.id).then(() => {
+        setHasKeys(aiProvider.hasKeys());
+        setKeysLoaded(true);
+      }).catch(err => {
+        console.error('Failed to init aiProvider:', err);
+        setKeysLoaded(true);
+      });
+    } else {
+      setKeysLoaded(true);
+    }
+  }, [user]);
 
   // ─── File handling ───
   const addFiles = useCallback((files: FileList | File[]) => {
@@ -91,17 +103,11 @@ export default function MotionPrompt() {
   }, [addFiles]);
 
   // ─── Processing ───
-  const rotateKey = useCallback(() => {
-    if (apiKeys.length === 0) return -1;
-    setKeyIndex(prev => (prev + 1) % apiKeys.length);
-    return (keyIndex + 1) % apiKeys.length;
-  }, [apiKeys, keyIndex]);
 
   const processQueue = useCallback(async () => {
     // We now rely on aiProvider keys
     setIsProcessing(true);
     abortRef.current = false;
-    let currentKeyIdx = keyIndex;
 
     const waiting = queue.filter(i => i.status === 'waiting' || i.status === 'error');
 
@@ -149,7 +155,7 @@ export default function MotionPrompt() {
 
     setIsProcessing(false);
     toast.success('İşlem tamamlandı');
-  }, [apiKeys, keyIndex, model, projectContext, globalNote, delay, queue]);
+  }, [model, projectContext, globalNote, delay, queue]);
 
   const stopProcessing = useCallback(() => { abortRef.current = true; }, []);
 
@@ -218,7 +224,7 @@ export default function MotionPrompt() {
     if (!success) {
       setQueue(prev => prev.map(i => i.id === itemId ? { ...i, status: 'error', error: 'API hatası veya Rate Limit aşıldı' } : i));
     }
-  }, [apiKeys, keyIndex, model, projectContext, globalNote, queue]);
+  }, [model, projectContext, globalNote, queue]);
 
   // ─── Regenerate all done items ───
   const regenerateAll = useCallback(async () => {
@@ -254,9 +260,9 @@ export default function MotionPrompt() {
             </h1>
             <p className="text-xs text-muted-foreground">
               Görüntü → AI Video Motion Prompt
-              {apiKeys.length > 0 && (
+              {hasKeys && (
                 <span className="ml-2 text-primary">
-                  Key: ...{apiKeys[keyIndex]?.slice(-6)}
+                  API Aktif
                 </span>
               )}
             </p>
@@ -348,16 +354,17 @@ export default function MotionPrompt() {
               </div>
 
               {/* API Key Info */}
-              {apiKeys.length === 0 && (
+              {!keysLoaded ? (
+                <p className="text-[10px] text-muted-foreground">API durumu kontrol ediliyor...</p>
+              ) : !hasKeys ? (
                 <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2">
                   <p className="text-[11px] text-destructive">
                     ⚠️ API anahtarı bulunamadı. Ana sayfadaki <strong>Ayarlar</strong>'dan Gemini API anahtarı ekleyin.
                   </p>
                 </div>
-              )}
-              {apiKeys.length > 0 && (
+              ) : (
                 <p className="text-[10px] text-muted-foreground">
-                  {apiKeys.length} API anahtarı aktif — otomatik rotasyon
+                  API bağlantısı aktif — otomatik rotasyon
                 </p>
               )}
             </div>
