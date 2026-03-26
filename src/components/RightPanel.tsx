@@ -65,6 +65,7 @@ interface RightPanelProps {
   bulkPromptsProgress?: { done: number; total: number };
   onCancelBulkPrompts?: () => void;
   onSetPinnedPrompt?: (sceneId: string, promptId: string) => void;
+  isLoading?: boolean;
 }
 
 function GroupNoteEditor({ group, onSave }: { group: ConsistencyGroup; onSave: (note: string) => void }) {
@@ -129,6 +130,7 @@ export function RightPanel({
   onAddVariation, onRegenerateAllPrompts_, onRevisePrompt, onDeletePrompt, onRestorePreviousPrompt_,
   isBulkGeneratingPrompts, bulkPromptsProgress, onCancelBulkPrompts,
   onSetPinnedPrompt,
+  isLoading,
 }: RightPanelProps) {
   const doneCount = scenes.filter(s => s.status === 'done').length;
   const pendingCount = scenes.filter(s => s.status === 'pending').length;
@@ -358,7 +360,23 @@ export function RightPanel({
       )}
 
       <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3">
-        {scenes.length === 0 && sceneCards.length === 0 ? (
+        {isLoading ? (
+          <div className="space-y-4 px-1 py-2">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="space-y-3 border rounded-xl p-4 bg-card/50">
+                <div className="flex justify-between">
+                  <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                  <div className="h-4 w-12 bg-muted rounded animate-pulse" />
+                </div>
+                <div className="h-16 w-full bg-muted/40 rounded animate-pulse" />
+                <div className="flex gap-2">
+                  <div className="h-8 w-20 bg-muted/60 rounded animate-pulse" />
+                  <div className="h-8 w-20 bg-muted/60 rounded animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : scenes.length === 0 && sceneCards.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center px-6 text-center text-sm text-muted-foreground animate-in slide-in-from-bottom-2 duration-500">
             <div className="relative mb-5">
               <div className="absolute -inset-3 rounded-full bg-primary/20 blur animate-pulse"></div>

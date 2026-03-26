@@ -19,6 +19,7 @@ interface CenterPanelProps {
   onRemoveScene: (id: string) => void;
   onAnalyzeText?: (text: string, targetSceneCount?: number) => void;
   isAnalyzing?: boolean;
+  isLoading?: boolean;
   analysisLog?: string[];
 }
 
@@ -26,7 +27,7 @@ export function CenterPanel({
   mainText, scenes, activeSceneId,
   scrollToIndex, onScrollComplete,
   onSetActiveScene, onRemoveScene,
-  onAnalyzeText, isAnalyzing, analysisLog,
+  onAnalyzeText, isAnalyzing, isLoading, analysisLog,
 }: CenterPanelProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const activeSceneRef = useRef<HTMLDivElement>(null);
@@ -115,14 +116,14 @@ export function CenterPanel({
   }, [toolbar, onAnalyzeText, dismissToolbar]);
 
   // ─── AI Scene View ────────────────────────────────────────────────
-  if (hasAiScenes) {
-    if (isAnalyzing) {
+  if (hasAiScenes || isAnalyzing || isLoading) {
+    if (isAnalyzing || (isLoading && !hasAiScenes)) {
       return (
         <div className="flex h-full flex-col bg-background p-8 overflow-hidden">
           <div className="max-w-2xl w-full mx-auto space-y-8 animate-pulse">
             <div className="flex items-center gap-4 mb-8">
               <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center shadow-sm border border-primary/20">
-                <span className="animate-spin text-2xl">🤖</span>
+                <span className={`${isAnalyzing ? 'animate-spin' : ''} text-2xl`}>{isAnalyzing ? '🤖' : '⏳'}</span>
               </div>
               <div>
                 <div className="h-6 w-48 bg-muted rounded mb-2"></div>
@@ -132,7 +133,7 @@ export function CenterPanel({
             
             {/* Skeleton blocks simulating scenes */}
             <div className="space-y-8 opacity-70">
-              {[1, 2, 3].map(i => (
+              {[1, 2, 3, 4].map(i => (
                 <div key={i} className="space-y-3">
                   <div className="h-4 w-3/4 bg-muted/40 rounded"></div>
                   <div className="h-4 w-full bg-muted/40 rounded"></div>

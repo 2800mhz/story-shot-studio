@@ -212,13 +212,13 @@ const Index = () => {
 
         dispatch({ type: 'SET_SCENES', payload: mappedScenes });
 
-        // Load ALL prompts in a SINGLE batch request (.in query) instead of
-        // firing one request per scene — avoids overwhelming Supabase and the
-        // CORS/rate-limit errors that result from too many concurrent HTTP calls.
+        // Load ALL prompts in a SINGLE batch request
         const promptsByScene = await fetchAllPromptsForScenes(scenesData.map(s => s.id));
+        const allMappedPrompts: Record<string, any[]> = {};
+        
         promptsByScene.forEach((prompts, sceneId) => {
           if (prompts.length > 0) {
-            const mappedPrompts = prompts.map((p: any) => ({
+            allMappedPrompts[sceneId] = prompts.map((p: any) => ({
               id: p.id,
               type: p.type,
               label: p.label,
@@ -231,12 +231,12 @@ const Index = () => {
               isPinned: p.is_pinned ?? false,
               isPinnedByAI: false,
             }));
-            dispatch({
-              type: 'FINISH_PROMPT_GENERATION',
-              payload: { sceneId, prompts: mappedPrompts }
-            });
           }
         });
+
+        if (Object.keys(allMappedPrompts).length > 0) {
+          dispatch({ type: 'SET_ALL_PROMPTS', payload: allMappedPrompts });
+        }
       }
 
       // Load time contexts from Supabase (backward compatible: if column missing treat as [])
@@ -1477,6 +1477,7 @@ const Index = () => {
               activeSceneId={state.activeSceneId}
               mainFileName={state.mainFileName}
               isAnalyzing={state.isAnalyzing}
+              isLoading={loadingData}
               onEpisodeClick={(ep) => setScrollToIndex(ep.startIndex)}
               onSceneClick={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
               onMoveEpisode={(episodeId, newParentId) => dispatch({ type: 'MOVE_EPISODE', payload: { episodeId, newParentId } })}
@@ -1497,6 +1498,7 @@ const Index = () => {
               onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
               onAnalyzeText={handleAnalyzeText}
               isAnalyzing={state.isAnalyzing}
+              isLoading={loadingData}
               analysisLog={analysisLog}
             />
           </Panel>
@@ -1581,6 +1583,7 @@ const Index = () => {
               isGeneratingAll={isGeneratingAll}
               onRevise={handleRevise}
               onRefreshAll={handleRefreshAll}
+              isLoading={loadingData}
               onSetActiveScene={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
               onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
               onAddSceneToGroup={handleAddSceneToGroup}

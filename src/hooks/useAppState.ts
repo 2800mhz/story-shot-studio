@@ -455,6 +455,17 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
           } : sc
         ),
       };
+    case 'SET_ALL_PROMPTS':
+      return {
+        ...state,
+        sceneCards: state.sceneCards.map(sc => {
+          const prompts = action.payload[sc.id];
+          if (prompts) {
+            return { ...sc, prompts, status: 'ready' };
+          }
+          return sc;
+        })
+      };
     case 'DELETE_SCENE_CARD':
       return {
         ...state,

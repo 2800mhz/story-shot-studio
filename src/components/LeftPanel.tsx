@@ -1,7 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronRight, ChevronDown, FileText, GripVertical, Folder, FolderOpen } from 'lucide-react';
+import { ChevronRight, ChevronDown, FileText, GripVertical, Folder, FolderOpen, Search, SortAsc, SortDesc, Filter, X } from 'lucide-react';
 import type { Episode, Scene, ConsistencyGroup } from '@/types';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 
 interface LeftPanelProps {
   episodes: Episode[];
@@ -10,6 +13,7 @@ interface LeftPanelProps {
   activeSceneId: string | null;
   mainFileName: string;
   isAnalyzing?: boolean;
+  isLoading?: boolean;
   onEpisodeClick: (ep: Episode) => void;
   onSceneClick: (id: string) => void;
   onMoveEpisode: (episodeId: string, newParentId: string | null) => void;
@@ -105,8 +109,8 @@ function EpisodeNode({
         </span>
 
         {totalScenes > 0 && (
-          <Badge variant="secondary" className="h-4 min-w-[16px] justify-center bg-primary/20 text-primary text-[10px] px-1">
-            {totalScenes}
+          <Badge variant="secondary" className="h-4 justify-center bg-primary/10 text-primary text-[10px] px-1.5 font-bold border border-primary/20">
+            {totalScenes} {totalScenes === 1 ? 'Sahne' : 'Sahne'}
           </Badge>
         )}
       </div>
@@ -170,17 +174,39 @@ function EpisodeNode({
 
 export function LeftPanel({
   episodes, scenes, consistencyGroups, activeSceneId,
-  mainFileName, isAnalyzing,
+  mainFileName, isAnalyzing, isLoading,
   onEpisodeClick, onSceneClick,
   onMoveEpisode, onReorderEpisodes,
 }: LeftPanelProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<'default' | 'name' | 'scenes'>('default');
+
+  const filteredEpisodes = useMemo(() => {
+    let result = episodes;
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(ep => ep.title.toLowerCase().includes(term));
+    }
+    
+    if (sortBy === 'name') {
+      result = [...result].sort((a, b) => a.title.localeCompare(b.title));
+    } else if (sortBy === 'scenes') {
+      result = [...result].sort((a, b) => {
+        const aCount = scenes.filter(s => s.episodeTitle === a.title).length;
+        const bCount = scenes.filter(s => s.episodeTitle === b.title).length;
+        return bCount - aCount;
+      });
+    }
+    
+    return result;
+  }, [episodes, searchTerm, sortBy, scenes]);
 
   const topLevelEpisodes = useMemo(
-    () => episodes.filter(ep => ep.parentId === null),
-    [episodes]
+    () => filteredEpisodes.filter(ep => ep.parentId === null || !!searchTerm),
+    [filteredEpisodes, searchTerm]
   );
 
   const toggleExpanded = (id: string) => {
@@ -247,41 +273,89 @@ export function LeftPanel({
 
   return (
     <div className="flex h-full flex-col border-r bg-card">
-      {/* Episode Navigator Header */}
-      <div className="border-b px-4 py-3">
+      <div className="border-b px-4 py-3 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">
             Doküman Gezgini
           </h2>
           {episodes.length > 0 && (
             <div className="flex gap-1">
-              <button onClick={handleExpandAll} className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-secondary hover:text-foreground" title="Tümünü aç">
-                ▼
+              <button 
+                onClick={() => setSortBy(prev => prev === 'name' ? 'default' : 'name')} 
+                className={`rounded p-1 text-muted-foreground transition-colors hover:bg-secondary ${sortBy === 'name' ? 'text-primary bg-primary/10' : ''}`}
+                title="İsme göre sırala"
+              >
+                <SortAsc className="h-3 w-3" />
               </button>
-              <button onClick={handleCollapseAll} className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-secondary hover:text-foreground" title="Tümünü kapat">
-                ▶
+               <button 
+                onClick={() => setSortBy(prev => prev === 'scenes' ? 'default' : 'scenes')} 
+                className={`rounded p-1 text-muted-foreground transition-colors hover:bg-secondary ${sortBy === 'scenes' ? 'text-primary bg-primary/10' : ''}`}
+                title="Sahne sayısına göre sırala"
+              >
+                <Filter className="h-3 w-3" />
+              </button>
+              <button onClick={handleExpandAll} className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Tümünü aç">
+                <ChevronDown className="h-3 w-3" />
+              </button>
+              <button onClick={handleCollapseAll} className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Tümünü kapat">
+                <ChevronRight className="h-3 w-3" />
               </button>
             </div>
           )}
         </div>
+
+        {/* Search Bar */}
+        <div className="relative group">
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
+          <Input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Episode ara..."
+            className="h-8 pl-8 pr-7 text-xs bg-secondary/50 border-transparent focus-visible:ring-1 focus-visible:ring-primary/40 focus-visible:bg-background transition-all"
+          />
+          {searchTerm && (
+            <button 
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+
         {mainFileName && (
-          <div className="mt-2 flex items-center gap-2 text-sm text-foreground">
-            <FileText className="h-3.5 w-3.5 text-primary" />
-            <span className="truncate text-xs">{mainFileName}</span>
+          <div className="flex items-center gap-2 rounded-md bg-secondary/30 px-2 py-1.5 border border-border/50">
+            <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span className="truncate text-[11px] font-medium text-foreground/80">{mainFileName}</span>
           </div>
         )}
       </div>
 
-      {/* Episode Tree */}
+      {/* Episode Tree with Skeleton */}
       <div className="flex-1 overflow-y-auto scrollbar-thin px-2 py-2">
-        {episodes.length === 0 ? (
-          <div className="px-3 py-8 text-center text-sm text-muted-foreground">
-            Henüz doküman yüklenmedi
+        {isLoading ? (
+          <div className="space-y-3 px-2 py-2">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="flex items-center gap-2">
+                <Skeleton className="h-4 w-4 rounded shrink-0" />
+                <Skeleton className="h-4 flex-1 rounded" />
+                <Skeleton className="h-4 w-6 rounded-full shrink-0" />
+              </div>
+            ))}
+          </div>
+        ) : topLevelEpisodes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-40 px-4 text-center">
+            <div className="bg-secondary/40 p-3 rounded-full mb-3">
+              <Search className="h-5 w-5 text-muted-foreground/40" />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {searchTerm ? "Sonuç bulunamadı" : "Henüz doküman yüklenmedi"}
+            </p>
           </div>
         ) : (
-          <div className="space-y-0.5">
+          <div className="space-y-0.5 animate-in fade-in duration-500">
             {topLevelEpisodes.map(ep => {
-              const children = episodes.filter(e => e.parentId === ep.id);
+              const children = searchTerm ? [] : episodes.filter(e => e.parentId === ep.id);
               return (
                 <EpisodeNode
                   key={ep.id}

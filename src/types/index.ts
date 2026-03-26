@@ -297,4 +297,5 @@ export type AppAction =
   | { type: 'ADD_TIME_CONTEXT_TO_SCENE_CARD'; payload: { sceneId: string; timeContextId: string } }
   | { type: 'REMOVE_TIME_CONTEXT_FROM_SCENE_CARD'; payload: { sceneId: string; timeContextId: string } }
   | { type: 'REORDER_SCENE_CARDS'; payload: SceneCard[] }
+  | { type: 'SET_ALL_PROMPTS'; payload: Record<string, PromptCard[]> }
   | { type: 'SET_PINNED_PROMPT'; payload: { sceneId: string; promptId: string; byAI?: boolean } };
