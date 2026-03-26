@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Film, Trash2, FileText, Pencil, Search, SortAsc, Calendar, Clock, Filter, Users, MapPin, Activity, Zap, LayoutGrid } from 'lucide-react';
+import { ArrowLeft, Plus, Film, Trash2, FileText, Pencil, Search, SortAsc, Clock, Filter, Activity, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchProject, fetchEpisodes, createEpisode, deleteEpisode, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations } from '@/lib/supabaseQueries';
+import { fetchProject, fetchEpisodes, createEpisode, deleteEpisode, updateEpisode } from '@/lib/supabaseQueries';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -29,18 +28,6 @@ interface Project {
   updated_at: string;
 }
 
-interface GlobalCharacter {
-  id: string;
-  name: string;
-  description?: string;
-}
-
-interface GlobalLocation {
-  id: string;
-  name: string;
-  description?: string;
-}
-
 export default function ProjectWorkspace() {
   const { id: projectId } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -48,8 +35,6 @@ export default function ProjectWorkspace() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
-  const [characters, setCharacters] = useState<GlobalCharacter[]>([]);
-  const [locations, setLocations] = useState<GlobalLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -88,16 +73,12 @@ export default function ProjectWorkspace() {
 
   async function loadData() {
     try {
-      const [projectData, episodesData, charsData, locsData] = await Promise.all([
+      const [projectData, episodesData] = await Promise.all([
         fetchProject(projectId!),
-        fetchEpisodes(projectId!),
-        fetchGlobalCharacters(projectId!),
-        fetchGlobalLocations(projectId!)
+        fetchEpisodes(projectId!)
       ]);
       setProject(projectData);
       setEpisodes(episodesData);
-      setCharacters(charsData);
-      setLocations(locsData);
     } catch (error) {
       console.error('Error loading project data:', error);
     } finally {
@@ -220,254 +201,169 @@ export default function ProjectWorkspace() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-12">
-        <Tabs defaultValue="episodes" className="space-y-8">
-          <div className="flex items-center justify-between">
-            <TabsList className="bg-card/40 backdrop-blur-md border border-primary/5 p-1">
-              <TabsTrigger value="episodes" className="gap-2 px-6">
-                <Film className="h-4 w-4" />
-                Bölümler
-              </TabsTrigger>
-              <TabsTrigger value="library" className="gap-2 px-6">
-                <LayoutGrid className="h-4 w-4" />
-                Kütüphane
-              </TabsTrigger>
-            </TabsList>
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+          <div>
+            <h2 className="text-4xl font-serif font-bold tracking-tight">Bölümler</h2>
+            <p className="text-muted-foreground mt-2 flex items-center gap-2">
+              <span className="inline-flex items-center justify-center bg-primary/10 text-primary font-bold px-2 py-0.5 rounded text-sm">
+                {episodes.length}
+              </span>
+              toplam bölüm hazır
+            </p>
           </div>
-
-          <TabsContent value="episodes" className="space-y-8 mt-0 outline-none">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-              <div>
-                <h2 className="text-4xl font-serif font-bold tracking-tight">Proje Akışı</h2>
-                <p className="text-muted-foreground mt-2 flex items-center gap-2">
-                  <span className="inline-flex items-center justify-center bg-primary/10 text-primary font-bold px-2 py-0.5 rounded text-sm">
-                    {episodes.length}
-                  </span>
-                  hazır bölüm
-                </p>
-              </div>
-              
-              <div className="flex flex-wrap items-center gap-3 bg-card/30 backdrop-blur-md p-2 rounded-xl border border-primary/5 shadow-2xl">
-                <div className="relative w-full md:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    placeholder="Bölüm ara..." 
-                    className="pl-9 bg-background/50 border-primary/10 focus:border-primary/30 transition-all"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                
-                <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
-                  <SelectTrigger className="w-[160px] bg-background/50 border-primary/10">
-                    <SortAsc className="mr-2 h-4 w-4 opacity-50" />
-                    <SelectValue placeholder="Sırala" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="number">Bölüm No</SelectItem>
-                    <SelectItem value="newest">En Yeni</SelectItem>
-                    <SelectItem value="oldest">En Eski</SelectItem>
-                    <SelectItem value="alphabetical">A - Z</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={dateFilter} onValueChange={(v: any) => setDateFilter(v)}>
-                  <SelectTrigger className="w-[160px] bg-background/50 border-primary/10">
-                    <Filter className="mr-2 h-4 w-4 opacity-50" />
-                    <SelectValue placeholder="Zaman" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tüm Zamanlar</SelectItem>
-                    <SelectItem value="week">Son 1 Hafta</SelectItem>
-                    <SelectItem value="month">Son 1 Ay</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          
+          <div className="flex flex-wrap items-center gap-3 bg-card/30 backdrop-blur-md p-2 rounded-xl border border-primary/5 shadow-2xl">
+            <div className="relative w-full md:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Bölüm ara..." 
+                className="pl-9 bg-background/50 border-primary/10 focus:border-primary/30 transition-all"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
+            
+            <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+              <SelectTrigger className="w-[160px] bg-background/50 border-primary/10">
+                <SortAsc className="mr-2 h-4 w-4 opacity-50" />
+                <SelectValue placeholder="Sırala" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="number">Bölüm No</SelectItem>
+                <SelectItem value="newest">En Yeni</SelectItem>
+                <SelectItem value="oldest">En Eski</SelectItem>
+                <SelectItem value="alphabetical">A - Z</SelectItem>
+              </SelectContent>
+            </Select>
 
-            {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[1, 2, 3, 4, 5, 6].map(i => <SkeletonEpisodeCard key={i} />)}
-              </div>
-            ) : filteredEpisodes.length === 0 ? (
-              <Card className="p-20 text-center bg-card/20 border-dashed border-2 border-primary/20 backdrop-blur-sm">
-                <div className="bg-primary/5 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <FileText className="h-10 w-10 text-primary/40" />
-                </div>
-                <h3 className="text-2xl font-serif font-semibold mb-2">Bölüm bulunamadı</h3>
-                <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
-                  {searchTerm ? `"${searchTerm}" araması için sonuç bulunamadı.` : 'Bu proje için henüz bir bölüm oluşturulmamış.'}
-                </p>
-                {!searchTerm && (
-                  <Button onClick={handleCreateEpisode} disabled={creating} size="lg" className="shadow-lg shadow-primary/20">
-                    <Plus className="mr-2 h-5 w-5" />
-                    {creating ? 'Oluşturuluyor...' : 'P İlk Bölümü Oluştur'}
-                  </Button>
-                )}
-                {searchTerm && (
-                  <Button variant="outline" onClick={() => setSearchTerm('')}>
-                    Aramayı Temizle
-                  </Button>
-                )}
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredEpisodes.map(episode => (
-                  <Card
-                    key={episode.id}
-                    className="group relative overflow-hidden p-6 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-300 cursor-pointer border-primary/10 bg-card/60 backdrop-blur-md hover:-translate-y-1"
-                    onClick={() => navigate(`/project/${projectId}/episode/${episode.id}`)}
-                  >
-                    {/* Visual Accent */}
-                    <div className="absolute top-0 right-0 p-8 -mr-8 -mt-8 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors" />
-                    
-                    <div className="flex items-start justify-between relative z-10 mb-6">
-                      <div className="flex items-center gap-2.5">
-                        <div className="bg-primary/20 p-2 rounded-lg group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-inner">
-                          <FileText className="h-5 w-5" />
-                        </div>
-                        <Badge variant="outline" className="text-[10px] font-bold tracking-wider uppercase border-primary/20 text-primary/70">
-                          BÖLÜM {episode.episode_number}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-full text-muted-foreground/40 hover:text-primary hover:bg-primary/5"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingId(episode.id);
-                            setEditValue(episode.title);
-                          }}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-full text-muted-foreground/40 hover:text-destructive hover:bg-destructive/5"
-                          onClick={(e) => handleDeleteEpisode(episode.id, e)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </div>
+            <Select value={dateFilter} onValueChange={(v: any) => setDateFilter(v)}>
+              <SelectTrigger className="w-[160px] bg-background/50 border-primary/10">
+                <Filter className="mr-2 h-4 w-4 opacity-50" />
+                <SelectValue placeholder="Zaman" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tüm Zamanlar</SelectItem>
+                <SelectItem value="week">Son 1 Hafta</SelectItem>
+                <SelectItem value="month">Son 1 Ay</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
-                    {editingId === episode.id ? (
-                      <div className="relative z-10" onClick={e => e.stopPropagation()}>
-                        <Input
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onBlur={() => handleRenameEpisode(episode.id, editValue)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleRenameEpisode(episode.id, editValue);
-                            if (e.key === 'Escape') setEditingId(null);
-                            e.stopPropagation();
-                          }}
-                          autoFocus
-                          className="text-lg font-bold bg-background/80 shadow-inner border-primary/30"
-                        />
-                      </div>
-                    ) : (
-                      <div className="relative z-10 min-h-[3rem]">
-                        <h3 className="text-xl font-serif font-bold line-clamp-2 leading-tight group-hover:text-primary transition-colors">
-                          {episode.title}
-                        </h3>
-                      </div>
-                    )}
-                    
-                    <div className="mt-6 flex items-center justify-between relative z-10">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                          <Clock className="h-3 w-3 opacity-50" />
-                          {format(new Date(episode.created_at), 'd MMMM yyyy', { locale: tr })}
-                        </div>
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-primary/80">
-                          <Film className="h-3.5 w-3.5" />
-                          {episode.scene_count || 0} Sahne
-                        </div>
-                      </div>
-                      
-                      <div className="h-10 w-10 rounded-full border border-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-primary/5 group-hover:scale-110 shadow-lg shadow-primary/5">
-                        <ArrowLeft className="h-5 w-5 rotate-180 text-primary" />
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map(i => <SkeletonEpisodeCard key={i} />)}
+          </div>
+        ) : filteredEpisodes.length === 0 ? (
+          <Card className="p-20 text-center bg-card/20 border-dashed border-2 border-primary/20 backdrop-blur-sm">
+            <div className="bg-primary/5 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <FileText className="h-10 w-10 text-primary/40" />
+            </div>
+            <h3 className="text-2xl font-serif font-semibold mb-2">Bölüm bulunamadı</h3>
+            <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
+              {searchTerm ? `"${searchTerm}" araması için sonuç bulunamadı.` : 'Bu proje için henüz bir bölüm oluşturulmamış.'}
+            </p>
+            {!searchTerm && (
+              <Button onClick={handleCreateEpisode} disabled={creating} size="lg" className="shadow-lg shadow-primary/20">
+                <Plus className="mr-2 h-5 w-5" />
+                {creating ? 'Oluşturuluyor...' : 'P İlk Bölümü Oluştur'}
+              </Button>
             )}
-          </TabsContent>
-
-          <TabsContent value="library" className="mt-0 outline-none">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-              {/* Characters Section */}
-              <section className="space-y-6">
-                <div className="flex items-center justify-between border-b border-primary/10 pb-4">
-                  <h3 className="text-2xl font-serif font-bold flex items-center gap-3">
-                    <Users className="h-6 w-6 text-primary" />
-                    Karakterler
-                  </h3>
-                  <Badge variant="secondary" className="font-bold">{characters.length}</Badge>
-                </div>
+            {searchTerm && (
+              <Button variant="outline" onClick={() => setSearchTerm('')}>
+                Aramayı Temizle
+              </Button>
+            )}
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredEpisodes.map(episode => (
+              <Card
+                key={episode.id}
+                className="group relative overflow-hidden p-6 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-300 cursor-pointer border-primary/10 bg-card/60 backdrop-blur-md hover:-translate-y-1"
+                onClick={() => navigate(`/project/${projectId}/episode/${episode.id}`)}
+              >
+                {/* Visual Accent */}
+                <div className="absolute top-0 right-0 p-8 -mr-8 -mt-8 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors" />
                 
-                <div className="grid grid-cols-1 gap-4">
-                  {characters.length === 0 ? (
-                    <p className="text-sm text-muted-foreground italic">Henüz karakter eklenmedi.</p>
-                  ) : (
-                    characters.map(char => (
-                      <Card key={char.id} className="p-4 bg-card/40 border-primary/5 hover:border-primary/20 transition-colors group">
-                        <div className="flex items-start gap-4">
-                          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                            <Users className="h-6 w-6 text-primary" />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-lg">{char.name}</h4>
-                            <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                              {char.description || 'Açıklama belirtilmedi.'}
-                            </p>
-                          </div>
-                        </div>
-                      </Card>
-                    ))
-                  )}
+                <div className="flex items-start justify-between relative z-10 mb-6">
+                  <div className="flex items-center gap-2.5">
+                    <div className="bg-primary/20 p-2 rounded-lg group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-inner">
+                      <FileText className="h-5 w-5" />
+                    </div>
+                    <Badge variant="outline" className="text-[10px] font-bold tracking-wider uppercase border-primary/20 text-primary/70">
+                      BÖLÜM {episode.episode_number}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-full text-muted-foreground/40 hover:text-primary hover:bg-primary/5"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingId(episode.id);
+                        setEditValue(episode.title);
+                      }}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-full text-muted-foreground/40 hover:text-destructive hover:bg-destructive/5"
+                      onClick={(e) => handleDeleteEpisode(episode.id, e)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
-              </section>
 
-              {/* Locations Section */}
-              <section className="space-y-6">
-                <div className="flex items-center justify-between border-b border-primary/10 pb-4">
-                  <h3 className="text-2xl font-serif font-bold flex items-center gap-3">
-                    <MapPin className="h-6 w-6 text-primary" />
-                    Mekanlar
-                  </h3>
-                  <Badge variant="secondary" className="font-bold">{locations.length}</Badge>
-                </div>
+                {editingId === episode.id ? (
+                  <div className="relative z-10" onClick={e => e.stopPropagation()}>
+                    <Input
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onBlur={() => handleRenameEpisode(episode.id, editValue)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleRenameEpisode(episode.id, editValue);
+                        if (e.key === 'Escape') setEditingId(null);
+                        e.stopPropagation();
+                      }}
+                      autoFocus
+                      className="text-lg font-bold bg-background/80 shadow-inner border-primary/30"
+                    />
+                  </div>
+                ) : (
+                  <div className="relative z-10 min-h-[3rem]">
+                    <h3
+                      className="text-xl font-serif font-bold line-clamp-2 leading-tight group-hover:text-primary transition-colors"
+                    >
+                      {episode.title}
+                    </h3>
+                  </div>
+                )}
                 
-                <div className="grid grid-cols-1 gap-4">
-                  {locations.length === 0 ? (
-                    <p className="text-sm text-muted-foreground italic">Henüz mekan eklenmedi.</p>
-                  ) : (
-                    locations.map(loc => (
-                      <Card key={loc.id} className="p-4 bg-card/40 border-primary/5 hover:border-primary/20 transition-colors group">
-                        <div className="flex items-start gap-4">
-                          <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                            <MapPin className="h-6 w-6 text-primary" />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-lg">{loc.name}</h4>
-                            <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                              {loc.description || 'Açıklama belirtilmedi.'}
-                            </p>
-                          </div>
-                        </div>
-                      </Card>
-                    ))
-                  )}
+                <div className="mt-6 flex items-center justify-between relative z-10">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                      <Clock className="h-3 w-3 opacity-50" />
+                      {format(new Date(episode.created_at), 'd MMMM yyyy', { locale: tr })}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-primary/80">
+                      <Film className="h-3.5 w-3.5" />
+                      {episode.scene_count || 0} Sahne
+                    </div>
+                  </div>
+                  
+                  <div className="h-10 w-10 rounded-full border border-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-primary/5 group-hover:scale-110 shadow-lg shadow-primary/5">
+                    <ArrowLeft className="h-5 w-5 rotate-180 text-primary" />
+                  </div>
                 </div>
-              </section>
-            </div>
-          </TabsContent>
-        </Tabs>
+              </Card>
+            ))}
+          </div>
+        )}
       </main>
 
     </div>
