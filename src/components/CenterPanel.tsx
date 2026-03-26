@@ -118,28 +118,40 @@ export function CenterPanel({
   if (hasAiScenes) {
     if (isAnalyzing) {
       return (
-        <div className="flex h-full items-center justify-center bg-background">
-          <div className="w-full max-w-md px-6">
-            <div className="text-center mb-6">
-              <div className="animate-spin text-4xl mb-3">🤖</div>
-              <p className="text-lg font-semibold">AI Metin Analiz Ediyor...</p>
+        <div className="flex h-full flex-col bg-background p-8 overflow-hidden">
+          <div className="max-w-2xl w-full mx-auto space-y-8 animate-pulse">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center shadow-sm border border-primary/20">
+                <span className="animate-spin text-2xl">🤖</span>
+              </div>
+              <div>
+                <div className="h-6 w-48 bg-muted rounded mb-2"></div>
+                <div className="h-3 w-64 bg-muted/60 rounded"></div>
+              </div>
             </div>
-            {/* Live progress log */}
+            
+            {/* Skeleton blocks simulating scenes */}
+            <div className="space-y-8 opacity-70">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="space-y-3">
+                  <div className="h-4 w-3/4 bg-muted/40 rounded"></div>
+                  <div className="h-4 w-full bg-muted/40 rounded"></div>
+                  <div className="h-4 w-5/6 bg-muted/40 rounded"></div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Live progress log positioned at the bottom */}
             {analysisLog && analysisLog.length > 0 && (
-              <div className="rounded-lg border border-border bg-card/60 p-3 space-y-0.5 max-h-64 overflow-y-auto">
+              <div className="mt-8 rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-1.5 max-h-40 overflow-y-auto w-full shadow-inner">
                 {analysisLog.slice(-5).map((log, i, arr) => (
                   <div key={i} className={`text-xs font-mono transition-opacity ${
-                    i === arr.length - 1 ? 'text-amber-400 opacity-100' : 'text-zinc-500 opacity-50'
+                    i === arr.length - 1 ? 'text-primary opacity-100 font-medium' : 'text-muted-foreground opacity-50'
                   }`}>
                     {log}
                   </div>
                 ))}
               </div>
-            )}
-            {(!analysisLog || analysisLog.length === 0) && (
-              <p className="text-sm text-muted-foreground text-center">
-                Karakterler, mekanlar ve sahneler tespit ediliyor...
-              </p>
             )}
           </div>
         </div>
@@ -272,8 +284,19 @@ export function CenterPanel({
             dangerouslySetInnerHTML={{ __html: mainText }}
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
-            <p className="text-center text-sm">Ana metni yüklemek için üst menüdeki "Ana Metin" butonunu kullanın</p>
+          <div className="flex h-full flex-col items-center justify-center text-muted-foreground gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="relative">
+              <div className="absolute -inset-4 rounded-full bg-primary/10 blur-xl animate-pulse"></div>
+              <div className="h-20 w-20 mb-2 rounded-2xl bg-secondary flex items-center justify-center border border-border shadow-sm transform hover:scale-105 hover:rotate-3 transition-all cursor-default">
+                <span className="text-4xl">🎬</span>
+              </div>
+            </div>
+            <div className="space-y-1 text-center">
+              <p className="text-base font-medium text-foreground">Hazır olduğunuzda başlayalım</p>
+              <p className="text-sm text-muted-foreground/80 max-w-[260px] leading-relaxed">
+                Ana metni yüklemek için üst menüdeki <strong>"Ana Metin"</strong> butonunu kullanın.
+              </p>
+            </div>
           </div>
         )}
       </div>

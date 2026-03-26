@@ -359,12 +359,17 @@ export function RightPanel({
 
       <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3">
         {scenes.length === 0 && sceneCards.length === 0 ? (
-          <div className="flex h-full items-center justify-center px-4 text-center text-sm text-muted-foreground">
-            <div>
-              <Zap className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
-              <p>Henüz sahne eklenmedi</p>
-              <p className="mt-1 text-xs">Metinden seçim yaparak sahne oluşturun</p>
+          <div className="flex h-full flex-col items-center justify-center px-6 text-center text-sm text-muted-foreground animate-in slide-in-from-bottom-2 duration-500">
+            <div className="relative mb-5">
+              <div className="absolute -inset-3 rounded-full bg-primary/20 blur animate-pulse"></div>
+              <div className="relative bg-card rounded-2xl p-4 border border-border shadow-md">
+                <Zap className="h-8 w-8 text-primary opacity-80" />
+              </div>
             </div>
+            <p className="font-medium text-foreground text-base">Henüz sahne eklenmedi</p>
+            <p className="mt-2 text-xs text-muted-foreground/80 leading-relaxed">
+              Sol panelden metni analiz ederek veya manuel seçim yaparak AI ile sahnelerinizi oluşturmaya başlayın.
+            </p>
           </div>
         ) : (
           <>

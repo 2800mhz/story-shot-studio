@@ -445,9 +445,14 @@ export default function MotionPrompt() {
             onDrop={handleDrop}
           >
             {queue.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
-                <ImageIcon className="h-10 w-10 opacity-30" />
-                <p className="text-xs">Görselleri buraya sürükleyin veya "Görsel Ekle" butonuna tıklayın</p>
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3 animate-in fade-in duration-500 hover:text-foreground transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                <div className="p-4 bg-secondary/30 rounded-2xl border-2 border-dashed border-border mb-1 hover:border-primary/50 hover:bg-primary/5 transition-all text-muted-foreground hover:text-primary">
+                  <ImageIcon className="h-10 w-10 opacity-60" />
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-medium text-foreground">Görselleri sürükle bırak</p>
+                  <p className="text-[10px] opacity-70 mt-1">veya yüklemek için tıkla</p>
+                </div>
               </div>
             )}
             {queue.map(item => (
@@ -515,12 +520,19 @@ export default function MotionPrompt() {
 
           <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-3">
             {queue.filter(i => i.status === 'done' || i.status === 'processing').length === 0 && (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
-                <Film className="h-12 w-12 opacity-20" />
-                <p className="text-sm">Motion promptlar burada görünecek</p>
-                <p className="text-xs max-w-md text-center">
-                  Sol panelden görsel ekleyin, ayarları yapın ve "Başlat" butonuna tıklayın.
-                </p>
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-4 animate-in fade-in zoom-in-95 duration-500">
+                <div className="relative">
+                  <div className="absolute -inset-3 rounded-full bg-primary/10 blur animate-pulse duration-1000"></div>
+                  <div className="relative bg-card rounded-2xl p-5 border border-border shadow-sm">
+                    <Film className="h-10 w-10 text-primary" />
+                  </div>
+                </div>
+                <div className="space-y-1.5 text-center">
+                  <p className="text-sm font-medium text-foreground">Motion promptlar için hazırız</p>
+                  <p className="text-xs max-w-[280px] leading-relaxed opacity-80">
+                    Sol panelden görsel ekleyin, bağlamı seçin ve <strong className="text-primary">Başlat</strong> butonuna tıklayarak sihrin gerçekleşmesini izleyin.
+                  </p>
+                </div>
               </div>
             )}
             {queue.filter(i => i.status === 'done' || i.status === 'processing').map(item => (
