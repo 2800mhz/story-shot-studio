@@ -58,20 +58,20 @@ export async function parseDocxFile(file: File): Promise<string> {
             }
 
             rPr.forEach((prop: any) => {
-              if (prop['w:highlight'] && prop['w:highlight'].length > 0) {
-                const val = prop['w:highlight'][0]['@_w:val'];
+              if (prop['w:highlight'] && prop[':@']) {
+                const val = prop[':@']['@_w:val'];
                 if (val === 'yellow' || val === 'darkYellow') isYellow = true;
               }
-              if (prop['w:shd'] && prop['w:shd'].length > 0) {
-                let val = prop['w:shd'][0]['@_w:fill'] || '';
+              if (prop['w:shd'] && prop[':@']) {
+                let val = prop[':@']['@_w:fill'] || '';
                 if (val) {
                    val = val.replace('#', '').toLowerCase();
                    if (YELLOW_HEX.has(val)) isYellow = true;
                 }
               }
               // Check w:color
-              if (prop['w:color'] && prop['w:color'].length > 0) {
-                 let val = prop['w:color'][0]['@_w:val'] || '';
+              if (prop['w:color'] && prop[':@']) {
+                 let val = prop[':@']['@_w:val'] || '';
                  if (val) {
                     val = val.replace('#', '').toLowerCase();
                     if (YELLOW_HEX.has(val)) isYellow = true;
