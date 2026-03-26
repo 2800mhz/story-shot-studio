@@ -746,18 +746,18 @@ export default function Settings() {
                 <span className="text-[9px] font-bold text-emerald-500 bg-emerald-50 px-1 rounded">OUT: {billingStats.totalOutputTokens.toLocaleString('tr-TR')}</span>
               </div>
             </Card>
-            <Card className="p-5 border-amber-200 bg-amber-50/30 backdrop-blur-md shadow-xl overflow-hidden relative group">
+            <Card className="p-5 border-primary/10 bg-card/60 backdrop-blur-md shadow-xl overflow-hidden relative group">
                <div className="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
                 <Activity className="h-20 w-20" />
               </div>
-              <p className="text-[10px] uppercase font-bold tracking-widest text-amber-700/60 mb-1">Toplam Maliyet</p>
-              <p className="text-3xl font-serif font-bold text-amber-600">{formatCost(billingStats.totalCost)}</p>
-              <p className="text-[10px] text-amber-800/50 font-medium mt-1">Projeksiyon: {formatCost(billingStats.projectedCost)}/ay</p>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-1">Toplam Maliyet</p>
+              <p className="text-3xl font-serif font-bold text-amber-500">{formatCost(billingStats.totalCost)}</p>
+              <p className="text-[10px] text-amber-500/60 font-medium mt-1">Projeksiyon: {formatCost(billingStats.projectedCost)}/ay</p>
             </Card>
-            <Card className="p-5 border-violet-200 bg-violet-50/30 backdrop-blur-md shadow-xl">
-              <p className="text-[10px] uppercase font-bold tracking-widest text-violet-700/60 mb-1">Verimlilik</p>
-              <p className="text-3xl font-serif font-bold text-violet-600">{(billingStats.efficiency / 1000).toFixed(1)}k</p>
-              <p className="text-[10px] text-violet-800/50 font-medium mt-1">Token / $1.00</p>
+            <Card className="p-5 border-primary/10 bg-card/60 backdrop-blur-md shadow-xl">
+              <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-1">Verimlilik</p>
+              <p className="text-3xl font-serif font-bold text-violet-400">{(billingStats.efficiency / 1000).toFixed(1)}k</p>
+              <p className="text-[10px] text-violet-400/60 font-medium mt-1">Token / $1.00</p>
             </Card>
           </div>
 
