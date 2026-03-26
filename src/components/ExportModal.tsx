@@ -99,29 +99,42 @@ export function ExportModal({
 
   const exportTxt = () => {
     const data = getExportData();
-    let content = `EPISODE EXPORT: ${episodeTitle}\nID: ${episodeId}\n`;
+    let content = `====================================================\n`;
+    content += ` BÖLÜM DIŞA AKTARIMI: ${episodeTitle}\n`;
     content += `====================================================\n\n`;
 
-    content += `[BÖLÜM STİLİ]\n${episodePrompt || 'Tanımlanmadı'}\n\n`;
-    if (episodePromptTr) content += `[BÖLÜM STİLİ - TR]\n${episodePromptTr}\n\n`;
+    if (episodePrompt || episodePromptTr) {
+      if (episodePromptTr) {
+        content += `[BÖLÜM STİLİ - TR]\n${episodePromptTr}\n\n`;
+      }
+      if (episodePrompt) {
+        content += `[BÖLÜM STİLİ - EN]\n${episodePrompt}\n\n`;
+      }
+      content += `----------------------------------------------------\n\n`;
+    }
 
-    content += `[VARLIKLAR]\n`;
-    characters.forEach(c => content += `- KARAKTER: ${c.name} (${c.visualDescription || 'No desc'})\n`);
-    locations.forEach(l => content += `- MEKAN: ${l.name} (${l.visualDescription || 'No desc'})\n`);
-    timeContexts.forEach(t => content += `- ZAMAN: ${t.label}\n`);
-    content += `\n-----------------------------------\n\n`;
+    if (characters.length > 0 || locations.length > 0 || timeContexts.length > 0) {
+      content += `[VARLIKLAR]\n`;
+      characters.forEach(c => content += `- KARAKTER: ${c.name} ${c.visualDescription ? `(${c.visualDescription})` : ''}\n`);
+      locations.forEach(l => content += `- MEKAN: ${l.name} ${l.visualDescription ? `(${l.visualDescription})` : ''}\n`);
+      timeContexts.forEach(t => content += `- ZAMAN: ${t.label}\n`);
+      content += `\n----------------------------------------------------\n\n`;
+    }
     
     data.forEach(d => {
-      content += `=== SAHNE ${d.sceneNumber} [${d.visualStyle.toUpperCase()}] ===\n`;
-      content += `GÖRSEL NOT: ${d.visualNote}\n`;
-      content += `METİN ÖZETİ: ${d.text}\n`;
+      content += `=== SAHNE ${d.sceneNumber} ===\n`;
+      content += `NOT: ${d.visualNote || '(Belirtilmedi)'}\n`;
       if (d.activePrompt) {
-        content += `AKTİF PROMPT [${d.activePrompt.shotType}]:\n${d.activePrompt.promptText}\n`;
+        content += `PROMPT [${d.activePrompt.shotType.toUpperCase()}]:\n${d.activePrompt.promptText}\n`;
       } else {
-        content += `(Prompt henüz üretilmedi)\n`;
+        content += `PROMPT: (Henüz üretilmedi)\n`;
       }
       content += `\n`;
     });
+
+    if (data.length === 0) {
+      content += `Bu bölümde henüz sahne bulunmuyor.\n`;
+    }
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
