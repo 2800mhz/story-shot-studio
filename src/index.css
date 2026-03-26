@@ -66,10 +66,19 @@
   }
 
   mark {
-    background-color: rgba(255, 255, 0, 0.35);
-    color: inherit;
+    background-color: rgba(255, 255, 0, 0.4);
+    color: #000;
     border-radius: 2px;
     padding: 0 2px;
+  }
+
+  .docx-highlight {
+    background-color: #fde047 !important; /* text-yellow-300 */
+    color: #000 !important;
+    font-weight: 500;
+    padding: 0 1px;
+    border-radius: 1px;
+    box-shadow: 0 0 0 1px rgba(253, 224, 71, 0.2);
   }
 }
 
