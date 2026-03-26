@@ -7,28 +7,26 @@ export async function parseDocxFile(file: File): Promise<string> {
     styleMap: [
       "u => u",
       "strike => del",
-      "r[highlight='yellow'] => mark.docx-highlight",
-      "r[highlight='green'] => mark.docx-highlight",
-      "r[highlight='cyan'] => mark.docx-highlight",
-      "r[highlight='magenta'] => mark.docx-highlight",
-      "r[highlight='blue'] => mark.docx-highlight",
-      "r[highlight='red'] => mark.docx-highlight",
-      "r[highlight='darkYellow'] => mark.docx-highlight",
-      "r[highlight='darkBlue'] => mark.docx-highlight",
-      "r[highlight='darkCyan'] => mark.docx-highlight",
-      "r[highlight='darkGreen'] => mark.docx-highlight",
-      "r[highlight='darkMagenta'] => mark.docx-highlight",
-      "r[highlight='darkRed'] => mark.docx-highlight",
-      "r[highlight='black'] => mark.docx-highlight"
+      "r[highlight='yellow'] => mark",
+      "r[highlight='green'] => mark",
+      "r[highlight='cyan'] => mark",
+      "r[highlight='magenta'] => mark",
+      "r[highlight='blue'] => mark",
+      "r[highlight='red'] => mark",
+      "r[highlight='darkYellow'] => mark",
+      "r[highlight='darkBlue'] => mark",
+      "r[highlight='darkCyan'] => mark",
+      "r[highlight='darkGreen'] => mark",
+      "r[highlight='darkMagenta'] => mark",
+      "r[highlight='darkRed'] => mark",
+      "r[highlight='black'] => mark"
     ]
   };
 
   const result = await mammoth.convertToHtml({ arrayBuffer }, options);
   let html = result.value;
-  
-  // Convert paragraph tags to line breaks safely
-  // We want to keep the content (including <mark> tags) inside the paragraphs
-  html = html.replace(/<p[^>]*>(.*?)<\/p>/g, '$1\n');
+  // Safe two-step strip: remove opening <p> tags, replace closing </p> with newline
+  html = html.replace(/<p[^>]*>/g, '').replace(/<\/p>/g, '\n');
   
   return html;
 }

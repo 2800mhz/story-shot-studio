@@ -109,6 +109,11 @@ const Index = () => {
       // Load document text — sync both mainText and documentText
       if (episodeData.document_text) {
         dispatch({ type: 'SET_DOCUMENT_TEXT', payload: episodeData.document_text });
+        // Re-derive episodes from the stored HTML by stripping tags first,
+        // so the navigator (LeftPanel) is populated correctly after a page refresh.
+        const plainText = episodeData.document_text.replace(/<[^>]+>/g, '');
+        const derivedEpisodes = parseEpisodes(plainText);
+        dispatch({ type: 'SET_EPISODES', payload: derivedEpisodes });
       }
 
       // Load episode-level style prompt (overrides/extends master prompt for this episode)
