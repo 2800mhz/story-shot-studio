@@ -400,7 +400,6 @@ const Index = () => {
   const bulkAbortRef = useRef<AbortController | null>(null);
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [isBulkGeneratingPrompts, setIsBulkGeneratingPrompts] = useState(false);
-  const [isCancelingBulkPrompts, setIsCancelingBulkPrompts] = useState(false);
   const [bulkPromptsProgress, setBulkPromptsProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const bulkPromptsAbortRef = useRef<AbortController | null>(null);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '4:3' | '1:1' | '9:16'>('16:9');
@@ -1163,6 +1162,10 @@ const Index = () => {
     }
   }, [isBulkGeneratingPrompts, state.sceneCards, handleGeneratePromptsForScene, toast]);
 
+  const handleCancelBulkPrompts = useCallback(() => {
+    bulkPromptsAbortRef.current?.abort();
+  }, []);
+
   const handleRegenerateAllPrompts = useCallback(async (sceneId: string) => {
     await handleGeneratePromptsForScene(sceneId, true);
   }, [handleGeneratePromptsForScene]);
@@ -1331,89 +1334,6 @@ const Index = () => {
       });
     }
   }, [dispatch, projectId]);
-
-  const handleCancelBulkPrompts = useCallback(() => {
-    setIsCancelingBulkPrompts(true);
-    bulkPromptsAbortRef.current?.abort();
-  }, []);
-
-  const handleBulkRegenerate = useCallback(async (sceneIds: string[]) => {
-    if (isBulkGeneratingPrompts) return;
-    setIsBulkGeneratingPrompts(true);
-    setBulkPromptsProgress({ done: 0, total: sceneIds.length });
-    
-    const controller = new AbortController();
-    bulkPromptsAbortRef.current = controller;
-    
-    let done = 0;
-    for (const id of sceneIds) {
-      if (controller.signal.aborted) break;
-      await handleGeneratePromptsForScene(id, true);
-      done++;
-      setBulkPromptsProgress({ done, total: sceneIds.length });
-    }
-    
-    setIsBulkGeneratingPrompts(false);
-    setIsCancelingBulkPrompts(false);
-    setBulkPromptsProgress({ done: 0, total: 0 });
-    dispatch({ type: 'CLEAR_SELECTION' });
-  }, [isBulkGeneratingPrompts, handleGeneratePromptsForScene, dispatch]);
-
-  const handleBulkRevise = useCallback(async (sceneIds: string[], instruction: string) => {
-    if (isBulkGeneratingPrompts) return;
-    setIsBulkGeneratingPrompts(true);
-    setBulkPromptsProgress({ done: 0, total: sceneIds.length });
-    
-    const controller = new AbortController();
-    bulkPromptsAbortRef.current = controller;
-    
-    let done = 0;
-    for (const sceneId of sceneIds) {
-      if (controller.signal.aborted) break;
-      const scene = state.sceneCards.find(s => s.id === sceneId);
-      if (scene && scene.prompts.length > 0) {
-        const pinned = scene.prompts.find(p => p.isPinned) || scene.prompts[0];
-        if (pinned) {
-          await handleRevisePrompt_(sceneId, pinned.id, instruction);
-        }
-      }
-      done++;
-      setBulkPromptsProgress({ done, total: sceneIds.length });
-    }
-    
-    setIsBulkGeneratingPrompts(false);
-    setIsCancelingBulkPrompts(false);
-    setBulkPromptsProgress({ done: 0, total: 0 });
-    dispatch({ type: 'CLEAR_SELECTION' });
-  }, [isBulkGeneratingPrompts, state.sceneCards, handleRevisePrompt_, dispatch]);
-
-  const handleBulkChangeShotType = useCallback((sceneIds: string[], shotType: string) => {
-    sceneIds.forEach(sceneId => {
-      const scene = state.sceneCards.find(s => s.id === sceneId);
-      if (scene && scene.prompts.length > 0) {
-        const updatedPrompts = scene.prompts.map(p => ({ ...p, shotType }));
-        dispatch({ type: 'FINISH_PROMPT_GENERATION', payload: { sceneId, prompts: updatedPrompts } });
-      }
-    });
-    dispatch({ type: 'CLEAR_SELECTION' });
-    toast({ title: 'Başarılı', description: `${sceneIds.length} sahnenin plan tipi '${shotType}' olarak güncellendi.` });
-  }, [state.sceneCards, dispatch, toast]);
-
-  const handleSelectScenesByEntity = useCallback((entityId: string, type: 'character' | 'location' | 'timeContext') => {
-    const sceneIds = state.sceneCards.filter(s => {
-      if (type === 'character') return s.characterIds.includes(entityId);
-      if (type === 'location') return s.locationIds.includes(entityId);
-      if (type === 'timeContext') return (s.timeContextIds ?? []).includes(entityId);
-      return false;
-    }).map(s => s.id);
-    
-    if (sceneIds.length > 0) {
-      dispatch({ type: 'SET_SELECTED_SCENES', payload: sceneIds });
-      toast({ title: 'Sahneler Seçildi', description: `${sceneIds.length} ilgili sahne seçildi.` });
-    } else {
-      toast({ title: 'Bilgi', description: 'Bu varlığın kullanıldığı sahne bulunamadı.' });
-    }
-  }, [state.sceneCards, dispatch, toast]);
 
   return (
     <div className="flex h-screen flex-col bg-background">
@@ -1619,7 +1539,6 @@ const Index = () => {
                       onAddTimeContext={(t) => dispatch({ type: 'ADD_TIME_CONTEXT', payload: t })}
                       onUpdateTimeContext={(t) => dispatch({ type: 'UPDATE_TIME_CONTEXT', payload: t })}
                       onDeleteTimeContext={(id) => dispatch({ type: 'DELETE_TIME_CONTEXT', payload: id })}
-                      onSelectScenesByEntity={handleSelectScenesByEntity}
                     />
                   </div>
                 </div>
@@ -1664,17 +1583,9 @@ const Index = () => {
               isGeneratingAll={isGeneratingAll}
               onGenerateAllPrompts={handleGenerateAllPrompts}
               isBulkGeneratingPrompts={isBulkGeneratingPrompts}
-              isCancelingBulkPrompts={isCancelingBulkPrompts}
               bulkPromptsProgress={bulkPromptsProgress}
               onCancelBulkPrompts={handleCancelBulkPrompts}
               sceneCards={state.sceneCards}
-              selectedSceneIds={state.selectedSceneIds}
-              onToggleSceneSelection={(id, multi) => dispatch({ type: 'TOGGLE_SCENE_SELECTION', payload: { sceneId: id, multiSelect: multi } })}
-              onSetSelectedScenes={(ids) => dispatch({ type: 'SET_SELECTED_SCENES', payload: ids })}
-              onClearSelection={() => dispatch({ type: 'CLEAR_SELECTION' })}
-              onBulkRegenerate={handleBulkRegenerate}
-              onBulkRevise={handleBulkRevise}
-              onBulkChangeShotType={handleBulkChangeShotType}
               characters={state.characters}
               locations={state.locations}
               timeContexts={state.timeContexts}

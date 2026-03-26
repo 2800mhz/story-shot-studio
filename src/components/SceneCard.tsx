@@ -26,9 +26,6 @@ interface SceneCardProps {
   onDeletePrompt?: (sceneId: string, promptId: string) => void;
   onRestorePreviousPrompt?: (sceneId: string, entry: HistoryEntry) => void;
   onSetPinnedPrompt?: (sceneId: string, promptId: string) => void;
-  // Selection
-  isSelected?: boolean;
-  onToggleSelection?: (sceneId: string, multiSelect: boolean) => void;
 }
 
 function InlinePromptCard({
@@ -220,8 +217,6 @@ export function SceneCard({
   onDeletePrompt,
   onRestorePreviousPrompt,
   onSetPinnedPrompt,
-  isSelected,
-  onToggleSelection,
 }: SceneCardProps) {
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [editedNote, setEditedNote] = useState(scene.visualNote);
@@ -238,40 +233,12 @@ export function SceneCard({
   const hasPrompts = scene.prompts.length > 0;
 
   return (
-    <div 
-      className={`mb-4 rounded-lg border transition-all duration-300 ${
-        isSelected 
-          ? 'ring-2 ring-primary border-primary bg-primary/5 shadow-md scale-[1.01]' 
-          : 'bg-card shadow-sm hover:border-primary/30'
-      }`}
-      onClick={(e) => {
-        // Only toggle if not clicking a button or interactive element
-        if ((e.target as HTMLElement).closest('button, textarea, input, select, details, a')) return;
-        onToggleSelection?.(scene.id, e.shiftKey);
-      }}
-    >
-      {/* Selection Checkbox Overlay */}
-      <div className="absolute top-4 left-[-12px] z-10">
-        <div 
-          className={`w-6 h-6 rounded-md border-2 flex items-center justify-center cursor-pointer transition-all ${
-            isSelected 
-              ? 'bg-primary border-primary text-primary-foreground shadow-lg' 
-              : 'bg-background border-muted-foreground/30 hover:border-primary text-transparent'
-          }`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleSelection?.(scene.id, e.shiftKey);
-          }}
-        >
-          <Check className="h-4 w-4 stroke-[3px]" />
-        </div>
-      </div>
-
+    <div className="mb-4 rounded-lg border bg-card shadow-sm">
       {/* Header */}
-      <div className={`border-b p-4 rounded-t-lg transition-colors ${isSelected ? 'bg-primary/10' : 'bg-muted/30'}`}>
+      <div className="border-b bg-muted/30 p-4 rounded-t-lg">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2 ml-2">
+            <div className="flex items-center gap-2 mb-2">
               <span className="text-sm font-semibold text-muted-foreground">
                 Sahne {scene.sceneNumber}
               </span>

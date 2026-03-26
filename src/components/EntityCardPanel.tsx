@@ -57,7 +57,6 @@ interface EntityCardPanelProps {
   onAddTimeContext: (t: TimeContext) => void;
   onUpdateTimeContext: (t: TimeContext) => void;
   onDeleteTimeContext: (id: string) => void;
-  onSelectScenesByEntity?: (entityId: string, type: 'character' | 'location' | 'timeContext') => void;
 }
 
 // ── Character Editor ─────────────────────────────────────────────────────────
@@ -321,6 +320,7 @@ function TimeContextEditor({ initial, onSave, onCancel }: TimeContextEditorProps
 }
 
 // ── Main Component ───────────────────────────────────────────────────────────
+
 export function EntityCardPanel({
   characters,
   locations,
@@ -332,7 +332,6 @@ export function EntityCardPanel({
   onAddTimeContext,
   onUpdateTimeContext,
   onDeleteTimeContext,
-  onSelectScenesByEntity,
 }: EntityCardPanelProps) {
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['characters', 'locations', 'timeContexts']));
   const [editingCharId, setEditingCharId] = useState<string | null>(null);
@@ -436,14 +435,6 @@ export function EntityCardPanel({
                           onClick={() => setEditingCharId(char.id)}
                         >
                           ✏️
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 px-1.5 text-[10px] text-amber-400/80 hover:text-amber-200 hover:bg-amber-900/40"
-                          onClick={() => onSelectScenesByEntity?.(char.id, 'character')}
-                        >
-                          Sahnelerini Seç
                         </Button>
                         {confirmDeleteId === char.id ? (
                           <>
@@ -657,14 +648,6 @@ export function EntityCardPanel({
                         >
                           ✏️
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 px-1.5 text-[10px] text-blue-400/80 hover:text-blue-200 hover:bg-blue-900/40"
-                          onClick={() => onSelectScenesByEntity?.(loc.id, 'location')}
-                        >
-                          Sahnelerini Seç
-                        </Button>
                         {confirmDeleteId === loc.id ? (
                           <>
                             <Button
@@ -768,14 +751,6 @@ export function EntityCardPanel({
                         onClick={() => setEditingTcId(tc.id)}
                       >
                         ✏️
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 px-1.5 text-[10px] text-purple-400/80 hover:text-purple-200 hover:bg-purple-900/40"
-                        onClick={() => onSelectScenesByEntity?.(tc.id, 'timeContext')}
-                      >
-                        Sahnelerini Seç
                       </Button>
                       {confirmDeleteId === tc.id ? (
                         <>

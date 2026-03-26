@@ -215,8 +215,6 @@ export interface AppState {
   episodePromptTr: string;
   isAnalyzing: boolean;
   isGeneratingPrompts: boolean;
-  selectedSceneIds: string[];
-  lastSelectedSceneId: string | null;
 }
 
 export type AppAction =
@@ -300,7 +298,4 @@ export type AppAction =
   | { type: 'REMOVE_TIME_CONTEXT_FROM_SCENE_CARD'; payload: { sceneId: string; timeContextId: string } }
   | { type: 'REORDER_SCENE_CARDS'; payload: SceneCard[] }
   | { type: 'SET_ALL_PROMPTS'; payload: Record<string, PromptCard[]> }
-  | { type: 'SET_PINNED_PROMPT'; payload: { sceneId: string; promptId: string; byAI?: boolean } }
-  | { type: 'TOGGLE_SCENE_SELECTION'; payload: { sceneId: string; multiSelect: boolean } }
-  | { type: 'SET_SELECTED_SCENES'; payload: string[] }
-  | { type: 'CLEAR_SELECTION' };
+  | { type: 'SET_PINNED_PROMPT'; payload: { sceneId: string; promptId: string; byAI?: boolean } };

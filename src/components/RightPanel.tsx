@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Sparkles, Zap, StickyNote, GripVertical, Download, CheckSquare, ListFilter, Trash2, RefreshCw, Edit3, X, Camera } from 'lucide-react';
+import { Sparkles, Zap, StickyNote, GripVertical, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PromptCard } from './PromptCard';
@@ -62,19 +62,10 @@ interface RightPanelProps {
   onDeletePrompt?: (sceneId: string, promptId: string) => void;
   onRestorePreviousPrompt_?: (sceneId: string, entry: any) => void;
   isBulkGeneratingPrompts?: boolean;
-  isCancelingBulkPrompts?: boolean;
   bulkPromptsProgress?: { done: number; total: number };
   onCancelBulkPrompts?: () => void;
   onSetPinnedPrompt?: (sceneId: string, promptId: string) => void;
   isLoading?: boolean;
-  // Advanced Batch Actions
-  selectedSceneIds?: string[];
-  onToggleSceneSelection?: (sceneId: string, multiSelect: boolean) => void;
-  onSetSelectedScenes?: (ids: string[]) => void;
-  onClearSelection?: () => void;
-  onBulkRegenerate?: (sceneIds: string[]) => void;
-  onBulkRevise?: (sceneIds: string[], instruction: string) => Promise<void>;
-  onBulkChangeShotType?: (sceneIds: string[], shotType: string) => void;
 }
 
 function GroupNoteEditor({ group, onSave }: { group: ConsistencyGroup; onSave: (note: string) => void }) {
@@ -137,16 +128,9 @@ export function RightPanel({
   onAddCharacterToSceneCard, onAddLocationToSceneCard,
   onAddTimeContextToSceneCard, onRemoveTimeContextFromSceneCard,
   onAddVariation, onRegenerateAllPrompts_, onRevisePrompt, onDeletePrompt, onRestorePreviousPrompt_,
-  isBulkGeneratingPrompts, isCancelingBulkPrompts, bulkPromptsProgress, onCancelBulkPrompts,
+  isBulkGeneratingPrompts, bulkPromptsProgress, onCancelBulkPrompts,
   onSetPinnedPrompt,
   isLoading,
-  selectedSceneIds = [],
-  onToggleSceneSelection,
-  onSetSelectedScenes,
-  onClearSelection,
-  onBulkRegenerate,
-  onBulkRevise,
-  onBulkChangeShotType,
 }: RightPanelProps) {
   const doneCount = scenes.filter(s => s.status === 'done').length;
   const pendingCount = scenes.filter(s => s.status === 'pending').length;
@@ -316,29 +300,23 @@ export function RightPanel({
               <Sparkles className="mr-1.5 h-3.5 w-3.5" />
               Tümünü Üret
             </Button>
-          ) : (onGenerateAllPrompts && sceneCards.length > 0 && sceneCards.some(sc => sc.prompts.length === 0)) ? (
+          ) : onGenerateAllPrompts && sceneCards.length > 0 ? (
             isBulkGeneratingPrompts ? (
               <div className="flex items-center gap-2 bg-secondary/50 rounded-lg px-2 py-1 border border-border/50">
                 <div className="flex flex-col gap-1 min-w-[100px]">
                   <div className="flex justify-between text-[9px] font-medium text-muted-foreground">
-                    <span>{isCancelingBulkPrompts ? 'İptal Ediliyor...' : 'Üretiliyor...'}</span>
+                    <span>Üretiliyor...</span>
                     <span>%{bulkPromptsPercent}</span>
                   </div>
                   <div className="relative w-full bg-background/50 rounded-full h-1 overflow-hidden">
                     <div
-                      className={`absolute left-0 top-0 h-full ${isCancelingBulkPrompts ? 'bg-destructive' : 'bg-primary'} rounded-full transition-all duration-500 ease-out`}
+                      className="absolute left-0 top-0 h-full bg-primary rounded-full transition-all duration-500 ease-out"
                       style={{ width: `${bulkPromptsPercent}%` }}
                     />
                   </div>
                 </div>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  className={`h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive rounded-full ${isCancelingBulkPrompts ? 'opacity-50 cursor-not-allowed' : ''}`} 
-                  onClick={onCancelBulkPrompts}
-                  disabled={isCancelingBulkPrompts}
-                >
-                  <X className="h-3.5 w-3.5" />
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive rounded-full" onClick={onCancelBulkPrompts}>
+                  <span className="text-lg leading-none">×</span>
                 </Button>
               </div>
             ) : (
@@ -355,60 +333,6 @@ export function RightPanel({
           ) : null}
         </div>
       </div>
-
-      {/* Advanced Selection Toolbar */}
-      {!isBulkGeneratingPrompts && sceneCards.length > 0 && (
-        <div className="flex items-center justify-between px-4 py-2 bg-muted/20 border-b gap-2">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-[10px] font-medium hover:bg-primary/5 hover:text-primary"
-              onClick={() => onSetSelectedScenes?.(sceneCards.map(sc => sc.id))}
-            >
-              Tümünü Seç
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-[10px] font-medium hover:bg-primary/5 hover:text-primary"
-              onClick={() => onSetSelectedScenes?.(sceneCards.filter(sc => sc.prompts.length === 0).map(sc => sc.id))}
-            >
-              Boşları Seç
-            </Button>
-            {selectedSceneIds.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-[10px] font-medium text-destructive hover:bg-destructive/5"
-                onClick={onClearSelection}
-              >
-                Temizle ({selectedSceneIds.length})
-              </Button>
-            )}
-          </div>
-          
-          <div className="flex items-center gap-2">
-             <ListFilter className="h-3 w-3 text-muted-foreground/50" />
-             <select 
-               className="bg-transparent text-[10px] text-muted-foreground focus:outline-none cursor-pointer hover:text-foreground"
-               onChange={(e) => {
-                 const type = e.target.value;
-                 if (type === 'wide') {
-                   onSetSelectedScenes?.(sceneCards.filter(sc => sc.prompts.some(p => p.shotType.toLowerCase().includes('wide'))).map(sc => sc.id));
-                 } else if (type === 'ready') {
-                   onSetSelectedScenes?.(sceneCards.filter(sc => sc.status === 'ready').map(sc => sc.id));
-                 }
-                 e.target.value = '';
-               }}
-             >
-               <option value="">Filtrele...</option>
-               <option value="wide">Sadece 'Wide' Sahneler</option>
-               <option value="ready">Hazır Sahneler</option>
-             </select>
-          </div>
-        </div>
-      )}
 
       {/* Bulk generation progress */}
       {isGeneratingAll && totalScenes > 0 && (
@@ -593,8 +517,6 @@ export function RightPanel({
                   onDeletePrompt={onDeletePrompt}
                   onRestorePreviousPrompt={onRestorePreviousPrompt_}
                   onSetPinnedPrompt={onSetPinnedPrompt}
-                  isSelected={selectedSceneIds.includes(sc.id)}
-                  onToggleSelection={onToggleSceneSelection}
                 />
                     </div>
                   </div>
@@ -604,71 +526,6 @@ export function RightPanel({
           </>
         )}
       </div>
-
-      {/* Floating Action Bar (FAB) */}
-      {selectedSceneIds.length > 0 && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <div className="flex items-center gap-1.5 bg-foreground/95 backdrop-blur-md text-background px-3 py-2 rounded-2xl shadow-2xl border border-white/10">
-            <div className="px-2 border-r border-white/10 mr-1 hidden sm:block">
-              <span className="text-[11px] font-bold">{selectedSceneIds.length} Sahne</span>
-            </div>
-            
-            <Button 
-              size="sm" 
-              variant="ghost" 
-              className="h-8 px-2 text-[10px] text-background hover:bg-white/10 flex flex-col gap-0.5"
-              onClick={() => onBulkRegenerate?.(selectedSceneIds)}
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              <span>Yeniden Üret</span>
-            </Button>
-            
-            <Button 
-              size="sm" 
-              variant="ghost" 
-              className="h-8 px-2 text-[10px] text-background hover:bg-white/10 flex flex-col gap-0.5"
-              onClick={() => {
-                const instr = prompt("Seçili sahneler için toplu revizyon talimatı girin (örn: 'Hava yağmurlu olsun'):");
-                if (instr) onBulkRevise?.(selectedSceneIds, instr);
-              }}
-            >
-              <Edit3 className="h-3.5 w-3.5" />
-              <span>Toplu Revize</span>
-            </Button>
-
-            <div className="relative group/shot">
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                className="h-8 px-2 text-[10px] text-background hover:bg-white/10 flex flex-col gap-0.5"
-              >
-                <Camera className="h-3.5 w-3.5" />
-                <span>Plan Değiştir</span>
-              </Button>
-              <div className="absolute bottom-full left-0 mb-2 py-1 bg-foreground border border-white/10 rounded-lg shadow-xl hidden group-hover/shot:block min-w-[120px]">
-                {['Extreme Wide', 'Wide Shot', 'Medium Shot', 'Close Up', 'Extreme Close Up'].map(shot => (
-                  <button
-                    key={shot}
-                    className="w-full text-left px-3 py-1.5 text-[10px] hover:bg-white/10 transition-colors"
-                    onClick={() => onBulkChangeShotType?.(selectedSceneIds, shot)}
-                  >
-                    {shot}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <Button 
-              size="sm" 
-              variant="ghost" 
-              className="h-8 w-8 p-0 text-background hover:bg-destructive/20 hover:text-destructive ml-1"
-              onClick={onClearSelection}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
