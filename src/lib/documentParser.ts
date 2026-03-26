@@ -76,7 +76,7 @@ export async function parseDocxFile(file: File): Promise<string> {
                   }
                }
                // Inject standard w:highlight tag that Mammoth understands natively
-               rPr.push({ 'w:highlight': [ { ':@': { '@_w:val': 'yellow' } } ] });
+               rPr.push({ 'w:highlight': [], ':@': { '@_w:val': 'yellow' } });
                modifiedRuns++;
             }
           }
