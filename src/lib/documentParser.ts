@@ -69,15 +69,23 @@ export async function parseDocxFile(file: File): Promise<string> {
             }
 
             if (isYellow) {
-               // Remove existing highlight tags to prevent Word XML errors
-               for (let i = rPr.length - 1; i >= 0; i--) {
-                  if (rPr[i] && typeof rPr[i] === 'object' && ('w:highlight' in rPr[i])) {
-                     rPr.splice(i, 1);
-                  }
+               // Instead of fighting XML attributes and Mammoth style maps, inject markers directly into the text
+               const tNode = run.find((child: any) => child['w:t']);
+               if (tNode) {
+                 if (typeof tNode['w:t'] === 'string') {
+                    tNode['w:t'] = `@@HL_START@@${tNode['w:t']}@@HL_END@@`;
+                    modifiedRuns++;
+                 } else if (Array.isArray(tNode['w:t']) && tNode['w:t'].length > 0) {
+                    if (tNode['w:t'][0]['#text']) {
+                       tNode['w:t'][0]['#text'] = `@@HL_START@@${tNode['w:t'][0]['#text']}@@HL_END@@`;
+                       modifiedRuns++;
+                    } else if (typeof tNode['w:t'][0] === 'string') {
+                       // Sometimes w:t is an array with a direct string if text contains special characters
+                       tNode['w:t'][0] = `@@HL_START@@${tNode['w:t'][0]}@@HL_END@@`;
+                       modifiedRuns++;
+                    }
+                 }
                }
-               // Inject standard w:highlight tag that Mammoth understands natively
-               rPr.push({ 'w:highlight': [], ':@': { '@_w:val': 'yellow' } });
-               modifiedRuns++;
             }
           }
         } else {
@@ -124,8 +132,6 @@ export async function parseDocxFile(file: File): Promise<string> {
     styleMap: [
       "u => u",
       "strike => del",
-      "r[highlight='yellow'] => mark",
-      "r[highlight='darkYellow'] => mark",
     ],
   };
 
@@ -133,8 +139,12 @@ export async function parseDocxFile(file: File): Promise<string> {
   const result = await mammoth.convertToHtml({ arrayBuffer: bufferToConvert }, conversionOptions as any);
   let html = result.value;
 
+  // 7. Swap the injected placeholders for <mark> tags
+  html = html.replace(/@@HL_START@@/g, '<mark>');
+  html = html.replace(/@@HL_END@@/g, '</mark>');
+
   const markCount = (html.match(/<mark>/g) || []).length;
-  console.log(`[DocumentParser] mark tags after Mammoth conversion: ${markCount}`);
+  console.log(`[DocumentParser] mark tags after final replacement: ${markCount}`);
 
   // Safe two-step strip: remove <p> tags, replace </p> with newline
   html = html.replace(/<p[^>]*>/g, '').replace(/<\/p>/g, '\n');
