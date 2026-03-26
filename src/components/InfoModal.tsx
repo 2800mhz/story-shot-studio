@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -10,6 +10,18 @@ interface InfoModalProps {
 }
 
 export function InfoModal({ open, onClose }: InfoModalProps) {
+  const [catClicks, setCatClicks] = useState(0);
+
+  const handleCatClick = () => {
+    const newCount = catClicks + 1;
+    if (newCount >= 5) {
+      window.open('https://cataas.com/cat', '_blank');
+      setCatClicks(0);
+    } else {
+      setCatClicks(newCount);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="bg-card border-border sm:max-w-2xl max-h-[85vh]">
@@ -163,9 +175,21 @@ export function InfoModal({ open, onClose }: InfoModalProps) {
                 <li className="text-foreground">Metinden pasaj seçerek sahne oluşturun</li>
                 <li className="text-foreground">Gerekirse referans ve tutarlılık grubu ekleyin</li>
                 <li className="text-foreground">Sağ panelden "Üret" butonuna basın</li>
-                <li className="text-foreground">Prompt'ları inceleyin, revize edin, dışa aktarın</li>
               </ol>
             </section>
+
+            <div className="flex justify-center pt-4 opacity-20 hover:opacity-100 transition-opacity">
+              <span
+                role="img"
+                aria-label="cat"
+                className="text-2xl cursor-pointer select-none"
+                onClick={handleCatClick}
+                title="Meow?"
+              >
+                🐱
+              </span>
+            </div>
+
           </div>
         </ScrollArea>
       </DialogContent>
