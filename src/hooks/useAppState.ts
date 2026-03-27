@@ -601,6 +601,24 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
         ),
       };
     }
+    case 'REVISE_PROMPT_TEXT': {
+      const { sceneId, promptId, newText } = action.payload;
+      return {
+        ...state,
+        sceneCards: state.sceneCards.map(sc =>
+          sc.id === sceneId
+            ? {
+                ...sc,
+                prompts: sc.prompts.map(p =>
+                  p.id === promptId
+                    ? { ...p, promptText: newText, versions: [...(p.versions || []), newText], generationType: 'revision' as const }
+                    : p
+                ),
+              }
+            : sc
+        ),
+      };
+    }
     default:
       return state;
   }

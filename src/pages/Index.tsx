@@ -401,6 +401,8 @@ const Index = () => {
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [isBulkGeneratingPrompts, setIsBulkGeneratingPrompts] = useState(false);
   const [bulkPromptsProgress, setBulkPromptsProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
+  const [isBulkRevising, setIsBulkRevising] = useState(false);
+  const [bulkReviseProgress, setBulkReviseProgress] = useState<{ done: number; total: number; isRunning: boolean }>({ done: 0, total: 0, isRunning: false });
   const bulkPromptsAbortRef = useRef<AbortController | null>(null);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '4:3' | '1:1' | '9:16'>('16:9');
   // Use a ref to access current scenes without adding them as a callback dependency
@@ -1070,6 +1072,67 @@ const Index = () => {
 
   const WORKER_COUNT = 3;
 
+  // ─── Bulk Style Revision ─────────────────────────────────────────────────
+  const handleBulkStyleRevise = useCallback(async (instruction: string) => {
+    if (isBulkRevising) return;
+
+    // Collect all prompts from all scene cards
+    type PromptEntry = { sceneId: string; promptId: string; originalText: string };
+    const allEntries: PromptEntry[] = [];
+    for (const scene of state.sceneCards) {
+      for (const prompt of scene.prompts) {
+        if (prompt.promptText) {
+          allEntries.push({ sceneId: scene.id, promptId: prompt.id, originalText: prompt.promptText });
+        }
+      }
+    }
+
+    if (allEntries.length === 0) {
+      toast({ title: '⚠️ Revize edilecek prompt bulunamadı', description: 'Önce bazı sahnelerin promptlarını üretin.' });
+      return;
+    }
+
+    setIsBulkRevising(true);
+    setBulkReviseProgress({ done: 0, total: allEntries.length, isRunning: true });
+
+    const queue = [...allEntries];
+    let done = 0;
+
+    const processEntry = async (entry: PromptEntry) => {
+      try {
+        const revised = await revisePrompt(entry.originalText, instruction);
+        dispatch({
+          type: 'REVISE_PROMPT_TEXT',
+          payload: { sceneId: entry.sceneId, promptId: entry.promptId, newText: revised },
+        });
+      } catch (err) {
+        console.warn('[bulkRevise] Failed for prompt', entry.promptId, err);
+      }
+      done++;
+      setBulkReviseProgress({ done, total: allEntries.length, isRunning: true });
+    };
+
+    const worker = async () => {
+      while (queue.length > 0) {
+        const entry = queue.shift();
+        if (!entry) break;
+        await processEntry(entry);
+        await new Promise(r => setTimeout(r, 150));
+      }
+    };
+
+    try {
+      await Promise.all(Array.from({ length: WORKER_COUNT }, () => worker()));
+      toast({ title: '✅ Toplu revizyon tamamlandı', description: `${allEntries.length} prompt güncellendi.` });
+    } catch (err) {
+      console.error('[bulkRevise] Error:', err);
+      toast({ title: '❌ Revizyon hatası', description: 'Bir sorun oluştu, lütfen tekrar deneyin.', variant: 'destructive' });
+    } finally {
+      setIsBulkRevising(false);
+      setBulkReviseProgress({ done: 0, total: 0, isRunning: false });
+    }
+  }, [isBulkRevising, state.sceneCards, dispatch, toast]);
+
   const handleGenerateAllPrompts = useCallback(async () => {
     if (isBulkGeneratingPrompts) return;
 
@@ -1513,6 +1576,8 @@ const Index = () => {
                   onSetEpisodePrompt={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT', payload: prompt })}
                   onSetEpisodePromptTr={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: prompt })}
                   onClose={() => setShowEpisodeStylePanel(false)}
+                  onBulkRevise={handleBulkStyleRevise}
+                  bulkReviseProgress={bulkReviseProgress}
                 />
               </Panel>
             </>
