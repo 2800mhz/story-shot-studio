@@ -66,6 +66,7 @@ interface RightPanelProps {
   onCancelBulkPrompts?: () => void;
   onSetPinnedPrompt?: (sceneId: string, promptId: string) => void;
   isLoading?: boolean;
+  revisingPromptIds?: Set<string>;
 }
 
 function GroupNoteEditor({ group, onSave }: { group: ConsistencyGroup; onSave: (note: string) => void }) {
@@ -131,6 +132,7 @@ export function RightPanel({
   isBulkGeneratingPrompts, bulkPromptsProgress, onCancelBulkPrompts,
   onSetPinnedPrompt,
   isLoading,
+  revisingPromptIds = new Set(),
 }: RightPanelProps) {
   const doneCount = scenes.filter(s => s.status === 'done').length;
   const pendingCount = scenes.filter(s => s.status === 'pending').length;
@@ -517,6 +519,7 @@ export function RightPanel({
                   onDeletePrompt={onDeletePrompt}
                   onRestorePreviousPrompt={onRestorePreviousPrompt_}
                   onSetPinnedPrompt={onSetPinnedPrompt}
+                  revisingPromptIds={revisingPromptIds}
                 />
                     </div>
                   </div>

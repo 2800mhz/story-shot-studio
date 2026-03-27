@@ -104,7 +104,7 @@ export function EpisodeStylePanel({
             size="sm"
             className="w-full gap-2 bg-purple-700 hover:bg-purple-600 text-white text-xs disabled:opacity-50"
             onClick={handleRevise}
-            disabled={!canRevise}
+            disabled={!revisionInstruction.trim() || isRunning}
           >
             {isRunning ? (
               <>

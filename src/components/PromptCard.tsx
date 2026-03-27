@@ -46,6 +46,7 @@ interface PromptCardProps {
   isActive: boolean;
   onClick: () => void;
   onRestorePrompt?: (promptText: string, shotType: string) => void;
+  revisingPromptIds?: Set<string>;
 }
 
 export function PromptCard({
@@ -60,6 +61,7 @@ export function PromptCard({
   onAddSubSceneToGroup, onRemoveSubSceneFromGroup,
   isActive, onClick, onRestorePrompt,
   sceneId,
+  revisingPromptIds = new Set()
 }: PromptCardProps) {
   const [revisingId, setRevisingId] = useState<string | null>(null);
   const [revisionText, setRevisionText] = useState('');
@@ -280,7 +282,7 @@ export function PromptCard({
             const attachedCharacters = attachedEntities.filter(e => e.type === 'character');
 
             return (
-              <div key={prompt.id} className="rounded-md border bg-card overflow-hidden">
+              <div key={prompt.id} className={`rounded-md border overflow-hidden transition-all ${revisingPromptIds.has(prompt.id) ? 'bg-primary/5 border-primary/30 opacity-75' : 'bg-card'}`}>
                 {/* Prompt header: summary + shot type + actions */}
                 <div className="bg-primary/5 border-b px-3 py-2">
                   <div className="flex items-start justify-between gap-2">
@@ -291,28 +293,37 @@ export function PromptCard({
                       <div className="text-[10px] text-muted-foreground mt-0.5">{prompt.shotType}</div>
                     </div>
                     <div className="flex items-center gap-0.5 shrink-0">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleCopy(prompt.text); }}
-                        title="Kopyala"
-                        className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                      >
-                        <Copy className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setRevisingId(revisingId === prompt.id ? null : prompt.id); setRevisionText(''); }}
-                        title="Revize et"
-                        className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </button>
-                      {onDeletePrompt && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onDeletePrompt(prompt.id); }}
-                          title="Promptu sil"
-                          className="rounded p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
+                      {(status === 'generating' || revisingPromptIds.has(prompt.id)) ? (
+                        <div className="flex items-center gap-1.5 px-2 py-0.5" title="İşleniyor...">
+                          <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                          <span className="text-[10px] font-medium text-primary">Revize ediliyor...</span>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleCopy(prompt.text); }}
+                            title="Kopyala"
+                            className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setRevisingId(revisingId === prompt.id ? null : prompt.id); setRevisionText(''); }}
+                            title="Revize et"
+                            className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                          {onDeletePrompt && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onDeletePrompt(prompt.id); }}
+                              title="Promptu sil"
+                              className="rounded p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>

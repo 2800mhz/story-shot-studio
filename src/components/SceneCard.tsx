@@ -26,6 +26,7 @@ interface SceneCardProps {
   onDeletePrompt?: (sceneId: string, promptId: string) => void;
   onRestorePreviousPrompt?: (sceneId: string, entry: HistoryEntry) => void;
   onSetPinnedPrompt?: (sceneId: string, promptId: string) => void;
+  revisingPromptIds?: Set<string>;
 }
 
 function InlinePromptCard({
@@ -34,12 +35,14 @@ function InlinePromptCard({
   onRevise,
   onDelete,
   onPin,
+  isExternallyRevising,
 }: {
   prompt: PromptCard;
   sceneId: string;
   onRevise?: (sceneId: string, promptId: string, instruction: string) => Promise<void>;
   onDelete?: (sceneId: string, promptId: string) => void;
   onPin?: (sceneId: string, promptId: string) => void;
+  isExternallyRevising?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [isRevising, setIsRevising] = useState(false);
@@ -59,8 +62,8 @@ function InlinePromptCard({
   };
 
   return (
-    <div className={`relative border rounded-md p-2.5 my-2 transition-all ${prompt.isPinned ? 'border-primary ring-1 ring-primary/40 bg-primary/5' : 'bg-muted/10'} ${isSubmitting ? 'opacity-60 pointer-events-none' : ''}`}>
-      {isSubmitting && (
+    <div className={`relative border rounded-md p-2.5 my-2 transition-all ${prompt.isPinned ? 'border-primary ring-1 ring-primary/40 bg-primary/5' : 'bg-muted/10'} ${(isSubmitting || isExternallyRevising) ? 'opacity-60 pointer-events-none' : ''}`}>
+      {(isSubmitting || isExternallyRevising) && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-[1px] rounded-md">
           <div className="flex flex-col items-center text-primary">
             <RefreshCw className="h-5 w-5 animate-spin mb-1" />
@@ -217,6 +220,7 @@ export function SceneCard({
   onDeletePrompt,
   onRestorePreviousPrompt,
   onSetPinnedPrompt,
+  revisingPromptIds = new Set(),
 }: SceneCardProps) {
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [editedNote, setEditedNote] = useState(scene.visualNote);
@@ -551,6 +555,7 @@ export function SceneCard({
               onRevise={onRevisePrompt}
               onDelete={onDeletePrompt}
               onPin={onSetPinnedPrompt}
+              isExternallyRevising={revisingPromptIds.has(prompt.id)}
             />
           ))}
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">

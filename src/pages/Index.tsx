@@ -403,6 +403,7 @@ const Index = () => {
   const [bulkPromptsProgress, setBulkPromptsProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [isBulkRevising, setIsBulkRevising] = useState(false);
   const [bulkReviseProgress, setBulkReviseProgress] = useState<{ done: number; total: number; isRunning: boolean }>({ done: 0, total: 0, isRunning: false });
+  const [revisingPromptIds, setRevisingPromptIds] = useState<Set<string>>(new Set());
   const bulkPromptsAbortRef = useRef<AbortController | null>(null);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '4:3' | '1:1' | '9:16'>('16:9');
   // Use a ref to access current scenes without adding them as a callback dependency
@@ -1100,13 +1101,21 @@ const Index = () => {
 
     const processEntry = async (entry: PromptEntry) => {
       try {
-        const revised = await revisePrompt(entry.originalText, instruction);
+        setRevisingPromptIds(prev => new Set([...prev, entry.promptId]));
+        const revisedText = await revisePrompt(entry.originalText, instruction, '', state.settings.model, state.settings.temperature);
+        
         dispatch({
           type: 'REVISE_PROMPT_TEXT',
-          payload: { sceneId: entry.sceneId, promptId: entry.promptId, newText: revised },
+          payload: { sceneId: entry.sceneId, promptId: entry.promptId, newText: revisedText },
         });
       } catch (err) {
         console.warn('[bulkRevise] Failed for prompt', entry.promptId, err);
+      } finally {
+        setRevisingPromptIds(prev => {
+          const next = new Set(prev);
+          next.delete(entry.promptId);
+          return next;
+        });
       }
       done++;
       setBulkReviseProgress({ done, total: allEntries.length, isRunning: true });
