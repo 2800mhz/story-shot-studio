@@ -619,6 +619,29 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
         ),
       };
     }
+    case 'APPLY_BULK_REVISIONS': {
+      // Apply multiple prompt revisions at once (from entity revision engine)
+      const revisionMap = new Map(
+        action.payload.map(r => [`${r.sceneId}:${r.promptId}`, r.newText])
+      );
+      return {
+        ...state,
+        sceneCards: state.sceneCards.map(sc => ({
+          ...sc,
+          prompts: sc.prompts.map(p => {
+            const key = `${sc.id}:${p.id}`;
+            const newText = revisionMap.get(key);
+            if (!newText) return p;
+            return {
+              ...p,
+              promptText: newText,
+              versions: [...(p.versions || []), newText],
+              generationType: 'revision' as const,
+            };
+          }),
+        })),
+      };
+    }
     default:
       return state;
   }

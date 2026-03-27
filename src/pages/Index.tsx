@@ -13,6 +13,7 @@ import { EntityCardPanel } from '@/components/EntityCardPanel';
 import { EpisodeStylePanel } from '@/components/EpisodeStylePanel';
 import { ReferencePanel } from '@/components/ReferencePanel';
 import { ScriptUploader } from '@/components/ScriptUploader';
+import { EntityRevisionPanel } from '@/UI/EntityRevisionPanel';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useAppState } from '@/hooks/useAppState';
 import { parseDocument } from '@/lib/documentParser';
@@ -376,6 +377,7 @@ const Index = () => {
   const [showEpisodeStylePanel, setShowEpisodeStylePanel] = useState(false);
   const [showReferencePanel, setShowReferencePanel] = useState(false);
   const [showScriptUploader, setShowScriptUploader] = useState(false);
+  const [showEntityRevisionPanel, setShowEntityRevisionPanel] = useState(false);
   const [scrollToIndex, setScrollToIndex] = useState<number | null>(null);
 
   const handleScriptComplete = useCallback((result: {
@@ -1501,6 +1503,14 @@ const Index = () => {
         >
           🖼️ Referanslar
         </Button>
+        <Button
+          size="sm"
+          variant={showEntityRevisionPanel ? 'default' : 'outline'}
+          className="h-7 text-xs"
+          onClick={() => setShowEntityRevisionPanel(v => !v)}
+        >
+          🔄 Varlık Revizyonu
+        </Button>
       </div>
 
       {/* No API keys banner */}
@@ -1636,6 +1646,30 @@ const Index = () => {
                       dispatch={dispatch}
                     />
                   </div>
+                </div>
+              </Panel>
+            </>
+          )}
+
+          {showEntityRevisionPanel && (
+            <>
+              <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/50 cursor-col-resize transition-colors" />
+              <Panel defaultSize={22} minSize={16}>
+                <div className="flex h-full flex-col border-l border-border">
+                  <EntityRevisionPanel
+                    sceneCards={state.sceneCards}
+                    characters={state.characters}
+                    locations={state.locations}
+                    timeContexts={state.timeContexts}
+                    projectId={projectId ?? ''}
+                    episodeId={episodeId ?? ''}
+                    episodeTitle={episode?.title ?? ''}
+                    masterPrompt={state.masterPrompt}
+                    onApplyRevisions={(revisions) =>
+                      dispatch({ type: 'APPLY_BULK_REVISIONS', payload: revisions })
+                    }
+                    onClose={() => setShowEntityRevisionPanel(false)}
+                  />
                 </div>
               </Panel>
             </>

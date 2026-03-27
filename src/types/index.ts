@@ -299,4 +299,8 @@ export type AppAction =
   | { type: 'REORDER_SCENE_CARDS'; payload: SceneCard[] }
   | { type: 'SET_ALL_PROMPTS'; payload: Record<string, PromptCard[]> }
   | { type: 'SET_PINNED_PROMPT'; payload: { sceneId: string; promptId: string; byAI?: boolean } }
-  | { type: 'REVISE_PROMPT_TEXT'; payload: { sceneId: string; promptId: string; newText: string } };
+  | { type: 'REVISE_PROMPT_TEXT'; payload: { sceneId: string; promptId: string; newText: string } }
+  | {
+    type: 'APPLY_BULK_REVISIONS';
+    payload: Array<{ sceneId: string; promptId: string; newText: string }>;
+  };
