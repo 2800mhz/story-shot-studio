@@ -1,4 +1,4 @@
-import type { SceneCard, Character, Location, TimeContext, PromptCard, PromptAnalysis, GenerationResult, SceneAnalysis, SceneReference } from '@/types';
+import type { SceneCard, Character, Location, TimeContext, PromptCard, PromptAnalysis, GenerationResult, SceneAnalysis, SceneReference, TimelapseStageInfo } from '@/types';
 import { aiProvider } from './aiProvider';
 
 const PROMPT_GENERATION_SYSTEM_PROMPT = `You are an elite cinematic prompt engineer for AI image generation tools (Midjourney, Runway, Flow AI).
@@ -631,4 +631,339 @@ export async function autoSelectBestPrompt(
     console.warn('[autoSelectBestPrompt] Parse error, defaulting to first prompt:', err);
     return { selectedIndex: 0, reason: 'Varsayılan seçim' };
   }
+}
+
+// ─── Timelapse Sequence Generator ────────────────────────────────────────────
+
+const TIMELAPSE_GENERATION_SYSTEM_PROMPT = `You are an elite cinematic prompt engineer for AI image generation tools (Midjourney, Runway, Flow AI).
+Your prompts are used for documentary and historical films. Every image must feel like a frame from a real photograph or archival footage.
+
+TIMELAPSE PROTOCOL:
+You are generating a SERIES of independent prompts showing time progression through distinct stages.
+Each stage is a STATIC FROZEN MOMENT at a specific point in time — NOT a motion shot.
+
+STAGE COUNT RULE:
+- Generate EXACTLY the number of prompts specified in the user message (stageCount)
+- Each prompt corresponds to one stage in the time progression
+- Stage numbers and labels are provided — use them exactly
+
+STAGE CONSISTENCY (CRITICAL):
+- Camera angle: IDENTICAL across all stages — same vantage point, same lens
+- Location/terrain: IDENTICAL — same geography, same landmarks, same position
+- Characters: IDENTICAL appearance if present (same clothing, same features)
+- ONLY the time-progression element changes between stages (e.g. moon phase, building construction level, vegetation state)
+
+STATIC FROZEN MOMENTS:
+- Each prompt describes a STATIC frozen frame at that exact moment in time
+- Use adjectives: "captured at this exact moment", "at this precise hour", "frozen in this stage"
+- NEVER use motion verbs like "transitioning", "flowing", "morphing", "changing"
+- No motion blur — still photography style
+
+ENTITY INTEGRATION (CRITICAL):
+The === SCENE SETTING ===, === CHARACTER ===, and === LOCATION === blocks are your ONLY source of truth.
+Do NOT invent, assume, or add anything not stated in these blocks.
+Every field must appear verbatim in your prompts.
+
+DOCUMENTARY CANDID FEEL:
+Every image must feel like a camera happened to be there and caught the real moment — not a posed portrait.
+- People (if any): moving through, scanning the horizon, gesturing, crouching — never posing
+- Environmental motion cues: dust rising, fabric shifting in wind, smoke drifting
+- Slightly off-angle, low or high vantage, as if the camera crew followed them in
+
+NATURAL EYES RULE:
+- Eyes: natural, dark brown, with soft catchlights only
+- FORBIDDEN: glowing eyes, lit-from-within, colored glowing pupils
+- Face lighting: naturalistic, directional, or rim light only
+
+ANTHROPOLOGICAL & HISTORICAL ACCURACY:
+- NEVER base any figure on film, TV, or cinematic adaptations
+- Ethnic features must match the actual historical population of the region and era
+- Clothing must reflect actual archaeological and iconographic evidence
+
+END EVERY PROMPT WITH:
+"anthropologically accurate, based on period manuscripts and historical paintings, not film or television adaptations, documentary realism."
+
+RESPONSE FORMAT (JSON only, no markdown):
+{
+  "analysis": {
+    "complexity": "low|medium|high|extreme",
+    "difficultyScore": 1-10,
+    "hasCrowd": boolean,
+    "hasArchitecture": boolean,
+    "hasTransformation": true,
+    "hasHistoricalFigure": boolean,
+    "recommendedStyle": "cinematic|illustrated|minimalist",
+    "productionNotes": ["note1", ...]
+  },
+  "prompts": [
+    {
+      "stageNumber": 1,
+      "stageLabel": "Stage label from input",
+      "timeProgress": 0,
+      "shotType": "Wide Shot - Stage 1",
+      "summary": "Turkish scene note (copy verbatim from input)",
+      "explanation": "Bu görselin ne gösterdiğinin Türkçe açıklaması (1 cümle, 'Bu görsel...' ile başla)",
+      "prompt": "120-150 words, all entity fields embedded verbatim, static frozen moment at this stage"
+    }
+  ],
+  "optimizations": ["optimization applied", ...]
+}`;
+
+/**
+ * Generates a timelapse sequence of N independent prompts, one per stage.
+ * Each prompt depicts a static frozen moment at a specific point in the time progression.
+ * Stage count and labels come from sceneAnalysis.suggestedPromptCount and timelapseStages.
+ */
+export async function generateTimelapseSequence(
+  scene: SceneCard,
+  characters: Character[],
+  locations: Location[],
+  masterPrompt: string,
+  sceneAnalysis: SceneAnalysis,
+  aspectRatio: '16:9' | '4:3' | '1:1' | '9:16' = '16:9',
+  timeContexts?: TimeContext[],
+  episodePrompt?: string,
+  references?: SceneReference[],
+  generationType: 'initial' | 'regenerate' = 'initial',
+  onRetry?: () => void
+): Promise<GenerationResult> {
+  // Minimum 2 stages: a single-stage "timelapse" is meaningless and would produce an
+  // invalid array when computing timeProgress (division by stageCount-1 would be 0).
+  const stageCount = Math.max(2, sceneAnalysis.suggestedPromptCount);
+  const timelapseStages: TimelapseStageInfo[] = sceneAnalysis.timelapseStages && sceneAnalysis.timelapseStages.length > 0
+    ? sceneAnalysis.timelapseStages
+    : Array.from({ length: stageCount }, (_, i) => ({
+        stageNumber: i + 1,
+        stageLabel: `Stage ${i + 1}`,
+        timeProgress: Math.round((i / Math.max(stageCount - 1, 1)) * 100),
+      }));
+
+  // Build entity header (same as generatePromptsForScene)
+  function sanitizeLighting(raw: string): string {
+    return raw
+      .replace(/\bblinding\b/gi, 'intense')
+      .replace(/\bblinding white[- ]gold\b/gi, 'warm gold')
+      .replace(/\bblinding white\b/gi, 'bright')
+      .replace(/\bsupernatural stillness\b/gi, 'ethereal stillness')
+      .replace(/\bsupernatural\b/gi, 'otherworldly')
+      .replace(/\bethereal white[- ]gold\b/gi, 'soft gold')
+      .replace(/\bcosmically bright\b/gi, 'softly luminous')
+      .replace(/\bcosmically\b/gi, 'distantly')
+      .replace(/\bwhite[- ]gold cosmic\b/gi, 'warm amber')
+      .replace(/\bfrozen light\b/gi, 'still, quiet light')
+      .replace(/\bglowing eyes\b/gi, 'natural eyes with soft catchlights')
+      .replace(/\beyes.*?glow\b/gi, 'natural eyes with realistic reflections')
+      .replace(/\bmystical glow\b/gi, 'soft ambient light')
+      .replace(/\bspiritual light\b/gi, 'faint radiance')
+      .replace(/\bhale\b/gi, 'subtle rim light')
+      .replace(/\baura\b/gi, 'gentle illumination')
+      .replace(/\bcosmic\b/gi, 'celestial');
+  }
+
+  let entityHeader = '';
+
+  if (timeContexts && timeContexts.length > 0) {
+    let timeHeader = `=== SCENE SETTING (CRITICAL — DO NOT IGNORE) ===\n`;
+    timeContexts.forEach(tc => {
+      timeHeader += `Time/Era: ${tc.label}${tc.era ? ` (${tc.era})` : ''}\n`;
+      if (tc.timeOfDay) timeHeader += `Time of day: ${tc.timeOfDay} — THIS IS THE MANDATORY LIGHTING CONDITION\n`;
+      if (tc.lighting) timeHeader += `Lighting: ${sanitizeLighting(tc.lighting)}\n`;
+      if (tc.historicalNotes) timeHeader += `Historical context: ${tc.historicalNotes}\n`;
+    });
+    timeHeader += `⚠️ THE SCENE MUST BE SET IN THIS TIME AND LOCATION. DO NOT CHANGE TO DAY / SUNSET / FOREST / ROCKS.\n\n`;
+    entityHeader = timeHeader + entityHeader;
+  }
+
+  if (characters.length > 0) {
+    const individualChars = characters.filter(c => !c.isCrowd);
+    if (individualChars.length === 1) {
+      const char = individualChars[0];
+      entityHeader += `=== CHARACTER TO DEPICT: ${char.name}${char.role ? ` (${char.role})` : ''} ===\n`;
+      entityHeader += `⚠️ EMBED ALL OF THE FOLLOWING FIELDS VERBATIM INTO EVERY PROMPT. DO NOT OMIT OR SUMMARIZE ANY FIELD.\n`;
+      if (char.age) entityHeader += `Age: ${char.age}\n`;
+      if (char.ethnicity) entityHeader += `Phenotype/Ethnicity: ${char.ethnicity}\n`;
+      if (char.physicalFeatures) entityHeader += `Facial features: ${char.physicalFeatures}\n`;
+      if (char.hair) entityHeader += `Hair (color, length, style — describe exactly): ${char.hair}\n`;
+      if (char.beard) entityHeader += `Beard/Facial hair (describe exactly): ${char.beard}\n`;
+      if (char.clothing) entityHeader += `Costume (every garment and accessory — describe each): ${char.clothing}\n`;
+      if (char.visualDescription) entityHeader += `Full visual description (integrate sentence by sentence): ${char.visualDescription}\n`;
+      entityHeader += `⚠️ MAINTAIN THIS EXACT APPEARANCE ACROSS ALL ${stageCount} STAGE PROMPTS. ANY DEVIATION IS AN ERROR.\n\n`;
+    } else if (individualChars.length > 1) {
+      entityHeader += `=== MULTIPLE CHARACTERS IN THIS SCENE ===\n`;
+      entityHeader += `Compose ALL characters in the SAME frame. Embed ALL fields of EACH character verbatim.\n\n`;
+      individualChars.forEach((char, idx) => {
+        const position = idx === 0 ? 'FOREGROUND' : idx === 1 ? 'MIDGROUND' : 'BACKGROUND';
+        entityHeader += `[${position}] ${char.name}${char.role ? ` (${char.role})` : ''}:\n`;
+        if (char.age) entityHeader += `  Age: ${char.age}\n`;
+        if (char.ethnicity) entityHeader += `  Phenotype/Ethnicity: ${char.ethnicity}\n`;
+        if (char.physicalFeatures) entityHeader += `  Facial features: ${char.physicalFeatures}\n`;
+        if (char.hair) entityHeader += `  Hair: ${char.hair}\n`;
+        if (char.beard) entityHeader += `  Beard/Facial hair: ${char.beard}\n`;
+        if (char.clothing) entityHeader += `  Costume: ${char.clothing}\n`;
+        if (char.visualDescription) entityHeader += `  Full description: ${char.visualDescription}\n`;
+        entityHeader += `  ⚠️ MAINTAIN EXACT APPEARANCE.\n\n`;
+      });
+    }
+    const crowds = characters.filter(c => c.isCrowd);
+    if (crowds.length > 0) {
+      entityHeader += '=== CROWD IN THIS SCENE ===\n';
+      crowds.forEach(char => {
+        entityHeader += `[CROWD] ${char.name}${char.role ? ` — ${char.role}` : ''}\n`;
+        if (char.visualDescription) entityHeader += `Group appearance: ${char.visualDescription}\n`;
+        entityHeader += '\n';
+      });
+    }
+  }
+
+  if (locations.length > 0) {
+    if (locations.length === 1) {
+      const loc = locations[0];
+      entityHeader += `=== LOCATION TO DEPICT: ${loc.name} ===\n`;
+      entityHeader += `⚠️ EMBED THIS LOCATION DESCRIPTION VERBATIM IN EVERY STAGE PROMPT. CAMERA POSITION MUST REMAIN IDENTICAL.\n`;
+      if (loc.visualDescription) entityHeader += `${loc.visualDescription}\n`;
+      entityHeader += `⚠️ THIS EXACT TERRAIN AND LANDSCAPE MUST APPEAR. NO SUBSTITUTION. SAME VANTAGE POINT EVERY STAGE.\n\n`;
+    } else {
+      entityHeader += `=== MULTIPLE LOCATIONS IN THIS SCENE ===\n`;
+      locations.forEach((loc, idx) => {
+        const pos = idx === 0 ? 'PRIMARY' : 'SECONDARY';
+        entityHeader += `[${pos} LOCATION] ${loc.name}:\n`;
+        if (loc.visualDescription) entityHeader += `${loc.visualDescription}\n`;
+        entityHeader += '\n';
+      });
+    }
+  }
+
+  // Build the timelapse stages list for the prompt
+  const stagesDescription = timelapseStages.map(s =>
+    `  Stage ${s.stageNumber} (${s.stageLabel}, ${s.timeProgress}% through): ${s.description || s.stageLabel}`
+  ).join('\n');
+
+  const subjectRefs = references?.filter(r => r.referenceType === 'subject') || [];
+  const styleRefs = references?.filter(r => r.referenceType === 'style') || [];
+
+  const effectivePrompt = episodePrompt
+    ? `${masterPrompt}\n\nEPISODE STYLE OVERRIDE (apply on top of master rules above):\n${episodePrompt}`
+    : masterPrompt;
+
+  let userMessage = entityHeader;
+  userMessage += `SAHNE METNİ:\n${scene.text}\n\n`;
+  userMessage += `TÜRKÇE GÖRSEL NOT: "${scene.visualNote}"\n\n`;
+
+  const styleNote = scene.visualStyle === 'symbolic'
+    ? `\nVISUAL STYLE: Symbolic/metaphorical scene — painterly, ethereal aesthetics.\n`
+    : `\nVISUAL STYLE: Photorealistic, cinematic documentary style.\n`;
+  userMessage += styleNote;
+
+  userMessage += `\n🎬 TIMELAPSE SEQUENCE — ${stageCount} STAGES\n`;
+  userMessage += `Generate EXACTLY ${stageCount} prompts, one per stage below:\n`;
+  userMessage += stagesDescription + '\n\n';
+  userMessage += `CONSISTENCY RULE: Same camera angle, same location, same characters across ALL stages.\n`;
+  userMessage += `CHANGE RULE: ONLY the time-progression element (the natural phenomenon/construction/process) changes.\n\n`;
+
+  if (subjectRefs.length > 0) {
+    userMessage += `\nSUBJECT REFERENCES:\n${subjectRefs.map(r => `- ${r.description || r.filePath}`).join('\n')}\n`;
+  }
+  if (styleRefs.length > 0) {
+    userMessage += `\nSTYLE REFERENCES:\n${styleRefs.map(r => `- ${r.description || r.filePath}`).join('\n')}\n`;
+  }
+
+  if (effectivePrompt) {
+    userMessage += `MASTER PROMPT (apply to all stage prompts):\n${effectivePrompt}\n\n`;
+  }
+
+  userMessage += `🎬 ASPECT RATIO: ${aspectRatio} (${aspectRatioGuide[aspectRatio] ?? aspectRatioGuide['16:9']})\n`;
+  userMessage += `COMPOSITION HINT: ${compositionHints[aspectRatio] ?? compositionHints['16:9']}\n\n`;
+  userMessage += `${stageCount} aşama için statik, dondurulmuş sahne promptları üret. Her prompt'ta "${scene.visualNote}" notunun ruhunu koru. Her prompt sonuna "--ar ${aspectRatio} --v 6" ekle.`;
+
+  function tryParseJSON(raw: string) {
+    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    return JSON.parse(cleaned);
+  }
+
+  const content = await aiProvider.generateContent(userMessage, TIMELAPSE_GENERATION_SYSTEM_PROMPT, {
+    operationType: 'timelapse_generation'
+  });
+
+  let parsed: {
+    prompts?: Array<{
+      stageNumber?: number;
+      stageLabel?: string;
+      timeProgress?: number;
+      shotType?: string;
+      summary?: string;
+      explanation?: string;
+      prompt?: string;
+    }>;
+    analysis?: Partial<PromptAnalysis>;
+    optimizations?: string[];
+  };
+
+  try {
+    parsed = tryParseJSON(content);
+  } catch (firstErr) {
+    console.error('[⚠️ promptGenerator/timelapse] JSON parse failed on first attempt, retrying...', firstErr);
+    console.error('Malformed response:', content);
+    onRetry?.();
+    const retryMessage = userMessage + '\n\nIMPORTANT: Return ONLY valid JSON. No markdown, no explanation, no code fences.';
+    const retryContent = await aiProvider.generateContent(retryMessage, TIMELAPSE_GENERATION_SYSTEM_PROMPT, { operationType: 'timelapse_generation_retry' });
+    try {
+      parsed = tryParseJSON(retryContent);
+    } catch (secondErr) {
+      console.error('[❌ promptGenerator/timelapse] JSON parse failed after retry. Giving up.', secondErr);
+      throw new Error('Invalid JSON in timelapse prompt response (after retry)');
+    }
+  }
+
+  if (!parsed.prompts || !Array.isArray(parsed.prompts)) {
+    throw new Error('Invalid timelapse prompt response format');
+  }
+
+  const arSuffix = `--ar ${aspectRatio} --v 6`;
+
+  const prompts: PromptCard[] = parsed.prompts.map((p, idx: number) => {
+    // Match stage info — prefer AI-returned stageNumber, fallback to index order
+    const stageIdx = typeof p.stageNumber === 'number' ? p.stageNumber - 1 : idx;
+    const stageInfo = timelapseStages[stageIdx] ?? timelapseStages[idx] ?? {
+      stageNumber: idx + 1,
+      stageLabel: `Stage ${idx + 1}`,
+      timeProgress: Math.round((idx / Math.max(stageCount - 1, 1)) * 100),
+    };
+
+    const rawPrompt = p.prompt || '';
+    const promptText = /--ar\s+[\d:]+/.test(rawPrompt) ? rawPrompt : `${rawPrompt} ${arSuffix}`.trim();
+
+    return {
+      id: crypto.randomUUID(),
+      type: 'wide' as const, // timelapse stages are always wide/establishing shots
+      label: `Aşama ${stageInfo.stageNumber}: ${stageInfo.stageLabel}`,
+      shotType: p.shotType || `Stage ${stageInfo.stageNumber} — ${stageInfo.stageLabel}`,
+      summary: p.summary || scene.visualNote,
+      explanation: p.explanation || '',
+      promptText,
+      versions: [promptText],
+      aspectRatio,
+      generationType,
+      hasSubjectReference: subjectRefs.length > 0,
+      isTimelapseStage: true,
+      timelapseStageNumber: stageInfo.stageNumber,
+      stageLabel: stageInfo.stageLabel,
+      timeProgress: stageInfo.timeProgress,
+    };
+  });
+
+  const rawAnalysis = parsed.analysis ?? {};
+  const analysis: PromptAnalysis = {
+    complexity: (rawAnalysis.complexity as PromptAnalysis['complexity']) ?? DEFAULT_ANALYSIS.complexity,
+    difficultyScore: typeof rawAnalysis.difficultyScore === 'number' ? rawAnalysis.difficultyScore : DEFAULT_ANALYSIS.difficultyScore,
+    hasCrowd: typeof rawAnalysis.hasCrowd === 'boolean' ? rawAnalysis.hasCrowd : DEFAULT_ANALYSIS.hasCrowd,
+    hasArchitecture: typeof rawAnalysis.hasArchitecture === 'boolean' ? rawAnalysis.hasArchitecture : DEFAULT_ANALYSIS.hasArchitecture,
+    hasTransformation: true,
+    hasHistoricalFigure: typeof rawAnalysis.hasHistoricalFigure === 'boolean' ? rawAnalysis.hasHistoricalFigure : DEFAULT_ANALYSIS.hasHistoricalFigure,
+    recommendedStyle: typeof rawAnalysis.recommendedStyle === 'string' ? rawAnalysis.recommendedStyle : DEFAULT_ANALYSIS.recommendedStyle,
+    productionNotes: Array.isArray(rawAnalysis.productionNotes) ? rawAnalysis.productionNotes : DEFAULT_ANALYSIS.productionNotes,
+  };
+
+  const optimizations: string[] = Array.isArray(parsed.optimizations) ? parsed.optimizations : [];
+
+  return { prompts, analysis, optimizations };
 }

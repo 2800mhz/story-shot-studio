@@ -323,6 +323,11 @@ export async function savePrompts(sceneId: string, prompts: any[]) {
         revision_prompt: prompt.revisionPrompt || null,
         is_active: true,
         is_pinned: prompt.isPinned ?? false,
+        // Timelapse stage metadata
+        is_timelapse_member: prompt.isTimelapseStage ?? false,
+        timelapse_stage_number: prompt.timelapseStageNumber ?? null,
+        timelapse_stage_label: prompt.stageLabel ?? null,
+        time_progress_percentage: prompt.timeProgress ?? null,
       };
     });
 
@@ -350,7 +355,14 @@ export async function fetchPrompts(sceneId: string) {
     .eq('is_active', true);
 
   if (error) throw error;
-  return (data || []).map((p: any) => ({ ...p, isPinned: p.is_pinned ?? false }));
+  return (data || []).map((p: any) => ({
+    ...p,
+    isPinned: p.is_pinned ?? false,
+    isTimelapseStage: p.is_timelapse_member ?? false,
+    timelapseStageNumber: p.timelapse_stage_number ?? undefined,
+    stageLabel: p.timelapse_stage_label ?? undefined,
+    timeProgress: p.time_progress_percentage ?? undefined,
+  }));
 }
 
 /**
@@ -421,11 +433,19 @@ export async function fetchAllPromptsForScenes(sceneIds: string[]): Promise<Map<
 
   if (error) throw error;
 
-  // Group by scene_id
+  // Group by scene_id and map timelapse fields
   const result = new Map<string, any[]>();
   for (const row of data || []) {
+    const mapped = {
+      ...row,
+      isPinned: row.is_pinned ?? false,
+      isTimelapseStage: row.is_timelapse_member ?? false,
+      timelapseStageNumber: row.timelapse_stage_number ?? undefined,
+      stageLabel: row.timelapse_stage_label ?? undefined,
+      timeProgress: row.time_progress_percentage ?? undefined,
+    };
     const bucket = result.get(row.scene_id) ?? [];
-    bucket.push(row);
+    bucket.push(mapped);
     result.set(row.scene_id, bucket);
   }
   return result;
