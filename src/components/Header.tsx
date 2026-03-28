@@ -25,7 +25,7 @@ export function Header({ onUploadMain, onUploadScript, onExport, onSettings, onI
         <Film className="h-6 w-6 text-primary" />
         <div>
           <h1 className="font-serif text-lg font-semibold tracking-wide text-foreground">
-            Prompt Forge 4.1.1
+            Prompt Forge 4.2.1
           </h1>
           <p className="text-xs text-muted-foreground">Görsel Prompt Üretici</p>
         </div>

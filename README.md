@@ -1,4 +1,4 @@
-# Prompt Forge 4.1.1
+# Prompt Forge 4.2.1
 
 ## Project info
 
