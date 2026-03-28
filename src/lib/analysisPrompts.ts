@@ -52,12 +52,34 @@ Analyze this scene text for visual narrative structure:
      ...
    ]
 
+5. TIMELAPSE PROGRESSION ANCHOR (ONLY if narrativeType is "timelapse"):
+   Identify the ETERNAL ELEMENT — the visual constant that ties all stages together
+   and must remain visible in every stage prompt (it may itself evolve, e.g. bare well → shrine → monument).
+   
+   Rules:
+   - Look for a physical object that EXISTS at the START and is still REFERENCED at the END
+   - Common anchors: a well, a tree, a stone gate, a fountain, a landmark structure
+   - If no clear single anchor exists, choose the dominant geographic feature (hill, river, valley)
+   - cameraLockStrategy: "aerial_wide" if urban/landscape growth; "ground_wide" if same-level panorama; "medium_establishing" if intimate/architectural
+   - architecturalPattern: "concentric_growth" (city grows outward from center), "radial" (growth along axes), "linear" (one-directional), "organic" (no clear axis)
+   
+   Example for "sacred well → city":
+   {
+     "anchorElement": "sacred well",
+     "anchorKeywords": ["kuyu", "well", "water source"],
+     "evolutionStages": ["bare stone-lined well in desert", "well with prayer flags and gathered tents", "well as sacred shrine with carved stone surround", "well as central plaza fountain", "well as mythic monument at city center"],
+     "cameraLockStrategy": "aerial_wide",
+     "cameraDescription": "Fixed high aerial wide shot, anchor at frame center, horizon visible",
+     "architecturalPattern": "concentric_growth"
+   }
+
 Output as JSON only, no extra text:
 {
   "narrativeType": "static|sequence|timelapse",
   "temporalComplexity": "simple|moderate|complex",
   "suggestedPromptCount": 1,
   "timelapseStages": [],
+  "timelapseAnchor": null,
   "reasoning": "brief explanation"
 }
 

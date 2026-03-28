@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Copy, RefreshCw, ChevronDown, ChevronUp, Pin, X, ImageIcon } from 'lucide-react';
-import type { PromptCard } from '@/types';
+import { Copy, RefreshCw, ChevronDown, ChevronUp, Pin, X, ImageIcon, Lock } from 'lucide-react';
+import type { PromptCard, TimelapseProgressionAnchor } from '@/types';
 
 /** Minimum progress bar fill width (%) to keep the bar visible even at 0% progress */
 const MIN_PROGRESS_BAR_WIDTH = 2;
@@ -10,12 +10,13 @@ const MIN_PROGRESS_BAR_WIDTH = 2;
 interface TimelapseStageCardProps {
   prompt: PromptCard;
   sceneId: string;
+  anchorEvolutionStage?: string;
   onRevise?: (sceneId: string, promptId: string, instruction: string) => Promise<void>;
   onDelete?: (sceneId: string, promptId: string) => void;
   onPin?: (sceneId: string, promptId: string) => void;
 }
 
-function TimelapseStageCard({ prompt, sceneId, onRevise, onDelete, onPin }: TimelapseStageCardProps) {
+function TimelapseStageCard({ prompt, sceneId, anchorEvolutionStage, onRevise, onDelete, onPin }: TimelapseStageCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [isRevising, setIsRevising] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -124,6 +125,12 @@ function TimelapseStageCard({ prompt, sceneId, onRevise, onDelete, onPin }: Time
         </div>
       </div>
 
+      {anchorEvolutionStage && (
+        <div className="mb-1 text-[10px] text-amber-400/80 border-l-2 border-amber-500/30 pl-2">
+          ⚓ {anchorEvolutionStage}
+        </div>
+      )}
+
       {prompt.explanation && (
         <div className="text-[11px] text-muted-foreground italic border-l-2 border-purple-500/30 pl-2 mb-1">
           "{prompt.explanation}"
@@ -183,6 +190,7 @@ interface TimelapseCardProps {
   prompts: PromptCard[];
   sceneId: string;
   sceneNumber: number;
+  anchor?: TimelapseProgressionAnchor;
   onRevise?: (sceneId: string, promptId: string, instruction: string) => Promise<void>;
   onDelete?: (sceneId: string, promptId: string) => void;
   onPin?: (sceneId: string, promptId: string) => void;
@@ -191,9 +199,10 @@ interface TimelapseCardProps {
 /**
  * Dedicated UI for timelapse prompt sequences.
  * Displays each stage with a progress bar, stage number, and label.
+ * Shows the progression anchor and camera lock indicator when available.
  * Visually distinct from the standard 3-shot prompt card layout.
  */
-export function TimelapseCard({ prompts, sceneId, sceneNumber, onRevise, onDelete, onPin }: TimelapseCardProps) {
+export function TimelapseCard({ prompts, sceneId, sceneNumber, anchor, onRevise, onDelete, onPin }: TimelapseCardProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   const stageCount = prompts.length;
@@ -213,6 +222,22 @@ export function TimelapseCard({ prompts, sceneId, sceneNumber, onRevise, onDelet
           <Badge className="text-[10px] bg-purple-500/20 text-purple-300 border-purple-500/30 hover:bg-purple-500/30">
             {stageCount} aşama
           </Badge>
+          {anchor && (
+            <span
+              className="inline-flex items-center gap-1 text-[10px] text-amber-400 border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 rounded"
+              title={`Anchor: ${anchor.anchorElement} | ${anchor.cameraDescription}`}
+            >
+              ⚓ {anchor.anchorElement}
+            </span>
+          )}
+          {anchor && (
+            <span
+              className="inline-flex items-center gap-1 text-[10px] text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 rounded"
+              title={`Camera locked: ${anchor.cameraLockStrategy} — ${anchor.cameraDescription}`}
+            >
+              <Lock className="h-2.5 w-2.5" /> Kamera Kilitli
+            </span>
+          )}
         </div>
         <button className="text-muted-foreground hover:text-foreground transition-colors">
           {collapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
@@ -221,20 +246,43 @@ export function TimelapseCard({ prompts, sceneId, sceneNumber, onRevise, onDelet
 
       {!collapsed && (
         <div className="p-3">
+          {/* Anchor info panel */}
+          {anchor && (
+            <div className="mb-3 rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px]">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-semibold text-amber-400">⚓ İlerleme Ankrajı</span>
+                <span className="text-muted-foreground">|</span>
+                <span className="inline-flex items-center gap-1 text-emerald-400">
+                  <Lock className="h-3 w-3" />
+                  <span className="text-muted-foreground">{anchor.cameraDescription}</span>
+                </span>
+              </div>
+              <div className="text-muted-foreground">
+                Mimari örüntü: <span className="text-foreground/70">{anchor.architecturalPattern}</span>
+              </div>
+            </div>
+          )}
+
           {/* Stage list */}
           {prompts
             .slice()
             .sort((a, b) => (a.timelapseStageNumber ?? 0) - (b.timelapseStageNumber ?? 0))
-            .map(prompt => (
-              <TimelapseStageCard
-                key={prompt.id}
-                prompt={prompt}
-                sceneId={sceneId}
-                onRevise={onRevise}
-                onDelete={onDelete}
-                onPin={onPin}
-              />
-            ))}
+            .map((prompt) => {
+              // Use the 0-based stage index derived from stageNumber (not array position)
+              // so anchor evolution stages stay aligned even if prompts were added/removed.
+              const stageIndex = (prompt.timelapseStageNumber ?? 1) - 1;
+              return (
+                <TimelapseStageCard
+                  key={prompt.id}
+                  prompt={prompt}
+                  sceneId={sceneId}
+                  anchorEvolutionStage={anchor?.evolutionStages?.[stageIndex]}
+                  onRevise={onRevise}
+                  onDelete={onDelete}
+                  onPin={onPin}
+                />
+              );
+            })}
         </div>
       )}
     </div>

@@ -81,6 +81,9 @@ export async function analyzeScene(
       temporalComplexity: parsed.temporalComplexity || 'simple',
       suggestedPromptCount: parsed.suggestedPromptCount || 3,
       timelapseStages: Array.isArray(parsed.timelapseStages) ? parsed.timelapseStages : undefined,
+      timelapseAnchor: parsed.timelapseAnchor && typeof parsed.timelapseAnchor === 'object'
+        ? parsed.timelapseAnchor
+        : undefined,
       entityReferences: [],
       reasoning: parsed.reasoning,
     };

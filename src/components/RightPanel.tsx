@@ -502,6 +502,7 @@ export function RightPanel({
                   characters={sceneChars}
                   locations={sceneLocs}
                   timeContexts={sceneTimeContexts}
+                  sceneAnalysis={sceneAnalyses?.[sc.id]}
                   onUpdateNote={onUpdateSceneCardNote || (() => {})}
                   onGeneratePrompts={onGeneratePrompts || (() => {})}
                   onDeleteScene={onDeleteSceneCard || (() => {})}

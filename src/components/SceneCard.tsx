@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Sparkles, Edit2, Trash2, Check, X, Copy, RefreshCw, Plus, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, Clock, Pin, ImageIcon } from 'lucide-react';
-import type { SceneCard as SceneCardType, Character, Location, TimeContext, PromptCard } from '@/types';
+import type { SceneCard as SceneCardType, Character, Location, TimeContext, PromptCard, SceneAnalysis } from '@/types';
 import { PromptHistoryModal, type HistoryEntry } from './PromptHistoryModal';
 import { TimelapseCard } from './TimelapseCard';
 
@@ -12,6 +12,7 @@ interface SceneCardProps {
   characters: Character[];
   locations: Location[];
   timeContexts?: TimeContext[];
+  sceneAnalysis?: SceneAnalysis;
   onUpdateNote: (sceneId: string, note: string) => void;
   onGeneratePrompts: (sceneId: string) => void;
   onDeleteScene: (sceneId: string) => void;
@@ -203,6 +204,7 @@ export function SceneCard({
   characters,
   locations,
   timeContexts = [],
+  sceneAnalysis,
   onUpdateNote,
   onGeneratePrompts,
   onDeleteScene,
@@ -550,6 +552,7 @@ export function SceneCard({
                 prompts={scene.prompts.filter(p => p.isTimelapseStage)}
                 sceneId={scene.id}
                 sceneNumber={scene.sceneNumber}
+                anchor={sceneAnalysis?.timelapseAnchor}
                 onRevise={onRevisePrompt}
                 onDelete={onDeletePrompt}
                 onPin={onSetPinnedPrompt}
