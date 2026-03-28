@@ -46,6 +46,8 @@ const initialState: AppState = {
   episodePromptTr: '',
   isAnalyzing: false,
   isGeneratingPrompts: false,
+  architecturalNarratives: [],
+  activeNarrativeId: undefined,
 };
 
 // Actions that should NOT push to undo history (transient / settings)
@@ -601,6 +603,47 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
         ),
       };
     }
+    // ─── Architectural Narrative actions ───────────────────────────────────
+    case 'ADD_ARCHITECTURAL_NARRATIVE':
+      return {
+        ...state,
+        architecturalNarratives: [...state.architecturalNarratives, action.payload],
+      };
+    case 'UPDATE_ARCHITECTURAL_NARRATIVE':
+      return {
+        ...state,
+        architecturalNarratives: state.architecturalNarratives.map(n =>
+          n.id === action.payload.id ? action.payload : n
+        ),
+      };
+    case 'DELETE_ARCHITECTURAL_NARRATIVE':
+      return {
+        ...state,
+        architecturalNarratives: state.architecturalNarratives.filter(n => n.id !== action.payload),
+        activeNarrativeId: state.activeNarrativeId === action.payload ? undefined : state.activeNarrativeId,
+      };
+    case 'SET_ARCHITECTURAL_NARRATIVES':
+      return { ...state, architecturalNarratives: action.payload };
+    case 'SET_ACTIVE_NARRATIVE':
+      return { ...state, activeNarrativeId: action.payload };
+    case 'START_NARRATIVE_GENERATION':
+      return {
+        ...state,
+        architecturalNarratives: state.architecturalNarratives.map(n =>
+          n.id === action.payload.narrativeId
+            ? { ...n, status: 'generating' as const, generationProgress: 0 }
+            : n
+        ),
+      };
+    case 'FINISH_NARRATIVE_GENERATION':
+      return {
+        ...state,
+        architecturalNarratives: state.architecturalNarratives.map(n =>
+          n.id === action.payload.narrativeId
+            ? { ...n, status: 'done' as const, generationProgress: 100, stages: action.payload.stages }
+            : n
+        ),
+      };
     default:
       return state;
   }
