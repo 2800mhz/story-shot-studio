@@ -94,11 +94,21 @@ export interface TimelapseStageInfo {
   description?: string;
 }
 
+export interface TimelapseProgressionAnchor {
+  anchorElement: string;           // e.g. "sacred well", "ancient tree", "stone gate"
+  anchorKeywords: string[];        // keywords identifying it in the source text
+  evolutionStages: string[];       // how the anchor itself evolves across stages
+  cameraLockStrategy: 'aerial_wide' | 'ground_wide' | 'medium_establishing';
+  cameraDescription: string;       // prose description of the locked camera position
+  architecturalPattern: string;    // e.g. "concentric_growth", "radial", "linear"
+}
+
 export interface SceneAnalysis {
   sceneId: string;
   narrativeType: 'static' | 'sequence' | 'timelapse';
   suggestedPromptCount: number;
   timelapseStages?: TimelapseStageInfo[];
+  timelapseAnchor?: TimelapseProgressionAnchor;
   entityReferences: string[];
   temporalComplexity: 'simple' | 'moderate' | 'complex';
   reasoning?: string;

@@ -1,4 +1,4 @@
-import type { SceneCard, Character, Location, TimeContext, PromptCard, PromptAnalysis, GenerationResult, SceneAnalysis, SceneReference, TimelapseStageInfo } from '@/types';
+import type { SceneCard, Character, Location, TimeContext, PromptCard, PromptAnalysis, GenerationResult, SceneAnalysis, SceneReference, TimelapseStageInfo, TimelapseProgressionAnchor } from '@/types';
 import { aiProvider } from './aiProvider';
 
 const PROMPT_GENERATION_SYSTEM_PROMPT = `You are an elite cinematic prompt engineer for AI image generation tools (Midjourney, Runway, Flow AI).
@@ -653,6 +653,17 @@ STAGE CONSISTENCY (CRITICAL):
 - Characters: IDENTICAL appearance if present (same clothing, same features)
 - ONLY the time-progression element changes between stages (e.g. moon phase, building construction level, vegetation state)
 
+PROGRESSION ANCHOR PROTOCOL (apply when TIMELAPSE ANCHOR block is present):
+The anchor is the ETERNAL ELEMENT — the visual constant threading through every stage.
+Rules:
+- The anchor element MUST appear in EVERY stage prompt (never cut out of frame, never obscured)
+- Position the anchor at the CENTER or PRIMARY FOCUS of each composition
+- The anchor itself MAY evolve (e.g. bare well → sacred shrine → monumental fountain) — use the supplied evolution description for each stage
+- Camera position is LOCKED to the supplied cameraLockStrategy and cameraDescription across all stages
+- Surrounding architecture / environment evolves; the anchor is the stable thread
+- Each stage communicates: "Same place — [time passed] — anchor remains, world has changed around it"
+- If architecturalPattern is "concentric_growth": city/structures grow outward from anchor in each stage
+
 STATIC FROZEN MOMENTS:
 - Each prompt describes a STATIC frozen frame at that exact moment in time
 - Use adjectives: "captured at this exact moment", "at this precise hour", "frozen in this stage"
@@ -834,9 +845,15 @@ export async function generateTimelapseSequence(
   }
 
   // Build the timelapse stages list for the prompt
-  const stagesDescription = timelapseStages.map(s =>
-    `  Stage ${s.stageNumber} (${s.stageLabel}, ${s.timeProgress}% through): ${s.description || s.stageLabel}`
-  ).join('\n');
+  // If there's an anchor, embed the per-stage anchor evolution into each stage description
+  const anchor: TimelapseProgressionAnchor | undefined = sceneAnalysis.timelapseAnchor;
+  const stagesDescription = timelapseStages.map((s, idx) => {
+    let line = `  Stage ${s.stageNumber} (${s.stageLabel}, ${s.timeProgress}% through): ${s.description || s.stageLabel}`;
+    if (anchor && anchor.evolutionStages && anchor.evolutionStages[idx]) {
+      line += ` | ANCHOR STATE: ${anchor.evolutionStages[idx]}`;
+    }
+    return line;
+  }).join('\n');
 
   const subjectRefs = references?.filter(r => r.referenceType === 'subject') || [];
   const styleRefs = references?.filter(r => r.referenceType === 'style') || [];
@@ -853,6 +870,25 @@ export async function generateTimelapseSequence(
     ? `\nVISUAL STYLE: Symbolic/metaphorical scene — painterly, ethereal aesthetics.\n`
     : `\nVISUAL STYLE: Photorealistic, cinematic documentary style.\n`;
   userMessage += styleNote;
+
+  // Inject anchor block when available
+  if (anchor) {
+    userMessage += `\n=== TIMELAPSE ANCHOR (CRITICAL — APPLY TO ALL STAGES) ===\n`;
+    userMessage += `Anchor element: ${anchor.anchorElement}\n`;
+    userMessage += `Camera: ${anchor.cameraDescription} [LOCKED — do NOT change between stages]\n`;
+    userMessage += `Camera strategy: ${anchor.cameraLockStrategy}\n`;
+    userMessage += `Architectural pattern: ${anchor.architecturalPattern}\n`;
+    userMessage += `⚠️ The anchor element (${anchor.anchorElement}) MUST appear visible in EVERY stage prompt.\n`;
+    userMessage += `⚠️ Camera position is LOCKED — same framing, same vantage, same lens across all ${stageCount} stages.\n`;
+    userMessage += `⚠️ Surrounding architecture/environment evolves; anchor remains visual thread.\n`;
+    if (anchor.evolutionStages && anchor.evolutionStages.length > 0) {
+      userMessage += `Anchor evolution per stage:\n`;
+      anchor.evolutionStages.forEach((evo, i) => {
+        userMessage += `  Stage ${i + 1}: ${evo}\n`;
+      });
+    }
+    userMessage += `=== END ANCHOR ===\n\n`;
+  }
 
   userMessage += `\n🎬 TIMELAPSE SEQUENCE — ${stageCount} STAGES\n`;
   userMessage += `Generate EXACTLY ${stageCount} prompts, one per stage below:\n`;
