@@ -245,6 +245,16 @@ export function SceneCard({
               <span className="text-sm font-semibold text-muted-foreground">
                 Sahne {scene.sceneNumber}
               </span>
+              {sceneAnalysis && sceneAnalysis.narrativeType === 'timelapse' && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-amber-700 border-amber-300 bg-amber-50">
+                  🎬 Timelapse
+                </Badge>
+              )}
+              {sceneAnalysis && sceneAnalysis.narrativeType === 'sequence' && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-blue-700 border-blue-300 bg-blue-50">
+                  📽️ Dizi
+                </Badge>
+              )}
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                 scene.status === 'ready' ? 'bg-green-500/20 text-green-600' :
                 scene.status === 'generating' ? 'bg-yellow-500/20 text-yellow-600' :

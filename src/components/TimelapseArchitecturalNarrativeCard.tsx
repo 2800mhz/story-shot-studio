@@ -74,7 +74,9 @@ export function TimelapseArchitecturalNarrativeCard({
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {/* Type icon */}
-          <span className="text-sm shrink-0">🎬</span>
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-amber-700 border-amber-500/50 bg-amber-500/20 shrink-0">
+            🎞️ Timelapse
+          </Badge>
 
           {/* Subject + type */}
           <div className="flex flex-col min-w-0">

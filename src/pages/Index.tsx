@@ -419,12 +419,12 @@ const Index = () => {
       const sceneCharacters = state.characters;
       const sceneLocations = state.locations;
 
-      const stages = await generateArchitecturalNarrativePrompts(
+      const { stages } = await generateArchitecturalNarrativePrompts(
         narrative,
-        sceneCharacters,
-        sceneLocations,
         state.masterPrompt,
         state.episodePrompt || undefined,
+        sceneCharacters,
+        sceneLocations,
       );
 
       dispatch({ type: 'FINISH_NARRATIVE_GENERATION', payload: { narrativeId, stages } });

@@ -419,14 +419,13 @@ export function RightPanel({
                 {architecturalNarratives.map((narrative) => (
                   <TimelapseArchitecturalNarrativeCard
                     key={narrative.id}
-                    narrative={narrative}
+                    progression={narrative}
                     isActive={activeNarrativeId === narrative.id}
-                    onUpdate={onUpdateArchitecturalNarrative || (() => { })}
-                    onDelete={onDeleteArchitecturalNarrative || (() => { })}
-                    onGenerateStages={onGenerateNarrativeStages || (() => { })}
-                    onClick={() => onSetActiveNarrative?.(
+                    onSelect={() => onSetActiveNarrative?.(
                       activeNarrativeId === narrative.id ? undefined : narrative.id
                     )}
+                    onDelete={onDeleteArchitecturalNarrative || (() => { })}
+                    onGenerate={onGenerateNarrativeStages || (() => { })}
                   />
                 ))}
               </div>

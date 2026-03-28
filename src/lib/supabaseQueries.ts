@@ -602,6 +602,8 @@ export async function updateReferenceAssignments(id: string, sceneIds: string[])
 function mapNarrativeRow(row: any): ArchitecturalNarrativeProgression {
   return {
     id: row.id,
+    projectId: row.project_id,
+    episodeId: row.episode_id,
     sceneIds: row.scene_ids ?? [],
     narrativeSubject: row.narrative_subject,
     narrativeType: row.narrative_type,

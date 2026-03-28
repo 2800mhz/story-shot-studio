@@ -99,6 +99,7 @@ export interface SceneAnalysis {
   narrativeType: 'static' | 'sequence' | 'timelapse';
   suggestedPromptCount: number;
   timelapseStages?: TimelapseStageInfo[];
+  timelapseAnchor?: TimelapseProgressionAnchor;
   entityReferences: string[];
   temporalComplexity: 'simple' | 'moderate' | 'complex';
   reasoning?: string;
@@ -311,4 +312,54 @@ export type AppAction =
   | { type: 'REMOVE_TIME_CONTEXT_FROM_SCENE_CARD'; payload: { sceneId: string; timeContextId: string } }
   | { type: 'REORDER_SCENE_CARDS'; payload: SceneCard[] }
   | { type: 'SET_ALL_PROMPTS'; payload: Record<string, PromptCard[]> }
-  | { type: 'SET_PINNED_PROMPT'; payload: { sceneId: string; promptId: string; byAI?: boolean } };
+  | { type: 'SET_PINNED_PROMPT'; payload: { sceneId: string; promptId: string; byAI?: boolean } }
+  | { type: 'ADD_ARCHITECTURAL_NARRATIVE'; payload: ArchitecturalNarrativeProgression }
+  | { type: 'UPDATE_ARCHITECTURAL_NARRATIVE'; payload: ArchitecturalNarrativeProgression }
+  | { type: 'DELETE_ARCHITECTURAL_NARRATIVE'; payload: string }
+  | { type: 'SET_ARCHITECTURAL_NARRATIVES'; payload: ArchitecturalNarrativeProgression[] }
+  | { type: 'SET_ACTIVE_NARRATIVE'; payload: string | undefined }
+  | { type: 'START_NARRATIVE_GENERATION'; payload: { narrativeId: string } }
+  | { type: 'FINISH_NARRATIVE_GENERATION'; payload: { narrativeId: string; stages: ArchitecturalNarrativeStage[] } };
+
+export interface TimelapseProgressionAnchor {
+  anchorElement: string;
+  role: 'centerpiece' | 'background_constant' | 'foreground_constant';
+  cameraLockStrategy: 'fixed_lens' | 'matched_composition' | 'tracking_point';
+  cameraDescription: string;
+  geometricConstraint?: string;
+  architecturalPattern?: string;
+  symbolism?: string;
+  evolutionStages?: string[];
+}
+
+export interface ArchitecturalNarrativeStage {
+  id: string;
+  number: number;
+  label?: string;
+  promptInstructions: string;
+  visualChanges: string[];
+  generatedPrompt?: string;
+  imageUrl?: string;
+  status: 'pending' | 'success' | 'error';
+}
+
+export interface ArchitecturalNarrativeProgression {
+  id: string;
+  projectId: string;
+  episodeId: string;
+  narrativeSubject: string;
+  narrativeType: 'urban_growth' | 'environmental_transformation' | 'temporal_cycle' | 'geological_process' | 'metamorphosis' | 'custom';
+  transformationDriver?: string;
+  progressionAnchor: TimelapseProgressionAnchor;
+  cameraProgression: {
+    strategy: 'progressive_elevation' | 'circular_orbit' | 'linear_approach' | 'zoom_out' | 'fixed_with_change' | 'custom';
+    description?: string;
+  };
+  stages: ArchitecturalNarrativeStage[];
+  status: 'draft' | 'generating' | 'done' | 'error';
+  createdAt: string;
+  updatedAt: string;
+  sceneIds?: string[];
+  promptGenerationStrategy?: string;
+  generationProgress?: number;
+}
