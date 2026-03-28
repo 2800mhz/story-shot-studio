@@ -1,4 +1,4 @@
-# Welcome to your Lovable project
+# Prompt Forge 4.1.0
 
 ## Project info
 

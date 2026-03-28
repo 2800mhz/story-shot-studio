@@ -1,4 +1,4 @@
-# Story Shot Studio - Detaylı Teknik Mimari ve Sistem El Kitabı
+# Prompt Forge 4.1.0 - Detaylı Teknik Mimari ve Sistem El Kitabı
 
 Bu belge, **Story Shot Studio** uygulamasının altyapısını, veritabanı mimarisini, state yönetimini ve yapay zeka entegrasyonlarını (Prompt Mühendisliği & Metin Analizi) kaynak kod seviyesinde derinlemesine açıklamak üzere hazırlanmıştır.
 

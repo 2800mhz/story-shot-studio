@@ -1,4 +1,4 @@
-# Story Shot Studio - Açık Kaynak Mimari ve Üretim Rehberi (Anlayana)
+# Prompt Forge 4.1.0 - Açık Kaynak Mimari ve Üretim Rehberi (Anlayana)
 
 Story Shot Studio (SSS), sinemacılar, storyboard çizerleri ve görsel hikaye anlatıcıları için tasarlanmış, **tamamen tarayıcı üzerinde (client-side) koşan**, yapay zeka destekli bir sahneleme (storyboarding) motorudur.
 
