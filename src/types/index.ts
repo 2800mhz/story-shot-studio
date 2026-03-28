@@ -206,6 +206,106 @@ export interface SceneCard {
   optimizations?: string[];
 }
 
+// ─── Architectural Narrative Progression Types ──────────────────────────────
+
+export type ArchitecturalNarrativeType =
+  | 'urban_growth'
+  | 'environmental_transformation'
+  | 'temporal_cycle'
+  | 'geological_process'
+  | 'metamorphosis'
+  | 'custom';
+
+export type CameraProgressionStrategy =
+  | 'progressive_elevation'    // Ground → Aerial
+  | 'circular_orbit'           // Circling around anchor
+  | 'linear_approach'          // Approaching anchor
+  | 'zoom_out'                 // Macro → Landscape
+  | 'fixed_with_change'        // Camera locked, only subject changes
+  | 'custom';
+
+export type AnchorRole =
+  | 'origin'                   // Starting point (well, seed)
+  | 'center'                   // Spatial center (city core, lake)
+  | 'witness'                  // Observer (moon, sun)
+  | 'transformation_locus'     // Site of change (glacier)
+  | 'constant_reference';      // Unchanging guide
+
+export interface ProgressionAnchor {
+  name: string;                // "Sacred Well", "Glacier Core", "Moon"
+  description: string;         // What is it?
+  role: AnchorRole;            // What role does it play?
+  symbolism: string;           // Cultural/narrative meaning
+  visibility: 'always' | 'primary_focus' | 'contextual';
+  evolutionAcrossStages?: string[];  // How anchor itself evolves ["bare", "shrine", "monument"]
+}
+
+export interface EnvironmentalSnapshot {
+  primaryChange: string;       // "Tents → Mudbrick", "Ice melting", "Water receding"
+  anchorState: string;         // What state is the anchor in this stage?
+  symbolicElements: string[];  // ["minaret", "wall", "madrasah"]
+  atmosphere: string;          // Sensory description
+  timeframeDescription: string;// "Year 0", "5 years later", "Next phase"
+}
+
+export interface ArchitecturalNarrativeStage {
+  number: number;
+  label: string;               // "Foundation (Year 0)", "First Settlement (Year 5)"
+  timeProgress: number;        // 0-100 percentage
+  description: string;         // What changed in this stage?
+  environmentalState: EnvironmentalSnapshot;
+  cameraDirection: {
+    height: 'ground' | 'low' | 'medium' | 'high' | 'aerial';
+    angle: string;             // "wide_establishing", "orbital_east", "macro_close"
+    focus: string;             // "anchor_to_context", "context_around_anchor", "macro_detail"
+  };
+  generatedPrompt?: string;    // Final Midjourney prompt
+  shotType?: string;           // "Stage wide", "Stage medium", etc
+}
+
+export interface ArchitecturalNarrativeProgression {
+  id: string;
+  sceneIds?: string[];         // If linked to scene cards
+
+  // WHAT is transforming?
+  narrativeSubject: string;    // "City", "Lake", "Glacier", "Moon", "Forest"
+  narrativeType: ArchitecturalNarrativeType;
+
+  // WHY is it transforming?
+  transformationDriver: string;// "Water discovery", "Climate", "Time", "Human intervention"
+
+  // The eternal element
+  progressionAnchor: ProgressionAnchor;
+
+  // How does camera move?
+  cameraProgression: {
+    strategy: CameraProgressionStrategy;
+    description: string;       // Natural language explanation
+    purpose: string;           // Why this strategy?
+  };
+
+  // Stages of progression
+  stages: ArchitecturalNarrativeStage[];
+
+  // Prompt generation understanding
+  promptGenerationStrategy: {
+    consistency: 'camera_locked' | 'progressive_movement' | 'orbital' | 'contextual';
+    anchorTreatment: 'always_centered' | 'evolving_role' | 'revealed_progressively';
+    narrativeTheme: string;    // "Transformation driven by discovery"
+    cameraPurpose: string;     // "Reveal increasing scope"
+  };
+
+  // Generation status
+  status: 'pending' | 'generating' | 'done' | 'error';
+  generationProgress?: number; // 0-100
+
+  // Metadata
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// ─── End Architectural Narrative Types ──────────────────────────────────────
+
 export interface AppState {
   mainText: string;
   documentText: string;
@@ -238,6 +338,9 @@ export interface AppState {
   episodePromptTr: string;
   isAnalyzing: boolean;
   isGeneratingPrompts: boolean;
+  // Architectural Narrative Progression
+  architecturalNarratives: ArchitecturalNarrativeProgression[];
+  activeNarrativeId?: string;
 }
 
 export type AppAction =
@@ -321,4 +424,12 @@ export type AppAction =
   | { type: 'REMOVE_TIME_CONTEXT_FROM_SCENE_CARD'; payload: { sceneId: string; timeContextId: string } }
   | { type: 'REORDER_SCENE_CARDS'; payload: SceneCard[] }
   | { type: 'SET_ALL_PROMPTS'; payload: Record<string, PromptCard[]> }
-  | { type: 'SET_PINNED_PROMPT'; payload: { sceneId: string; promptId: string; byAI?: boolean } };
+  | { type: 'SET_PINNED_PROMPT'; payload: { sceneId: string; promptId: string; byAI?: boolean } }
+  // Architectural Narrative actions
+  | { type: 'ADD_ARCHITECTURAL_NARRATIVE'; payload: ArchitecturalNarrativeProgression }
+  | { type: 'UPDATE_ARCHITECTURAL_NARRATIVE'; payload: ArchitecturalNarrativeProgression }
+  | { type: 'DELETE_ARCHITECTURAL_NARRATIVE'; payload: string }
+  | { type: 'SET_ARCHITECTURAL_NARRATIVES'; payload: ArchitecturalNarrativeProgression[] }
+  | { type: 'SET_ACTIVE_NARRATIVE'; payload: string | undefined }
+  | { type: 'START_NARRATIVE_GENERATION'; payload: { narrativeId: string } }
+  | { type: 'FINISH_NARRATIVE_GENERATION'; payload: { narrativeId: string; stages: ArchitecturalNarrativeStage[] } };
