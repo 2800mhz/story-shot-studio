@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { TimeContext, ArchitecturalNarrativeProgression } from '@/types';
+import type { TimeContext, ProgressionNarrative, ProgressionStage } from '@/types';
 
 // ── Retry helper with exponential backoff ────────────────────────────────────
 
@@ -593,22 +593,22 @@ export async function updateReferenceAssignments(id: string, sceneIds: string[])
 }
 
 // ============================================
-// ARCHITECTURAL NARRATIVE QUERIES
+// PROGRESSION NARRATIVE QUERIES
 // ============================================
 
 /**
- * Maps a DB row from architectural_narratives to the ArchitecturalNarrativeProgression type.
+ * Maps a DB row from progression_narratives to the ProgressionNarrative type.
  */
-function mapNarrativeRow(row: any): ArchitecturalNarrativeProgression {
+function mapNarrativeRow(row: any): ProgressionNarrative {
   return {
     id: row.id,
     projectId: row.project_id,
     episodeId: row.episode_id,
     sceneIds: row.scene_ids ?? [],
-    narrativeSubject: row.narrative_subject,
-    narrativeType: row.narrative_type,
+    subject: row.narrative_subject,
+    type: row.narrative_type,
     transformationDriver: row.transformation_driver ?? '',
-    progressionAnchor: row.progression_anchor ?? {
+    anchor: row.progression_anchor ?? {
       name: '',
       description: '',
       role: 'center',
@@ -620,7 +620,7 @@ function mapNarrativeRow(row: any): ArchitecturalNarrativeProgression {
       description: '',
       purpose: '',
     },
-    stages: row.stages ?? [],
+    stages: (row.stages ?? []) as ProgressionStage[],
     promptGenerationStrategy: row.prompt_generation_strategy ?? {
       consistency: 'camera_locked',
       anchorTreatment: 'always_centered',
@@ -635,13 +635,13 @@ function mapNarrativeRow(row: any): ArchitecturalNarrativeProgression {
 }
 
 /**
- * Fetch all architectural narratives for an episode.
+ * Fetch all progression narratives for an episode.
  */
-export async function fetchArchitecturalNarratives(
+export async function fetchProgressionNarratives(
   episodeId: string,
-): Promise<ArchitecturalNarrativeProgression[]> {
+): Promise<ProgressionNarrative[]> {
   const { data, error } = await supabase
-    .from('architectural_narratives')
+    .from('progression_narratives')
     .select('*')
     .eq('episode_id', episodeId)
     .order('created_at', { ascending: true });
@@ -650,24 +650,26 @@ export async function fetchArchitecturalNarratives(
   return (data || []).map(mapNarrativeRow);
 }
 
+/** @deprecated Use fetchProgressionNarratives instead */
+export const fetchArchitecturalNarratives = fetchProgressionNarratives;
+
 /**
- * Save (upsert) a single architectural narrative.
- * Uses the narrative's own id as the conflict key.
+ * Save (upsert) a single progression narrative.
  */
-export async function saveArchitecturalNarrative(
+export async function saveProgressionNarrative(
   episodeId: string,
   projectId: string,
-  narrative: ArchitecturalNarrativeProgression,
-): Promise<ArchitecturalNarrativeProgression> {
+  narrative: ProgressionNarrative,
+): Promise<ProgressionNarrative> {
   const payload = {
     id: narrative.id,
     episode_id: episodeId,
     project_id: projectId,
     scene_ids: narrative.sceneIds ?? [],
-    narrative_subject: narrative.narrativeSubject,
-    narrative_type: narrative.narrativeType,
+    narrative_subject: narrative.subject,
+    narrative_type: narrative.type,
     transformation_driver: narrative.transformationDriver,
-    progression_anchor: narrative.progressionAnchor,
+    progression_anchor: narrative.anchor,
     camera_progression: narrative.cameraProgression,
     stages: narrative.stages,
     prompt_generation_strategy: narrative.promptGenerationStrategy,
@@ -677,7 +679,7 @@ export async function saveArchitecturalNarrative(
   };
 
   const { data, error } = await supabase
-    .from('architectural_narratives')
+    .from('progression_narratives')
     .upsert(payload, { onConflict: 'id' })
     .select()
     .single();
@@ -686,35 +688,44 @@ export async function saveArchitecturalNarrative(
   return mapNarrativeRow(data);
 }
 
+/** @deprecated Use saveProgressionNarrative instead */
+export const saveArchitecturalNarrative = saveProgressionNarrative;
+
 /**
  * Update only specific fields of an existing narrative (e.g. status, stages after generation).
  */
-export async function updateArchitecturalNarrative(
+export async function updateProgressionNarrative(
   narrativeId: string,
   updates: Partial<{
-    stages: ArchitecturalNarrativeProgression['stages'];
-    status: ArchitecturalNarrativeProgression['status'];
+    stages: ProgressionNarrative['stages'];
+    status: ProgressionNarrative['status'];
     generation_progress: number;
     scene_ids: string[];
   }>,
 ): Promise<void> {
   await withRetry(async () => {
     const { error } = await supabase
-      .from('architectural_narratives')
+      .from('progression_narratives')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', narrativeId);
     if (error) throw error;
-  }, `Update architectural narrative ${narrativeId}`);
+  }, `Update progression narrative ${narrativeId}`);
 }
 
+/** @deprecated Use updateProgressionNarrative instead */
+export const updateArchitecturalNarrative = updateProgressionNarrative;
+
 /**
- * Delete a single architectural narrative by id.
+ * Delete a single progression narrative by id.
  */
-export async function deleteArchitecturalNarrative(narrativeId: string): Promise<void> {
+export async function deleteProgressionNarrative(narrativeId: string): Promise<void> {
   const { error } = await supabase
-    .from('architectural_narratives')
+    .from('progression_narratives')
     .delete()
     .eq('id', narrativeId);
 
   if (error) throw error;
 }
+
+/** @deprecated Use deleteProgressionNarrative instead */
+export const deleteArchitecturalNarrative = deleteProgressionNarrative;

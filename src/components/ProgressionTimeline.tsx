@@ -1,13 +1,13 @@
 import React from 'react';
-import type { ArchitecturalNarrativeStage } from '@/types';
+import type { ProgressionStage } from '@/types';
 
 interface ProgressionTimelineProps {
-  stages: ArchitecturalNarrativeStage[];
+  stages: ProgressionStage[];
   activeStage?: number;
   onStageClick?: (stageNumber: number) => void;
 }
 
-const HEIGHT_ICONS: Record<ArchitecturalNarrativeStage['cameraDirection']['height'], string> = {
+const HEIGHT_ICONS: Record<ProgressionStage['cameraDirection']['height'], string> = {
   ground: '🏕️',
   low: '🏔️',
   medium: '🏙️',

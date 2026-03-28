@@ -4,11 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PromptCard } from './PromptCard';
 import { SceneCard } from './SceneCard';
-import { TimelapseArchitecturalNarrativeCard } from './TimelapseArchitecturalNarrativeCard';
+import { ProgressionNarrativeCard } from './ProgressionNarrativeCard';
 import type {
   Scene, ConsistencyGroup, ExtractedEntity, SceneAnalysis,
   SceneCard as SceneCardType, Character, Location,
-  ArchitecturalNarrativeProgression,
+  ProgressionNarrative,
 } from '@/types';
 
 interface RightPanelProps {
@@ -71,14 +71,14 @@ interface RightPanelProps {
   onCancelBulkPrompts?: () => void;
   onSetPinnedPrompt?: (sceneId: string, promptId: string) => void;
   isLoading?: boolean;
-  // Architectural Narrative props
-  architecturalNarratives?: ArchitecturalNarrativeProgression[];
-  activeNarrativeId?: string;
-  onAddArchitecturalNarrative?: (narrative: ArchitecturalNarrativeProgression) => void;
-  onUpdateArchitecturalNarrative?: (narrative: ArchitecturalNarrativeProgression) => void;
-  onDeleteArchitecturalNarrative?: (narrativeId: string) => void;
-  onGenerateNarrativeStages?: (narrativeId: string) => void;
-  onSetActiveNarrative?: (narrativeId: string | undefined) => void;
+  // Progression Narrative props
+  progressionNarratives?: ProgressionNarrative[];
+  activeProgressionId?: string;
+  onAddProgressionNarrative?: (narrative: ProgressionNarrative) => void;
+  onUpdateProgressionNarrative?: (narrative: ProgressionNarrative) => void;
+  onDeleteProgressionNarrative?: (narrativeId: string) => void;
+  onGenerateProgressionStages?: (narrativeId: string) => void;
+  onSetActiveProgression?: (narrativeId: string | undefined) => void;
 }
 
 function GroupNoteEditor({ group, onSave }: { group: ConsistencyGroup; onSave: (note: string) => void }) {
@@ -144,13 +144,13 @@ export function RightPanel({
   isBulkGeneratingPrompts, bulkPromptsProgress, onCancelBulkPrompts,
   onSetPinnedPrompt,
   isLoading,
-  architecturalNarratives = [],
-  activeNarrativeId,
-  onAddArchitecturalNarrative,
-  onUpdateArchitecturalNarrative,
-  onDeleteArchitecturalNarrative,
-  onGenerateNarrativeStages,
-  onSetActiveNarrative,
+  progressionNarratives = [],
+  activeProgressionId,
+  onAddProgressionNarrative,
+  onUpdateProgressionNarrative,
+  onDeleteProgressionNarrative,
+  onGenerateProgressionStages,
+  onSetActiveProgression,
 }: RightPanelProps) {
   const doneCount = scenes.filter(s => s.status === 'done').length;
   const pendingCount = scenes.filter(s => s.status === 'pending').length;
@@ -410,22 +410,22 @@ export function RightPanel({
           </div>
         ) : (
           <>
-            {/* ── Architectural Narrative Cards ── */}
-            {architecturalNarratives.length > 0 && (
+            {/* ── Progression Narrative Cards ── */}
+            {progressionNarratives.length > 0 && (
               <div className="space-y-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
-                  🏛️ Mimari Anlatılar
+                  🎬 Progression Narratives
                 </p>
-                {architecturalNarratives.map((narrative) => (
-                  <TimelapseArchitecturalNarrativeCard
+                {progressionNarratives.map((narrative) => (
+                  <ProgressionNarrativeCard
                     key={narrative.id}
                     progression={narrative}
-                    isActive={activeNarrativeId === narrative.id}
-                    onSelect={() => onSetActiveNarrative?.(
-                      activeNarrativeId === narrative.id ? undefined : narrative.id
+                    isActive={activeProgressionId === narrative.id}
+                    onSelect={() => onSetActiveProgression?.(
+                      activeProgressionId === narrative.id ? undefined : narrative.id
                     )}
-                    onDelete={onDeleteArchitecturalNarrative || (() => { })}
-                    onGenerate={onGenerateNarrativeStages || (() => { })}
+                    onDelete={onDeleteProgressionNarrative || (() => { })}
+                    onGenerate={onGenerateProgressionStages || (() => { })}
                   />
                 ))}
               </div>

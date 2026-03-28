@@ -229,6 +229,9 @@ export interface AppState {
   episodePromptTr: string;
   isAnalyzing: boolean;
   isGeneratingPrompts: boolean;
+  // Universal progression narratives
+  progressionNarratives: ProgressionNarrative[];
+  activeProgressionId?: string;
 }
 
 export type AppAction =
@@ -313,53 +316,101 @@ export type AppAction =
   | { type: 'REORDER_SCENE_CARDS'; payload: SceneCard[] }
   | { type: 'SET_ALL_PROMPTS'; payload: Record<string, PromptCard[]> }
   | { type: 'SET_PINNED_PROMPT'; payload: { sceneId: string; promptId: string; byAI?: boolean } }
-  | { type: 'ADD_ARCHITECTURAL_NARRATIVE'; payload: ArchitecturalNarrativeProgression }
-  | { type: 'UPDATE_ARCHITECTURAL_NARRATIVE'; payload: ArchitecturalNarrativeProgression }
-  | { type: 'DELETE_ARCHITECTURAL_NARRATIVE'; payload: string }
-  | { type: 'SET_ARCHITECTURAL_NARRATIVES'; payload: ArchitecturalNarrativeProgression[] }
-  | { type: 'SET_ACTIVE_NARRATIVE'; payload: string | undefined }
-  | { type: 'START_NARRATIVE_GENERATION'; payload: { narrativeId: string } }
-  | { type: 'FINISH_NARRATIVE_GENERATION'; payload: { narrativeId: string; stages: ArchitecturalNarrativeStage[] } };
+  | { type: 'ADD_PROGRESSION_NARRATIVE'; payload: ProgressionNarrative }
+  | { type: 'UPDATE_PROGRESSION_NARRATIVE'; payload: ProgressionNarrative }
+  | { type: 'DELETE_PROGRESSION_NARRATIVE'; payload: string }
+  | { type: 'SET_PROGRESSION_NARRATIVES'; payload: ProgressionNarrative[] }
+  | { type: 'SET_ACTIVE_PROGRESSION'; payload: string | undefined }
+  | { type: 'START_PROGRESSION_GENERATION'; payload: { narrativeId: string } }
+  | { type: 'FINISH_PROGRESSION_GENERATION'; payload: { narrativeId: string; stages: ProgressionStage[] } };
 
-export interface TimelapseProgressionAnchor {
-  anchorElement: string;
-  role: 'centerpiece' | 'background_constant' | 'foreground_constant';
-  cameraLockStrategy: 'fixed_lens' | 'matched_composition' | 'tracking_point';
-  cameraDescription: string;
-  geometricConstraint?: string;
-  architecturalPattern?: string;
-  symbolism?: string;
-  evolutionStages?: string[];
+// ─── Universal Progression Narrative Types ──────────────────────────────────
+
+export interface ProgressionAnchor {
+  name: string;                // "Sacred Well", "Glacier Core", "Moon", "Lake Basin"
+  description: string;
+  role: 'origin' | 'center' | 'witness' | 'transformation_locus' | 'constant_reference';
+  symbolism: string;
+  visibility: 'always' | 'primary_focus' | 'contextual';
+  evolutionAcrossStages?: string[];  // How anchor itself changes across stages
 }
 
-export interface ArchitecturalNarrativeStage {
-  id: string;
+export type ProgressionType =
+  | 'urban_growth'
+  | 'environmental_transformation'
+  | 'temporal_cycle'
+  | 'geological_process'
+  | 'biological_metamorphosis'
+  | 'civilization_arc'
+  | 'seasonal_cycle'
+  | 'custom';
+
+export type CameraStrategy =
+  | 'progressive_elevation'
+  | 'circular_orbit'
+  | 'linear_approach'
+  | 'zoom_out'
+  | 'fixed_with_change'
+  | 'custom';
+
+export interface StageEnvironment {
+  primaryChange: string;        // "Tents → Mudbrick", "Ice melting", "Water receding"
+  anchorState: string;          // What state is anchor in this stage?
+  symbolicElements: string[];
+  atmosphere: string;
+  timeframeDescription: string;
+}
+
+export interface ProgressionStage {
   number: number;
-  label?: string;
-  promptInstructions: string;
-  visualChanges: string[];
+  label: string;
+  timeProgress: number;         // 0-100
+  description: string;
+  environmentalState: StageEnvironment;
+  cameraDirection: {
+    height: 'ground' | 'low' | 'medium' | 'high' | 'aerial';
+    angle: string;
+    focus: string;
+  };
   generatedPrompt?: string;
-  imageUrl?: string;
-  status: 'pending' | 'success' | 'error';
+  shotType?: string;
 }
 
-export interface ArchitecturalNarrativeProgression {
+export interface ProgressionNarrative {
   id: string;
-  projectId: string;
-  episodeId: string;
-  narrativeSubject: string;
-  narrativeType: 'urban_growth' | 'environmental_transformation' | 'temporal_cycle' | 'geological_process' | 'metamorphosis' | 'custom';
-  transformationDriver?: string;
-  progressionAnchor: TimelapseProgressionAnchor;
-  cameraProgression: {
-    strategy: 'progressive_elevation' | 'circular_orbit' | 'linear_approach' | 'zoom_out' | 'fixed_with_change' | 'custom';
-    description?: string;
-  };
-  stages: ArchitecturalNarrativeStage[];
-  status: 'draft' | 'generating' | 'done' | 'error';
-  createdAt: string;
-  updatedAt: string;
+  episodeId?: string;
+  projectId?: string;
   sceneIds?: string[];
-  promptGenerationStrategy?: string;
+
+  // Generic progression definition
+  subject: string;              // "City", "Lake", "Glacier", "Moon", "Forest"
+  type: ProgressionType;
+  transformationDriver: string; // "Water discovery", "Climate", "Time", "Human intervention"
+
+  // The eternal element
+  anchor: ProgressionAnchor;
+
+  // Camera movement strategy
+  cameraProgression: {
+    strategy: CameraStrategy;
+    description: string;
+    purpose: string;
+  };
+
+  // Progression stages
+  stages: ProgressionStage[];
+
+  // Narrative understanding
+  promptGenerationStrategy: {
+    consistency: 'camera_locked' | 'progressive_movement' | 'orbital' | 'contextual';
+    anchorTreatment: 'always_centered' | 'evolving_role' | 'revealed_progressively';
+    narrativeTheme: string;
+    cameraPurpose: string;
+  };
+
+  // Status tracking
+  status: 'pending' | 'generating' | 'done' | 'error';
   generationProgress?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
