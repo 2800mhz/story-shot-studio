@@ -241,11 +241,10 @@ export default function Dashboard() {
 
       {/* API Key Status Banner */}
       {activeKeyCount !== null && (
-        <div className={`px-6 py-2 border-b text-sm ${
-          activeKeyCount === 0
+        <div className={`px-6 py-2 border-b text-sm ${activeKeyCount === 0
             ? 'bg-yellow-50 border-yellow-200'
             : 'bg-green-50 border-green-200'
-        }`}>
+          }`}>
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             {activeKeyCount === 0 ? (
               <span className="text-yellow-800 flex items-center gap-2">
@@ -284,18 +283,18 @@ export default function Dashboard() {
               aktif proje yönetiliyor
             </p>
           </div>
-          
+
           <div className="flex flex-wrap items-center gap-3 bg-card/30 backdrop-blur-md p-2 rounded-xl border border-primary/5 shadow-2xl">
             <div className="relative w-full md:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Proje ara..." 
+              <Input
+                placeholder="Proje ara..."
                 className="pl-9 bg-background/50 border-primary/10 focus:border-primary/30 transition-all"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            
+
             <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
               <SelectTrigger className="w-[180px] bg-background/50 border-primary/10">
                 <SortAsc className="mr-2 h-4 w-4 opacity-50" />
@@ -446,7 +445,7 @@ export default function Dashboard() {
                       {format(new Date(project.updated_at), 'd MMMM yyyy', { locale: tr })}
                     </div>
                   </div>
-                  
+
                   <div className="h-10 w-10 rounded-full border border-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-primary/5 group-hover:scale-110 shadow-lg shadow-primary/5">
                     <ArrowLeft className="h-5 w-5 rotate-180 text-primary" />
                   </div>

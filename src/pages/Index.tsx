@@ -21,11 +21,19 @@ import { generatePrompts, loadSystemPrompt } from '@/lib/geminiApi';
 import { analyzeTextIntoScenes, generateEpisodePrompt, generateEpisodePromptTurkishExplanation } from '@/lib/sceneAnalyzer';
 import { analyzeReferenceImage } from '@/lib/referenceAnalyzer';
 import { generatePromptsForScene, generateTimelapseSequence, revisePrompt, autoSelectBestPrompt } from '@/lib/promptGenerator';
-import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetchAllPromptsForScenes, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts, setPinnedPrompt, fetchReferences, updateReferenceAssignments } from '@/lib/supabaseQueries';
+import {
+  fetchProject, fetchEpisode, fetchScenes, saveScenes,
+  fetchPrompts, fetchAllPromptsForScenes, savePrompts,
+  updateEpisode, fetchGlobalCharacters, fetchGlobalLocations,
+  upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts,
+  setPinnedPrompt, fetchReferences, updateReferenceAssignments,
+  fetchArchitecturalNarratives, saveArchitecturalNarrative,
+  updateArchitecturalNarrative, deleteArchitecturalNarrative,
+} from '@/lib/supabaseQueries';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
-import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis, PromptCard } from '@/types';
+import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis, PromptCard, ArchitecturalNarrativeProgression, ArchitecturalNarrativeStage } from '@/types';
 
 
 const GROUP_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
@@ -46,11 +54,11 @@ const Index = () => {
   const [project, setProject] = useState<{ title: string; master_prompt?: string } | null>(null);
   const [episode, setEpisode] = useState<{ title: string; document_text?: string } | null>(null);
   const [noKeysWarning, setNoKeysWarning] = useState(false);
+
   useEffect(() => {
     if (user?.id) {
       aiProvider.initialize(user.id)
         .then(() => {
-          // Sync model from settings
           aiProvider.setModel(state.settings.model);
           setNoKeysWarning(!aiProvider.hasKeys());
         })
@@ -58,15 +66,13 @@ const Index = () => {
           console.error('Failed to initialize AI provider:', err);
         });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // Sync model to aiProvider whenever settings change
   useEffect(() => {
     aiProvider.setModel(state.settings.model);
   }, [state.settings.model]);
 
-  // Load episode data from Supabase
   useEffect(() => {
     if (projectId && episodeId) {
       loadEpisodeData();
@@ -78,60 +84,51 @@ const Index = () => {
     try {
       console.log('📥 Loading episode data:', episodeId);
 
-      const [projectData, episodeData, scenesData, globalChars, globalLocs, referencesData] = await Promise.all([
+      const [projectData, episodeData, scenesData, globalChars, globalLocs, referencesData, narrativesData] = await Promise.all([
         fetchProject(projectId!),
         fetchEpisode(episodeId!),
         fetchScenes(episodeId!),
         fetchGlobalCharacters(projectId!),
         fetchGlobalLocations(projectId!),
-        fetchReferences(episodeId!)
+        fetchReferences(episodeId!),
+        fetchArchitecturalNarratives(episodeId!).catch(() => []), // graceful: table might not exist yet
       ]);
 
       console.log('✅ Loaded:', {
         project: projectData.title,
         episode: episodeData.title,
-        scenes: scenesData.length
+        scenes: scenesData.length,
+        narratives: narrativesData.length,
       });
 
       setProject(projectData);
       setEpisode(episodeData);
 
-      console.log('📎 References from DB:', referencesData?.length, referencesData);
-      // Add references to state
       dispatch({ type: 'SET_REFERENCES', payload: referencesData || [] });
-      console.log('📎 SET_REFERENCES dispatched');
 
-      // Load master prompt from project
       if (projectData.master_prompt) {
         dispatch({ type: 'SET_MASTER_PROMPT', payload: projectData.master_prompt });
       }
 
-      // Load document text — sync both mainText and documentText
       if (episodeData.document_text) {
         dispatch({ type: 'SET_DOCUMENT_TEXT', payload: episodeData.document_text });
-        // Re-derive episodes from the stored HTML by stripping tags first,
-        // so the navigator (LeftPanel) is populated correctly after a page refresh.
         const plainText = episodeData.document_text.replace(/<[^>]+>/g, '');
         const derivedEpisodes = parseEpisodes(plainText);
         dispatch({ type: 'SET_EPISODES', payload: derivedEpisodes });
       }
 
-      // Load episode-level style prompt (overrides/extends master prompt for this episode)
       if (episodeData.episode_prompt) {
         dispatch({ type: 'SET_EPISODE_PROMPT', payload: episodeData.episode_prompt });
       } else {
         dispatch({ type: 'SET_EPISODE_PROMPT', payload: '' });
       }
 
-      // Load Turkish translation of the episode prompt
       if (episodeData.episode_prompt_tr) {
         dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: episodeData.episode_prompt_tr });
       } else {
         dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: '' });
       }
 
-      // Load characters: prefer episode-specific character_data (preserves exact IDs
-      // used by scene cards) over global_characters table.
       if (episodeData.character_data) {
         try {
           dispatch({ type: 'SET_CHARACTERS', payload: JSON.parse(episodeData.character_data) });
@@ -163,7 +160,6 @@ const Index = () => {
         });
       }
 
-      // Load locations: prefer episode-specific location_data over global_locations table.
       if (episodeData.location_data) {
         try {
           dispatch({ type: 'SET_LOCATIONS', payload: JSON.parse(episodeData.location_data) });
@@ -191,7 +187,6 @@ const Index = () => {
         });
       }
 
-      // Load scenes into state
       if (scenesData.length > 0) {
         const mappedScenes = scenesData.map((scene: any) => ({
           id: scene.id,
@@ -212,10 +207,9 @@ const Index = () => {
 
         dispatch({ type: 'SET_SCENES', payload: mappedScenes });
 
-        // Load ALL prompts in a SINGLE batch request
         const promptsByScene = await fetchAllPromptsForScenes(scenesData.map(s => s.id));
         const allMappedPrompts: Record<string, any[]> = {};
-        
+
         promptsByScene.forEach((prompts, sceneId) => {
           if (prompts.length > 0) {
             allMappedPrompts[sceneId] = prompts.map((p: any) => ({
@@ -239,12 +233,16 @@ const Index = () => {
         }
       }
 
-      // Load time contexts from Supabase (backward compatible: if column missing treat as [])
       const storedTimeContexts = Array.isArray(episodeData.time_contexts) && episodeData.time_contexts.length > 0
         ? episodeData.time_contexts
         : null;
       if (storedTimeContexts) {
         dispatch({ type: 'SET_TIME_CONTEXTS', payload: storedTimeContexts });
+      }
+
+      // Load architectural narratives
+      if (narrativesData.length > 0) {
+        dispatch({ type: 'SET_ARCHITECTURAL_NARRATIVES', payload: narrativesData });
       }
     } catch (error) {
       console.error('❌ Error loading episode data:', error);
@@ -258,8 +256,6 @@ const Index = () => {
     }
   }
 
-  // Auto-save episode-level data (document text, characters, locations, time contexts) independently
-  // of sceneCards so that time contexts added before analysis are never lost on refresh.
   useEffect(() => {
     if (!loadingData && episodeId && episode) {
       const saveEpisodeData = async () => {
@@ -281,14 +277,13 @@ const Index = () => {
     }
   }, [state.documentText, state.characters, state.locations, state.episodePrompt, state.episodePromptTr, state.timeContexts, episodeId, loadingData, episode]);
 
-  // Auto-save scenes to Supabase whenever sceneCards change
+  // Auto-save scenes
   const isSavingRef = useRef(false);
   const pendingSaveRef = useRef(false);
 
   const doSave = useCallback(async () => {
     if (!episodeId || state.sceneCards.length === 0) return;
     if (isSavingRef.current) {
-      // Another save already running – mark as pending so it re-runs when done
       pendingSaveRef.current = true;
       console.log('⏳ Save already in progress, queuing…');
       return;
@@ -301,17 +296,14 @@ const Index = () => {
       setSavingStatus('saving');
       console.log('💾 Auto-saving scenes...');
 
-      // Save scenes - using native UUIDs from React state directly
-      const savedScenes = await saveScenes(episodeId, state.sceneCards);
+      await saveScenes(episodeId, state.sceneCards);
 
-      // Save time contexts and episode prompts
       await updateEpisode(episodeId, {
         time_contexts: state.timeContexts,
         episode_prompt: state.episodePrompt,
         episode_prompt_tr: state.episodePromptTr
       });
 
-      // Save prompts in parallel batches (5 at a time) with error isolation
       const PROMPT_BATCH = 5;
       const scenesWithPrompts = state.sceneCards.filter(scene => scene.prompts.length > 0);
 
@@ -343,7 +335,6 @@ const Index = () => {
         console.log('✅ Auto-save complete');
       }
 
-      // Reset to idle after 2 seconds
       setTimeout(() => setSavingStatus('idle'), 2000);
     } catch (error) {
       console.error('❌ Error saving scenes:', error);
@@ -355,7 +346,6 @@ const Index = () => {
       });
     } finally {
       isSavingRef.current = false;
-      // If another save was requested while we were busy, run it now
       if (pendingSaveRef.current) {
         pendingSaveRef.current = false;
         doSave();
@@ -369,6 +359,101 @@ const Index = () => {
       return () => clearTimeout(timeoutId);
     }
   }, [state.sceneCards, state.timeContexts, state.episodePrompt, state.episodePromptTr, episodeId, loadingData, doSave]);
+
+  // ─── Architectural Narrative handlers ────────────────────────────────────
+
+  const handleAddArchitecturalNarrative = useCallback(async (narrative: ArchitecturalNarrativeProgression) => {
+    dispatch({ type: 'ADD_ARCHITECTURAL_NARRATIVE', payload: narrative });
+    if (episodeId && projectId) {
+      try {
+        await saveArchitecturalNarrative(episodeId, projectId, narrative);
+      } catch (err) {
+        console.error('Failed to save architectural narrative:', err);
+        toast({ title: 'Hata', description: 'Narrative kaydedilemedi.', variant: 'destructive' });
+      }
+    }
+  }, [dispatch, episodeId, projectId, toast]);
+
+  const handleUpdateArchitecturalNarrative = useCallback(async (narrative: ArchitecturalNarrativeProgression) => {
+    dispatch({ type: 'UPDATE_ARCHITECTURAL_NARRATIVE', payload: narrative });
+    if (episodeId && projectId) {
+      try {
+        await saveArchitecturalNarrative(episodeId, projectId, narrative);
+      } catch (err) {
+        console.error('Failed to update architectural narrative:', err);
+        toast({ title: 'Hata', description: 'Narrative güncellenemedi.', variant: 'destructive' });
+      }
+    }
+  }, [dispatch, episodeId, projectId, toast]);
+
+  const handleDeleteArchitecturalNarrative = useCallback(async (narrativeId: string) => {
+    dispatch({ type: 'DELETE_ARCHITECTURAL_NARRATIVE', payload: narrativeId });
+    try {
+      await deleteArchitecturalNarrative(narrativeId);
+    } catch (err) {
+      console.error('Failed to delete architectural narrative:', err);
+      toast({ title: 'Hata', description: 'Narrative silinemedi.', variant: 'destructive' });
+    }
+  }, [dispatch, toast]);
+
+  const handleGenerateNarrativeStages = useCallback(async (narrativeId: string) => {
+    const narrative = state.architecturalNarratives.find(n => n.id === narrativeId);
+    if (!narrative) return;
+
+    if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
+      setNoKeysWarning(true);
+      return;
+    }
+
+    dispatch({ type: 'START_NARRATIVE_GENERATION', payload: { narrativeId } });
+
+    // Persist "generating" status immediately
+    if (episodeId && projectId) {
+      updateArchitecturalNarrative(narrativeId, { status: 'generating', generation_progress: 0 }).catch(console.warn);
+    }
+
+    try {
+      // Lazy import to avoid circular deps
+      const { generateArchitecturalNarrativePrompts } = await import('@/lib/architecturalNarrativePromptGenerator');
+
+      const sceneCharacters = state.characters;
+      const sceneLocations = state.locations;
+
+      const stages = await generateArchitecturalNarrativePrompts(
+        narrative,
+        sceneCharacters,
+        sceneLocations,
+        state.masterPrompt,
+        state.episodePrompt || undefined,
+      );
+
+      dispatch({ type: 'FINISH_NARRATIVE_GENERATION', payload: { narrativeId, stages } });
+
+      // Persist completed narrative
+      if (episodeId && projectId) {
+        const updated: ArchitecturalNarrativeProgression = {
+          ...narrative,
+          stages,
+          status: 'done',
+          generationProgress: 100,
+        };
+        await saveArchitecturalNarrative(episodeId, projectId, updated).catch(console.error);
+      }
+
+      toast({ title: '✅ Narrative tamamlandı', description: `${stages.length} sahne üretildi.` });
+    } catch (err: any) {
+      console.error('Narrative generation failed:', err);
+      const failed: ArchitecturalNarrativeProgression = { ...narrative, status: 'error' };
+      dispatch({ type: 'UPDATE_ARCHITECTURAL_NARRATIVE', payload: failed });
+      if (episodeId && projectId) {
+        updateArchitecturalNarrative(narrativeId, { status: 'error' }).catch(console.warn);
+      }
+      toast({ title: 'Hata', description: 'Narrative prompt üretilemedi.', variant: 'destructive' });
+    }
+  }, [state.architecturalNarratives, state.characters, state.locations, state.masterPrompt, state.episodePrompt, dispatch, episodeId, projectId, toast]);
+
+  // ─── UI state ─────────────────────────────────────────────────────────────
+
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [infoOpen, setInfoOpen] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
@@ -395,6 +480,7 @@ const Index = () => {
     }
     setShowScriptUploader(false);
   }, [dispatch]);
+
   const mainFileRef = useRef<HTMLInputElement>(null);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const bulkAbortRef = useRef<AbortController | null>(null);
@@ -403,11 +489,9 @@ const Index = () => {
   const [bulkPromptsProgress, setBulkPromptsProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const bulkPromptsAbortRef = useRef<AbortController | null>(null);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '4:3' | '1:1' | '9:16'>('16:9');
-  // Use a ref to access current scenes without adding them as a callback dependency
   const scenesRef = useRef(state.scenes);
   scenesRef.current = state.scenes;
 
-  // Ctrl+Z / Ctrl+Y global keyboard shortcuts
   useEffect(() => {
     const savedAspectRatio = localStorage.getItem('aspectRatio');
     if (savedAspectRatio) {
@@ -422,7 +506,7 @@ const Index = () => {
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return; // don't hijack input fields
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
         undo();
@@ -442,7 +526,6 @@ const Index = () => {
       const episodes = parseEpisodes(text);
       dispatch({ type: 'SET_EPISODES', payload: episodes });
 
-      // Immediately persist the document text to Supabase so it survives page refresh
       if (episodeId) {
         try {
           await updateEpisode(episodeId, { document_text: text });
@@ -542,7 +625,6 @@ const Index = () => {
     dispatch({ type: 'SET_GROUP_NOTE', payload: { groupId, note } });
   }, [dispatch]);
 
-  // ─── Sub-scene handlers ───────────────────────────────────────────
   const handleAddSubScene = useCallback((sceneId: string, label: string) => {
     const parentScene = state.scenes.find(s => s.id === sceneId);
     if (!parentScene) return;
@@ -667,7 +749,6 @@ const Index = () => {
     const prompt = subScene.prompts.find(p => p.id === promptId);
     if (!prompt) return;
 
-    // Version restore — no API call needed
     if (instruction.startsWith('__RESTORE__::')) {
       const restored = instruction.slice('__RESTORE__::'.length);
       const updatedPrompts = subScene.prompts.map(p =>
@@ -687,7 +768,6 @@ const Index = () => {
       console.error('Sub-scene revizyon başarısız', e);
     }
   }, [state, dispatch]);
-
 
   const handleCancel = useCallback((sceneId: string) => {
     const controller = abortControllersRef.current.get(sceneId);
@@ -710,7 +790,6 @@ const Index = () => {
     const scene = state.scenes.find(s => s.id === sceneId);
     if (!scene) return;
 
-    // Create AbortController for this scene
     const controller = new AbortController();
     abortControllersRef.current.set(sceneId, controller);
 
@@ -718,7 +797,6 @@ const Index = () => {
 
     const groups = state.consistencyGroups.filter(g => scene.consistencyGroupIds?.includes(g.id));
 
-    // Determine effective variant count based on scene analysis
     const sceneAnalysis = state.sceneAnalyses[sceneId];
     let effectiveVariantCount: number = state.settings.variantCount;
     if (sceneAnalysis) {
@@ -780,7 +858,7 @@ const Index = () => {
     const bulkController = new AbortController();
     bulkAbortRef.current = bulkController;
     setIsGeneratingAll(true);
-    
+
     for (let i = 0; i < pending.length; i++) {
       if (bulkController.signal.aborted) break;
 
@@ -792,7 +870,6 @@ const Index = () => {
 
       const groups = state.consistencyGroups.filter(g => sceneRef.consistencyGroupIds?.includes(g.id));
 
-      // Determine effective variant count based on scene analysis
       const sceneAnalysis = state.sceneAnalyses[sceneRef.id];
       let effectiveVariantCount: number = state.settings.variantCount;
       if (sceneAnalysis) {
@@ -847,7 +924,6 @@ const Index = () => {
         dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'error' } });
       }
 
-      // Delay between scenes to avoid rate limits
       if (i < pending.length - 1 && !bulkController.signal.aborted) {
         await new Promise(r => setTimeout(r, 1500));
       }
@@ -860,10 +936,8 @@ const Index = () => {
     if (bulkAbortRef.current) {
       bulkAbortRef.current.abort();
     }
-    // Also abort any individual scene controllers
     abortControllersRef.current.forEach((controller) => controller.abort());
     abortControllersRef.current.clear();
-    // Revert all generating scenes to pending
     state.scenes.forEach(s => {
       if (s.status === 'generating') {
         dispatch({ type: 'UPDATE_SCENE', payload: { ...s, status: 'pending' } });
@@ -878,7 +952,6 @@ const Index = () => {
     const prompt = scene.prompts.find(p => p.id === promptId);
     if (!prompt) return;
 
-    // Version restore — no API call needed
     if (instruction.startsWith('__RESTORE__::')) {
       const restored = instruction.slice('__RESTORE__::'.length);
       const updatedPrompts = scene.prompts.map(p =>
@@ -905,7 +978,6 @@ const Index = () => {
     await handleGenerate(sceneId);
   }, [handleGenerate]);
 
-  // ─── Two-stage AI workflow handlers ─────────────────────────────
   const handleAnalyzeText = useCallback(async (selectedText: string, targetSceneCount?: number) => {
     dispatch({ type: 'START_ANALYSIS' });
     setAnalysisLog([]);
@@ -922,7 +994,6 @@ const Index = () => {
       );
       dispatch({ type: 'FINISH_ANALYSIS', payload: result });
 
-      // Mevcut referansları yeni sahnelere ata
       if (state.references.length > 0) {
         setAnalysisLog(prev => [...prev, '🖼️ Referanslar sahnelere atanıyor...']);
         try {
@@ -934,7 +1005,7 @@ const Index = () => {
               reader.onload = () => resolve((reader.result as string).split(',')[1]);
               reader.readAsDataURL(blob);
             });
-            
+
             const { assignedSceneIds, aiAnalysis } = await analyzeReferenceImage(
               base64,
               blob.type,
@@ -942,8 +1013,8 @@ const Index = () => {
               ref.referenceType,
               result.sceneCards
             );
-            
-            dispatch({ type: 'UPDATE_REFERENCE', payload: { ...ref, assignedSceneIds, aiAnalysis }});
+
+            dispatch({ type: 'UPDATE_REFERENCE', payload: { ...ref, assignedSceneIds, aiAnalysis } });
             await updateReferenceAssignments(ref.id, assignedSceneIds);
           }
           setAnalysisLog(prev => [...prev, `✅ ${state.references.length} referans sahnelere atandı`]);
@@ -956,7 +1027,6 @@ const Index = () => {
 
       try {
         setAnalysisLog(prev => [...prev, '🎨 Bölüm stili (episode prompt) üretiliyor...']);
-        // Episode prompt'u otomatik oluştur
         const episodePrompt = await generateEpisodePrompt(
           selectedText,
           result.characters,
@@ -964,7 +1034,7 @@ const Index = () => {
         );
         if (episodePrompt) {
           dispatch({ type: 'SET_EPISODE_PROMPT', payload: episodePrompt });
-          
+
           setAnalysisLog(prev => [...prev, '🇹🇷 Bölüm stili Türkçe özeti yazılıyor...']);
           const turkishExplanation = await generateEpisodePromptTurkishExplanation(episodePrompt);
           if (turkishExplanation) {
@@ -996,7 +1066,6 @@ const Index = () => {
 
     const sceneCharacters = state.characters.filter(c => scene.characterIds.includes(c.id));
     const sceneLocations = state.locations.filter(l => scene.locationIds.includes(l.id));
-    // Use only the scene's own time contexts (no fallback to all)
     const sceneTimeContexts = state.timeContexts.filter(tc => (scene.timeContextIds ?? []).includes(tc.id));
     const sceneAnalysis = state.sceneAnalyses[sceneId];
 
@@ -1012,7 +1081,6 @@ const Index = () => {
     try {
       let result;
 
-      // Route timelapse scenes to the dedicated timelapse sequence generator
       if (sceneAnalysis?.narrativeType === 'timelapse') {
         result = await generateTimelapseSequence(
           scene,
@@ -1045,19 +1113,16 @@ const Index = () => {
         );
       }
 
-      // Final dispatch with complete result
-      dispatch({ 
-        type: 'FINISH_PROMPT_GENERATION', 
-        payload: { 
-          sceneId, 
+      dispatch({
+        type: 'FINISH_PROMPT_GENERATION',
+        payload: {
+          sceneId,
           prompts: result.prompts,
           analysis: result.analysis,
           optimizations: result.optimizations,
-        } 
+        }
       });
 
-      // ── Auto-pin: AI selects the best prompt ──
-      // Skip auto-pin for timelapse — all stages are equally important
       if (result.prompts.length > 1 && sceneAnalysis?.narrativeType !== 'timelapse') {
         try {
           const sceneForPin = state.sceneCards.find(s => s.id === sceneId);
@@ -1070,7 +1135,6 @@ const Index = () => {
           if (bestPrompt) {
             console.log(`[autoPin] Scene ${sceneId}: selected prompt ${selectedIndex} — ${reason}`);
             dispatch({ type: 'SET_PINNED_PROMPT', payload: { sceneId, promptId: bestPrompt.id, byAI: true } });
-            // Persist to DB (fire-and-forget)
             setPinnedPrompt(sceneId, bestPrompt.id).catch(err =>
               console.warn('[autoPin] DB save failed:', err)
             );
@@ -1083,7 +1147,6 @@ const Index = () => {
       return true;
     } catch (error) {
       console.error('Prompt generation error:', error);
-      // Revert status to analyzed on error
       dispatch({
         type: 'FINISH_PROMPT_GENERATION',
         payload: { sceneId, prompts: [] },
@@ -1107,7 +1170,6 @@ const Index = () => {
     setIsBulkGeneratingPrompts(true);
     setBulkPromptsProgress({ done: 0, total: scenesWithoutPrompts.length });
 
-    // Paylaşılan kuyruk
     const queue = [...scenesWithoutPrompts];
     const failedScenes: typeof scenesWithoutPrompts = [];
     let done = 0;
@@ -1115,9 +1177,9 @@ const Index = () => {
 
     const processScene = async (scene: typeof scenesWithoutPrompts[0]): Promise<void> => {
       if (controller.signal.aborted) return;
-      
+
       const success = await handleGeneratePromptsForScene(scene.id);
-      
+
       if (success) {
         done++;
         consecutiveFailures = 0;
@@ -1125,8 +1187,7 @@ const Index = () => {
       } else {
         consecutiveFailures++;
         failedScenes.push(scene);
-        
-        // Ardışık 5 hata = tüm keyler rate limit yedi, 10sn bekle
+
         if (consecutiveFailures >= 5) {
           toast({
             title: '⚠️ Rate limit — 10sn bekleniyor...',
@@ -1138,29 +1199,24 @@ const Index = () => {
       }
     };
 
-    // Worker fonksiyonu — kuyruktan sahne çeker
     const worker = async (): Promise<void> => {
       while (queue.length > 0 && !controller.signal.aborted) {
         const scene = queue.shift();
         if (!scene) break;
         await processScene(scene);
-        // Worker'lar arası küçük offset (rate limit dağıtımı)
         await new Promise(r => setTimeout(r, 200));
       }
     };
 
     try {
-      // 3 worker paralel çalışır
       await Promise.all(
         Array.from({ length: WORKER_COUNT }, () => worker())
       );
 
-      // Hata worker: başarısız sahneleri tekrar dene
       if (failedScenes.length > 0 && !controller.signal.aborted) {
         toast({
           title: `🔄 ${failedScenes.length} sahne yeniden deneniyor...`,
         });
-        // 5sn bekle, sonra tek tek dene
         await new Promise(r => setTimeout(r, 5000));
         for (const scene of failedScenes) {
           if (controller.signal.aborted) break;
@@ -1172,7 +1228,7 @@ const Index = () => {
       setIsBulkGeneratingPrompts(false);
       bulkPromptsAbortRef.current = null;
       setBulkPromptsProgress({ done: 0, total: 0 });
-      
+
       const stillFailed = failedScenes.filter(
         s => state.sceneCards.find(sc => sc.id === s.id)?.prompts.length === 0
       );
@@ -1226,8 +1282,7 @@ const Index = () => {
           });
         }
       );
-      
-      // Final complete update
+
       dispatch({
         type: 'FINISH_PROMPT_GENERATION',
         payload: { sceneId, prompts: [...existingPrompts, ...result.prompts] },
@@ -1277,24 +1332,22 @@ const Index = () => {
 
     const scene = state.sceneCards.find(s => s.id === sceneId);
     if (!scene) return;
-    
+
     const promptToRevise = scene.prompts.find(p => p.id === promptId);
     if (!promptToRevise) return;
 
     try {
-      // Optik feedback için UI'ı güncelliyoruz diye bir şey yapabiliriz ama
-      // şimdilik toast ile bilgi verelim. (SceneCard içinde loading idare edilebilir)
       const revisedText = await revisePrompt(
         promptToRevise.promptText,
         instruction,
-        '', // apiKey (aiProvider uses its internal key array)
+        '',
         state.settings.model,
         state.settings.temperature
       );
 
       const updatedPrompt: PromptCard = {
         ...promptToRevise,
-        id: crypto.randomUUID(), // New UUID so upsert doesn't overwrite the original in DB
+        id: crypto.randomUUID(),
         promptText: revisedText,
         versions: [...promptToRevise.versions, revisedText],
         generationType: 'revision',
@@ -1316,9 +1369,7 @@ const Index = () => {
   }, [state, dispatch, toast]);
 
   const handleSetPinnedPrompt = useCallback(async (sceneId: string, promptId: string) => {
-    // Update state immediately (optimistic)
     dispatch({ type: 'SET_PINNED_PROMPT', payload: { sceneId, promptId, byAI: false } });
-    // Persist to DB
     try {
       await setPinnedPrompt(sceneId, promptId);
     } catch (err) {
@@ -1335,7 +1386,6 @@ const Index = () => {
     };
     dispatch({ type: 'ADD_NEW_CHARACTER_TO_SCENE_CARD', payload: { sceneId, character } });
 
-    // Persist to Supabase so the character survives page refresh
     if (projectId) {
       upsertGlobalCharacter(projectId, { name, description: '' }).catch(err => {
         console.error('Failed to save character to Supabase:', err);
@@ -1351,7 +1401,6 @@ const Index = () => {
     };
     dispatch({ type: 'ADD_NEW_LOCATION_TO_SCENE_CARD', payload: { sceneId, location } });
 
-    // Persist to Supabase so the location survives page refresh
     if (projectId) {
       upsertGlobalLocation(projectId, { name, description: '' }).catch(err => {
         console.error('Failed to save location to Supabase:', err);
@@ -1382,7 +1431,6 @@ const Index = () => {
             )}
           </div>
 
-          {/* Save Status Indicator */}
           <div className="flex items-center gap-2 text-sm">
             {savingStatus === 'saving' && (
               <span className="text-yellow-600 flex items-center gap-2">
@@ -1410,8 +1458,8 @@ const Index = () => {
                   aria-label="Kaydetme işlemini tekrar dene"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                    <path d="M3 3v5h5"/>
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                    <path d="M3 3v5h5" />
                   </svg>
                   Tekrar Dene
                 </button>
@@ -1455,7 +1503,6 @@ const Index = () => {
         </Button>
       </div>
 
-      {/* No API keys banner */}
       {noKeysWarning && (
         <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 flex items-center justify-between text-sm">
           <span className="text-yellow-800">
@@ -1646,6 +1693,14 @@ const Index = () => {
               onRemoveSubSceneFromGroup={handleRemoveSubSceneFromGroup}
               onReorderScenes={(reordered) => dispatch({ type: 'REORDER_SCENES', payload: reordered })}
               onReorderSceneCards={(reordered) => dispatch({ type: 'REORDER_SCENE_CARDS', payload: reordered })}
+              // Architectural Narrative props
+              architecturalNarratives={state.architecturalNarratives}
+              activeNarrativeId={state.activeNarrativeId}
+              onAddArchitecturalNarrative={handleAddArchitecturalNarrative}
+              onUpdateArchitecturalNarrative={handleUpdateArchitecturalNarrative}
+              onDeleteArchitecturalNarrative={handleDeleteArchitecturalNarrative}
+              onGenerateNarrativeStages={handleGenerateNarrativeStages}
+              onSetActiveNarrative={(id) => dispatch({ type: 'SET_ACTIVE_NARRATIVE', payload: id })}
             />
           </Panel>
         </PanelGroup>

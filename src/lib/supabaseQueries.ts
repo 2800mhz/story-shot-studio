@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { TimeContext } from '@/types';
+import type { TimeContext, ArchitecturalNarrativeProgression } from '@/types';
 
 // ── Retry helper with exponential backoff ────────────────────────────────────
 
@@ -83,7 +83,7 @@ export async function fetchEpisodes(projectId: string) {
     .order('episode_number', { ascending: true });
 
   if (error) throw error;
-  
+
   return (data || []).map(ep => ({
     ...ep,
     scene_count: ep.scenes?.[0]?.count ?? 0
@@ -184,7 +184,6 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
     console.log('💾 Saving scenes for episode:', episodeId, 'Count:', scenes.length);
 
     if (scenes.length === 0) {
-      // Nothing to save — delete all existing scenes for this episode
       await withRetry(async () => {
         const { error } = await supabase.from('scenes').delete().eq('episode_id', episodeId);
         if (error) throw error;
@@ -192,7 +191,6 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
       return [];
     }
 
-    // ── Step 1: Prepare the bulk upsert payload ──────────────
     const scenesToUpsert = scenes.map((scene, idx) => {
       const characterIds = Array.isArray(scene.characterIds)
         ? scene.characterIds.filter((id: unknown) => typeof id === 'string') : [];
@@ -202,7 +200,7 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
         ? scene.timeContextIds.filter((id: unknown) => typeof id === 'string') : [];
 
       return {
-        id: scene.id, // now guaranteed to be a valid stable UUID
+        id: scene.id,
         episode_id: episodeId,
         scene_number: scene.sceneNumber ?? idx + 1,
         text: scene.text || '',
@@ -218,7 +216,6 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
       };
     });
 
-    // ── Step 2: Fetch existing scene IDs for this episode to find deletions
     const existingIdsObj: any[] = await withRetry(async () => {
       const { data, error } = await supabase
         .from('scenes')
@@ -232,7 +229,6 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
     const incomingIds = scenesToUpsert.map(s => s.id);
     const idsToDelete = existingIds.filter(id => !incomingIds.includes(id));
 
-    // ── Step 3: Delete removed scenes ─────────────────
     if (idsToDelete.length > 0) {
       await withRetry(async () => {
         const { error } = await supabase.from('scenes').delete().in('id', idsToDelete);
@@ -240,7 +236,6 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
       }, `Delete ${idsToDelete.length} removed scenes`);
     }
 
-    // ── Step 4: Upsert all incoming scenes ──────────────────────────────────────────────
     const allSaved: any[] = [];
     const BATCH_SIZE = 10;
 
@@ -265,15 +260,12 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
   }
 }
 
-
-
 // ============================================
 // PROMPT QUERIES
 // ============================================
 
 export async function savePrompts(sceneId: string, prompts: any[]) {
   try {
-    // 1. Get current active prompts for this scene to see what exists
     const currentActive: any[] = await withRetry(async () => {
       const { data, error } = await supabase
         .from('prompts')
@@ -289,7 +281,6 @@ export async function savePrompts(sceneId: string, prompts: any[]) {
       .map(p => p.id)
       .filter(id => !incomingIds.includes(id));
 
-    // 2. Soft-delete ONLY the prompts that were removed or regenerated entirely
     if (idsToSoftDelete.length > 0) {
       await withRetry(async () => {
         const { error } = await supabase
@@ -304,13 +295,11 @@ export async function savePrompts(sceneId: string, prompts: any[]) {
       return [];
     }
 
-    // 3. Upsert the incoming prompts
     const promptsToUpsert = prompts.map(prompt => {
-      // Look for an existing UUID to avoid Postgres assigning a new one blindly on insert
       const isValidUUID = prompt.id && prompt.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
 
       return {
-        ...(isValidUUID ? { id: prompt.id } : {}), // only send id if it's a valid uuid (not a temporary client ID like prompt-1234)
+        ...(isValidUUID ? { id: prompt.id } : {}),
         scene_id: sceneId,
         type: prompt.type || null,
         label: prompt.label || null,
@@ -323,7 +312,6 @@ export async function savePrompts(sceneId: string, prompts: any[]) {
         revision_prompt: prompt.revisionPrompt || null,
         is_active: true,
         is_pinned: prompt.isPinned ?? false,
-        // Timelapse stage metadata
         is_timelapse_member: prompt.isTimelapseStage ?? false,
         timelapse_stage_number: prompt.timelapseStageNumber ?? null,
         timelapse_stage_label: prompt.stageLabel ?? null,
@@ -365,12 +353,7 @@ export async function fetchPrompts(sceneId: string) {
   }));
 }
 
-/**
- * Atomically sets is_pinned=true for promptId and is_pinned=false for all
- * other active prompts in the same scene. Ensures only one pin per scene.
- */
 export async function setPinnedPrompt(sceneId: string, promptId: string): Promise<void> {
-  // 1. Unpin all active prompts for this scene
   await withRetry(async () => {
     const { error } = await supabase
       .from('prompts')
@@ -380,7 +363,6 @@ export async function setPinnedPrompt(sceneId: string, promptId: string): Promis
     if (error) throw error;
   }, `Unpin all prompts for scene ${sceneId}`);
 
-  // 2. Pin only the selected prompt
   await withRetry(async () => {
     const { error } = await supabase
       .from('prompts')
@@ -390,19 +372,12 @@ export async function setPinnedPrompt(sceneId: string, promptId: string): Promis
   }, `Pin prompt ${promptId}`);
 }
 
-/**
- * Returns the prompt history (soft-deleted / previous versions) for a scene.
- * Useful for a "Restore Previous Prompt" UI feature.
- */
 export async function fetchPromptHistory(sceneId: string) {
-  // Prevent 400 Bad Request errors if called with a temporary client-side ID (e.g., "scene-123")
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sceneId);
   if (!isUUID) {
     return [];
   }
 
-  // Fetch ALL prompts for this scene (both active and soft-deleted ones),
-  // ordered by date descending. This gives a full chronological history.
   const { data, error } = await supabase
     .from('prompts')
     .select('id, type, label, shot_type, summary, explanation, prompt_text, aspect_ratio, generation_type, revision_prompt, created_at, is_active')
@@ -417,11 +392,6 @@ export async function fetchPromptHistory(sceneId: string) {
   return data || [];
 }
 
-/**
- * Fetches all prompts for multiple scenes in a SINGLE database request using
- * `.in('scene_id', sceneIds)` instead of firing one request per scene.
- * Returns a Map<sceneId, prompt[]> for O(1) lookup per scene.
- */
 export async function fetchAllPromptsForScenes(sceneIds: string[]): Promise<Map<string, any[]>> {
   if (sceneIds.length === 0) return new Map();
 
@@ -429,11 +399,10 @@ export async function fetchAllPromptsForScenes(sceneIds: string[]): Promise<Map<
     .from('prompts')
     .select('*')
     .in('scene_id', sceneIds)
-    .eq('is_active', true); // Only fetch active (current) prompts
+    .eq('is_active', true);
 
   if (error) throw error;
 
-  // Group by scene_id and map timelapse fields
   const result = new Map<string, any[]>();
   for (const row of data || []) {
     const mapped = {
@@ -565,7 +534,6 @@ export async function fetchReferences(episodeId: string) {
 
   if (error) throw error;
 
-  // Convert snake_case back to camelCase mapping for the UI
   return (data || []).map(row => ({
     id: row.id,
     episodeId: row.episode_id,
@@ -622,4 +590,129 @@ export async function updateReferenceAssignments(id: string, sceneIds: string[])
 
   if (error) throw error;
   return data;
+}
+
+// ============================================
+// ARCHITECTURAL NARRATIVE QUERIES
+// ============================================
+
+/**
+ * Maps a DB row from architectural_narratives to the ArchitecturalNarrativeProgression type.
+ */
+function mapNarrativeRow(row: any): ArchitecturalNarrativeProgression {
+  return {
+    id: row.id,
+    sceneIds: row.scene_ids ?? [],
+    narrativeSubject: row.narrative_subject,
+    narrativeType: row.narrative_type,
+    transformationDriver: row.transformation_driver ?? '',
+    progressionAnchor: row.progression_anchor ?? {
+      name: '',
+      description: '',
+      role: 'center',
+      symbolism: '',
+      visibility: 'always',
+    },
+    cameraProgression: row.camera_progression ?? {
+      strategy: 'fixed_with_change',
+      description: '',
+      purpose: '',
+    },
+    stages: row.stages ?? [],
+    promptGenerationStrategy: row.prompt_generation_strategy ?? {
+      consistency: 'camera_locked',
+      anchorTreatment: 'always_centered',
+      narrativeTheme: '',
+      cameraPurpose: '',
+    },
+    status: row.status ?? 'pending',
+    generationProgress: row.generation_progress ?? 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+/**
+ * Fetch all architectural narratives for an episode.
+ */
+export async function fetchArchitecturalNarratives(
+  episodeId: string,
+): Promise<ArchitecturalNarrativeProgression[]> {
+  const { data, error } = await supabase
+    .from('architectural_narratives')
+    .select('*')
+    .eq('episode_id', episodeId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+  return (data || []).map(mapNarrativeRow);
+}
+
+/**
+ * Save (upsert) a single architectural narrative.
+ * Uses the narrative's own id as the conflict key.
+ */
+export async function saveArchitecturalNarrative(
+  episodeId: string,
+  projectId: string,
+  narrative: ArchitecturalNarrativeProgression,
+): Promise<ArchitecturalNarrativeProgression> {
+  const payload = {
+    id: narrative.id,
+    episode_id: episodeId,
+    project_id: projectId,
+    scene_ids: narrative.sceneIds ?? [],
+    narrative_subject: narrative.narrativeSubject,
+    narrative_type: narrative.narrativeType,
+    transformation_driver: narrative.transformationDriver,
+    progression_anchor: narrative.progressionAnchor,
+    camera_progression: narrative.cameraProgression,
+    stages: narrative.stages,
+    prompt_generation_strategy: narrative.promptGenerationStrategy,
+    status: narrative.status,
+    generation_progress: narrative.generationProgress ?? 0,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from('architectural_narratives')
+    .upsert(payload, { onConflict: 'id' })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return mapNarrativeRow(data);
+}
+
+/**
+ * Update only specific fields of an existing narrative (e.g. status, stages after generation).
+ */
+export async function updateArchitecturalNarrative(
+  narrativeId: string,
+  updates: Partial<{
+    stages: ArchitecturalNarrativeProgression['stages'];
+    status: ArchitecturalNarrativeProgression['status'];
+    generation_progress: number;
+    scene_ids: string[];
+  }>,
+): Promise<void> {
+  await withRetry(async () => {
+    const { error } = await supabase
+      .from('architectural_narratives')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', narrativeId);
+    if (error) throw error;
+  }, `Update architectural narrative ${narrativeId}`);
+}
+
+/**
+ * Delete a single architectural narrative by id.
+ */
+export async function deleteArchitecturalNarrative(narrativeId: string): Promise<void> {
+  const { error } = await supabase
+    .from('architectural_narratives')
+    .delete()
+    .eq('id', narrativeId);
+
+  if (error) throw error;
 }
