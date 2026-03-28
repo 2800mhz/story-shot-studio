@@ -20,7 +20,7 @@ import { parseEpisodes } from '@/lib/contextDetection';
 import { generatePrompts, loadSystemPrompt } from '@/lib/geminiApi';
 import { analyzeTextIntoScenes, generateEpisodePrompt, generateEpisodePromptTurkishExplanation } from '@/lib/sceneAnalyzer';
 import { analyzeReferenceImage } from '@/lib/referenceAnalyzer';
-import { generatePromptsForScene, revisePrompt, autoSelectBestPrompt } from '@/lib/promptGenerator';
+import { generatePromptsForScene, generateTimelapseSequence, revisePrompt, autoSelectBestPrompt } from '@/lib/promptGenerator';
 import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetchAllPromptsForScenes, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts, setPinnedPrompt, fetchReferences, updateReferenceAssignments } from '@/lib/supabaseQueries';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -998,30 +998,53 @@ const Index = () => {
     const sceneLocations = state.locations.filter(l => scene.locationIds.includes(l.id));
     // Use only the scene's own time contexts (no fallback to all)
     const sceneTimeContexts = state.timeContexts.filter(tc => (scene.timeContextIds ?? []).includes(tc.id));
+    const sceneAnalysis = state.sceneAnalyses[sceneId];
 
     dispatch({ type: 'START_PROMPT_GENERATION', payload: { sceneId } });
 
+    const onRetry = () => {
+      toast({
+        title: '⚠️ Yapay Zeka Yanıtı Onarılıyor',
+        description: 'Yapay zeka yanıtı bozuk geldi, otomatik onarım deneniyor...',
+      });
+    };
+
     try {
-      const result = await generatePromptsForScene(
-        scene,
-        sceneCharacters,
-        sceneLocations,
-        state.masterPrompt,
-        undefined,
-        undefined,
-        aspectRatio,
-        state.sceneAnalyses[sceneId],
-        sceneTimeContexts,
-        state.episodePrompt || undefined,
-        state.references,
-        isRegeneration ? 'regenerate' : 'initial',
-        () => {
-          toast({
-            title: '⚠️ Yapay Zeka Yanıtı Onarılıyor',
-            description: 'Yapay zeka yanıtı bozuk geldi, otomatik onarım deneniyor...',
-          });
-        }
-      );
+      let result;
+
+      // Route timelapse scenes to the dedicated timelapse sequence generator
+      if (sceneAnalysis?.narrativeType === 'timelapse') {
+        result = await generateTimelapseSequence(
+          scene,
+          sceneCharacters,
+          sceneLocations,
+          state.masterPrompt,
+          sceneAnalysis,
+          aspectRatio,
+          sceneTimeContexts,
+          state.episodePrompt || undefined,
+          state.references,
+          isRegeneration ? 'regenerate' : 'initial',
+          onRetry
+        );
+      } else {
+        result = await generatePromptsForScene(
+          scene,
+          sceneCharacters,
+          sceneLocations,
+          state.masterPrompt,
+          undefined,
+          undefined,
+          aspectRatio,
+          sceneAnalysis,
+          sceneTimeContexts,
+          state.episodePrompt || undefined,
+          state.references,
+          isRegeneration ? 'regenerate' : 'initial',
+          onRetry
+        );
+      }
+
       // Final dispatch with complete result
       dispatch({ 
         type: 'FINISH_PROMPT_GENERATION', 
@@ -1034,7 +1057,8 @@ const Index = () => {
       });
 
       // ── Auto-pin: AI selects the best prompt ──
-      if (result.prompts.length > 1) {
+      // Skip auto-pin for timelapse — all stages are equally important
+      if (result.prompts.length > 1 && sceneAnalysis?.narrativeType !== 'timelapse') {
         try {
           const sceneForPin = state.sceneCards.find(s => s.id === sceneId);
           const { selectedIndex, reason } = await autoSelectBestPrompt(
@@ -1066,7 +1090,7 @@ const Index = () => {
       });
       return false;
     }
-  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, dispatch, aspectRatio]);
+  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, dispatch, aspectRatio, state.episodePrompt, state.references]);
 
   const WORKER_COUNT = 3;
 

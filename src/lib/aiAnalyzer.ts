@@ -80,6 +80,7 @@ export async function analyzeScene(
       narrativeType: parsed.narrativeType || 'static',
       temporalComplexity: parsed.temporalComplexity || 'simple',
       suggestedPromptCount: parsed.suggestedPromptCount || 3,
+      timelapseStages: Array.isArray(parsed.timelapseStages) ? parsed.timelapseStages : undefined,
       entityReferences: [],
       reasoning: parsed.reasoning,
     };

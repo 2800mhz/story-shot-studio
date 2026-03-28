@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Sparkles, Edit2, Trash2, Check, X, Copy, RefreshCw, Plus, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, Clock, Pin, ImageIcon } from 'lucide-react';
 import type { SceneCard as SceneCardType, Character, Location, TimeContext, PromptCard } from '@/types';
 import { PromptHistoryModal, type HistoryEntry } from './PromptHistoryModal';
+import { TimelapseCard } from './TimelapseCard';
 
 interface SceneCardProps {
   scene: SceneCardType;
@@ -542,17 +543,44 @@ export function SceneCard({
                </div>
             </div>
           )}
-          <div className="text-xs font-semibold text-muted-foreground mb-1">Üretilen Promptlar:</div>
-          {scene.prompts.map(prompt => (
-            <InlinePromptCard
-              key={prompt.id}
-              prompt={prompt}
-              sceneId={scene.id}
-              onRevise={onRevisePrompt}
-              onDelete={onDeletePrompt}
-              onPin={onSetPinnedPrompt}
-            />
-          ))}
+          {/* Detect timelapse: if any prompt is flagged as a timelapse stage, render as TimelapseCard */}
+          {scene.prompts.some(p => p.isTimelapseStage) ? (
+            <>
+              <TimelapseCard
+                prompts={scene.prompts.filter(p => p.isTimelapseStage)}
+                sceneId={scene.id}
+                sceneNumber={scene.sceneNumber}
+                onRevise={onRevisePrompt}
+                onDelete={onDeletePrompt}
+                onPin={onSetPinnedPrompt}
+              />
+              {/* Render any non-timelapse prompts (e.g. previously added variations) separately */}
+              {scene.prompts.filter(p => !p.isTimelapseStage).map(prompt => (
+                <InlinePromptCard
+                  key={prompt.id}
+                  prompt={prompt}
+                  sceneId={scene.id}
+                  onRevise={onRevisePrompt}
+                  onDelete={onDeletePrompt}
+                  onPin={onSetPinnedPrompt}
+                />
+              ))}
+            </>
+          ) : (
+            <>
+              <div className="text-xs font-semibold text-muted-foreground mb-1">Üretilen Promptlar:</div>
+              {scene.prompts.map(prompt => (
+                <InlinePromptCard
+                  key={prompt.id}
+                  prompt={prompt}
+                  sceneId={scene.id}
+                  onRevise={onRevisePrompt}
+                  onDelete={onDeletePrompt}
+                  onPin={onSetPinnedPrompt}
+                />
+              ))}
+            </>
+          )}
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
             <Button
               size="sm"

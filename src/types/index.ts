@@ -87,10 +87,18 @@ export interface ExtractedEntity {
   firstMention: number;
 }
 
+export interface TimelapseStageInfo {
+  stageNumber: number;
+  stageLabel: string;
+  timeProgress: number; // 0-100
+  description?: string;
+}
+
 export interface SceneAnalysis {
   sceneId: string;
   narrativeType: 'static' | 'sequence' | 'timelapse';
   suggestedPromptCount: number;
+  timelapseStages?: TimelapseStageInfo[];
   entityReferences: string[];
   temporalComplexity: 'simple' | 'moderate' | 'complex';
   reasoning?: string;
@@ -146,6 +154,11 @@ export interface PromptCard {
   isPinned?: boolean; // Raptiye: AI or user marks the best prompt per card
   isPinnedByAI?: boolean; // true if AI auto-selected this prompt
   hasSubjectReference?: boolean;
+  // Timelapse stage metadata
+  isTimelapseStage?: boolean;
+  timelapseStageNumber?: number; // 1, 2, 3...
+  stageLabel?: string; // e.g. "Crescent Moon", "Full Moon"
+  timeProgress?: number; // 0-100
 }
 
 export interface PromptAnalysis {
