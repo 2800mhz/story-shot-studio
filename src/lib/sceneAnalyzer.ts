@@ -2,9 +2,26 @@ import type { SceneCard, Character, Location, TimeContext } from '@/types';
 import { aiProvider } from './aiProvider';
 
 export function getSceneAnalysisSystemPrompt(targetSceneCount?: number): string {
-  const targetInstruction = targetSceneCount 
-    ? `KULLANICI HEDEF SAHNE SAYISI: ${targetSceneCount}\n\nKullanıcı bu metnin tam olarak ${targetSceneCount} sahnede (±2) işlenmesini istiyor. Lütfen metni bölerken hedef sahne sayısına ulaşmaya çalış.` 
-    : `SAHNE SAYISI HESABI (KRİTİK)\n\nMetni almadan önce kelime sayısını tahmin et.\nFormül: kelime_sayısı / 5 = hedef sahne sayısı\n\nÖrnekler:\n- 150 kelime = kabaca 30 sahne\n- 300 kelime = kabaca 60 sahne\n- 450 kelime = kabaca 90 sahne\n- 600 kelime = kabaca 120 sahne\n\nBu hedefe tam ulaş. Fazla üretme, eksik kalabilirsin ama ASLA fazla üretme.`;
+  const targetInstruction = targetSceneCount
+    ? `⛔ KESİN SAHNE SINIRI: ${targetSceneCount} sahne (tolerans: ±2)
+
+Bu kural diğer tüm kuralların ÜZERİNDEDİR.
+- ${targetSceneCount}'den fazla sahne YASAKTIR, istisnasız.
+- Fazla üretmek yerine sahneleri BİRLEŞTİR.
+- "Her dönüşüm 5 sahne" gibi kurallar bu limite TABİDİR, onu geçemez.
+- Önce toplam sahne sayısını planla, sonra metni böl.
+- Eğer metin çok kısa veya çok uzunsa bile ${targetSceneCount} ± 2 bandında kal.`
+    : `SAHNE SAYISI HESABI (KRİTİK)
+
+Metni almadan önce kelime sayısını tahmin et.
+Formül: kelime_sayısı / 5 = hedef sahne sayısı
+
+Örnekler:
+- 150 kelime = kabaca 30 sahne
+- 300 kelime = kabaca 60 sahne
+- 450 kelime = kabaca 90 sahne
+
+Bu hedefe tam ulaş. Fazla üretme, eksik kalabilirsin ama ASLA fazla üretme.`;
 
   return `Sen dünya standartlarında bir belgesel film görsel yönetmeni ve kurgu editörüsün.
 Elindeki metin bir BELGESEL SESLENDIRME METNİDİR (documentary voice-over/narration).
