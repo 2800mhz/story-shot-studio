@@ -27,13 +27,13 @@ import {
   updateEpisode, fetchGlobalCharacters, fetchGlobalLocations,
   upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts,
   setPinnedPrompt, fetchReferences, updateReferenceAssignments,
-  fetchArchitecturalNarratives, saveArchitecturalNarrative,
-  updateArchitecturalNarrative, deleteArchitecturalNarrative,
+  fetchProgressionNarratives, saveProgressionNarrative,
+  updateProgressionNarrative, deleteProgressionNarrative,
 } from '@/lib/supabaseQueries';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
-import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis, PromptCard, ArchitecturalNarrativeProgression, ArchitecturalNarrativeStage } from '@/types';
+import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis, PromptCard, ProgressionNarrative } from '@/types';
 
 
 const GROUP_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
@@ -91,7 +91,7 @@ const Index = () => {
         fetchGlobalCharacters(projectId!),
         fetchGlobalLocations(projectId!),
         fetchReferences(episodeId!),
-        fetchArchitecturalNarratives(episodeId!).catch(() => []), // graceful: table might not exist yet
+        fetchProgressionNarratives(episodeId!).catch(() => []), // graceful: table might not exist yet
       ]);
 
       console.log('✅ Loaded:', {
@@ -240,9 +240,9 @@ const Index = () => {
         dispatch({ type: 'SET_TIME_CONTEXTS', payload: storedTimeContexts });
       }
 
-      // Load architectural narratives
+      // Load progression narratives
       if (narrativesData.length > 0) {
-        dispatch({ type: 'SET_ARCHITECTURAL_NARRATIVES', payload: narrativesData });
+        dispatch({ type: 'SET_PROGRESSION_NARRATIVES', payload: narrativesData });
       }
     } catch (error) {
       console.error('❌ Error loading episode data:', error);
@@ -360,44 +360,44 @@ const Index = () => {
     }
   }, [state.sceneCards, state.timeContexts, state.episodePrompt, state.episodePromptTr, episodeId, loadingData, doSave]);
 
-  // ─── Architectural Narrative handlers ────────────────────────────────────
+  // ─── Progression Narrative handlers ──────────────────────────────────────
 
-  const handleAddArchitecturalNarrative = useCallback(async (narrative: ArchitecturalNarrativeProgression) => {
-    dispatch({ type: 'ADD_ARCHITECTURAL_NARRATIVE', payload: narrative });
+  const handleAddProgressionNarrative = useCallback(async (narrative: ProgressionNarrative) => {
+    dispatch({ type: 'ADD_PROGRESSION_NARRATIVE', payload: narrative });
     if (episodeId && projectId) {
       try {
-        await saveArchitecturalNarrative(episodeId, projectId, narrative);
+        await saveProgressionNarrative(episodeId, projectId, narrative);
       } catch (err) {
-        console.error('Failed to save architectural narrative:', err);
+        console.error('Failed to save progression narrative:', err);
         toast({ title: 'Hata', description: 'Narrative kaydedilemedi.', variant: 'destructive' });
       }
     }
   }, [dispatch, episodeId, projectId, toast]);
 
-  const handleUpdateArchitecturalNarrative = useCallback(async (narrative: ArchitecturalNarrativeProgression) => {
-    dispatch({ type: 'UPDATE_ARCHITECTURAL_NARRATIVE', payload: narrative });
+  const handleUpdateProgressionNarrative = useCallback(async (narrative: ProgressionNarrative) => {
+    dispatch({ type: 'UPDATE_PROGRESSION_NARRATIVE', payload: narrative });
     if (episodeId && projectId) {
       try {
-        await saveArchitecturalNarrative(episodeId, projectId, narrative);
+        await saveProgressionNarrative(episodeId, projectId, narrative);
       } catch (err) {
-        console.error('Failed to update architectural narrative:', err);
+        console.error('Failed to update progression narrative:', err);
         toast({ title: 'Hata', description: 'Narrative güncellenemedi.', variant: 'destructive' });
       }
     }
   }, [dispatch, episodeId, projectId, toast]);
 
-  const handleDeleteArchitecturalNarrative = useCallback(async (narrativeId: string) => {
-    dispatch({ type: 'DELETE_ARCHITECTURAL_NARRATIVE', payload: narrativeId });
+  const handleDeleteProgressionNarrative = useCallback(async (narrativeId: string) => {
+    dispatch({ type: 'DELETE_PROGRESSION_NARRATIVE', payload: narrativeId });
     try {
-      await deleteArchitecturalNarrative(narrativeId);
+      await deleteProgressionNarrative(narrativeId);
     } catch (err) {
-      console.error('Failed to delete architectural narrative:', err);
+      console.error('Failed to delete progression narrative:', err);
       toast({ title: 'Hata', description: 'Narrative silinemedi.', variant: 'destructive' });
     }
   }, [dispatch, toast]);
 
-  const handleGenerateNarrativeStages = useCallback(async (narrativeId: string) => {
-    const narrative = state.architecturalNarratives.find(n => n.id === narrativeId);
+  const handleGenerateProgressionStages = useCallback(async (narrativeId: string) => {
+    const narrative = state.progressionNarratives.find(n => n.id === narrativeId);
     if (!narrative) return;
 
     if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
@@ -405,21 +405,21 @@ const Index = () => {
       return;
     }
 
-    dispatch({ type: 'START_NARRATIVE_GENERATION', payload: { narrativeId } });
+    dispatch({ type: 'START_PROGRESSION_GENERATION', payload: { narrativeId } });
 
     // Persist "generating" status immediately
     if (episodeId && projectId) {
-      updateArchitecturalNarrative(narrativeId, { status: 'generating', generation_progress: 0 }).catch(console.warn);
+      updateProgressionNarrative(narrativeId, { status: 'generating', generation_progress: 0 }).catch(console.warn);
     }
 
     try {
       // Lazy import to avoid circular deps
-      const { generateArchitecturalNarrativePrompts } = await import('@/lib/architecturalNarrativePromptGenerator');
+      const { generateProgressionPrompts } = await import('@/lib/progressionPromptGenerator');
 
       const sceneCharacters = state.characters;
       const sceneLocations = state.locations;
 
-      const { stages } = await generateArchitecturalNarrativePrompts(
+      const { stages } = await generateProgressionPrompts(
         narrative,
         state.masterPrompt,
         state.episodePrompt || undefined,
@@ -427,30 +427,30 @@ const Index = () => {
         sceneLocations,
       );
 
-      dispatch({ type: 'FINISH_NARRATIVE_GENERATION', payload: { narrativeId, stages } });
+      dispatch({ type: 'FINISH_PROGRESSION_GENERATION', payload: { narrativeId, stages } });
 
       // Persist completed narrative
       if (episodeId && projectId) {
-        const updated: ArchitecturalNarrativeProgression = {
+        const updated: ProgressionNarrative = {
           ...narrative,
           stages,
           status: 'done',
           generationProgress: 100,
         };
-        await saveArchitecturalNarrative(episodeId, projectId, updated).catch(console.error);
+        await saveProgressionNarrative(episodeId, projectId, updated).catch(console.error);
       }
 
       toast({ title: '✅ Narrative tamamlandı', description: `${stages.length} sahne üretildi.` });
     } catch (err: any) {
       console.error('Narrative generation failed:', err);
-      const failed: ArchitecturalNarrativeProgression = { ...narrative, status: 'error' };
-      dispatch({ type: 'UPDATE_ARCHITECTURAL_NARRATIVE', payload: failed });
+      const failed: ProgressionNarrative = { ...narrative, status: 'error' };
+      dispatch({ type: 'UPDATE_PROGRESSION_NARRATIVE', payload: failed });
       if (episodeId && projectId) {
-        updateArchitecturalNarrative(narrativeId, { status: 'error' }).catch(console.warn);
+        updateProgressionNarrative(narrativeId, { status: 'error' }).catch(console.warn);
       }
       toast({ title: 'Hata', description: 'Narrative prompt üretilemedi.', variant: 'destructive' });
     }
-  }, [state.architecturalNarratives, state.characters, state.locations, state.masterPrompt, state.episodePrompt, dispatch, episodeId, projectId, toast]);
+  }, [state.progressionNarratives, state.characters, state.locations, state.masterPrompt, state.episodePrompt, dispatch, episodeId, projectId, toast]);
 
   // ─── UI state ─────────────────────────────────────────────────────────────
 
@@ -1693,14 +1693,14 @@ const Index = () => {
               onRemoveSubSceneFromGroup={handleRemoveSubSceneFromGroup}
               onReorderScenes={(reordered) => dispatch({ type: 'REORDER_SCENES', payload: reordered })}
               onReorderSceneCards={(reordered) => dispatch({ type: 'REORDER_SCENE_CARDS', payload: reordered })}
-              // Architectural Narrative props
-              architecturalNarratives={state.architecturalNarratives}
-              activeNarrativeId={state.activeNarrativeId}
-              onAddArchitecturalNarrative={handleAddArchitecturalNarrative}
-              onUpdateArchitecturalNarrative={handleUpdateArchitecturalNarrative}
-              onDeleteArchitecturalNarrative={handleDeleteArchitecturalNarrative}
-              onGenerateNarrativeStages={handleGenerateNarrativeStages}
-              onSetActiveNarrative={(id) => dispatch({ type: 'SET_ACTIVE_NARRATIVE', payload: id })}
+              // Progression Narrative props
+              progressionNarratives={state.progressionNarratives}
+              activeProgressionId={state.activeProgressionId}
+              onAddProgressionNarrative={handleAddProgressionNarrative}
+              onUpdateProgressionNarrative={handleUpdateProgressionNarrative}
+              onDeleteProgressionNarrative={handleDeleteProgressionNarrative}
+              onGenerateProgressionStages={handleGenerateProgressionStages}
+              onSetActiveProgression={(id) => dispatch({ type: 'SET_ACTIVE_PROGRESSION', payload: id })}
             />
           </Panel>
         </PanelGroup>

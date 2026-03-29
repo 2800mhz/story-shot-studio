@@ -259,10 +259,10 @@ export function RightPanel({
       }
     });
 
-    // Include architectural narrative stage prompts
-    architecturalNarratives.forEach((narrative, ni) => {
+    // Include progression narrative stage prompts
+    progressionNarratives.forEach((narrative, ni) => {
       if (narrative.stages.length > 0 && narrative.stages.some(s => s.generatedPrompt)) {
-        lines.push(`=== Architectural Narrative ${ni + 1}: ${narrative.narrativeSubject} ===`);
+        lines.push(`=== Progression Narrative ${ni + 1}: ${narrative.subject} ===`);
         narrative.stages.forEach((stage) => {
           if (stage.generatedPrompt) {
             lines.push(`[${stage.label}] ${stage.generatedPrompt}`);
@@ -277,9 +277,9 @@ export function RightPanel({
     navigator.clipboard.writeText(lines.join('\n')).then(() => {
       console.log('✅ Tüm promptlar kopyalandı');
     });
-  }, [scenes, sceneCards, architecturalNarratives]);
+  }, [scenes, sceneCards, progressionNarratives]);
 
-  const isEmpty = scenes.length === 0 && sceneCards.length === 0 && architecturalNarratives.length === 0;
+  const isEmpty = scenes.length === 0 && sceneCards.length === 0 && progressionNarratives.length === 0;
 
   return (
     <div className="flex h-full flex-col border-l bg-card">
@@ -288,15 +288,15 @@ export function RightPanel({
           <h2 className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Çalışma Alanı</h2>
           <div className="flex items-center gap-1.5 mt-0.5">
             <span className="text-sm font-semibold text-foreground">Sahneler</span>
-            {(scenes.length > 0 || sceneCards.length > 0 || architecturalNarratives.length > 0) && (
+            {(scenes.length > 0 || sceneCards.length > 0 || progressionNarratives.length > 0) && (
               <Badge variant="secondary" className="h-4 px-1.5 text-[9px] font-medium bg-primary/10 text-primary border-none">
-                {scenes.length + sceneCards.length + architecturalNarratives.length}
+                {scenes.length + sceneCards.length + progressionNarratives.length}
               </Badge>
             )}
           </div>
         </div>
         <div className="flex gap-2">
-          {(doneCount > 0 || sceneCards.some(sc => sc.prompts.length > 0) || architecturalNarratives.some(n => n.stages.some(s => s.generatedPrompt))) && (
+          {(doneCount > 0 || sceneCards.some(sc => sc.prompts.length > 0) || progressionNarratives.some(n => n.stages.some(s => s.generatedPrompt))) && (
             <Button
               size="sm"
               variant="ghost"
