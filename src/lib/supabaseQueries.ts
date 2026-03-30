@@ -134,6 +134,7 @@ export async function updateEpisode(episodeId: string, updates: {
   time_contexts?: TimeContext[];
   episode_prompt?: string;
   episode_prompt_tr?: string;
+  episode_style_history?: any[];
 }) {
   const { data, error } = await supabase
     .from('episodes')

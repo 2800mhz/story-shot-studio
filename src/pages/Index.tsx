@@ -11,6 +11,7 @@ import { InfoModal } from '@/components/InfoModal';
 import { ExportModal } from '@/components/ExportModal';
 import { EntityCardPanel } from '@/components/EntityCardPanel';
 import { EpisodeStylePanel } from '@/components/EpisodeStylePanel';
+import { EpisodeStyleHistoryModal } from '@/components/EpisodeStyleHistoryModal';
 import { ReferencePanel } from '@/components/ReferencePanel';
 import { ScriptUploader } from '@/components/ScriptUploader';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
@@ -25,7 +26,7 @@ import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetc
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
-import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis, PromptCard } from '@/types';
+import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis, PromptCard, EpisodeStyleVersion } from '@/types';
 
 
 const GROUP_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
@@ -128,6 +129,13 @@ const Index = () => {
         dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: episodeData.episode_prompt_tr });
       } else {
         dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: '' });
+      }
+
+      // Load episode style history
+      if (Array.isArray(episodeData.episode_style_history) && episodeData.episode_style_history.length > 0) {
+        dispatch({ type: 'SET_EPISODE_STYLE_HISTORY', payload: episodeData.episode_style_history as EpisodeStyleVersion[] });
+      } else {
+        dispatch({ type: 'SET_EPISODE_STYLE_HISTORY', payload: [] });
       }
 
       // Load characters: prefer episode-specific character_data (preserves exact IDs
@@ -264,12 +272,13 @@ const Index = () => {
     if (!loadingData && episodeId && episode) {
       const saveEpisodeData = async () => {
         try {
-          await updateEpisode(episodeId, {
+        await updateEpisode(episodeId, {
             document_text: state.documentText || undefined,
             character_data: JSON.stringify(state.characters),
             location_data: JSON.stringify(state.locations),
             episode_prompt: state.episodePrompt || undefined,
             episode_prompt_tr: state.episodePromptTr || undefined,
+            episode_style_history: state.episodeStyleHistory,
           });
           await saveTimeContexts(episodeId, state.timeContexts);
         } catch (err) {
@@ -279,7 +288,7 @@ const Index = () => {
       const id = setTimeout(saveEpisodeData, AUTO_SAVE_DEBOUNCE_MS);
       return () => clearTimeout(id);
     }
-  }, [state.documentText, state.characters, state.locations, state.episodePrompt, state.episodePromptTr, state.timeContexts, episodeId, loadingData, episode]);
+  }, [state.documentText, state.characters, state.locations, state.episodePrompt, state.episodePromptTr, state.episodeStyleHistory, state.timeContexts, episodeId, loadingData, episode]);
 
   // Auto-save scenes to Supabase whenever sceneCards change
   const isSavingRef = useRef(false);
@@ -377,6 +386,7 @@ const Index = () => {
   const [showReferencePanel, setShowReferencePanel] = useState(false);
   const [showScriptUploader, setShowScriptUploader] = useState(false);
   const [isRevisingEpisodeStyle, setIsRevisingEpisodeStyle] = useState(false);
+  const [showStyleHistory, setShowStyleHistory] = useState(false);
   const [scrollToIndex, setScrollToIndex] = useState<number | null>(null);
 
   const handleScriptComplete = useCallback((result: {
@@ -402,20 +412,31 @@ const Index = () => {
       setNoKeysWarning(true);
       return;
     }
+    // Mevcut stili geçmişe ekle (yeni sürüm üretilmeden önce)
+    if (state.episodePrompt) {
+      const snapshot: EpisodeStyleVersion = {
+        id: crypto.randomUUID(),
+        prompt: state.episodePrompt,
+        promptTr: state.episodePromptTr,
+        instruction,
+        createdAt: new Date().toISOString(),
+      };
+      dispatch({ type: 'ADD_EPISODE_STYLE_VERSION', payload: snapshot });
+    }
     setIsRevisingEpisodeStyle(true);
     try {
       const revised = await reviseEpisodePrompt(state.episodePrompt, instruction);
       dispatch({ type: 'SET_EPISODE_PROMPT', payload: revised });
       const tr = await generateEpisodePromptTurkishExplanation(revised);
       dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: tr });
-      toast({ title: '✨ Bölüm stili güncellendi', description: 'Türkçe özet de yenilendi.' });
+      toast({ title: '✨ Bölüm stili oluşturuldu', description: 'Türkçe özet de yenilendi.' });
     } catch (err) {
       console.error('Episode style revision failed:', err);
-      toast({ title: 'Revizyon başarısız', description: err instanceof Error ? err.message : 'Bilinmeyen hata', variant: 'destructive' });
+      toast({ title: 'Oluşturma başarısız', description: err instanceof Error ? err.message : 'Bilinmeyen hata', variant: 'destructive' });
     } finally {
       setIsRevisingEpisodeStyle(false);
     }
-  }, [state.episodePrompt, dispatch, toast]);
+  }, [state.episodePrompt, state.episodePromptTr, dispatch, toast]);
   const mainFileRef = useRef<HTMLInputElement>(null);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const bulkAbortRef = useRef<AbortController | null>(null);
@@ -1535,6 +1556,8 @@ const Index = () => {
                   onSetEpisodePromptTr={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: prompt })}
                   onReviseEpisodePrompt={handleReviseEpisodeStyle}
                   isRevising={isRevisingEpisodeStyle}
+                  onShowHistory={() => setShowStyleHistory(true)}
+                  historyCount={state.episodeStyleHistory.length}
                   onClose={() => setShowEpisodeStylePanel(false)}
                 />
               </Panel>
@@ -1680,6 +1703,19 @@ const Index = () => {
         open={infoOpen}
         onClose={() => setInfoOpen(false)}
       />
+
+      {showStyleHistory && (
+        <EpisodeStyleHistoryModal
+          history={state.episodeStyleHistory}
+          currentPrompt={state.episodePrompt}
+          onRestore={(version) => {
+            dispatch({ type: 'SET_EPISODE_PROMPT', payload: version.prompt });
+            dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: version.promptTr });
+            toast({ title: '⏪ Stil geri yüklendi', description: 'Seçilen sürüm aktif hale getirildi.' });
+          }}
+          onClose={() => setShowStyleHistory(false)}
+        />
+      )}
     </div>
   );
 };

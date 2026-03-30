@@ -5,6 +5,14 @@ export interface TextSegment {
   endIndex: number;
 }
 
+export interface EpisodeStyleVersion {
+  id: string;
+  prompt: string;
+  promptTr: string;
+  instruction: string; // kullanıcının yazdığı yazı
+  createdAt: string; // ISO string
+}
+
 export interface SceneReference {
   id: string;
   episodeId: string;
@@ -213,6 +221,7 @@ export interface AppState {
   masterPrompt: string;
   episodePrompt: string;
   episodePromptTr: string;
+  episodeStyleHistory: EpisodeStyleVersion[];
   isAnalyzing: boolean;
   isGeneratingPrompts: boolean;
 }
@@ -298,4 +307,6 @@ export type AppAction =
   | { type: 'REMOVE_TIME_CONTEXT_FROM_SCENE_CARD'; payload: { sceneId: string; timeContextId: string } }
   | { type: 'REORDER_SCENE_CARDS'; payload: SceneCard[] }
   | { type: 'SET_ALL_PROMPTS'; payload: Record<string, PromptCard[]> }
-  | { type: 'SET_PINNED_PROMPT'; payload: { sceneId: string; promptId: string; byAI?: boolean } };
+  | { type: 'SET_PINNED_PROMPT'; payload: { sceneId: string; promptId: string; byAI?: boolean } }
+  | { type: 'ADD_EPISODE_STYLE_VERSION'; payload: EpisodeStyleVersion }
+  | { type: 'SET_EPISODE_STYLE_HISTORY'; payload: EpisodeStyleVersion[] };

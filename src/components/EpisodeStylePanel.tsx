@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Loader2, Sparkles, Clock } from 'lucide-react';
 
 interface EpisodeStylePanelProps {
   episodePrompt: string;
@@ -10,6 +10,8 @@ interface EpisodeStylePanelProps {
   onReviseEpisodePrompt: (instruction: string) => Promise<void>;
   isRevising?: boolean;
   onClose: () => void;
+  onShowHistory: () => void;
+  historyCount?: number;
 }
 
 export function EpisodeStylePanel({
@@ -19,7 +21,9 @@ export function EpisodeStylePanel({
   onSetEpisodePromptTr,
   onReviseEpisodePrompt,
   isRevising = false,
-  onClose
+  onClose,
+  onShowHistory,
+  historyCount = 0,
 }: EpisodeStylePanelProps) {
   const [revisionInstruction, setRevisionInstruction] = useState('');
 
@@ -39,11 +43,29 @@ export function EpisodeStylePanel({
 
   return (
     <div className="flex h-full flex-col bg-card">
+      {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border">
         <span className="text-sm font-medium">🎨 Bölüm Stili</span>
-        <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={onClose}>✕</Button>
+        <div className="flex items-center gap-1">
+          {/* Geçmiş butonu */}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6 p-0 text-muted-foreground hover:text-primary relative"
+            onClick={onShowHistory}
+            title="Stil geçmişini görüntüle"
+          >
+            <Clock className="h-3.5 w-3.5" />
+            {historyCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-primary text-[8px] text-primary-foreground flex items-center justify-center font-bold">
+                {historyCount > 9 ? '9+' : historyCount}
+              </span>
+            )}
+          </Button>
+          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={onClose}>✕</Button>
+        </div>
       </div>
-      
+
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-5">
         {/* Türkçe özet — salt okunur */}
         <div className="flex flex-col">
@@ -77,20 +99,20 @@ export function EpisodeStylePanel({
           />
         </div>
 
-        {/* Revizyon bölümü */}
+        {/* AI oluşturma bölümü */}
         <div className="flex flex-col gap-2 border-t border-border/60 pt-4">
           <div className="flex items-center gap-1.5 mb-0.5">
             <Sparkles className="w-3 h-3 text-primary/70" />
             <label className="text-xs font-semibold uppercase tracking-wider text-primary/70">
-              AI ile Revize Et
+              AI ile Oluştur
             </label>
           </div>
           <p className="text-[10px] text-muted-foreground/70 leading-tight -mt-1">
-            Bölüm stilini nasıl güncelleyelim? AI mevcut stili yönergeye göre düzenler ve Türkçe özeti yeniler.
+            Aşağıya ne istediğini yaz, AI mevcut stili yönergeye göre yeniden oluşturur ve Türkçe özeti günceller.
           </p>
           <textarea
             className="w-full text-xs min-h-[80px] resize-none rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50 scrollbar-thin transition-colors"
-            placeholder={`Örn: "Renk paletini daha soğuk ve mavi tonlara çek"\n"Gece atmosferini ön plana al"\n"Film grain efektini kaldır"\n\n(Ctrl+Enter ile uygula)`}
+            placeholder={`Örn: "Renk paletini daha soğuk ve mavi tonlara çek"\n"Gece atmosferini ön plana al"\n"Fotoğrafik documentary stil, 16mm grain"\n\n(Ctrl+Enter ile oluştur)`}
             value={revisionInstruction}
             onChange={(e) => setRevisionInstruction(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -105,12 +127,12 @@ export function EpisodeStylePanel({
             {isRevising ? (
               <>
                 <Loader2 className="w-3 h-3 animate-spin" />
-                Revize ediliyor...
+                Oluşturuluyor...
               </>
             ) : (
               <>
                 <Sparkles className="w-3 h-3" />
-                Uygula
+                Oluştur
               </>
             )}
           </Button>

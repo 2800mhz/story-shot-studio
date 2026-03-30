@@ -44,6 +44,7 @@ const initialState: AppState = {
   masterPrompt: '',
   episodePrompt: '',
   episodePromptTr: '',
+  episodeStyleHistory: [],
   isAnalyzing: false,
   isGeneratingPrompts: false,
 };
@@ -53,6 +54,7 @@ const NON_UNDOABLE = new Set<string>([
   'SET_ACTIVE_SCENE', 'SET_SELECTION_MODE', 'SET_CURRENT_KEY_INDEX',
   'ROTATE_API_KEY', 'SET_API_KEYS', 'SET_IMAGE_API_KEYS', 'SET_SETTINGS',
   'START_ANALYSIS', 'START_PROMPT_GENERATION', 'SET_REFERENCES',
+  'ADD_EPISODE_STYLE_VERSION', 'SET_EPISODE_STYLE_HISTORY',
 ]);
 
 // Merge two arrays by id, preferring existing items
@@ -501,6 +503,10 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       return { ...state, episodePrompt: action.payload };
     case 'SET_EPISODE_PROMPT_TR':
       return { ...state, episodePromptTr: action.payload };
+    case 'ADD_EPISODE_STYLE_VERSION':
+      return { ...state, episodeStyleHistory: [action.payload, ...state.episodeStyleHistory].slice(0, 50) };
+    case 'SET_EPISODE_STYLE_HISTORY':
+      return { ...state, episodeStyleHistory: action.payload };
     case 'SET_ANALYZING':
       return { ...state, isAnalyzing: action.payload };
     case 'SET_DOCUMENT_TEXT':
