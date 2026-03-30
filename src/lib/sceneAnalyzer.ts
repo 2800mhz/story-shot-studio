@@ -700,3 +700,30 @@ Bu rehberin Türkçe, akıcı ve profesyonel açıklamasını/özetini yazar mı
   const result = await aiProvider.generateContent(userMessage, systemPrompt);
   return result.trim();
 }
+
+export async function reviseEpisodePrompt(
+  currentPrompt: string,
+  instruction: string
+): Promise<string> {
+  const systemPrompt = `Sen dünya standartlarında bir belgesel film sanat yönetmenisin.
+Sana mevcut bir İngilizce GÖRSEL STİL REHBERİ (Episode Prompt) ve kullanıcının revizyon yönergesi verilecek.
+
+Görevin:
+- Kullanıcının yönergesini dikkate alarak rehberi güncelle.
+- Rehberin genel yapısını, akışını ve teknik kalitesini koru.
+- Sadece istenen değişikliği entegre et; değiştirilmemesi gereken kısımlara dokunma.
+- Sonuç yine prompt formatında, 150-200 kelime İngilizce olmalı.
+
+SADECE güncellenmiş İngilizce rehberi döndür. Açıklama yapma, Türkçe yazmaz, markdown kullanma.`;
+
+  const userMessage = `Mevcut Görsel Stil Rehberi (Episode Prompt):
+${currentPrompt || '(Henüz bir stil rehberi yok — sıfırdan yaz)'}
+
+Kullanıcı yönergesi:
+"${instruction}"
+
+Lütfen rehberi bu yönergeye göre revize et ve sadece güncellenmiş İngilizce rehberi döndür.`;
+
+  const result = await aiProvider.generateContent(userMessage, systemPrompt, { operationType: 'episode_style_revision' });
+  return result.trim();
+}

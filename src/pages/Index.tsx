@@ -18,7 +18,7 @@ import { useAppState } from '@/hooks/useAppState';
 import { parseDocument } from '@/lib/documentParser';
 import { parseEpisodes } from '@/lib/contextDetection';
 import { generatePrompts, loadSystemPrompt } from '@/lib/geminiApi';
-import { analyzeTextIntoScenes, generateEpisodePrompt, generateEpisodePromptTurkishExplanation } from '@/lib/sceneAnalyzer';
+import { analyzeTextIntoScenes, generateEpisodePrompt, generateEpisodePromptTurkishExplanation, reviseEpisodePrompt } from '@/lib/sceneAnalyzer';
 import { analyzeReferenceImage } from '@/lib/referenceAnalyzer';
 import { generatePromptsForScene, revisePrompt, autoSelectBestPrompt } from '@/lib/promptGenerator';
 import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetchAllPromptsForScenes, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts, setPinnedPrompt, fetchReferences, updateReferenceAssignments } from '@/lib/supabaseQueries';
@@ -376,6 +376,7 @@ const Index = () => {
   const [showEpisodeStylePanel, setShowEpisodeStylePanel] = useState(false);
   const [showReferencePanel, setShowReferencePanel] = useState(false);
   const [showScriptUploader, setShowScriptUploader] = useState(false);
+  const [isRevisingEpisodeStyle, setIsRevisingEpisodeStyle] = useState(false);
   const [scrollToIndex, setScrollToIndex] = useState<number | null>(null);
 
   const handleScriptComplete = useCallback((result: {
@@ -395,6 +396,26 @@ const Index = () => {
     }
     setShowScriptUploader(false);
   }, [dispatch]);
+
+  const handleReviseEpisodeStyle = useCallback(async (instruction: string) => {
+    if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
+      setNoKeysWarning(true);
+      return;
+    }
+    setIsRevisingEpisodeStyle(true);
+    try {
+      const revised = await reviseEpisodePrompt(state.episodePrompt, instruction);
+      dispatch({ type: 'SET_EPISODE_PROMPT', payload: revised });
+      const tr = await generateEpisodePromptTurkishExplanation(revised);
+      dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: tr });
+      toast({ title: '✨ Bölüm stili güncellendi', description: 'Türkçe özet de yenilendi.' });
+    } catch (err) {
+      console.error('Episode style revision failed:', err);
+      toast({ title: 'Revizyon başarısız', description: err instanceof Error ? err.message : 'Bilinmeyen hata', variant: 'destructive' });
+    } finally {
+      setIsRevisingEpisodeStyle(false);
+    }
+  }, [state.episodePrompt, dispatch, toast]);
   const mainFileRef = useRef<HTMLInputElement>(null);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const bulkAbortRef = useRef<AbortController | null>(null);
@@ -1512,6 +1533,8 @@ const Index = () => {
                   episodePromptTr={state.episodePromptTr}
                   onSetEpisodePrompt={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT', payload: prompt })}
                   onSetEpisodePromptTr={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: prompt })}
+                  onReviseEpisodePrompt={handleReviseEpisodeStyle}
+                  isRevising={isRevisingEpisodeStyle}
                   onClose={() => setShowEpisodeStylePanel(false)}
                 />
               </Panel>
