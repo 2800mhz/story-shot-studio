@@ -914,20 +914,6 @@ const Index = () => {
     setIsGeneratingAll(false);
   }, [state.scenes, dispatch]);
 
-  const handleRegenerateAllScenes = useCallback(async () => {
-    if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
-      setNoKeysWarning(true);
-      return;
-    }
-    // Tüm scene ve sceneCard'ları pending'e sıfırla
-    state.scenes.forEach(s => {
-      dispatch({ type: 'UPDATE_SCENE', payload: { ...s, status: 'pending' } });
-    });
-    // Kısa bir gecikme sonra bulk generate'i başlat
-    await new Promise(r => setTimeout(r, 100));
-    await handleGenerateAll();
-  }, [state.scenes, dispatch, handleGenerateAll]);
-
   const handleRevise = useCallback(async (sceneId: string, promptId: string, instruction: string) => {
     const scene = state.scenes.find(s => s.id === sceneId);
     if (!scene) return;
@@ -1221,6 +1207,28 @@ const Index = () => {
   const handleCancelBulkPrompts = useCallback(() => {
     bulkPromptsAbortRef.current?.abort();
   }, []);
+
+  const handleRegenerateAllScenes = useCallback(async () => {
+    if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
+      setNoKeysWarning(true);
+      return;
+    }
+    if (state.sceneCards.length === 0) {
+      toast({ title: 'Sahne yok', description: 'Önce sahneleri analiz edin.' });
+      return;
+    }
+    // Tüm sahne kartlarının promptlarını temizle, status'u sıfırla
+    state.sceneCards.forEach(sc => {
+      dispatch({
+        type: 'FINISH_PROMPT_GENERATION',
+        payload: { sceneId: sc.id, prompts: [] },
+      });
+    });
+    // Kısa gecikme sonra normal bulk pipeline'ı başlat
+    await new Promise(r => setTimeout(r, 150));
+    await handleGenerateAllPrompts();
+  }, [state.sceneCards, dispatch, handleGenerateAllPrompts, toast]);
+
 
   const handleRegenerateAllPrompts = useCallback(async (sceneId: string) => {
     await handleGeneratePromptsForScene(sceneId, true);
