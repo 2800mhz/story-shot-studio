@@ -914,6 +914,20 @@ const Index = () => {
     setIsGeneratingAll(false);
   }, [state.scenes, dispatch]);
 
+  const handleRegenerateAllScenes = useCallback(async () => {
+    if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
+      setNoKeysWarning(true);
+      return;
+    }
+    // Tüm sahneleri pending'e sıfırla
+    state.scenes.forEach(s => {
+      dispatch({ type: 'UPDATE_SCENE', payload: { ...s, status: 'pending' } });
+    });
+    // Kısa bir gecikme sonra bulk generate'i başlat
+    await new Promise(r => setTimeout(r, 100));
+    await handleGenerateAll();
+  }, [state.scenes, dispatch, handleGenerateAll]);
+
   const handleRevise = useCallback(async (sceneId: string, promptId: string, instruction: string) => {
     const scene = state.scenes.find(s => s.id === sceneId);
     if (!scene) return;
@@ -1558,6 +1572,9 @@ const Index = () => {
                   isRevising={isRevisingEpisodeStyle}
                   onShowHistory={() => setShowStyleHistory(true)}
                   historyCount={state.episodeStyleHistory.length}
+                  onRegenerateAll={handleRegenerateAllScenes}
+                  isGeneratingAll={isGeneratingAll}
+                  sceneCount={state.scenes.length}
                   onClose={() => setShowEpisodeStylePanel(false)}
                 />
               </Panel>
