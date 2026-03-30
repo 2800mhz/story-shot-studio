@@ -919,7 +919,7 @@ const Index = () => {
       setNoKeysWarning(true);
       return;
     }
-    // Tüm sahneleri pending'e sıfırla
+    // Tüm scene ve sceneCard'ları pending'e sıfırla
     state.scenes.forEach(s => {
       dispatch({ type: 'UPDATE_SCENE', payload: { ...s, status: 'pending' } });
     });

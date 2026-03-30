@@ -145,38 +145,36 @@ export function EpisodeStylePanel({
         </div>
 
         {/* Tümünü Yeniden Üret bölümü */}
-        {sceneCount > 0 && (
-          <div className="flex flex-col gap-2 border-t border-border/60 pt-4">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <RefreshCw className="w-3 h-3 text-orange-500/70" />
-              <label className="text-xs font-semibold uppercase tracking-wider text-orange-500/70">
-                Promptları Yenile
-              </label>
-            </div>
-            <p className="text-[10px] text-muted-foreground/70 leading-tight">
-              Yeni bölüm stilini kullanarak tüm {sceneCount} sahne için promptları baştan üretir.
-            </p>
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full gap-2 text-xs h-8 border-orange-500/30 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
-              onClick={onRegenerateAll}
-              disabled={isGeneratingAll || isRevising}
-            >
-              {isGeneratingAll ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  Üretiliyor...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-3 h-3" />
-                  Tümünü Yeniden Üret
-                </>
-              )}
-            </Button>
+        <div className="flex flex-col gap-2 border-t border-border/60 pt-4">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <RefreshCw className="w-3 h-3 text-orange-500/70" />
+            <label className="text-xs font-semibold uppercase tracking-wider text-orange-500/70">
+              Promptları Yenile
+            </label>
           </div>
-        )}
+          <p className="text-[10px] text-muted-foreground/70 leading-tight">
+            Yeni bölüm stilini kullanarak tüm sahneler için promptları baştan üretir.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full gap-2 text-xs h-8 border-orange-500/30 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
+            onClick={onRegenerateAll}
+            disabled={isGeneratingAll || isRevising}
+          >
+            {isGeneratingAll ? (
+              <>
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Üretiliyor...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-3 h-3" />
+                Tümünü Yeniden Üret
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );
