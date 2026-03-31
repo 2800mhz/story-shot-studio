@@ -98,6 +98,9 @@ class AIProviderManager {
       if (err.status === 429 || err.message?.includes('429') || err.message?.includes('quota')) {
         console.warn(`⚠️ Rate limit hit for ${this.currentProvider}, rotating...`);
         await this.markRateLimited(key);
+      } else if (err.status === 403 || err.status === 400 || err.message?.includes('API key not valid')) {
+        console.warn(`🚫 Invalid API key for ${this.currentProvider}, marking inactive...`);
+        await this.markInvalid(key, `Invalid or unauthorized API key (${err.status || 400})`);
       } else if (err.status === 503 || err.status === 500) {
         console.warn(`⚠️ Server error ${err.status} for ${this.currentProvider}, rotating and waiting...`);
       }
@@ -112,16 +115,23 @@ class AIProviderManager {
 
   private getCurrentKey(): APIKey | null {
     const providerKeys = this.keys.get(this.currentProvider) || [];
+    if (providerKeys.length === 0) return null;
 
-    const availableKeys = providerKeys.filter(key => {
-      if (!key.rate_limited_until) return true;
-      return new Date(key.rate_limited_until) < new Date();
-    });
-
-    if (availableKeys.length === 0) return null;
-    if (this.currentKeyIndex >= availableKeys.length) return null;
-
-    return availableKeys[this.currentKeyIndex];
+    let startIndex = this.currentKeyIndex;
+    for (let i = 0; i < providerKeys.length; i++) {
+      const index = (startIndex + i) % providerKeys.length;
+      const key = providerKeys[index];
+      
+      const isRateLimited = key.rate_limited_until ? new Date(key.rate_limited_until) > new Date() : false;
+      const isActive = key.is_active !== false;
+      
+      if (isActive && !isRateLimited) {
+        this.currentKeyIndex = index;
+        return key;
+      }
+    }
+    
+    return null;
   }
 
   private rotateKey() {
@@ -169,6 +179,9 @@ class AIProviderManager {
       if (err.status === 429 || err.message?.includes('429') || err.message?.includes('quota')) {
         console.warn(`⚠️ Rate limit hit for ${this.currentProvider}, rotating...`);
         await this.markRateLimited(key);
+      } else if (err.status === 403 || err.status === 400 || err.message?.includes('API key not valid')) {
+        console.warn(`🚫 Invalid API key for ${this.currentProvider}, marking inactive...`);
+        await this.markInvalid(key, `Invalid or unauthorized API key (${err.status || 400})`);
       } else if (err.status === 503 || err.status === 500) {
         console.warn(`⚠️ Server error ${err.status} for ${this.currentProvider}, rotating and waiting...`);
       }
@@ -397,11 +410,24 @@ class AIProviderManager {
     const rateLimitUntil = new Date();
     rateLimitUntil.setHours(rateLimitUntil.getHours() + 1);
 
+    key.rate_limited_until = rateLimitUntil.toISOString();
+
     await supabase
       .from('api_keys')
       .update({
-        rate_limited_until: rateLimitUntil.toISOString(),
+        rate_limited_until: key.rate_limited_until,
         last_error: 'Rate limit exceeded'
+      })
+      .eq('id', key.id);
+  }
+
+  private async markInvalid(key: APIKey, reason: string) {
+    key.is_active = false;
+    await supabase
+      .from('api_keys')
+      .update({
+        is_active: false,
+        last_error: reason
       })
       .eq('id', key.id);
   }
