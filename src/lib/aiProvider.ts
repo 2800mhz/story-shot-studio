@@ -270,7 +270,7 @@ class AIProviderManager {
           if (done) break;
 
           const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\\n').filter(l => l.startsWith('data: '));
+          const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
 
           for (const line of lines) {
             try {
@@ -378,7 +378,7 @@ class AIProviderManager {
             'Authorization': `Bearer ${decryptedKey}`
           },
           body: JSON.stringify({
-            model: 'gpt-4-turbo-preview',
+            model: 'gpt-4o',
             messages,
             temperature: 0.7
           })
@@ -392,7 +392,7 @@ class AIProviderManager {
         const text = data.choices[0].message.content;
         const promptTokens = data.usage?.prompt_tokens || 0;
         const completionTokens = data.usage?.completion_tokens || 0;
-        return { text, promptTokens, completionTokens, modelUsed: 'gpt-4-turbo-preview' };
+        return { text, promptTokens, completionTokens, modelUsed: 'gpt-4o' };
       }
 
       case 'anthropic': {
@@ -404,7 +404,7 @@ class AIProviderManager {
             'anthropic-version': '2023-06-01'
           },
           body: JSON.stringify({
-            model: 'claude-3-sonnet-20240229',
+            model: 'claude-3-5-sonnet-20241022',
             max_tokens: 4096,
             system: systemInstruction,
             messages: [{ role: 'user', content: prompt }]
@@ -419,7 +419,7 @@ class AIProviderManager {
         const text = data.content[0].text;
         const promptTokens = data.usage?.input_tokens || 0;
         const completionTokens = data.usage?.output_tokens || 0;
-        return { text, promptTokens, completionTokens, modelUsed: 'claude-3-sonnet-20240229' };
+        return { text, promptTokens, completionTokens, modelUsed: 'claude-3-5-sonnet-20241022' };
       }
 
       default:

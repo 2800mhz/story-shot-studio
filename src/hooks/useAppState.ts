@@ -276,11 +276,15 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
           s.id === action.payload.sceneId
             ? {
               ...s,
-              subScenes: (s.subScenes || []).map(ss =>
-                ss.id === action.payload.subSceneId
-                  ? { ...ss, prompts: ss.prompts.filter(p => p.id !== action.payload.promptId), status: ss.prompts.filter(p => p.id !== action.payload.promptId).length === 0 ? 'pending' : ss.status }
-                  : ss
-              ),
+              subScenes: (s.subScenes || []).map(ss => {
+                if (ss.id !== action.payload.subSceneId) return ss;
+                const filteredPrompts = ss.prompts.filter(p => p.id !== action.payload.promptId);
+                return {
+                  ...ss,
+                  prompts: filteredPrompts,
+                  status: filteredPrompts.length === 0 ? 'pending' : ss.status,
+                };
+              }),
             }
             : s
         ),

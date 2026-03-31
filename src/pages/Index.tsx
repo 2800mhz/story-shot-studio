@@ -273,38 +273,39 @@ const Index = () => {
     }
   }
 
-  // Auto-save episode-level data (document text, characters, locations, time contexts) independently
-  // of sceneCards so that time contexts added before analysis are never lost on refresh.
-  useEffect(() => {
-    if (!loadingData && episodeId && episode) {
-      const saveEpisodeData = async () => {
-        try {
-        await updateEpisode(episodeId, {
-            document_text: state.documentText || undefined,
-            character_data: JSON.stringify(state.characters),
-            location_data: JSON.stringify(state.locations),
-            episode_prompt: state.episodePrompt || undefined,
-            episode_prompt_tr: state.episodePromptTr || undefined,
-            episode_style_history: state.episodeStyleHistory,
-          });
-          await saveTimeContexts(episodeId, state.timeContexts);
-        } catch (err) {
-          console.warn('Failed to save episode-level data:', err);
-        }
-      };
-      const id = setTimeout(saveEpisodeData, AUTO_SAVE_DEBOUNCE_MS);
-      return () => clearTimeout(id);
-    }
-  }, [state.documentText, state.characters, state.locations, state.episodePrompt, state.episodePromptTr, state.episodeStyleHistory, state.timeContexts, episodeId, loadingData, episode]);
-
-  // Auto-save scenes to Supabase whenever sceneCards change
+  // Auto-save scenes + episode-level data to Supabase whenever relevant state changes.
+  // Merging both saves into doSave to avoid duplicate Supabase writes.
   const isSavingRef = useRef(false);
   const pendingSaveRef = useRef(false);
 
+  // Keep a ref to latest state values so doSave always reads fresh data
+  // without needing to be recreated on every state change.
+  const saveStateRef = useRef({
+    sceneCards: state.sceneCards,
+    timeContexts: state.timeContexts,
+    episodePrompt: state.episodePrompt,
+    episodePromptTr: state.episodePromptTr,
+    episodeStyleHistory: state.episodeStyleHistory,
+    documentText: state.documentText,
+    characters: state.characters,
+    locations: state.locations,
+  });
+  saveStateRef.current = {
+    sceneCards: state.sceneCards,
+    timeContexts: state.timeContexts,
+    episodePrompt: state.episodePrompt,
+    episodePromptTr: state.episodePromptTr,
+    episodeStyleHistory: state.episodeStyleHistory,
+    documentText: state.documentText,
+    characters: state.characters,
+    locations: state.locations,
+  };
+
   const doSave = useCallback(async () => {
-    if (!episodeId || state.sceneCards.length === 0) return;
+    if (!episodeId) return;
+    const snap = saveStateRef.current;
+    if (snap.sceneCards.length === 0) return;
     if (isSavingRef.current) {
-      // Another save already running – mark as pending so it re-runs when done
       pendingSaveRef.current = true;
       console.log('⏳ Save already in progress, queuing…');
       return;
@@ -315,21 +316,25 @@ const Index = () => {
 
     try {
       setSavingStatus('saving');
-      console.log('💾 Auto-saving scenes...');
+      console.log('💾 Auto-saving scenes + episode data...');
 
-      // Save scenes - using native UUIDs from React state directly
-      const savedScenes = await saveScenes(episodeId, state.sceneCards);
+      // Save scenes
+      await saveScenes(episodeId, snap.sceneCards);
 
-      // Save time contexts and episode prompts
+      // Save all episode-level data in a SINGLE call (no duplicate writes)
       await updateEpisode(episodeId, {
-        time_contexts: state.timeContexts,
-        episode_prompt: state.episodePrompt,
-        episode_prompt_tr: state.episodePromptTr
+        time_contexts: snap.timeContexts,
+        episode_prompt: snap.episodePrompt || undefined,
+        episode_prompt_tr: snap.episodePromptTr || undefined,
+        episode_style_history: snap.episodeStyleHistory,
+        document_text: snap.documentText || undefined,
+        character_data: JSON.stringify(snap.characters),
+        location_data: JSON.stringify(snap.locations),
       });
 
       // Save prompts in parallel batches (5 at a time) with error isolation
       const PROMPT_BATCH = 5;
-      const scenesWithPrompts = state.sceneCards.filter(scene => scene.prompts.length > 0);
+      const scenesWithPrompts = snap.sceneCards.filter(scene => scene.prompts.length > 0);
 
       let failedCount = 0;
       for (let i = 0; i < scenesWithPrompts.length; i += PROMPT_BATCH) {
@@ -371,20 +376,24 @@ const Index = () => {
       });
     } finally {
       isSavingRef.current = false;
-      // If another save was requested while we were busy, run it now
       if (pendingSaveRef.current) {
         pendingSaveRef.current = false;
         doSave();
       }
     }
-  }, [episodeId, state.sceneCards, state.timeContexts, state.episodePrompt, state.episodePromptTr, toast]);
+  }, [episodeId, toast]);
 
   useEffect(() => {
-    if (!loadingData && state.sceneCards.length > 0 && episodeId) {
+    if (!loadingData && episode && episodeId) {
       const timeoutId = setTimeout(doSave, AUTO_SAVE_DEBOUNCE_MS);
       return () => clearTimeout(timeoutId);
     }
-  }, [state.sceneCards, state.timeContexts, state.episodePrompt, state.episodePromptTr, episodeId, loadingData, doSave]);
+  }, [
+    state.sceneCards, state.timeContexts, state.episodePrompt, state.episodePromptTr,
+    state.episodeStyleHistory, state.documentText, state.characters, state.locations,
+    episodeId, loadingData, episode, doSave
+  ]);
+
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [infoOpen, setInfoOpen] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
@@ -750,13 +759,18 @@ const Index = () => {
     }
   }, [state.scenes, dispatch]);
 
+  // Ref to access latest state in callbacks without adding state to their dependency arrays.
+  // This prevents heavy callbacks from being recreated on every state update.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
   const handleGenerate = useCallback(async (sceneId: string) => {
     if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
       setNoKeysWarning(true);
       setSettingsOpen(false);
       return;
     }
-    const scene = state.scenes.find(s => s.id === sceneId);
+    const scene = stateRef.current.scenes.find(s => s.id === sceneId);
     if (!scene) return;
 
     // Create AbortController for this scene
@@ -765,16 +779,16 @@ const Index = () => {
 
     dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'generating' } });
 
-    const groups = state.consistencyGroups.filter(g => scene.consistencyGroupIds?.includes(g.id));
+    const groups = stateRef.current.consistencyGroups.filter(g => scene.consistencyGroupIds?.includes(g.id));
 
     // Determine effective variant count based on scene analysis
-    const sceneAnalysis = state.sceneAnalyses[sceneId];
-    let effectiveVariantCount: number = state.settings.variantCount;
+    const sceneAnalysis = stateRef.current.sceneAnalyses[sceneId];
+    let effectiveVariantCount: number = stateRef.current.settings.variantCount;
     if (sceneAnalysis) {
       if (sceneAnalysis.narrativeType === 'timelapse') {
-        effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, state.settings.variantCount), 5);
+        effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, stateRef.current.settings.variantCount), 5);
       } else if (sceneAnalysis.narrativeType === 'sequence') {
-        effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, state.settings.variantCount), 4);
+        effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, stateRef.current.settings.variantCount), 4);
       }
     }
 
@@ -784,17 +798,17 @@ const Index = () => {
         return;
       }
       const sceneEntities = {
-        characters: state.extractedEntities.filter(e => e.type === 'character' && e.sceneIds.includes(sceneId)),
-        locations: state.extractedEntities.filter(e => e.type === 'location' && e.sceneIds.includes(sceneId)),
+        characters: stateRef.current.extractedEntities.filter(e => e.type === 'character' && e.sceneIds.includes(sceneId)),
+        locations: stateRef.current.extractedEntities.filter(e => e.type === 'location' && e.sceneIds.includes(sceneId)),
       };
       const results = await generatePrompts({
         scene,
         apiKey: '',
-        model: state.settings.model,
+        model: stateRef.current.settings.model,
         variantCount: effectiveVariantCount,
-        temperature: state.settings.temperature,
+        temperature: stateRef.current.settings.temperature,
         consistencyGroups: groups.length > 0 ? groups : undefined,
-        allScenes: state.scenes,
+        allScenes: stateRef.current.scenes,
         systemPrompt: loadSystemPrompt(),
         sceneEntities: (sceneEntities.characters.length > 0 || sceneEntities.locations.length > 0) ? sceneEntities : undefined,
         sceneAnalysis: sceneAnalysis,
@@ -825,7 +839,7 @@ const Index = () => {
   }, [state, dispatch]);
 
   const handleGenerateAll = useCallback(async () => {
-    const pending = state.scenes.filter(s => s.status === 'pending');
+    const pending = stateRef.current.scenes.filter(s => s.status === 'pending');
     const bulkController = new AbortController();
     bulkAbortRef.current = bulkController;
     setIsGeneratingAll(true);
@@ -1220,24 +1234,24 @@ const Index = () => {
       setNoKeysWarning(true);
       return;
     }
-    const sceneCardsToRegen = state.sceneCards;
-    if (sceneCardsToRegen.length === 0) {
+    // Take a snapshot of the current scene IDs BEFORE clearing prompts.
+    // This avoids the race condition where dispatch is async and the generator
+    // would read stale (already-cleared) state.
+    const sceneIds = stateRef.current.sceneCards.map(sc => sc.id);
+    if (sceneIds.length === 0) {
       toast({ title: 'Sahne yok', description: 'Önce sahneleri analiz edin.' });
       return;
     }
-    // Tüm sahne kartlarının promptlarını temizle, status'u sıfırla
-    sceneCardsToRegen.forEach(sc => {
+
+    // Clear all prompts optimistically
+    sceneIds.forEach(sceneId => {
       dispatch({
         type: 'FINISH_PROMPT_GENERATION',
-        payload: { sceneId: sc.id, prompts: [] },
+        payload: { sceneId, prompts: [] },
       });
     });
 
-    // State güncellemesi React'ta batched/async olduğundan handleGenerateAllPrompts
-    // stale state okuyabilir ve hiçbir sahne üretmez. Bunun yerine scene ID listesini
-    // snapshot olarak alıp direkt üretim pipeline'ını çağırıyoruz.
     setIsBulkGeneratingPrompts(true);
-    const sceneIds = sceneCardsToRegen.map(sc => sc.id);
     const controller = new AbortController();
     bulkPromptsAbortRef.current = controller;
     setBulkPromptsProgress({ done: 0, total: sceneIds.length });
@@ -1245,6 +1259,7 @@ const Index = () => {
     let done = 0;
     for (const sceneId of sceneIds) {
       if (controller.signal.aborted) break;
+      // Pass isRegeneration=true so the generator uses the correct operation type
       await handleGeneratePromptsForScene(sceneId, true);
       done++;
       setBulkPromptsProgress({ done, total: sceneIds.length });
@@ -1254,7 +1269,8 @@ const Index = () => {
     setIsBulkGeneratingPrompts(false);
     bulkPromptsAbortRef.current = null;
     setBulkPromptsProgress({ done: 0, total: 0 });
-  }, [state.sceneCards, dispatch, handleGeneratePromptsForScene, toast]);
+  }, [dispatch, handleGeneratePromptsForScene, toast]);
+
 
 
   const handleRegenerateAllPrompts = useCallback(async (sceneId: string) => {

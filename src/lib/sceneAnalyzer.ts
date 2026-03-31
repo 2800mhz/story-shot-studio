@@ -220,19 +220,38 @@ function splitTextIntoChunks(text: string, maxChars = 6000): string[] {
 }
 
 function recoverTruncatedJson(raw: string): string {
-  // Try to find the last complete scene object before truncation
-  const lastCompleteScene = raw.lastIndexOf('},');
-  const lastScene = raw.lastIndexOf('}');
-
-  if (lastCompleteScene > 0) {
-    // Ensure we have the opening {"scenes":[ wrapper
-    const recovered = raw.substring(0, lastCompleteScene + 1) + ']}';
-    return recovered;
-  } else if (lastScene > 0) {
-    const recovered = raw.substring(0, lastScene + 1) + ']}';
-    return recovered;
+  // Find the last safely-terminated position in the raw string.
+  // Strategy: count unclosed brackets/braces and close them in order.
+  const lastObj = raw.lastIndexOf('}');
+  if (lastObj <= 0) {
+    throw new Error('Cannot recover truncated JSON');
   }
-  throw new Error('Cannot recover truncated JSON');
+
+  // Truncate to last closing brace first, then balance remaining open structures
+  let candidate = raw.substring(0, lastObj + 1);
+
+  // Count unbalanced open brackets [ and braces {
+  let openBrackets = 0;
+  let openBraces = 0;
+  let inString = false;
+  let escape = false;
+
+  for (const ch of candidate) {
+    if (escape) { escape = false; continue; }
+    if (ch === '\\' && inString) { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '[') openBrackets++;
+    else if (ch === ']') openBrackets--;
+    else if (ch === '{') openBraces++;
+    else if (ch === '}') openBraces--;
+  }
+
+  // Close unclosed arrays then objects
+  candidate += ']'.repeat(Math.max(0, openBrackets));
+  candidate += '}'.repeat(Math.max(0, openBraces));
+
+  return candidate;
 }
 
 type SceneRaw = {
