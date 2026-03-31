@@ -1213,21 +1213,41 @@ const Index = () => {
       setNoKeysWarning(true);
       return;
     }
-    if (state.sceneCards.length === 0) {
+    const sceneCardsToRegen = state.sceneCards;
+    if (sceneCardsToRegen.length === 0) {
       toast({ title: 'Sahne yok', description: 'Önce sahneleri analiz edin.' });
       return;
     }
     // Tüm sahne kartlarının promptlarını temizle, status'u sıfırla
-    state.sceneCards.forEach(sc => {
+    sceneCardsToRegen.forEach(sc => {
       dispatch({
         type: 'FINISH_PROMPT_GENERATION',
         payload: { sceneId: sc.id, prompts: [] },
       });
     });
-    // Kısa gecikme sonra normal bulk pipeline'ı başlat
-    await new Promise(r => setTimeout(r, 150));
-    await handleGenerateAllPrompts();
-  }, [state.sceneCards, dispatch, handleGenerateAllPrompts, toast]);
+
+    // State güncellemesi React'ta batched/async olduğundan handleGenerateAllPrompts
+    // stale state okuyabilir ve hiçbir sahne üretmez. Bunun yerine scene ID listesini
+    // snapshot olarak alıp direkt üretim pipeline'ını çağırıyoruz.
+    setIsBulkGeneratingPrompts(true);
+    const sceneIds = sceneCardsToRegen.map(sc => sc.id);
+    const controller = new AbortController();
+    bulkPromptsAbortRef.current = controller;
+    setBulkPromptsProgress({ done: 0, total: sceneIds.length });
+
+    let done = 0;
+    for (const sceneId of sceneIds) {
+      if (controller.signal.aborted) break;
+      await handleGeneratePromptsForScene(sceneId, true);
+      done++;
+      setBulkPromptsProgress({ done, total: sceneIds.length });
+      await new Promise(r => setTimeout(r, 200));
+    }
+
+    setIsBulkGeneratingPrompts(false);
+    bulkPromptsAbortRef.current = null;
+    setBulkPromptsProgress({ done: 0, total: 0 });
+  }, [state.sceneCards, dispatch, handleGeneratePromptsForScene, toast]);
 
 
   const handleRegenerateAllPrompts = useCallback(async (sceneId: string) => {
@@ -1283,21 +1303,41 @@ const Index = () => {
     if (!scene) return;
 
     const restoredPrompt: PromptCard = {
-      id: entry.id || crypto.randomUUID(),
+      id: crypto.randomUUID(), // Yeni UUID — eski aktif kayıtla çakışmasın
       shotType: entry.shot_type || 'establishing',
       promptText: entry.prompt_text || '',
       summary: entry.summary || 'Önceki versiyondan geri yüklendi',
       explanation: entry.explanation || '',
       aspectRatio: entry.aspect_ratio || '16:9',
       label: entry.label || undefined,
+      generationType: 'initial', // geri yüklenen prompt "initial" olarak işaretlenir
       versions: []
     };
 
+    // Aynı shotType + label'a sahip mevcut prompt varsa onu DEĞİŞTİR;
+    // yoksa listeye yeni olarak ekle (varyasyon davranışı).
+    const existingIdx = scene.prompts.findIndex(
+      p =>
+        (p.shotType === restoredPrompt.shotType) &&
+        ((p.label || '') === (restoredPrompt.label || ''))
+    );
+
+    let updatedPrompts: PromptCard[];
+    if (existingIdx !== -1) {
+      // Aynı tipte bir prompt varsa üzerine yaz
+      updatedPrompts = scene.prompts.map((p, i) =>
+        i === existingIdx ? restoredPrompt : p
+      );
+    } else {
+      // Yeni tür prompt — ekle
+      updatedPrompts = [...scene.prompts, restoredPrompt];
+    }
+
     dispatch({
       type: 'FINISH_PROMPT_GENERATION',
-      payload: { sceneId, prompts: [...scene.prompts, restoredPrompt] },
+      payload: { sceneId, prompts: updatedPrompts },
     });
-    toast({ title: 'Başarılı', description: 'Önceki prompt versiyonu sahneye eklendi.' });
+    toast({ title: 'Geri Yüklendi', description: 'Önceki prompt versiyonu başarıyla geri yüklendi.' });
   }, [state.sceneCards, dispatch, toast]);
 
   const handleDeletePrompt_ = useCallback((sceneId: string, promptId: string) => {
