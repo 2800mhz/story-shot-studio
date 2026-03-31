@@ -59,8 +59,9 @@ const Index = () => {
           console.error('Failed to initialize AI provider:', err);
         });
     }
+  // Only re-initialize when the user ID actually changes, not on every user object re-render
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user?.id]);
 
   // Sync model to aiProvider whenever settings change
   useEffect(() => {
