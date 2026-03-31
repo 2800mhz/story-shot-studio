@@ -22,7 +22,7 @@ import { generatePrompts, loadSystemPrompt } from '@/lib/geminiApi';
 import { analyzeTextIntoScenes, generateEpisodePrompt, generateEpisodePromptTurkishExplanation, reviseEpisodePrompt } from '@/lib/sceneAnalyzer';
 import { analyzeReferenceImage } from '@/lib/referenceAnalyzer';
 import { generatePromptsForScene, revisePrompt, autoSelectBestPrompt } from '@/lib/promptGenerator';
-import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetchAllPromptsForScenes, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts, setPinnedPrompt, fetchReferences, updateReferenceAssignments } from '@/lib/supabaseQueries';
+import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetchAllPromptsForScenes, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts, setPinnedPrompt, fetchReferences, updateReferenceAssignments, fetchUserModel, saveUserModel } from '@/lib/supabaseQueries';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
@@ -50,9 +50,15 @@ const Index = () => {
   useEffect(() => {
     if (user?.id) {
       aiProvider.initialize(user.id)
-        .then(() => {
-          // Sync model from settings
-          aiProvider.setModel(state.settings.model);
+        .then(async () => {
+          // Load preferred model from Supabase (cross-device, persistent)
+          const savedModel = await fetchUserModel(user.id);
+          const modelToUse = savedModel || state.settings.model;
+          if (savedModel && savedModel !== state.settings.model) {
+            // Supabase has a newer/different model — update local state too
+            dispatch({ type: 'SET_SETTINGS', payload: { model: savedModel } });
+          }
+          aiProvider.setModel(modelToUse);
           setNoKeysWarning(!aiProvider.hasKeys());
         })
         .catch(err => {
@@ -1747,7 +1753,13 @@ const Index = () => {
         settings={state.settings}
         onSaveKeys={keys => dispatch({ type: 'SET_API_KEYS', payload: keys })}
         onSaveImageKeys={keys => dispatch({ type: 'SET_IMAGE_API_KEYS', payload: keys })}
-        onSaveSettings={s => dispatch({ type: 'SET_SETTINGS', payload: s })}
+        onSaveSettings={s => {
+          dispatch({ type: 'SET_SETTINGS', payload: s });
+          // Persist model preference to Supabase so it survives across devices/sessions
+          if (user?.id && s.model) {
+            saveUserModel(user.id, s.model);
+          }
+        }}
         aspectRatio={aspectRatio}
         onAspectRatioChange={setAspectRatio}
       />

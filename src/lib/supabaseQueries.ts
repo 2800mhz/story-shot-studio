@@ -604,3 +604,32 @@ export async function updateReferenceAssignments(id: string, sceneIds: string[])
   if (error) throw error;
   return data;
 }
+
+// ── User Settings (model preference etc.) ────────────────────────────────────
+
+export async function fetchUserModel(userId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('user_settings')
+    .select('model')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('⚠️ Could not load user model preference:', error.message);
+    return null;
+  }
+  return data?.model ?? null;
+}
+
+export async function saveUserModel(userId: string, model: string): Promise<void> {
+  const { error } = await supabase
+    .from('user_settings')
+    .upsert(
+      { user_id: userId, model, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    );
+
+  if (error) {
+    console.warn('⚠️ Could not save user model preference:', error.message);
+  }
+}
