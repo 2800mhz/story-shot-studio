@@ -2,6 +2,9 @@
 
 Bu doküman, Story Shot Studio'nun (SSS) uçtan uca mimarisini, veri akışını (data flow), durum yönetimini (state management), yapay zeka entegrasyonlarını ve veritabanı şemasını detaylı grafiklerle açıklamaktadır.
 
+amanın
+
+
 ---
 
 ## 1. Yüksek Seviye Sistem Mimarisi (High-Level Architecture)
