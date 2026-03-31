@@ -29,17 +29,35 @@ class AIProviderManager {
 
     if (error) throw error;
 
+    // Build a map of existing key states to preserve rate-limit and active status
+    // across re-initializations (e.g. caused by React re-renders during a retry loop)
+    const existingStates = new Map<string, { rate_limited_until: string | null; is_active: boolean }>();
+    this.keys.forEach(providerKeys => {
+      providerKeys.forEach(k => {
+        existingStates.set(k.id, { rate_limited_until: k.rate_limited_until, is_active: k.is_active });
+      });
+    });
+
     this.keys.clear();
     data?.forEach(key => {
       if (!this.keys.has(key.provider)) {
         this.keys.set(key.provider, []);
       }
+      // Restore in-memory rate limit / inactive state from previous run
+      const prev = existingStates.get(key.id);
+      if (prev) {
+        key.rate_limited_until = prev.rate_limited_until;
+        key.is_active = prev.is_active;
+      }
       this.keys.get(key.provider)?.push(key);
     });
 
+    // Only reset rotation index on first-time initialization, not on re-init
+    if (!this.initialized) {
+      this.currentProvider = 'gemini';
+      this.currentKeyIndex = 0;
+    }
     this.initialized = true;
-    this.currentProvider = 'gemini';
-    this.currentKeyIndex = 0;
 
     console.log('🔑 Loaded API keys:', {
       gemini: this.keys.get('gemini')?.length || 0,
@@ -80,10 +98,17 @@ class AIProviderManager {
       throw new Error('All AI providers exhausted. Please add more API keys in Settings.');
     }
 
-    const key = this.getCurrentKey();
+    let key = this.getCurrentKey();
     if (!key) {
-      // If we ran out of keys but haven't hit max retries, we might need to wait for rate limits
-      throw new Error('No active API keys available. Please add keys in Settings.');
+      // All keys are currently rate-limited or inactive.
+      // If we haven't exhausted maxRetries, wait 10s and try again from the top.
+      if (retryCount < maxRetries) {
+        console.warn(`⏳ All keys exhausted, waiting 10s before retry (attempt ${retryCount + 1}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, 10_000));
+        this.currentKeyIndex = 0; // reset so we try from start after the wait
+        return this._generateWithRetry(prompt, systemInstruction, retryCount + 1, operationType, images);
+      }
+      throw new Error('No active API keys available. Please add more Gemini API keys in Settings.');
     }
 
     try {
@@ -162,9 +187,15 @@ class AIProviderManager {
       throw new Error('All AI providers exhausted. Please add more API keys in Settings.');
     }
 
-    const key = this.getCurrentKey();
+    let key = this.getCurrentKey();
     if (!key) {
-      throw new Error('No active API keys available. Please add keys in Settings.');
+      if (retryCount < maxRetries) {
+        console.warn(`⏳ All keys exhausted [STREAM], waiting 10s before retry (attempt ${retryCount + 1}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, 10_000));
+        this.currentKeyIndex = 0;
+        return this._generateWithRetryStream(prompt, systemInstruction, retryCount + 1, operationType, onChunk);
+      }
+      throw new Error('No active API keys available. Please add more Gemini API keys in Settings.');
     }
 
     try {
