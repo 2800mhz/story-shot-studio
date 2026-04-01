@@ -264,17 +264,22 @@ class AIProviderManager {
         let fullText = '';
         let inputTokens = 0;
         let outputTokens = 0;
+        let buffer = '';
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split('\n');
+          buffer = parts.pop() || ''; // keep the last incomplete line in the buffer
 
-          for (const line of lines) {
+          for (const line of parts) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data: ')) continue;
+
             try {
-              const jsonStr = line.replace('data: ', '').trim();
+              const jsonStr = trimmed.replace('data: ', '').trim();
               if (!jsonStr) continue;
 
               const json = JSON.parse(jsonStr);

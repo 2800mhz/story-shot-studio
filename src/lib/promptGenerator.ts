@@ -8,45 +8,92 @@ TASK:
 Analyze the scene and produce 3 DIFFERENT cinematic English prompts from different camera angles:
 - Prompt 1: Wide Shot / Establishing Shot — environment, atmosphere, full context
 - Prompt 2: Medium Shot — subject + action + immediate surroundings  
-- Prompt 3: Close-up / Detail Shot — face, costume texture, expression
+- Prompt 3: Close-up / Detail Shot — costume texture, hands, silhouette edge, environmental object — NEVER a frontal face
 
 PROMPT LENGTH: 120-150 words each. Precise and specific.
+
+═══════════════════════════════════════════════════════════
+FACE & POSE PROHIBITION — ABSOLUTE RULE — NO EXCEPTIONS
+═══════════════════════════════════════════════════════════
+NEVER produce a frontal face portrait in ANY of the 3 prompts.
+This applies even when a CHARACTER entity is provided.
+FORBIDDEN in EVERY prompt, always:
+  ✗ Direct frontal face / portrait / face staring at camera
+  ✗ Subjects posing for the camera or making eye contact with lens
+  ✗ "Focusing on the face of [character]" phrasing
+  ✗ Close-up of face / head-and-shoulders portrait
+  ✗ Direct eye contact, piercing gaze toward viewer
+
+REQUIRED camera angles that hide or redirect the face:
+  ✓ Back view — subject walking away, facing away from camera
+  ✓ Profile / side view — 90° angle, face partially or fully in shadow
+  ✓ Over-the-shoulder — camera behind subject, looking at what they see
+  ✓ Low angle from ground — looking up at torso and sky, face tilted away
+  ✓ Obscured by environment — face in shadow, dust, smoke, backlit silhouette
+  ✓ Distant figure — too far for facial detail
+  ✓ Hands / clothing detail close-up instead of face
+  ✓ Deep silhouette against bright sky or fire
+
+FOR CLOSE-UP (Prompt 3) — when a CHARACTER entity exists:
+  Choose ONE of: hands gripping object, fabric folds, boot in dust, silhouette edge,
+  headdress detail from behind, belt/weapon detail, shadow cast on ground.
+  NEVER choose: face, eyes, expression.
+
+FOR MEDIUM SHOT (Prompt 2):
+  Subject must be in motion or action — turning, walking, lifting, kneeling.
+  Camera angle: over-the-shoulder, 3/4 back, or low angle.
+  Subject's face must be angled away, in shadow, or obscured by motion.
+
+CAMERA FRAMING LANGUAGE TO USE (pick from these):
+  "back turned to camera", "seen from behind", "over-the-shoulder framing",
+  "face in deep shadow", "silhouetted against the sky", "profile view, face in shadow",
+  "low angle, face tilted upward and away from lens", "distant figure, face indistinguishable",
+  "face obscured by dust and motion blur", "camera behind the subject"
+═══════════════════════════════════════════════════════════
 
 ENTITY INTEGRATION (CRITICAL):
 The === SCENE SETTING ===, === CHARACTER ===, and === LOCATION === blocks are your ONLY source of truth.
 Do NOT invent, assume, or add anything not stated in these blocks.
 Every field must appear verbatim in your prompts:
-- Age, phenotype, facial features, hair, beard, clothing → write each explicitly
+- Age, phenotype, hair, beard, clothing → write each explicitly
 - Location terrain, sky, architecture, vegetation → describe exactly as given
 - Time of day, lighting, weather → must match SCENE SETTING exactly
 NEVER summarize. If the character has "deer-hide coat with bone talismans" — write it exactly so.
+NOTE: Embed physical character details (silhouette, clothing, posture) — but ALWAYS pair with the face-hiding camera angle rules above.
 
 CHARACTER RECURRENCE (CRITICAL):
 Every prompt (Wide, Medium, Close-up) must repeat ALL character physical attributes.
 Do NOT assume the AI model remembers from Prompt 1.
-Hair style, beard, headpiece, every garment — repeat in all 3 prompts.
+Clothing, silhouette, posture, every garment — repeat in all 3 prompts.
+(Do NOT repeat "facial features" as a face directive — redirect to indirect angle instead.)
 
-NO ENTITY = NO FACE CLOSE-UP (CRITICAL):
-If NO === CHARACTER === block is provided, the Close-up prompt MUST NOT show any human face.
-Instead, for Prompt 3, depict an environmental or architectural detail: cracked stone, worn wood grain,
-rust on metal, dust on cobblestones, a distant flag, a doorway, an object — anything but a face.
-FORBIDDEN: inventing a random unnamed person and showing their face just to fill the close-up slot.
-If there is no character entity, treat Prompt 3 as a "Detail / Texture / Object" shot, not a face shot.
+NO ENTITY = NO FACES AT ALL (CRITICAL):
+If NO === CHARACTER === block is provided, you MUST NOT show ANY human faces in ANY prompt (Wide, Medium, or Close-up).
+Instead, use INDIRECT storytelling: show silhouettes in dust, distant figures without detail, trampled objects, architecture, shadows, or environmental damage.
+FORBIDDEN: inventing a random unnamed person (civilian, soldier) and showing their face just to fill the frame.
+Prompt 3 MUST ALWAYS be an architectural or environmental detail (cracked stone, rust, dust, dropped object) if there's no character entity.
 
-DOCUMENTARY CANDID FEEL (CRITICAL — APPLIES TO ALL PROMPTS):
-Every image must feel like a camera happened to be there and caught the real moment — not a posed portrait.
+CINEMATIC & INDIRECT STORYTELLING (CRITICAL — APPLIES TO ALL PROMPTS):
+Every image must feel like a gritty, high-end cinematic documentary catching a real moment organically.
 FORBIDDEN in every prompt:
-- People posing for the camera
-- Subjects looking directly into the lens (unless explicitly requested)
-- Theater-stage compositions where everyone is arranged facing forward
-- Still-life portrait lighting (flat studio look)
-- Symmetrical "hero pose" arrangements
+- Plain, generic human faces staring blankly (e.g. standard Mongol soldier face, standard ruined civilian face).
+- Direct portraits of historical figures (Sultans, commanders). Always use indirect angles.
+- People posing for the camera or looking directly into the lens.
+- "Theater-stage" unrealistic compositions (e.g. two armies perfectly arranged facing each other just to fit the frame, breaking reality).
+- Symmetrical "hero pose" arrangements or flat studio-lighting.
 REQUIRED:
-- Use verbs like: moving through, scanning the horizon, gesturing toward, leaning over, turning away, crouching
-- Describe where subjects are looking: at the ground, toward the smoke, at each other, past the camera
-- Add environmental motion cues: dust rising, fabric shifting in wind, smoke drifting
-- Shoot from slightly off-angle, low or high vantage, as if the camera crew followed them in
-- "Candid documentary frame", "caught-in-motion", "unposed street photography style" are valid descriptors
+- Use INDIRECT angles: over-the-shoulder, back view, deep silhouettes, obscured faces in shadow/smoke, extreme low/high angles.
+- Describe where subjects are looking or moving: turning away, rushing past the camera, face obscured by dust/armor.
+- For battles/crowds/cities: use asymmetrical framing, chaotic fragments of action (a horse's hooves, a raised banner in smoke, trampled belongings), not the whole army neatly arranged in frame.
+- Add environmental motion cues: dust rising, fabric shifting in wind, smoke drifting.
+- "Candid documentary frame", "caught-in-motion", "cinematic indirect framing" are valid descriptors.
+
+MULTI-GROUP COMPOSITIONS (battles, two sides, crowd vs civilians):
+NEVER fit two opposing groups facing each other in the same frame — this creates a theater-stage illusion that breaks visual reality.
+Instead choose ONE of:
+  - Bird's-eye / aerial extreme wide: both groups seen from far above, geography matters
+  - Chaotic fragment: one side's boots, weapons, dust — the other implied by sound/shadow
+  - Single perspective: camera inside one group looking outward (not at the other group)
 
 COLOR PALETTE CONSISTENCY (CRITICAL):
 Within a single episode, if time of day and location have NOT significantly changed, the color palette must remain consistent.
@@ -80,6 +127,7 @@ NATURAL EYES RULE:
 - FORBIDDEN: glowing eyes, lit-from-within, colored glowing pupils, laser eyes
 - Face lighting: naturalistic, directional, or rim light only
 - NEVER wash out skin texture with light
+(Note: since faces should not be prominent per the face prohibition above, this mainly applies to profile/shadow scenarios.)
 
 ANTHROPOLOGICAL & HISTORICAL ACCURACY (CRITICAL):
 - NEVER base any figure on film, TV, or cinematic adaptations
@@ -132,19 +180,19 @@ RESPONSE FORMAT (JSON only, no markdown):
       "shotType": "Wide Shot",
       "summary": "Turkish scene note (copy verbatim from input)",
       "explanation": "Bu görselin ne gösterdiğinin Türkçe açıklaması (1 cümle, 'Bu görsel...' ile başla)",
-      "prompt": "120-150 words, all entity fields embedded verbatim"
+      "prompt": "120-150 words, all entity fields embedded verbatim, face-hiding camera angle mandatory"
     },
     {
       "shotType": "Medium Shot",
       "summary": "Turkish scene note (copy verbatim)",
       "explanation": "Türkçe açıklama (1 cümle)",
-      "prompt": "120-150 words, full character and location detail"
+      "prompt": "120-150 words, full character and location detail, over-the-shoulder or back view mandatory"
     },
     {
       "shotType": "Close-up",
       "summary": "Turkish scene note (copy verbatim)",
       "explanation": "Türkçe açıklama (1 cümle)",
-      "prompt": "120-150 words, extreme facial and costume detail — OR texture/object detail if no CHARACTER entity"
+      "prompt": "120-150 words, hands/clothing/object/silhouette detail ONLY — NO face close-up even if CHARACTER entity exists"
     }
   ],
   "optimizations": ["optimization applied", ...]
@@ -256,45 +304,53 @@ Avoid literal interpretation of metaphors.\n`
 
   userMessage += styleNote;
 
-  // Karakter bilgilerini userMessage'ın EN BAŞINA ekle
+  // ─── ENTITY HEADER ───────────────────────────────────────────────────────────
   let entityHeader = '';
 
   if (characters.length > 0) {
     const individualChars = characters.filter(c => !c.isCrowd);
 
+    // Mandatory camera-angle enforcement injected per character block
+    const FACE_RULE = `⚠️ CAMERA RULE: Subject's face must NOT be visible frontally in any prompt.
+Use one of: back view, over-the-shoulder, profile in shadow, silhouette, face obscured by dust/smoke.
+Embed clothing and silhouette details verbatim — redirect "facial features" into indirect angle description.\n`;
+
     if (individualChars.length === 1) {
       const char = individualChars[0];
       entityHeader += `=== CHARACTER TO DEPICT: ${char.name}${char.role ? ` (${char.role})` : ''} ===\n`;
       entityHeader += `⚠️ EMBED ALL OF THE FOLLOWING FIELDS VERBATIM INTO EVERY PROMPT. DO NOT OMIT OR SUMMARIZE ANY FIELD.\n`;
-      if (char.age) entityHeader += `Age: ${char.age}\n`;
-      if (char.ethnicity) entityHeader += `Phenotype/Ethnicity: ${char.ethnicity}\n`;
-      if (char.physicalFeatures) entityHeader += `Facial features: ${char.physicalFeatures}\n`;
-      if (char.hair) entityHeader += `Hair (color, length, style — describe exactly): ${char.hair}\n`;
-      if (char.beard) entityHeader += `Beard/Facial hair (describe exactly): ${char.beard}\n`;
-      if (char.clothing) entityHeader += `Costume (every garment and accessory — describe each): ${char.clothing}\n`;
-      if (char.visualDescription) entityHeader += `Full visual description (integrate sentence by sentence): ${char.visualDescription}\n`;
-      entityHeader += `⚠️ MAINTAIN THIS EXACT APPEARANCE ACROSS ALL 3 PROMPTS. ANY DEVIATION IS AN ERROR.\n\n`;
+      entityHeader += FACE_RULE;
+      if (char.age) entityHeader += `Age/build silhouette: ${char.age}\n`;
+      if (char.ethnicity) entityHeader += `Phenotype/Ethnicity (for costume and posture context): ${char.ethnicity}\n`;
+      if (char.physicalFeatures) entityHeader += `Physical build and silhouette (NOT for frontal rendering — use for posture/back-view detail): ${char.physicalFeatures}\n`;
+      if (char.hair) entityHeader += `Hair visible from back/profile (color, length, style): ${char.hair}\n`;
+      if (char.beard) entityHeader += `Beard visible in profile/shadow: ${char.beard}\n`;
+      if (char.clothing) entityHeader += `Costume (every garment and accessory — describe each, visible from back or side): ${char.clothing}\n`;
+      if (char.visualDescription) entityHeader += `Full visual description (integrate into back-view or silhouette framing): ${char.visualDescription}\n`;
+      entityHeader += `⚠️ MAINTAIN THIS EXACT APPEARANCE ACROSS ALL 3 PROMPTS. FACE MUST NOT BE FRONTALLY VISIBLE IN ANY PROMPT.\n\n`;
 
     } else if (individualChars.length > 1) {
       entityHeader += `=== MULTIPLE CHARACTERS IN THIS SCENE ===\n`;
-      entityHeader += `Compose ALL characters in the SAME frame. Embed ALL fields of EACH character verbatim.\n\n`;
+      entityHeader += `Compose ALL characters in the SAME frame. Embed ALL fields of EACH character verbatim.\n`;
+      entityHeader += FACE_RULE;
       individualChars.forEach((char, idx) => {
         const position = idx === 0 ? 'FOREGROUND' : idx === 1 ? 'MIDGROUND' : 'BACKGROUND';
         entityHeader += `[${position}] ${char.name}${char.role ? ` (${char.role})` : ''}:\n`;
-        if (char.age) entityHeader += `  Age: ${char.age}\n`;
-        if (char.ethnicity) entityHeader += `  Phenotype/Ethnicity: ${char.ethnicity}\n`;
-        if (char.physicalFeatures) entityHeader += `  Facial features: ${char.physicalFeatures}\n`;
-        if (char.hair) entityHeader += `  Hair: ${char.hair}\n`;
-        if (char.beard) entityHeader += `  Beard/Facial hair: ${char.beard}\n`;
+        if (char.age) entityHeader += `  Age/build: ${char.age}\n`;
+        if (char.ethnicity) entityHeader += `  Phenotype/Ethnicity (costume context): ${char.ethnicity}\n`;
+        if (char.physicalFeatures) entityHeader += `  Silhouette/build (back or profile only): ${char.physicalFeatures}\n`;
+        if (char.hair) entityHeader += `  Hair from back/profile: ${char.hair}\n`;
+        if (char.beard) entityHeader += `  Beard in profile/shadow: ${char.beard}\n`;
         if (char.clothing) entityHeader += `  Costume: ${char.clothing}\n`;
-        if (char.visualDescription) entityHeader += `  Full description: ${char.visualDescription}\n`;
-        entityHeader += `  ⚠️ MAINTAIN EXACT APPEARANCE.\n\n`;
+        if (char.visualDescription) entityHeader += `  Full description (back/profile framing): ${char.visualDescription}\n`;
+        entityHeader += `  ⚠️ NO FRONTAL FACE. Back view or profile in shadow.\n\n`;
       });
     }
 
     const crowds = characters.filter(c => c.isCrowd);
     if (crowds.length > 0) {
       entityHeader += '=== CROWD IN THIS SCENE ===\n';
+      entityHeader += '⚠️ Crowd: use backlit silhouettes, seen from behind or bird\'s-eye. No individual faces.\n';
       crowds.forEach(char => {
         entityHeader += `[CROWD] ${char.name}${char.role ? ` — ${char.role}` : ''}\n`;
         if (char.visualDescription) entityHeader += `Group appearance: ${char.visualDescription}\n`;
@@ -321,8 +377,7 @@ Avoid literal interpretation of metaphors.\n`
     }
   }
 
-  // Agresif ışık ifadelerini yumuşat — "blinding", "supernatural" gibi kelimeler
-  // Flow modelinde gözlerin beyaz parlak üretilmesine veya yüzün yıkanmasına yol açıyor.
+  // Agresif ışık ifadelerini yumuşat
   function sanitizeLighting(raw: string): string {
     return raw
       .replace(/\bblinding\b/gi, 'intense')
@@ -344,8 +399,7 @@ Avoid literal interpretation of metaphors.\n`
       .replace(/\bcosmic\b/gi, 'celestial');
   }
 
-  // ZAMAN BAĞLAMI — entityHeader'ın EN BAŞINA eklenir, karakterden önce.
-  // AI mesajı baştan okur; en kuvvetli kısıtı en üste koymak uyumu artırır.
+  // ZAMAN BAĞLAMI — entityHeader'ın EN BAŞINA eklenir
   if (timeContexts && timeContexts.length > 0) {
     let timeHeader = `=== SCENE SETTING (CRITICAL — DO NOT IGNORE) ===\n`;
     timeContexts.forEach(tc => {
@@ -358,10 +412,7 @@ Avoid literal interpretation of metaphors.\n`
     entityHeader = timeHeader + entityHeader;
   }
 
-  // userMessage'ın en başına entityHeader'ı (zaman bağlamı dahil) ekle
   userMessage = entityHeader + userMessage;
-
-  const additionalContext = '';
 
   // Inject References
   const subjectRefs = references?.filter(r => r.referenceType === 'subject') || [];
@@ -374,8 +425,6 @@ Avoid literal interpretation of metaphors.\n`
     userMessage += `\nSTYLE REFERENCES:\n${styleRefs.map(r => `- ${r.description || r.filePath}`).join('\n')}\n`;
   }
 
-  // Episode prompt overrides/extends master prompt when present.
-  // effectivePrompt = masterPrompt base + EPISODE STYLE OVERRIDE section on top.
   const effectivePrompt = episodePrompt
     ? `${masterPrompt}\n\nEPISODE STYLE OVERRIDE (apply on top of master rules above):\n${episodePrompt}`
     : masterPrompt;
@@ -389,7 +438,6 @@ Avoid literal interpretation of metaphors.\n`
   userMessage += `COMPOSITION HINT: ${compositionHints[aspectRatio] ?? compositionHints['16:9']}\n`;
   userMessage += `KOMPOZİSYON İPUCU: ${compositionHint}\n\n`;
 
-  // Pass scene analysis hints from sceneAnalyzer if available
   if (sceneAnalysis) {
     userMessage += `🔍 SAHNE ANALİZİ (sceneAnalyzer sonucu):\n`;
     userMessage += `- narrativeType: ${sceneAnalysis.narrativeType}\n`;
@@ -432,8 +480,8 @@ SCENE FOCUS: Abstract or narrative scene with no entities.
   }
 
   userMessage += `3 farklı açıdan sinematik prompt üret. Her prompt'ta "${scene.visualNote}" notunun ruhunu koru. Her prompt sonuna "--ar ${aspectRatio} --v 6" ekle.`;
+  userMessage += `\n\n⚠️ REMINDER: No frontal faces in any of the 3 prompts. Back view / over-the-shoulder / silhouette mandatory for all character appearances.`;
 
-  // Helper: try to parse the AI response as JSON, stripping any markdown fences first.
   function tryParseJSON(raw: string) {
     const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     return JSON.parse(cleaned);
@@ -452,7 +500,6 @@ SCENE FOCUS: Abstract or narrative scene with no entities.
   try {
     parsed = tryParseJSON(content);
   } catch (firstErr) {
-    // First attempt failed — retry once with an explicit JSON-only reminder appended.
     console.error('[⚠️ promptGenerator] JSON parse failed on first attempt, retrying with JSON reminder...', firstErr);
     console.error('Malformed response:', content);
     onRetry?.();
@@ -518,7 +565,8 @@ RULES:
 2. Seamlessly INTEGRATE the user's specific request into the existing scene.
 3. Return ONLY the final revised English prompt. No explanations, no markdown fences, no quotes.
 4. Keep all cinematic and technical terminology (--ar flags, etc.) intact.
-5. If the user asks to remove something, remove it naturally without breaking the sentence structure.`;
+5. If the user asks to remove something, remove it naturally without breaking the sentence structure.
+6. NEVER introduce a frontal face or direct portrait angle during revision — maintain indirect framing.`;
 
 export async function revisePrompt(
   originalPrompt: string,
@@ -536,7 +584,6 @@ export async function revisePrompt(
       { operationType: 'prompt_revision' }
     );
 
-    // Clean up markdown fences or surrounding quotes the model might add
     let cleaned = rawContent.trim();
     if (cleaned.startsWith('```')) {
       cleaned = cleaned.replace(/^```[a-z]*\n/, '').replace(/\n```$/, '');
@@ -583,7 +630,7 @@ SHOT TYPE ÖNCELİK SIRASI:
 - Eğer şunları içeriyorsa MEDIUM SHOT seç:
   karşılaşma, diyalog, eylem, hareket, yürüyüş, at, savaş
 - Eğer şunları içeriyorsa CLOSE-UP seç:
-  yüz, göz, el, detay, doku, ifade, yakın
+  el, detay, doku, nesne, silüet kenarı — yüz değil
 
 CLOSE-UP'I ASLA seçme eğer:
 - Sahnede 3+ kişi/asker varsa
@@ -596,11 +643,6 @@ SADECE şu JSON formatında yanıt ver, başka hiçbir şey yazma:
 { "selectedIndex": 0, "reason": "Türkçe kısa gerekçe (max 1 cümle)" }
 selectedIndex: 0 = ilk prompt, 1 = ikinci prompt, 2 = üçüncü prompt`;
 
-/**
- * Uses AI to automatically select the best prompt for a scene card.
- * Acts as a "director/writer" evaluating cinematic, emotional, and narrative quality.
- * Returns the index (0-based) of the best prompt and a brief reasoning.
- */
 export async function autoSelectBestPrompt(
   prompts: PromptCard[],
   sceneText: string,

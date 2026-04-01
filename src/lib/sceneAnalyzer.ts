@@ -83,6 +83,9 @@ Her sahne görüntü olarak üretilip hafif hareketlendirme alacağından:
 - DONDURULMUS AN prensibi: hareketin en dramatik karesi
   ("su fışkırdığı an" değil "su fışkırmak üzere, gerilim anı")
 - YASAK: Tamamen soyut, düz, derinliksiz kompozisyonlar
+- YASAK: Karakterlerin kameraya veya ileriye dümdüz baktığı vesikalık pozlar.
+- YASAK: Orduların tiyatro sahnesi gibi tüm kadro karşılıklı dizildiği vizyonsuz geniş açılar.
+- TERCİH EDİLEN: Omuz üstü (over-the-shoulder), silüet, kaosun içinden (toz/duman) detaya odaklı sinematik açılar.
 
 GÖRSEL TUTARLILIK VE KALİTE
 
