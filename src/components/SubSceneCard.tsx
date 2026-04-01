@@ -39,7 +39,7 @@ export function SubSceneCard({
   const availableGroups = allConsistencyGroups.filter(g => !currentGroupIds.has(g.id));
 
   const handleCopy = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(text).catch(() => {});
     setCopiedId(id);
   };
 

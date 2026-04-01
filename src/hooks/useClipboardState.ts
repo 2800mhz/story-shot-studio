@@ -1,20 +1,27 @@
 import { useState, useEffect } from 'react';
 
 let globalCopiedId: string | null = null;
-const listeners = new Set<(id: string | null) => void>();
 
 export function setGlobalCopiedId(id: string | null) {
   globalCopiedId = id;
-  listeners.forEach((listener) => listener(id));
+  window.dispatchEvent(new CustomEvent('prompt-copied', { detail: id }));
 }
 
 export function useClipboardState() {
   const [copiedId, setCopiedIdState] = useState<string | null>(globalCopiedId);
 
   useEffect(() => {
-    listeners.add(setCopiedIdState);
+    // Initial sync
+    setCopiedIdState(globalCopiedId);
+
+    const handleCopied = (e: Event) => {
+      const customEvent = e as CustomEvent<string | null>;
+      setCopiedIdState(customEvent.detail);
+    };
+
+    window.addEventListener('prompt-copied', handleCopied);
     return () => {
-      listeners.delete(setCopiedIdState);
+      window.removeEventListener('prompt-copied', handleCopied);
     };
   }, []);
 

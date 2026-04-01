@@ -76,7 +76,7 @@ export function PromptCard({
   const { copiedId, setCopiedId } = useClipboardState();
 
   const handleCopy = (text: string, promptId: string) => {
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(text).catch(() => {});
     setCopiedId(promptId);
   };
 
