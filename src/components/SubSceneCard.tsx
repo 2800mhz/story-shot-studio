@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Copy, Pencil, RefreshCw, ChevronLeft, Loader2, Trash2, Zap, X, StickyNote, Plus, Link2 } from 'lucide-react';
 import type { SubScene, PromptVariant, ConsistencyGroup } from '@/types';
+import { useClipboardState } from '@/hooks/useClipboardState';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -32,11 +33,15 @@ export function SubSceneCard({
   const [showNote, setShowNote] = useState(false);
   const [noteText, setNoteText] = useState(subScene.note || '');
   const [showGroupPicker, setShowGroupPicker] = useState(false);
+  const { copiedId, setCopiedId } = useClipboardState();
 
   const currentGroupIds = new Set(consistencyGroups.map(g => g.id));
   const availableGroups = allConsistencyGroups.filter(g => !currentGroupIds.has(g.id));
 
-  const handleCopy = (text: string) => navigator.clipboard.writeText(text);
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+  };
 
   const handleRevise = (promptId: string) => {
     if (!revisionText.trim()) return;
@@ -172,6 +177,9 @@ export function SubSceneCard({
           <div key={prompt.id} className="space-y-1">
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-medium text-primary">🎬 {pi + 1}</span>
+              {copiedId === prompt.id && (
+                <span className="flex h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" title="Son kopyalanan" />
+              )}
               <Badge variant="secondary" className="text-[9px] h-4">{prompt.shotType}</Badge>
               {onDeletePrompt && (
                 <button
@@ -193,7 +201,7 @@ export function SubSceneCard({
                 <Pencil className="h-2.5 w-2.5" /> Revize
               </button>
               <button
-                onClick={() => handleCopy(prompt.text)}
+                onClick={() => handleCopy(prompt.text, prompt.id)}
                 className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-secondary hover:text-foreground"
               >
                 <Copy className="h-2.5 w-2.5" /> Kopyala

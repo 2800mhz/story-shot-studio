@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SubSceneCard } from './SubSceneCard';
 import { PromptHistoryModal } from './PromptHistoryModal';
+import { useClipboardState } from '@/hooks/useClipboardState';
 
 interface PromptCardProps {
   sceneIndex: number;
@@ -72,9 +73,11 @@ export function PromptCard({
   const [showSubSceneInput, setShowSubSceneInput] = useState(false);
   const [entityPickerId, setEntityPickerId] = useState<string | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const { copiedId, setCopiedId } = useClipboardState();
 
-  const handleCopy = (text: string) => {
+  const handleCopy = (text: string, promptId: string) => {
     navigator.clipboard.writeText(text);
+    setCopiedId(promptId);
   };
 
   const handleRevise = (promptId: string) => {
@@ -285,14 +288,17 @@ export function PromptCard({
                 <div className="bg-primary/5 border-b px-3 py-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-xs text-foreground leading-snug">
+                      <div className="flex items-center gap-1.5 font-medium text-xs text-foreground leading-snug">
                         {prompt.summary || `Prompt ${pi + 1}`}
+                        {copiedId === prompt.id && (
+                          <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" title="Son kopyalanan" />
+                        )}
                       </div>
                       <div className="text-[10px] text-muted-foreground mt-0.5">{prompt.shotType}</div>
                     </div>
                     <div className="flex items-center gap-0.5 shrink-0">
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleCopy(prompt.text); }}
+                        onClick={(e) => { e.stopPropagation(); handleCopy(prompt.text, prompt.id); }}
                         title="Kopyala"
                         className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
                       >
