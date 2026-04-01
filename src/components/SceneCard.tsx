@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Sparkles, Edit2, Trash2, Check, X, Copy, RefreshCw, Plus, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, Clock, Pin, ImageIcon } from 'lucide-react';
 import type { SceneCard as SceneCardType, Character, Location, TimeContext, PromptCard } from '@/types';
 import { PromptHistoryModal, type HistoryEntry } from './PromptHistoryModal';
+import { useClipboardState } from '@/hooks/useClipboardState';
 
 interface SceneCardProps {
   scene: SceneCardType;
@@ -45,6 +46,12 @@ function InlinePromptCard({
   const [isRevising, setIsRevising] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [instruction, setInstruction] = useState('');
+  const { copiedId, setCopiedId } = useClipboardState();
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(prompt.promptText).catch(() => {});
+    setCopiedId(prompt.id);
+  };
 
   const submitRevision = async () => {
     if (!instruction.trim() || !onRevise) return;
@@ -68,16 +75,27 @@ function InlinePromptCard({
           </div>
         </div>
       )}
-      <div className="flex items-center justify-between mb-1">
-        <div>
+      <div className="flex items-start justify-between mb-1 gap-2 border-b border-border/40 pb-1.5">
+        <div className="flex items-center flex-wrap gap-1.5">
+          {copiedId === prompt.id && (
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse shrink-0 shadow-[0_0_6px_rgba(34,197,94,0.6)]"
+              title="En son kopyalanan prompt"
+            />
+          )}
           <span className="text-xs font-bold text-primary">
             {prompt.label || prompt.shotType}
           </span>
+          {copiedId === prompt.id && (
+            <span className="ml-1 flex items-center gap-1 rounded bg-green-500/20 px-1.5 py-0.5 text-[10px] font-bold text-green-500 border border-green-500/50" style={{ color: '#22c55e', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderColor: 'rgba(34, 197, 94, 0.3)' }}>
+              ✓ Kopyalandı
+            </span>
+          )}
           {prompt.label && prompt.shotType && (
-            <span className="text-[10px] text-muted-foreground ml-1.5">({prompt.shotType})</span>
+            <span className="text-[10px] text-muted-foreground">({prompt.shotType})</span>
           )}
           {prompt.aspectRatio && (
-            <Badge variant="secondary" className="text-xs ml-1.5">
+            <Badge variant="secondary" className="text-xs ml-0.5">
               {prompt.aspectRatio}
             </Badge>
           )}
@@ -107,15 +125,19 @@ function InlinePromptCard({
           {onDelete && (
             <button
               onClick={() => onDelete(sceneId, prompt.id)}
-              className="rounded p-0.5 text-muted-foreground hover:text-destructive"
+              className="rounded p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
               title="Sil"
             >
               <X className="h-3 w-3" />
             </button>
           )}
           <button
-            onClick={() => navigator.clipboard.writeText(prompt.promptText)}
-            className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+            onClick={handleCopy}
+            className={`rounded p-1 transition-colors ${
+              copiedId === prompt.id
+                ? 'text-green-500 bg-green-500/10'
+                : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+            }`}
             title="Kopyala"
           >
             <Copy className="h-3 w-3" />
