@@ -289,9 +289,16 @@ export function PromptCard({
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 font-medium text-xs text-foreground leading-snug">
+                        {/* 🟢 Yeşil parlayan nokta — en son kopyalanan prompt */}
+                        {copiedId === prompt.id && (
+                          <span
+                            className="inline-block h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse shrink-0 shadow-[0_0_6px_rgba(34,197,94,0.6)]"
+                            title="En son kopyalanan prompt"
+                          />
+                        )}
                         {prompt.summary || `Prompt ${pi + 1}`}
                         {copiedId === prompt.id && (
-                          <span className="ml-2 flex items-center gap-1 rounded bg-green-500/20 px-1.5 py-0.5 text-[10px] font-bold text-green-500 border border-green-500/50" style={{ color: '#22c55e', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderColor: 'rgba(34, 197, 94, 0.3)' }}>
+                          <span className="ml-1.5 flex items-center gap-1 rounded bg-green-500/20 px-1.5 py-0.5 text-[10px] font-bold text-green-500 border border-green-500/50" style={{ color: '#22c55e', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderColor: 'rgba(34, 197, 94, 0.3)' }}>
                             ✓ Kopyalandı
                           </span>
                         )}
@@ -302,7 +309,11 @@ export function PromptCard({
                       <button
                         onClick={(e) => { e.stopPropagation(); handleCopy(prompt.text, prompt.id); }}
                         title="Kopyala"
-                        className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                        className={`rounded p-1 transition-colors ${
+                          copiedId === prompt.id
+                            ? 'text-green-500 bg-green-500/10'
+                            : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                        }`}
                       >
                         <Copy className="h-3 w-3" />
                       </button>

@@ -1,29 +1,30 @@
 import { useState, useEffect } from 'react';
 
-let globalCopiedId: string | null = null;
+// React dışı global hafıza — Context/Zustand'a gerek yok
+let _copiedId: string | null = null;
+const _listeners = new Set<() => void>();
 
-export function setGlobalCopiedId(id: string | null) {
-  globalCopiedId = id;
-  window.dispatchEvent(new CustomEvent('prompt-copied', { detail: id }));
+function setCopiedIdGlobal(id: string | null) {
+  _copiedId = id;
+  _listeners.forEach(fn => fn());
 }
 
 export function useClipboardState() {
-  const [copiedId, setCopiedIdState] = useState<string | null>(globalCopiedId);
+  const [copiedId, setCopiedIdLocal] = useState<string | null>(_copiedId);
 
   useEffect(() => {
-    // Initial sync
-    setCopiedIdState(globalCopiedId);
-
-    const handleCopied = (e: Event) => {
-      const customEvent = e as CustomEvent<string | null>;
-      setCopiedIdState(customEvent.detail);
-    };
-
-    window.addEventListener('prompt-copied', handleCopied);
+    const listener = () => setCopiedIdLocal(_copiedId);
+    _listeners.add(listener);
+    // İlk mount'ta senkronize et
+    setCopiedIdLocal(_copiedId);
     return () => {
-      window.removeEventListener('prompt-copied', handleCopied);
+      _listeners.delete(listener);
     };
   }, []);
 
-  return { copiedId, setCopiedId: setGlobalCopiedId };
+  const setCopiedId = (id: string | null) => {
+    setCopiedIdGlobal(id);
+  };
+
+  return { copiedId, setCopiedId };
 }
