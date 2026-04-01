@@ -27,6 +27,7 @@ interface SceneCardProps {
   onDeletePrompt?: (sceneId: string, promptId: string) => void;
   onRestorePreviousPrompt?: (sceneId: string, entry: HistoryEntry) => void;
   onSetPinnedPrompt?: (sceneId: string, promptId: string) => void;
+  isBulkGenerating?: boolean;
 }
 
 function InlinePromptCard({
@@ -251,6 +252,7 @@ export function SceneCard({
   onDeletePrompt,
   onRestorePreviousPrompt,
   onSetPinnedPrompt,
+  isBulkGenerating,
 }: SceneCardProps) {
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [editedNote, setEditedNote] = useState(scene.visualNote);
@@ -258,6 +260,7 @@ export function SceneCard({
   const [addingLocation, setAddingLocation] = useState(false);
   const [showTimeContextPicker, setShowTimeContextPicker] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [confirmDeleteScene, setConfirmDeleteScene] = useState(false);
 
   const handleSaveNote = () => {
     onUpdateNote(scene.id, editedNote);
@@ -333,9 +336,17 @@ export function SceneCard({
             </Button>
             <Button
               size="icon"
-              variant="ghost"
-              className="h-7 w-7 text-destructive"
-              onClick={() => onDeleteScene(scene.id)}
+              variant={confirmDeleteScene ? "destructive" : "ghost"}
+              className={confirmDeleteScene ? "h-7 w-7" : "h-7 w-7 text-destructive"}
+              onClick={() => {
+                if (confirmDeleteScene) {
+                  onDeleteScene(scene.id);
+                } else {
+                  setConfirmDeleteScene(true);
+                  setTimeout(() => setConfirmDeleteScene(false), 3000);
+                }
+              }}
+              title={confirmDeleteScene ? "Emin misiniz? (Silmek için tekrar tıklayın)" : "Sahneyi sil"}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
@@ -591,9 +602,9 @@ export function SceneCard({
             <Button
               size="sm"
               variant="ghost"
-              className="h-6 px-2 text-[10px] font-medium text-muted-foreground hover:text-primary hover:bg-primary/5"
+              className="h-6 px-2 text-[10px] font-medium text-muted-foreground hover:text-primary hover:bg-primary/5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => onAddVariation?.(scene.id)}
-              disabled={scene.status === 'generating'}
+              disabled={scene.status === 'generating' || isBulkGenerating}
             >
               <Plus className="h-3 w-3 mr-1" />
               Yeni Varyasyon
@@ -601,9 +612,9 @@ export function SceneCard({
             <Button
               size="sm"
               variant="ghost"
-              className="h-6 px-2 text-[10px] font-medium text-muted-foreground hover:text-blue-600 hover:bg-blue-50"
+              className="h-6 px-2 text-[10px] font-medium text-muted-foreground hover:text-blue-600 hover:bg-blue-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => onRegenerateAll?.(scene.id)}
-              disabled={scene.status === 'generating'}
+              disabled={scene.status === 'generating' || isBulkGenerating}
             >
               <RefreshCw className="h-3 w-3 mr-1" />
               Tümünü Yenile
@@ -616,7 +627,7 @@ export function SceneCard({
           <Button
             size="sm"
             onClick={() => onGeneratePrompts(scene.id)}
-            disabled={scene.status === 'generating'}
+            disabled={scene.status === 'generating' || isBulkGenerating}
             className="h-8 text-xs relative overflow-hidden"
           >
             {scene.status === 'generating' ? (

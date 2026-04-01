@@ -1733,7 +1733,7 @@ const Index = () => {
               onSetPinnedPrompt={handleSetPinnedPrompt}
               onAddCharacterToSceneCard={handleAddNewCharacterToSceneCard}
               onAddLocationToSceneCard={handleAddNewLocationToSceneCard}
-              onDeleteSceneCard={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
+              onDeleteSceneCard={id => dispatch({ type: 'DELETE_SCENE_CARD', payload: id })}
               onRevise={handleRevise}
               onRefreshAll={handleRefreshAll}
               isLoading={loadingData}

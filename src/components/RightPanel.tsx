@@ -228,41 +228,6 @@ export function RightPanel({
     dragSceneCardIndexRef.current = null;
   }, []);
 
-  const handleExportAll = useCallback(() => {
-    // Collect prompts from scenes (old workflow)
-    const lines: string[] = [];
-
-    scenes.forEach((scene, idx) => {
-      if (scene.prompts.length > 0) {
-        lines.push(`=== Sahne ${idx + 1} ===`);
-        scene.prompts.forEach((p, pi) => {
-          lines.push(`[${p.shotType}] ${p.text}`);
-          if (pi < scene.prompts.length - 1) lines.push('');
-        });
-        lines.push('');
-      }
-    });
-
-    // Also include sceneCards prompts (new workflow)
-    sceneCards.forEach((sc, idx) => {
-      if (sc.prompts.length > 0) {
-        lines.push(`=== SceneCard ${idx + 1}: ${sc.visualNote} ===`);
-        sc.prompts.forEach((p, pi) => {
-          lines.push(`[${p.shotType}] ${p.promptText}`);
-          if (pi < sc.prompts.length - 1) lines.push('');
-        });
-        lines.push('');
-      }
-    });
-
-    if (lines.length === 0) return;
-
-    navigator.clipboard.writeText(lines.join('\n')).then(() => {
-      // Simple feedback via console
-      console.log('✅ Tüm promptlar kopyalandı');
-    });
-  }, [scenes, sceneCards]);
-
   return (
     <div className="flex h-full flex-col border-l bg-card">
       <div className="flex items-center justify-between border-b px-4 py-3">
@@ -278,18 +243,6 @@ export function RightPanel({
           </div>
         </div>
         <div className="flex gap-2">
-          {/* Export all prompts */}
-          {(doneCount > 0 || sceneCards.some(sc => sc.prompts.length > 0)) && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary transition-colors"
-              onClick={handleExportAll}
-              title="Tüm promptları panoya kopyala"
-            >
-              <Download className="h-4 w-4" />
-            </Button>
-          )}
           
           {isGeneratingAll ? (
             <Button size="sm" variant="destructive" className="h-8 px-3 text-xs animate-pulse" onClick={onCancelAll}>
@@ -517,6 +470,7 @@ export function RightPanel({
                   onDeletePrompt={onDeletePrompt}
                   onRestorePreviousPrompt={onRestorePreviousPrompt_}
                   onSetPinnedPrompt={onSetPinnedPrompt}
+                  isBulkGenerating={isBulkGeneratingPrompts}
                 />
                     </div>
                   </div>
