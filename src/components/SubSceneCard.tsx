@@ -47,6 +47,7 @@ export function SubSceneCard({
   const [showGroupPicker, setShowGroupPicker] = useState(false);
   const [showNote, setShowNote] = useState(false);
   const [noteText, setNoteText] = useState(subScene.note || '');
+  const [confirmDeletePromptId, setConfirmDeletePromptId] = useState<string | null>(null);
 
   // 🟢 Kopyalama durumu hook'u
   const { copiedId, setCopiedId } = useClipboardState();
@@ -285,9 +286,21 @@ export function SubSceneCard({
                       </button>
                       {onDeletePrompt && (
                         <button
-                          onClick={(e) => { e.stopPropagation(); onDeletePrompt(prompt.id); }}
-                          title="Promptu sil"
-                          className="rounded p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirmDeletePromptId === prompt.id) {
+                              onDeletePrompt(prompt.id);
+                            } else {
+                              setConfirmDeletePromptId(prompt.id);
+                              setTimeout(() => setConfirmDeletePromptId(null), 3000);
+                            }
+                          }}
+                          title={confirmDeletePromptId === prompt.id ? "Emin misiniz? (Silmek için tekrar tıklayın)" : "Promptu sil"}
+                          className={`rounded p-1 transition-colors ${
+                            confirmDeletePromptId === prompt.id
+                              ? 'bg-destructive/20 text-destructive hover:bg-destructive hover:text-destructive-foreground'
+                              : 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
+                          }`}
                         >
                           <Trash2 className="h-3 w-3" />
                         </button>

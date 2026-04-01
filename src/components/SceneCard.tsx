@@ -46,6 +46,7 @@ function InlinePromptCard({
   const [isRevising, setIsRevising] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [instruction, setInstruction] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const { copiedId, setCopiedId } = useClipboardState();
 
   const handleCopy = () => {
@@ -124,9 +125,20 @@ function InlinePromptCard({
           )}
           {onDelete && (
             <button
-              onClick={() => onDelete(sceneId, prompt.id)}
-              className="rounded p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-              title="Sil"
+              onClick={() => {
+                if (confirmDelete) {
+                  onDelete(sceneId, prompt.id);
+                } else {
+                  setConfirmDelete(true);
+                  setTimeout(() => setConfirmDelete(false), 3000);
+                }
+              }}
+              className={`rounded p-1 transition-colors ${
+                confirmDelete
+                  ? 'bg-destructive/20 text-destructive hover:bg-destructive hover:text-destructive-foreground'
+                  : 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
+              }`}
+              title={confirmDelete ? "Emin misiniz? (Silmek için tekrar tıklayın)" : "Sil"}
             >
               <X className="h-3 w-3" />
             </button>
