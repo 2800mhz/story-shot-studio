@@ -13,42 +13,48 @@ Analyze the scene and produce 3 DIFFERENT cinematic English prompts from differe
 PROMPT LENGTH: 120-150 words each. Precise and specific.
 
 ═══════════════════════════════════════════════════════════
-FACE & POSE PROHIBITION — ABSOLUTE RULE — NO EXCEPTIONS
+FACE RENDERING RULES — TWO TIERS, ALWAYS APPLY
 ═══════════════════════════════════════════════════════════
-NEVER produce a frontal face portrait in ANY of the 3 prompts.
-This applies even when a CHARACTER entity is provided.
-FORBIDDEN in EVERY prompt, always:
-  ✗ Direct frontal face / portrait / face staring at camera
-  ✗ Subjects posing for the camera or making eye contact with lens
-  ✗ "Focusing on the face of [character]" phrasing
-  ✗ Close-up of face / head-and-shoulders portrait
-  ✗ Direct eye contact, piercing gaze toward viewer
 
-REQUIRED camera angles that hide or redirect the face:
-  ✓ Back view — subject walking away, facing away from camera
-  ✓ Profile / side view — 90° angle, face partially or fully in shadow
-  ✓ Over-the-shoulder — camera behind subject, looking at what they see
-  ✓ Low angle from ground — looking up at torso and sky, face tilted away
-  ✓ Obscured by environment — face in shadow, dust, smoke, backlit silhouette
-  ✓ Distant figure — too far for facial detail
-  ✓ Hands / clothing detail close-up instead of face
-  ✓ Deep silhouette against bright sky or fire
+TIER 1 — NAMED HISTORICAL ENTITY (=== CHARACTER === block is present with a specific name):
+  Face MAY appear, but ONLY through indirect, cinematic angles. Direct eye contact is still forbidden.
+  PREFERRED angles:
+    ✓ 3/4 view — face angled 45° away from lens, in directional light
+    ✓ Profile — strong side rim light, nose-to-chin silhouette visible
+    ✓ Low angle — face tilted upward, eyes not meeting lens
+    ✓ Over-the-shoulder — face partially visible in the turn
+    ✓ Deep chiaroscuro — one half of face in shadow, the other rim-lit
+  FORBIDDEN even for named entities:
+    ✗ Frontal face staring directly into camera
+    ✗ Neutral portrait / passport photo / casting call pose
+    ✗ Symmetrical head-on framing with flat lighting
+    ✗ Direct eye contact with the viewer / lens
+  FOR CLOSE-UP (Prompt 3) of a named entity:
+    Prefer: hands, clothing detail, weapon, headdress from behind, shadow on ground.
+    If face is used: must be 3/4 or profile in shadow — never frontal.
 
-FOR CLOSE-UP (Prompt 3) — when a CHARACTER entity exists:
-  Choose ONE of: hands gripping object, fabric folds, boot in dust, silhouette edge,
-  headdress detail from behind, belt/weapon detail, shadow cast on ground.
-  NEVER choose: face, eyes, expression.
+TIER 2 — ANONYMOUS / UNNAMED / CROWD (no specific named entity, or isCrowd=true):
+  ABSOLUTE prohibition — no face of any kind in any prompt.
+  REQUIRED instead:
+    ✓ Back view, silhouette, over-the-shoulder
+    ✓ Distant figure too far for facial detail
+    ✓ Face in dust, smoke, shadow — indistinguishable
+    ✓ Boots, hands, clothing, trampled objects
+  FORBIDDEN: inventing any unnamed face just to fill the frame.
+  Prompt 3 MUST be an object/texture/environmental detail if no named entity exists.
 
-FOR MEDIUM SHOT (Prompt 2):
-  Subject must be in motion or action — turning, walking, lifting, kneeling.
-  Camera angle: over-the-shoulder, 3/4 back, or low angle.
-  Subject's face must be angled away, in shadow, or obscured by motion.
+UNIVERSAL POSE RULE (applies to ALL tiers):
+  ✗ Subjects posing for camera — casting call, portrait studio, frozen hero pose
+  ✗ Symmetrical "two sides facing each other" theater-stage compositions
+  ✗ Armies or groups neatly arranged to fit the frame — breaks visual reality
+  ✓ Caught-in-motion, candid documentary feel, organic moment
+  ✓ For multi-group scenes: bird's-eye OR single-side POV OR environmental fragment
 
-CAMERA FRAMING LANGUAGE TO USE (pick from these):
-  "back turned to camera", "seen from behind", "over-the-shoulder framing",
-  "face in deep shadow", "silhouetted against the sky", "profile view, face in shadow",
-  "low angle, face tilted upward and away from lens", "distant figure, face indistinguishable",
-  "face obscured by dust and motion blur", "camera behind the subject"
+CAMERA FRAMING LANGUAGE (use these phrases):
+  "3/4 view, face angled away from lens", "strong profile, face in rim shadow",
+  "back turned to camera", "over-the-shoulder framing", "face in deep chiaroscuro",
+  "low angle, chin tilted upward away from lens", "distant figure, face indistinguishable",
+  "face half-obscured by shadow and dust", "silhouetted against the sky"
 ═══════════════════════════════════════════════════════════
 
 ENTITY INTEGRATION (CRITICAL):
@@ -310,40 +316,52 @@ Avoid literal interpretation of metaphors.\n`
   if (characters.length > 0) {
     const individualChars = characters.filter(c => !c.isCrowd);
 
-    // Mandatory camera-angle enforcement injected per character block
-    const FACE_RULE = `⚠️ CAMERA RULE: Subject's face must NOT be visible frontally in any prompt.
-Use one of: back view, over-the-shoulder, profile in shadow, silhouette, face obscured by dust/smoke.
-Embed clothing and silhouette details verbatim — redirect "facial features" into indirect angle description.\n`;
+    // Named historical entity → indirect cinematic face allowed (profile/3/4/shadow)
+    const NAMED_FACE_RULE = `⚠️ CAMERA RULE (NAMED ENTITY — TIER 1):
+Face may appear but NEVER frontally. Use: 3/4 view face angled away, strong profile in rim shadow,
+low angle chin tilted up, or deep chiaroscuro (one half in shadow). NO direct eye contact with lens.
+Embed all clothing and physical details verbatim across all 3 prompts.\n`;
+
+    // Anonymous / unnamed → absolute face prohibition
+    const ANON_FACE_RULE = `⚠️ CAMERA RULE (UNNAMED — TIER 2):
+Subject has no named identity. Face MUST NOT appear in any prompt.
+Use: back view, silhouette, over-the-shoulder, face in dust/smoke, or distant figure only.\n`;
 
     if (individualChars.length === 1) {
       const char = individualChars[0];
+      const isNamed = Boolean(char.name && char.name.trim().length > 0);
       entityHeader += `=== CHARACTER TO DEPICT: ${char.name}${char.role ? ` (${char.role})` : ''} ===\n`;
       entityHeader += `⚠️ EMBED ALL OF THE FOLLOWING FIELDS VERBATIM INTO EVERY PROMPT. DO NOT OMIT OR SUMMARIZE ANY FIELD.\n`;
-      entityHeader += FACE_RULE;
-      if (char.age) entityHeader += `Age/build silhouette: ${char.age}\n`;
-      if (char.ethnicity) entityHeader += `Phenotype/Ethnicity (for costume and posture context): ${char.ethnicity}\n`;
-      if (char.physicalFeatures) entityHeader += `Physical build and silhouette (NOT for frontal rendering — use for posture/back-view detail): ${char.physicalFeatures}\n`;
-      if (char.hair) entityHeader += `Hair visible from back/profile (color, length, style): ${char.hair}\n`;
-      if (char.beard) entityHeader += `Beard visible in profile/shadow: ${char.beard}\n`;
-      if (char.clothing) entityHeader += `Costume (every garment and accessory — describe each, visible from back or side): ${char.clothing}\n`;
-      if (char.visualDescription) entityHeader += `Full visual description (integrate into back-view or silhouette framing): ${char.visualDescription}\n`;
-      entityHeader += `⚠️ MAINTAIN THIS EXACT APPEARANCE ACROSS ALL 3 PROMPTS. FACE MUST NOT BE FRONTALLY VISIBLE IN ANY PROMPT.\n\n`;
+      entityHeader += isNamed ? NAMED_FACE_RULE : ANON_FACE_RULE;
+      if (char.age) entityHeader += `Age/build: ${char.age}\n`;
+      if (char.ethnicity) entityHeader += `Phenotype/Ethnicity (costume and posture context): ${char.ethnicity}\n`;
+      if (char.physicalFeatures) entityHeader += `Physical features (render via ${isNamed ? '3/4 or profile angle' : 'silhouette/back view only'}): ${char.physicalFeatures}\n`;
+      if (char.hair) entityHeader += `Hair (visible from ${isNamed ? 'profile or 3/4' : 'back/profile'}): ${char.hair}\n`;
+      if (char.beard) entityHeader += `Beard (visible in profile/shadow): ${char.beard}\n`;
+      if (char.clothing) entityHeader += `Costume (every garment and accessory — visible from back or side): ${char.clothing}\n`;
+      if (char.visualDescription) entityHeader += `Full visual description (integrate into ${isNamed ? 'indirect cinematic angle' : 'back-view or silhouette framing'}): ${char.visualDescription}\n`;
+      entityHeader += isNamed
+        ? `⚠️ MAINTAIN EXACT APPEARANCE ACROSS ALL 3 PROMPTS. 3/4 or profile preferred — NO frontal portrait.\n\n`
+        : `⚠️ MAINTAIN EXACT APPEARANCE ACROSS ALL 3 PROMPTS. FACE MUST NOT BE VISIBLE IN ANY PROMPT.\n\n`;
 
     } else if (individualChars.length > 1) {
       entityHeader += `=== MULTIPLE CHARACTERS IN THIS SCENE ===\n`;
-      entityHeader += `Compose ALL characters in the SAME frame. Embed ALL fields of EACH character verbatim.\n`;
-      entityHeader += FACE_RULE;
+      entityHeader += `Compose ALL characters in the SAME frame. Embed ALL fields of EACH character verbatim.\n\n`;
       individualChars.forEach((char, idx) => {
+        const isNamed = Boolean(char.name && char.name.trim().length > 0);
         const position = idx === 0 ? 'FOREGROUND' : idx === 1 ? 'MIDGROUND' : 'BACKGROUND';
         entityHeader += `[${position}] ${char.name}${char.role ? ` (${char.role})` : ''}:\n`;
+        entityHeader += isNamed ? `  ${NAMED_FACE_RULE}` : `  ${ANON_FACE_RULE}`;
         if (char.age) entityHeader += `  Age/build: ${char.age}\n`;
         if (char.ethnicity) entityHeader += `  Phenotype/Ethnicity (costume context): ${char.ethnicity}\n`;
-        if (char.physicalFeatures) entityHeader += `  Silhouette/build (back or profile only): ${char.physicalFeatures}\n`;
-        if (char.hair) entityHeader += `  Hair from back/profile: ${char.hair}\n`;
-        if (char.beard) entityHeader += `  Beard in profile/shadow: ${char.beard}\n`;
+        if (char.physicalFeatures) entityHeader += `  Physical features (${isNamed ? '3/4 or profile' : 'silhouette/back only'}): ${char.physicalFeatures}\n`;
+        if (char.hair) entityHeader += `  Hair: ${char.hair}\n`;
+        if (char.beard) entityHeader += `  Beard: ${char.beard}\n`;
         if (char.clothing) entityHeader += `  Costume: ${char.clothing}\n`;
-        if (char.visualDescription) entityHeader += `  Full description (back/profile framing): ${char.visualDescription}\n`;
-        entityHeader += `  ⚠️ NO FRONTAL FACE. Back view or profile in shadow.\n\n`;
+        if (char.visualDescription) entityHeader += `  Full description: ${char.visualDescription}\n`;
+        entityHeader += isNamed
+          ? `  ⚠️ 3/4 or profile in shadow — no frontal face.\n\n`
+          : `  ⚠️ NO FACE. Back view or silhouette only.\n\n`;
       });
     }
 
@@ -360,14 +378,20 @@ Embed clothing and silhouette details verbatim — redirect "facial features" in
   }
 
   if (locations.length > 0) {
+    // CRITICAL: location visualDescription = permanent architecture only.
+    // The CURRENT state of the location (damage, tension, siege, intact) comes from timeContext.historicalNotes above.
+    // Do NOT add destruction/atmosphere to the location block — it is already in SCENE SETTING.
     if (locations.length === 1) {
       const loc = locations[0];
       entityHeader += `=== LOCATION TO DEPICT: ${loc.name} ===\n`;
-      entityHeader += `⚠️ EMBED THIS LOCATION DESCRIPTION VERBATIM IN EVERY WIDE AND MEDIUM SHOT.\n`;
+      entityHeader += `⚠️ This is the PERMANENT ARCHITECTURAL description of the location.\n`;
+      entityHeader += `⚠️ The current condition (damage, siege, intact, tense) is defined in SCENE SETTING above — use that for atmosphere.\n`;
+      entityHeader += `⚠️ EMBED THE ARCHITECTURAL DESCRIPTION VERBATIM in every wide and medium shot.\n`;
       if (loc.visualDescription) entityHeader += `${loc.visualDescription}\n`;
-      entityHeader += `⚠️ THIS EXACT TERRAIN AND LANDSCAPE MUST APPEAR. NO SUBSTITUTION.\n\n`;
+      entityHeader += `⚠️ THIS EXACT ARCHITECTURE MUST APPEAR. Atmospheric state comes from SCENE SETTING, not this block.\n\n`;
     } else if (locations.length > 1) {
       entityHeader += `=== MULTIPLE LOCATIONS IN THIS SCENE ===\n`;
+      entityHeader += `⚠️ These are PERMANENT ARCHITECTURAL descriptions. Current condition comes from SCENE SETTING above.\n`;
       locations.forEach((loc, idx) => {
         const pos = idx === 0 ? 'PRIMARY' : 'SECONDARY';
         entityHeader += `[${pos} LOCATION] ${loc.name}:\n`;

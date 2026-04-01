@@ -110,32 +110,66 @@ KARAKTER STANDARDI (ANTROPOLOJİK DOĞRULUK)
 
 - SADECE sahnede fiziksel olarak GÖRÜNEN kişileri ekle
 - Her karakter için maksimum 30 kelimelik İngilizce visualDescription yaz:
-  Yaş ve beden tipi, yüz özellikleri, ten rengi,
+  Yaş ve beden tipi, siluet karakteri,
   kıyafet (kumaş, renk, desen, dönem ve kültür doğruluğu),
   kültürel kimlik belirteçleri (sarık tipi, başörtüsü stili, sakal,
   Orta Asya/Osmanlı/modern Türk farkı).
   Sonunda mutlaka: "photorealistic, cinematic lighting, documentary style"
 - Kalabalık: isCrowd true, grup kompozisyonunu tanımla
 - Birey: isCrowd false, tam birey detayı
-- YASAK: Psikoloji, motivasyon, hikaye
+- YASAK: Psikoloji, motivasyon, hikaye, yüz ifadesi tarifi
 
-MEKAN STANDARDI (MİMARİ DOĞRULUK)
+MEKAN STANDARDI (MİMARİ DOĞRULUK + TEMPORAL AYRIMI)
 
 - SADECE fiziksel, fotoğraflanabilir mekanlar
 - Her mekan için maksimum 30 kelimelik İngilizce visualDescription yaz:
   Mimari stil ve dönem, yapı malzemeleri (kerpiç, kesme taş, ahşap, çini, mermer, halı),
-  ışık kaynağı ve yönü, atmosfer ve ölçek,
-  coğrafi bağlam (Orta Asya çölü, Anadolu, İstanbul vb.)
+  ölçek ve coğrafi bağlam (Orta Asya çölü, Anadolu, İstanbul vb.)
+
+KRİTİK — FİZİKSEL YAPI vs DURUMSAL ATMOSFER AYRIMI:
+- visualDescription = mekânın KALICI fiziksel ve mimari özellikleri, değişmez gerçekliği
+  YANLIŞ: "burning buildings, scattered debris, smoke" — bu durum/atmosfer, mimari değil
+  YANLIŞ: "signs of destruction, fire damage, abandoned streets" — bunlar timeContext'e ait
+  YANLIŞ: "ominous atmosphere, tense mood" — atmosfer değil mimari yaz
+  DOĞRU: "mud-brick houses with carved archways, vaulted market halls, central courtyard fountain"
+  DOĞRU: "massive stone walls with battlements and towers, arched gateways, mud-brick construction"
+  DOĞRU: "opulent palace interior, geometric tilework, silk hangings, carved stone columns, domed ceiling"
+- Hasar, yıkım, kuşatma, yangın, terk edilmişlik, gerilim bilgisi visualDescription'a KESİNLİKLE GİRMEZ
+  Bu bilgiler timeContext.historicalNotes ve timeContext.lighting'e aittir
+
+AYNI MEKANIN FARKLI TEMPORAL HALLERİ:
+- Bir mekân hikaye boyunca farklı durumlarda görünüyorsa:
+  LOKASYON ENTITY'Sİ TEK KALIR (mimari yapı değişmez)
+  O anın durumu ve atmosferi timeContext.historicalNotes ile taşınır
+- YASAK: Aynı fiziksel mekânı farklı temporal halleri için ayrı entity olarak tanımlamak
 - YASAK: Soyut mekanlar, süreçler, eylemler
 
-ZAMAN BAGLAMI KURALLARI
+ZAMAN BAGLAMI KURALLARI (KRİTİK)
 
 - Farklı dönemler kesinlikle ayrı timeContext
-- lighting alanı İngilizce, görsel AI için optimize et:
+- Aynı dönem ama mekânın farklı temporal durumu = ayrı timeContext
+  Örnekler:
+  kuşatma öncesi Ürgenç sarayı ≠ kuşatma altındaki Ürgenç sarayı ≠ yıkılmış Ürgenç
+  savaş öncesi konuşlanma ≠ açık savaş ≠ savaş sonrası enkaz
+  Fatih İstanbul kuşatması ≠ surların düşüşü ≠ fetih sabahı
+
+historicalNotes — EN KRİTİK ALAN (atmosfer ve temporal bağlam buraya yazılır):
+- Mekânın O ANKİ fiziksel ve sosyal durumunu tam olarak tarif et
+- Örnekler:
+  "City fully intact, palace and markets functioning — Mongol forces approaching but walls not yet breached"
+  "Palace interior intact but in crisis: sultan absent, court tense, candles unlit, servants fled to corners"
+  "City under active siege: outer walls partially breached but palace structure still standing, population in hiding"
+  "Post-sack: structures gutted, halls stripped of valuables, streets emptied — only dust and ruins remain"
+  "Open battlefield before engagement: armies positioned in tense stillness, no blood yet shed"
+  "Siege in progress: dust and fire outside city walls, interior spaces intact but fearful"
+
+lighting — DUYGUSAL ATMOSFERİ FIZIKSEL YIKIM OLMADAN DA TAŞIYABİLİR:
+  "cold grey light through narrow palace windows, candles unlit, ominous stillness — siege outside, interior intact"
+  "warm torchlight in functioning throne room, deep shadows in corners, tension without destruction"
   "harsh desert sunlight, golden dust haze, dry heat shimmer"
   "warm candlelight, golden hour through mosque windows, Ramadan night"
   "blue hour pre-dawn, soft ambient light, modern cityscape"
-- historicalNotes: dönem kostüm ve mimari doğruluğu için kritik notlar
+  "dramatic low sunlight filtering through smoke, deep shadows, orange hues from distant fires"
 
 JSON CIKTI:
 {
@@ -144,24 +178,24 @@ JSON CIKTI:
       "name": "Karakter Adı",
       "role": "Rolü/mesleği/kimliği (örn: 'Süvari', 'Padişah')",
       "isCrowd": false,
-      "visualDescription": "Maksimum 30 kelimelik İngilizce görsel betimleme"
+      "visualDescription": "Maksimum 30 kelimelik İngilizce — kostüm/siluet/beden, yüz ifadesi YOK"
     }
   ],
   "locations": [
     {
       "name": "Mekan Adı",
-      "visualDescription": "Maksimum 30 kelimelik İngilizce görsel betimleme"
+      "visualDescription": "Maksimum 30 kelimelik İngilizce — SADECE kalıcı mimari özellikler, hasar/atmosfer/durum YOK"
     }
   ],
   "timeContexts": [
     {
-      "label": "Dönem adı (Türkçe)",
+      "label": "Dönem ve durum adı (Türkçe, örn: 'Kuşatma Öncesi Ürgenç - Gündüz')",
       "era": "Tarihsel dönem",
       "season": "Mevsim",
       "timeOfDay": "gündüz/gece/sabah/akşam/iftar vakti",
-      "lighting": "İngilizce ışık tanımı",
+      "lighting": "İngilizce ışık ve atmosfer tanımı — duygusal ton burada yaratılır",
       "weather": "Hava (opsiyonel)",
-      "historicalNotes": "Dönem doğruluğu notları (İngilizce)"
+      "historicalNotes": "Mekânın O ANKİ fiziksel ve sosyal durumu (İngilizce) — temporal bağlam ve atmosfer burada"
     }
   ],
   "scenes": [
@@ -171,7 +205,7 @@ JSON CIKTI:
       "visualNote": "Kısa Türkçe görsel açıklama (maks 10 kelime)",
       "characterNames": ["Karakter Adı"],
       "locationNames": ["Mekan Adı"],
-      "timeContextLabel": "Dönem - Zaman (Türkçe)"
+      "timeContextLabel": "Dönem ve durum adı (Türkçe)"
     }
   ]
 }
@@ -181,35 +215,24 @@ METİN:`;
 }
 
 function cleanJsonResponse(text: string): string {
-  // Remove markdown code blocks
   text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-  // Remove control characters but keep valid JSON escapes
   text = text.replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, '');
-
-  // Fix common issues with newlines in strings
-  // Matches JSON strings and escapes any literal newlines/tabs within them
   text = text.replace(/"([^"\\]*(\\.[^"\\]*)*)"/g, (match) => {
     return match.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
   });
-
-  // If JSON is still not parseable, attempt truncation recovery
   try {
     JSON.parse(text);
   } catch {
     text = recoverTruncatedJson(text);
   }
-
   return text;
 }
 
 function splitTextIntoChunks(text: string, maxChars = 6000): string[] {
   if (text.length <= maxChars) return [text];
-
   const chunks: string[] = [];
   const paragraphs = text.split(/\n\n+/);
   let current = '';
-
   for (const para of paragraphs) {
     if ((current + '\n\n' + para).length > maxChars && current) {
       chunks.push(current.trim());
@@ -223,22 +246,13 @@ function splitTextIntoChunks(text: string, maxChars = 6000): string[] {
 }
 
 function recoverTruncatedJson(raw: string): string {
-  // Find the last safely-terminated position in the raw string.
-  // Strategy: count unclosed brackets/braces and close them in order.
   const lastObj = raw.lastIndexOf('}');
-  if (lastObj <= 0) {
-    throw new Error('Cannot recover truncated JSON');
-  }
-
-  // Truncate to last closing brace first, then balance remaining open structures
+  if (lastObj <= 0) throw new Error('Cannot recover truncated JSON');
   let candidate = raw.substring(0, lastObj + 1);
-
-  // Count unbalanced open brackets [ and braces {
   let openBrackets = 0;
   let openBraces = 0;
   let inString = false;
   let escape = false;
-
   for (const ch of candidate) {
     if (escape) { escape = false; continue; }
     if (ch === '\\' && inString) { escape = true; continue; }
@@ -249,11 +263,8 @@ function recoverTruncatedJson(raw: string): string {
     else if (ch === '{') openBraces++;
     else if (ch === '}') openBraces--;
   }
-
-  // Close unclosed arrays then objects
   candidate += ']'.repeat(Math.max(0, openBrackets));
   candidate += '}'.repeat(Math.max(0, openBraces));
-
   return candidate;
 }
 
@@ -264,7 +275,6 @@ type SceneRaw = {
   timeContextLabel?: string;
   characterNames?: string[];
   locationNames?: string[];
-  // Legacy support for older API drafts
   characters?: {
     name: string;
     role?: string;
@@ -285,18 +295,10 @@ type AnalysisPayload = {
   timeContext?: TimeContextRaw;
 };
 
-/**
- * Normalize a Turkish location name for deduplication.
- * Lowercases using Turkish locale, removes common suffixes, and normalizes whitespace.
- */
 function normalizeTurkishLocationName(name: string): string {
   let n = name.toLocaleLowerCase('tr-TR').trim();
-  // Remove Turkish plural suffixes only when they follow at least 3 characters
-  // (avoids stripping from short words or non-Turkish words like "solar")
   n = n.replace(/(.{3,})(lar|ler)$/, '$1');
-  // Normalize cami/camii variants
   n = n.replace(/camii$/, 'cami');
-  // Collapse multiple spaces
   n = n.replace(/\s+/g, ' ');
   return n;
 }
@@ -305,21 +307,17 @@ function fuzzyFindText(fullText: string, searchStr: string, startIndex: number):
   const cleanSearch = searchStr.trim();
   if (!cleanSearch) return null;
 
-  // 1. Exact match
   let exact = fullText.indexOf(cleanSearch, startIndex);
   if (exact !== -1) return { start: exact, end: exact + cleanSearch.length };
   exact = fullText.indexOf(cleanSearch, 0);
   if (exact !== -1) return { start: exact, end: exact + cleanSearch.length };
 
-  // 2. Case-insensitive exact match
   const lowerFull = fullText.toLocaleLowerCase('tr-TR');
   const lowerSearch = cleanSearch.toLocaleLowerCase('tr-TR');
   let ci = lowerFull.indexOf(lowerSearch, startIndex);
   if (ci === -1) ci = lowerFull.indexOf(lowerSearch, 0);
   if (ci !== -1) return { start: ci, end: ci + cleanSearch.length };
 
-  // 3. Kelime-kelime sliding window match
-  // Orijinal metni token'lara böl (kelime + pozisyon)
   const tokenRegex = /\S+/g;
   const fullTokens: { word: string; index: number }[] = [];
   let m: RegExpExecArray | null;
@@ -334,7 +332,6 @@ function fuzzyFindText(fullText: string, searchStr: string, startIndex: number):
 
   if (searchTokens.length === 0) return null;
 
-  // startIndex'ten sonraki token'lardan başla
   const startTokenIdx = fullTokens.findIndex(t => t.index >= Math.max(0, startIndex - 50));
   const searchFrom = startTokenIdx >= 0 ? startTokenIdx : 0;
 
@@ -343,12 +340,8 @@ function fuzzyFindText(fullText: string, searchStr: string, startIndex: number):
     for (let j = 0; j < searchTokens.length; j++) {
       const ft = fullTokens[i + j]?.word || '';
       const st = searchTokens[j];
-      // Tam eşleşme veya biri diğerinin prefix'i (suffix farkı toleransı)
-      if (ft === st || ft.startsWith(st) || st.startsWith(ft)) {
-        matchCount++;
-      }
+      if (ft === st || ft.startsWith(st) || st.startsWith(ft)) matchCount++;
     }
-    // %80 eşleşme yeterli
     if (matchCount >= Math.ceil(searchTokens.length * 0.8)) {
       const startPos = fullTokens[i].index;
       const realEnd = Math.min(startPos + cleanSearch.length + 10, fullText.length);
@@ -356,7 +349,6 @@ function fuzzyFindText(fullText: string, searchStr: string, startIndex: number):
     }
   }
 
-  // 4. startIndex'ten önce de ara
   for (let i = 0; i < Math.min(searchFrom, fullTokens.length - searchTokens.length); i++) {
     let matchCount = 0;
     for (let j = 0; j < searchTokens.length; j++) {
@@ -383,7 +375,6 @@ function buildResultFromScenes(
   fullText: string,
   searchState: { lastIndex: number }
 ): SceneCard[] {
-  // Build a normalized-name → existing-id lookup for locations (deduplication)
   const locationNormalizedIndex = new Map<string, string>();
   locationMap.forEach((loc, id) => {
     locationNormalizedIndex.set(normalizeTurkishLocationName(loc.name), id);
@@ -446,12 +437,11 @@ function buildResultFromScenes(
     let startIndex: number | undefined;
     let endIndex: number | undefined;
     if (scene.text) {
-      // Find the text in the document starting from our last known position using fuzzy search
       const match = fuzzyFindText(fullText, scene.text, searchState.lastIndex);
       if (match) {
         startIndex = match.start;
         endIndex = match.end;
-        searchState.lastIndex = match.end; // Move the pointer forward
+        searchState.lastIndex = match.end;
       } else {
         console.warn(`⚠️ Could not find exact match for scene text: "${scene.text.substring(0, 30)}..."`);
       }
@@ -502,7 +492,6 @@ async function analyzeChunk(
     return JSON.parse(cleanedContent) as AnalysisPayload;
   } catch (error) {
     console.error('❌ Scene analysis JSON parse error:', error);
-    // Last-resort recovery attempt
     try {
       const recovered = recoverTruncatedJson(cleanedContent);
       console.warn('⚠️ Recovered truncated JSON for chunk');
@@ -516,9 +505,6 @@ async function analyzeChunk(
   }
 }
 
-/**
- * Merge two TimeContext arrays by label, preferring existing items.
- */
 function mergeTimeContextsByLabel(existing: TimeContext[], incoming: TimeContext[]): TimeContext[] {
   const map = new Map(existing.map(tc => [tc.label, tc]));
   incoming.forEach(tc => { if (!map.has(tc.label)) map.set(tc.label, tc); });
@@ -545,7 +531,7 @@ export async function analyzeTextIntoScenes(
   const characterMap = new Map<string, Character>();
   const locationMap = new Map<string, Location>();
   const allSceneCards: SceneCard[] = [];
-  const timeContextLabelMap = new Map<string, string>(); // sceneId → timeContextLabel
+  const timeContextLabelMap = new Map<string, string>();
   let sceneNumberOffset = 0;
   let suggestedTimeContexts: TimeContext[] = [];
   const searchState = { lastIndex: 0 };
@@ -555,7 +541,6 @@ export async function analyzeTextIntoScenes(
     onProgress?.(` Yapay zeka analiz ediyor... (Parça ${i + 1}/${chunks.length})`);
     const parsed = await analyzeChunk(chunks[i], targetSceneCount);
 
-    // Process top-level globally defined characters and locations
     if (parsed.characters) {
       parsed.characters.forEach(char => {
         if (!char.name) return;
@@ -576,15 +561,12 @@ export async function analyzeTextIntoScenes(
       parsed.locations.forEach(loc => {
         if (!loc.name) return;
         const normalizedName = normalizeTurkishLocationName(loc.name);
-
-        // Find existing ID across all parsed chunks so far using normalized name
         let existingId: string | null = null;
         for (const [id, l] of locationMap.entries()) {
           if (normalizeTurkishLocationName(l.name) === normalizedName) {
             existingId = id; break;
           }
         }
-
         if (!existingId) {
           const locId = `loc-${loc.name.replace(/\s+/g, '-').toLocaleLowerCase('tr-TR')}`;
           locationMap.set(locId, {
@@ -602,7 +584,6 @@ export async function analyzeTextIntoScenes(
     sceneNumberOffset += scenes.length;
     onProgress?.(` ${cards.length} sahne kartı oluşturuldu`);
 
-    // Normalize time contexts from this chunk (support both array and legacy single object)
     const rawContexts: typeof parsed.timeContexts =
       Array.isArray(parsed.timeContexts) && parsed.timeContexts.length > 0
         ? parsed.timeContexts
@@ -631,7 +612,6 @@ export async function analyzeTextIntoScenes(
   onProgress?.(` ${suggestedTimeContexts.length} zaman bağlamı oluşturuldu`);
   onProgress?.(` Sahnelere karakter ve mekan bağlanıyor...`);
 
-  // Post-process: assign timeContextIds to scene cards based on timeContextLabel
   const labelToId = new Map(suggestedTimeContexts.map(tc => [tc.label, tc.id]));
   for (const card of allSceneCards) {
     const label = timeContextLabelMap.get(card.id);
