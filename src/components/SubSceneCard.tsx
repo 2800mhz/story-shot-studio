@@ -175,10 +175,12 @@ export function SubSceneCard({
 
         {subScene.prompts.map((prompt, pi) => (
           <div key={prompt.id} className="space-y-1">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[10px] font-medium text-primary">🎬 {pi + 1}</span>
               {copiedId === prompt.id && (
-                <span className="flex h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" title="Son kopyalanan" />
+                <span className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ color: '#22c55e', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderColor: 'rgba(34, 197, 94, 0.3)', borderWidth: '1px' }}>
+                  ✓ Kopyalandı
+                </span>
               )}
               <Badge variant="secondary" className="text-[9px] h-4">{prompt.shotType}</Badge>
               {onDeletePrompt && (

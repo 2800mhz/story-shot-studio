@@ -291,7 +291,9 @@ export function PromptCard({
                       <div className="flex items-center gap-1.5 font-medium text-xs text-foreground leading-snug">
                         {prompt.summary || `Prompt ${pi + 1}`}
                         {copiedId === prompt.id && (
-                          <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" title="Son kopyalanan" />
+                          <span className="ml-2 flex items-center gap-1 rounded bg-green-500/20 px-1.5 py-0.5 text-[10px] font-bold text-green-500 border border-green-500/50" style={{ color: '#22c55e', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderColor: 'rgba(34, 197, 94, 0.3)' }}>
+                            ✓ Kopyalandı
+                          </span>
                         )}
                       </div>
                       <div className="text-[10px] text-muted-foreground mt-0.5">{prompt.shotType}</div>
