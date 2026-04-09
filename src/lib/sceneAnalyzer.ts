@@ -215,7 +215,21 @@ METİN:`;
 }
 
 function cleanJsonResponse(text: string): string {
-  text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  // Önce ```json ... ``` bloğunu bul ve sadece içeriğini al
+  const jsonBlockMatch = text.match(/```json\s*([\s\S]*?)```/);
+  if (jsonBlockMatch) {
+    text = jsonBlockMatch[1].trim();
+  } else {
+    // Backtick bloğu yoksa ilk { karakterinden itibaren al (preamble metni at)
+    const firstBrace = text.indexOf('{');
+    if (firstBrace > 0) {
+      text = text.substring(firstBrace);
+    }
+    // Sondaki ``` artıklarını temizle
+    text = text.replace(/```\s*$/g, '').trim();
+  }
+
+  // Kontrol karakterlerini temizle
   text = text.replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, '');
   text = text.replace(/"([^"\\]*(\\.[^"\\]*)*)"/g, (match) => {
     return match.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');

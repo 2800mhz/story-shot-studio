@@ -12,6 +12,15 @@ interface APIKey {
   usage_count: number;
 }
 
+// Gemini model fallback zinciri — stabil modeller önce
+const GEMINI_FALLBACK_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-1.5-flash',
+  'gemini-1.5-flash-8b',
+];
+
 class AIProviderManager {
   private currentProvider: AIProvider = 'gemini';
   private currentKeyIndex = 0;
@@ -19,11 +28,17 @@ class AIProviderManager {
   private initialized = false;
   private model = 'gemini-2.0-flash';
 
-  // 503 backoff tracking
+  // 503 backoff + model fallback tracking
   private consecutiveServerErrors = 0;
   private lastServerErrorAt = 0;
-  private readonly MAX_BACKOFF_MS = 30_000;  // 30s cap
-  private readonly BULK_WAIT_THRESHOLD = 3;  // kaç 503'ten sonra uzun bekle
+  private readonly MAX_BACKOFF_MS = 30_000;
+  private activeFallbackModelIndex = -1; // -1 = user model, 0+ = fallback zinciri
+  private _tempModel: string | null = null; // 503 sırasında geçici model
+
+  /** Aktif olarak kullanılan modeli döndürür (temp varsa onu, yoksa user model) */
+  private getActiveModel(): string {
+    return this._tempModel ?? this.model;
+  }
 
   async initialize(userId: string) {
     const { data, error } = await supabase
@@ -135,8 +150,10 @@ class AIProviderManager {
       const providerKeys = this.keys.get(this.currentProvider) || [];
       console.log(` Trying ${key.provider} (key ${this.currentKeyIndex + 1}/${providerKeys.length})`);
       const result = await this.callProvider(key, prompt, systemInstruction, images);
-      // Başarılı istek — 503 sayacını sıfırla
+      // Başarılı istek — 503 sayacını ve fallback'i sıfırla
       this.consecutiveServerErrors = 0;
+      this._tempModel = null;
+      this.activeFallbackModelIndex = -1;
       await this.updateKeyUsage(key.id, result.promptTokens, result.completionTokens, operationType, result.modelUsed);
       return result.text;
     } catch (error: unknown) {
@@ -156,8 +173,6 @@ class AIProviderManager {
       } else if (err.status === 503 || err.status === 500) {
         this.consecutiveServerErrors++;
         this.lastServerErrorAt = Date.now();
-        // ÖNEMLİ: rotateKey() çağır ama currentKeyIndex'i SIFIRLAMAZ
-        // Bu sayede key 1→2→3→...→N sırasıyla denir, tekrar başa dönmez
         this.rotateKey();
 
         const retryAfterMs = err.retryAfterMs ?? 0;
@@ -165,23 +180,43 @@ class AIProviderManager {
         const totalKeys = providerKeys.length;
 
         if (this.consecutiveServerErrors >= totalKeys) {
-          // Bütün key'ler denendi, hepsi 503 — uzun toplu bekleme
-          const bulkWait = retryAfterMs > 0
-            ? retryAfterMs
-            : Math.round(20_000 + Math.random() * 25_000); // 20-45s
-          console.warn(
-            `🌐 Tüm ${totalKeys} key denendi, hepsi 503. ` +
-            `Gemini çok yoğun — ${(bulkWait / 1000).toFixed(1)}s bekleniyor, sonra baştan...`
-          );
-          // Bekleme sonrası başa dön ve sayacı sıfırla
-          await new Promise(resolve => setTimeout(resolve, bulkWait));
-          this.currentKeyIndex = 0;
-          this.consecutiveServerErrors = 0;
+          // Tüm keyler denendi, hepsi 503 — fallback modele geç
+          const nextFallbackIdx = this.activeFallbackModelIndex + 1;
+          const userModel = this.model;
+          // Fallback zincirinde user'ın modeli hariç sıradakini bul
+          const fallbackChain = GEMINI_FALLBACK_MODELS.filter(m => m !== userModel);
+
+          if (nextFallbackIdx < fallbackChain.length) {
+            this.activeFallbackModelIndex = nextFallbackIdx;
+            const fallbackModel = fallbackChain[nextFallbackIdx];
+            console.warn(
+              `🔀 Tüm ${totalKeys} key ${userModel} için 503 verdi. ` +
+              `Fallback modele geçiliyor: ${fallbackModel}`
+            );
+            // Geçici olarak fallback modeli kullan
+            this._tempModel = fallbackModel;
+            this.currentKeyIndex = 0;
+            this.consecutiveServerErrors = 0;
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          } else {
+            // Tüm fallback modeller de denendi — uzun bekleme
+            console.warn(
+              `🌐 Tüm modeller ve keyler 503 verdi. ` +
+              `Gemini tamamen yoğun, 30s bekleniyor...`
+            );
+            // Fallback'i sıfırla ve yeniden başla
+            this._tempModel = null;
+            this.activeFallbackModelIndex = -1;
+            this.currentKeyIndex = 0;
+            this.consecutiveServerErrors = 0;
+            const bulkWait = retryAfterMs > 0 ? retryAfterMs : 30_000;
+            await new Promise(resolve => setTimeout(resolve, bulkWait));
+          }
         } else {
-          // Henüz tüm key'ler denenmedi — kısa backoff ile sonraki key'e geç
+          // Henüz tüm keyler denenmedi — kısa backoff ile sonraki key'e geç
           const backoffMs = retryAfterMs > 0
             ? retryAfterMs
-            : this.getBackoffMs(Math.min(this.consecutiveServerErrors, 4)); // max 16s
+            : this.getBackoffMs(Math.min(this.consecutiveServerErrors, 4));
           console.warn(
             `⚠️ Server error ${err.status} — key ${this.consecutiveServerErrors}/${totalKeys} denendi, ` +
             `${(backoffMs / 1000).toFixed(1)}s bekleniyor...`
@@ -260,6 +295,8 @@ class AIProviderManager {
       console.log(` Trying ${key.provider} (key ${this.currentKeyIndex + 1}/${providerKeys.length}) [STREAMING]`);
       const result = await this.callProviderStream(key, prompt, systemInstruction, onChunk);
       this.consecutiveServerErrors = 0;
+      this._tempModel = null;
+      this.activeFallbackModelIndex = -1;
       await this.updateKeyUsage(key.id, result.promptTokens, result.completionTokens, operationType, result.modelUsed);
       return result.text;
     } catch (error: unknown) {
@@ -286,16 +323,33 @@ class AIProviderManager {
         const totalKeys = providerKeys.length;
 
         if (this.consecutiveServerErrors >= totalKeys) {
-          const bulkWait = retryAfterMs > 0
-            ? retryAfterMs
-            : Math.round(20_000 + Math.random() * 25_000);
-          console.warn(
-            `🌐 [STREAM] Tüm ${totalKeys} key denendi, hepsi 503. ` +
-            `${(bulkWait / 1000).toFixed(1)}s bekleniyor, sonra baştan...`
-          );
-          await new Promise(resolve => setTimeout(resolve, bulkWait));
-          this.currentKeyIndex = 0;
-          this.consecutiveServerErrors = 0;
+          // Tüm keyler denendi, hepsi 503 — fallback modele geç
+          const nextFallbackIdx = this.activeFallbackModelIndex + 1;
+          const userModel = this.model;
+          const fallbackChain = GEMINI_FALLBACK_MODELS.filter(m => m !== userModel);
+
+          if (nextFallbackIdx < fallbackChain.length) {
+            this.activeFallbackModelIndex = nextFallbackIdx;
+            const fallbackModel = fallbackChain[nextFallbackIdx];
+            console.warn(
+              `🔀 [STREAM] Tüm ${totalKeys} key ${userModel} için 503 verdi. ` +
+              `Fallback modele geçiliyor: ${fallbackModel}`
+            );
+            this._tempModel = fallbackModel;
+            this.currentKeyIndex = 0;
+            this.consecutiveServerErrors = 0;
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          } else {
+            console.warn(
+              `🌐 [STREAM] Tüm modeller ve keyler 503 verdi. 30s bekleniyor...`
+            );
+            this._tempModel = null;
+            this.activeFallbackModelIndex = -1;
+            this.currentKeyIndex = 0;
+            this.consecutiveServerErrors = 0;
+            const bulkWait = retryAfterMs > 0 ? retryAfterMs : 30_000;
+            await new Promise(resolve => setTimeout(resolve, bulkWait));
+          }
         } else {
           const backoffMs = retryAfterMs > 0
             ? retryAfterMs
@@ -336,7 +390,7 @@ class AIProviderManager {
           body.system_instruction = { parts: [{ text: systemInstruction }] };
         }
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:streamGenerateContent?alt=sse&key=${decryptedKey}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.getActiveModel()}:streamGenerateContent?alt=sse&key=${decryptedKey}`;
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -383,7 +437,7 @@ class AIProviderManager {
               const candidate = json.candidates?.[0];
               if (candidate?.finishReason === 'SAFETY') {
                 console.warn('⚠️ Gemini blocked response due to safety filters.');
-                return { text: '[İçerik güvenlik filtresine takıldı. Lütfen sahne metnini gözden geçirin.]', promptTokens: 0, completionTokens: 0, modelUsed: this.model };
+                return { text: '[İçerik güvenlik filtresine takıldı. Lütfen sahne metnini gözden geçirin.]', promptTokens: 0, completionTokens: 0, modelUsed: this.getActiveModel() };
               }
 
               const textChunk = candidate?.content?.parts?.[0]?.text || '';
@@ -402,7 +456,7 @@ class AIProviderManager {
           }
         }
 
-        return { text: fullText, promptTokens: inputTokens, completionTokens: outputTokens, modelUsed: this.model };
+        return { text: fullText, promptTokens: inputTokens, completionTokens: outputTokens, modelUsed: this.getActiveModel() };
       }
 
       // For OpenAI and Anthropic, fallback to non-streaming for now but simulate onChunk 
@@ -439,7 +493,7 @@ class AIProviderManager {
         if (systemInstruction) {
           body.system_instruction = { parts: [{ text: systemInstruction }] };
         }
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${decryptedKey}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.getActiveModel()}:generateContent?key=${decryptedKey}`;
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -460,14 +514,14 @@ class AIProviderManager {
         const candidate = data.candidates?.[0];
         if (candidate?.finishReason === 'SAFETY') {
           console.warn('⚠️ Gemini blocked response due to safety filters.');
-          return { text: '[İçerik güvenlik filtresine takıldı. Lütfen sahne metnini gözden geçirin.]', promptTokens: 0, completionTokens: 0, modelUsed: this.model };
+          return { text: '[İçerik güvenlik filtresine takıldı. Lütfen sahne metnini gözden geçirin.]', promptTokens: 0, completionTokens: 0, modelUsed: this.getActiveModel() };
         }
 
         const text = candidate?.content?.parts?.[0]?.text || '';
         const promptTokens = data.usageMetadata?.promptTokenCount || 0;
         const completionTokens = data.usageMetadata?.candidatesTokenCount || 0;
 
-        return { text, promptTokens, completionTokens, modelUsed: this.model };
+        return { text, promptTokens, completionTokens, modelUsed: this.getActiveModel() };
       }
 
       case 'openai': {
