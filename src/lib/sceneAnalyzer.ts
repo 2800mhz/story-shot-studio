@@ -550,10 +550,26 @@ export async function analyzeTextIntoScenes(
   let suggestedTimeContexts: TimeContext[] = [];
   const searchState = { lastIndex: 0 };
 
+  // Hedef sahne sayısını chunk'lara karakter oranına göre dağıt
+  const totalCharsAllChunks = chunks.reduce((sum, c) => sum + c.length, 0);
+  const chunkTargets: (number | undefined)[] = chunks.map((chunk, i) => {
+    if (!targetSceneCount) return undefined;
+    if (chunks.length === 1) return targetSceneCount;
+    // Son chunk: kalan sahneyi ver (yuvarlama hatası birikmesini önler)
+    if (i === chunks.length - 1) {
+      const allocated = chunks.slice(0, -1).reduce((sum, c) => {
+        return sum + Math.round(targetSceneCount * (c.length / totalCharsAllChunks));
+      }, 0);
+      return Math.max(1, targetSceneCount - allocated);
+    }
+    return Math.max(1, Math.round(targetSceneCount * (chunk.length / totalCharsAllChunks)));
+  });
+
   for (let i = 0; i < chunks.length; i++) {
-    console.log(`🔍 Analyzing chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
+    const chunkTarget = chunkTargets[i];
+    console.log(`🔍 Analyzing chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars${chunkTarget ? `, target: ${chunkTarget} scenes` : ''})`);
     onProgress?.(` Yapay zeka analiz ediyor... (Parça ${i + 1}/${chunks.length})`);
-    const parsed = await analyzeChunk(chunks[i], targetSceneCount);
+    const parsed = await analyzeChunk(chunks[i], chunkTarget);
 
     if (parsed.characters) {
       parsed.characters.forEach(char => {
