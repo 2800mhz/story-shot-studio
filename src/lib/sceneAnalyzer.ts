@@ -242,17 +242,18 @@ function cleanJsonResponse(text: string): string {
   return text;
 }
 
-function splitTextIntoChunks(text: string, maxChars = 6000): string[] {
+function splitTextIntoChunks(text: string, maxChars = 2500): string[] {
   if (text.length <= maxChars) return [text];
   const chunks: string[] = [];
-  const paragraphs = text.split(/\n\n+/);
+  // Paragrafları hem tek hem çift satır sonlarına göre bölelim
+  const paragraphs = text.split(/\n+/);
   let current = '';
   for (const para of paragraphs) {
-    if ((current + '\n\n' + para).length > maxChars && current) {
+    if ((current + '\n' + para).length > maxChars && current) {
       chunks.push(current.trim());
       current = para;
     } else {
-      current = current ? current + '\n\n' + para : para;
+      current = current ? current + '\n' + para : para;
     }
   }
   if (current.trim()) chunks.push(current.trim());
