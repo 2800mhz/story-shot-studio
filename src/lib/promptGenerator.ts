@@ -109,26 +109,24 @@ NEVER default to "old manuscript on a wooden table" when the scene is about a pe
 
 ─── FACE RULES ────────────────────────────────────────────
 
-NAMED HISTORICAL FIGURE (a specific named person — Nasreddin Hoca, Atatürk, etc.):
-  Face MAY appear. Use cinematic indirect angles only:
-    ✓ Strong 3/4 view — face turned 45° from lens
-    ✓ Profile — nose-to-chin line visible, eyes in shadow or turned away
-    ✓ Low angle — face tilted upward, not meeting lens
-    ✓ Deep chiaroscuro — one side lit, one in shadow
-    ✓ Over-the-shoulder — face partially visible in turn
-  FORBIDDEN: frontal face, direct eye contact, portrait pose
-  Close-up (Prompt 3) of named figure: prefer hands, clothing, object they hold
+Faces CAN and SHOULD be visible to convey human emotion, connection, and life.
+However, NEVER create "passport-style" portraits or direct-to-camera poses.
 
-UNNAMED / ANONYMOUS PERSON:
-  Face must not be identifiable. Use:
-    ✓ Back view — full human body from behind, natural posture
-    ✓ Silhouette — against light source (window, fire, sky)
-    ✓ Over-the-shoulder — face turned away, shoulder and hair visible
-    ✓ Partial — hands, arms, posture visible but face out of frame or in shadow
-    ✓ Distant — far enough that face is not readable
-    ✓ Profile dissolving into shadow — jaw and hair visible, eyes not
-  NOTE: "anonymous" does NOT mean "no human." It means face not readable.
-  A back view of a person walking through a bazaar IS a human scene.
+ALL CHARACTERS (Named or Unnamed):
+  Capture people in candid, natural moments of interaction:
+    ✓ Genuine emotional expressions — laughing, smiling, grieving, concentration
+    ✓ Moments of connection — hugging, conversing, working together
+    ✓ Cinematic angles — 3/4 view, profile, or natural frontal WITHOUT looking at the lens
+    ✓ Caught-in-motion — deeply engaged in their action or with each other
+
+  FORBIDDEN FOR ALL PEOPLE:
+    ✗ Direct eye contact with the camera lens
+    ✗ Stiff, posed frontal portraits (like an ID card or passport photo)
+    ✗ Addressing or posing for the camera/viewer
+    ✗ Frozen, "stock photo" artificial smiles
+
+  NOTE: Close-ups can show intense facial emotion, but eyes must look off-camera.
+  You can still use back views or silhouettes when it serves the story scale, but faces ARE allowed and encouraged for intimate, human moments.
 
 CROWD:
   ✓ Backlit silhouettes from behind or bird's-eye
@@ -165,19 +163,19 @@ Each prompt must add something the others don't.
 PROMPT 1 — WIDE / ESTABLISHING:
   Answer: WHERE are we? What is the SCALE of this moment?
   Show: full environment + person/subject within it
-  Human presence: silhouette or distant figure anchors the space
+  Human presence: distant figures interacting, embedded in the space
   Motion potential (Flow AI): parallax, slow pan across environment
 
 PROMPT 2 — MEDIUM / ACTION:
   Answer: WHAT is happening? WHO is doing it?
-  Show: person in action, gesture, movement, interaction
-  Human presence: back view, profile, over-the-shoulder — readable body language
+  Show: person in action, gesture, movement, interaction (hugging, talking, etc.)
+  Human presence: visible faces in candid interaction, strong expressions — NO looking at lens
   Motion potential: subtle drift, slow zoom toward subject
 
 PROMPT 3 — CLOSE-UP / DETAIL:
   Answer: What is the TEXTURE of this moment? The smallest true thing?
-  Show: hands in motion, fabric texture, face in shadow, object being used
-  Human presence: hands, arms, fabric on body — face NOT required
+  Show: expressive face caught in emotion, hands in motion, fabric texture
+  Human presence: candid facial expressions, hands, arms — eyes MUST look off-camera
   Motion potential: Ken Burns zoom, micro detail reveal
 
 SHOT SELECTION LOGIC:
@@ -270,8 +268,8 @@ Use when the scene describes biology, neurology, psychology, or physiology.
   - Macro photography aesthetic — NOT sci-fi, NOT neon hologram
   - Nano Banana Pro renders well: organic textures, macro detail, warm studio light
   - Nano Banana Pro fails at: floating glowing neural networks, electric blue void
-  - Human body parts allowed: hands, skin texture, jaw line, anonymous macro
-  - No identifiable faces
+  - Human body parts allowed: hands, skin texture, jaw line, macro details
+  - Faces allowed only as macro texture or parts, no direct eye contact
   - Color: warm amber for anatomy, deep walnut for neural concepts (NOT electric blue)
   - End suffix: "photorealistic documentary photography, Nano Banana Pro,
     Flow AI motion compatible"
@@ -316,7 +314,7 @@ RESPONSE FORMAT — JSON only, no markdown
     "detectedEra": "ancient|early_modern|modern|contemporary|timeless",
     "visualMode": "cinematic|symbolic|scientific",
     "hasHumans": boolean,
-    "humanVisibility": "named_figure|anonymous_back|silhouette|crowd|none",
+    "humanVisibility": "visible_candid|silhouette|crowd|none",
     "complexity": "low|medium|high|extreme",
     "difficultyScore": 1-10,
     "hasCrowd": boolean,
@@ -460,33 +458,26 @@ Avoid literal interpretation of metaphors.\n`
   if (characters.length > 0) {
     const individualChars = characters.filter(c => !c.isCrowd);
 
-    // Named historical entity → indirect cinematic face allowed (profile/3/4/shadow)
-    const NAMED_FACE_RULE = `⚠️ CAMERA RULE (NAMED ENTITY — TIER 1):
-Face may appear but NEVER frontally. Use: 3/4 view face angled away, strong profile in rim shadow,
-low angle chin tilted up, or deep chiaroscuro (one half in shadow). NO direct eye contact with lens.
-Embed all clothing and physical details verbatim across all 3 prompts.\n`;
-
-    // Anonymous / unnamed → absolute face prohibition
-    const ANON_FACE_RULE = `⚠️ CAMERA RULE (UNNAMED — TIER 2):
-Subject has no named identity. Face MUST NOT appear in any prompt.
-Use: back view, silhouette, over-the-shoulder, face in dust/smoke, or distant figure only.\n`;
+    // All characters → faces allowed in candid moments but no direct visual contact with lens
+    const FACE_RULE = `⚠️ CAMERA RULE:
+Faces CAN and SHOULD be visible, showing natural emotion and interactions (laughing, hugging, talking).
+However, ABSOLUTELY NO direct eye contact with the camera lens, and NO stiff passport-style (vesikalık) portraits.
+Subjects must look off-camera or at each other. Embed all clothing and physical details verbatim.\n`;
 
     if (individualChars.length === 1) {
       const char = individualChars[0];
       const isNamed = Boolean(char.name && char.name.trim().length > 0);
       entityHeader += `=== CHARACTER TO DEPICT: ${char.name}${char.role ? ` (${char.role})` : ''} ===\n`;
       entityHeader += `⚠️ EMBED ALL OF THE FOLLOWING FIELDS VERBATIM INTO EVERY PROMPT. DO NOT OMIT OR SUMMARIZE ANY FIELD.\n`;
-      entityHeader += isNamed ? NAMED_FACE_RULE : ANON_FACE_RULE;
+      entityHeader += FACE_RULE;
       if (char.age) entityHeader += `Age/build: ${char.age}\n`;
       if (char.ethnicity) entityHeader += `Phenotype/Ethnicity (costume and posture context): ${char.ethnicity}\n`;
-      if (char.physicalFeatures) entityHeader += `Physical features (render via ${isNamed ? '3/4 or profile angle' : 'silhouette/back view only'}): ${char.physicalFeatures}\n`;
-      if (char.hair) entityHeader += `Hair (visible from ${isNamed ? 'profile or 3/4' : 'back/profile'}): ${char.hair}\n`;
-      if (char.beard) entityHeader += `Beard (visible in profile/shadow): ${char.beard}\n`;
-      if (char.clothing) entityHeader += `Costume (every garment and accessory — visible from back or side): ${char.clothing}\n`;
-      if (char.visualDescription) entityHeader += `Full visual description (integrate into ${isNamed ? 'indirect cinematic angle' : 'back-view or silhouette framing'}): ${char.visualDescription}\n`;
-      entityHeader += isNamed
-        ? `⚠️ MAINTAIN EXACT APPEARANCE ACROSS ALL 3 PROMPTS. 3/4 or profile preferred — NO frontal portrait.\n\n`
-        : `⚠️ MAINTAIN EXACT APPEARANCE ACROSS ALL 3 PROMPTS. FACE MUST NOT BE VISIBLE IN ANY PROMPT.\n\n`;
+      if (char.physicalFeatures) entityHeader += `Physical features: ${char.physicalFeatures}\n`;
+      if (char.hair) entityHeader += `Hair: ${char.hair}\n`;
+      if (char.beard) entityHeader += `Beard: ${char.beard}\n`;
+      if (char.clothing) entityHeader += `Costume (every garment and accessory): ${char.clothing}\n`;
+      if (char.visualDescription) entityHeader += `Full visual description: ${char.visualDescription}\n`;
+      entityHeader += `⚠️ MAINTAIN EXACT APPEARANCE ACROSS ALL 3 PROMPTS. FACES VISIBLE BUT NO DIRECT EYE CONTACT WITH LENS.\n\n`;
 
     } else if (individualChars.length > 1) {
       entityHeader += `=== MULTIPLE CHARACTERS IN THIS SCENE ===\n`;
@@ -495,17 +486,15 @@ Use: back view, silhouette, over-the-shoulder, face in dust/smoke, or distant fi
         const isNamed = Boolean(char.name && char.name.trim().length > 0);
         const position = idx === 0 ? 'FOREGROUND' : idx === 1 ? 'MIDGROUND' : 'BACKGROUND';
         entityHeader += `[${position}] ${char.name}${char.role ? ` (${char.role})` : ''}:\n`;
-        entityHeader += isNamed ? `  ${NAMED_FACE_RULE}` : `  ${ANON_FACE_RULE}`;
+        entityHeader += `  ${FACE_RULE}`;
         if (char.age) entityHeader += `  Age/build: ${char.age}\n`;
         if (char.ethnicity) entityHeader += `  Phenotype/Ethnicity (costume context): ${char.ethnicity}\n`;
-        if (char.physicalFeatures) entityHeader += `  Physical features (${isNamed ? '3/4 or profile' : 'silhouette/back only'}): ${char.physicalFeatures}\n`;
+        if (char.physicalFeatures) entityHeader += `  Physical features: ${char.physicalFeatures}\n`;
         if (char.hair) entityHeader += `  Hair: ${char.hair}\n`;
         if (char.beard) entityHeader += `  Beard: ${char.beard}\n`;
         if (char.clothing) entityHeader += `  Costume: ${char.clothing}\n`;
         if (char.visualDescription) entityHeader += `  Full description: ${char.visualDescription}\n`;
-        entityHeader += isNamed
-          ? `  ⚠️ 3/4 or profile in shadow — no frontal face.\n\n`
-          : `  ⚠️ NO FACE. Back view or silhouette only.\n\n`;
+        entityHeader += `  ⚠️ FACES VISIBLE INTERACTING BUT NO DIRECT EYE CONTACT WITH LENS.\n\n`;
       });
     }
 
@@ -648,7 +637,7 @@ SCENE FOCUS: Abstract or narrative scene with no entities.
   }
 
   userMessage += `3 farklı açıdan sinematik prompt üret. Her prompt'ta "${scene.visualNote}" notunun ruhunu koru. Her prompt sonuna "--ar ${aspectRatio} --v 6" ekle.`;
-  userMessage += `\n\n⚠️ REMINDER: No frontal faces in any of the 3 prompts. Back view / over-the-shoulder / silhouette mandatory for all character appearances.`;
+  userMessage += `\n\n⚠️ REMINDER: Characters should be visible interacting and expressing emotion (smiling, hugging, etc). NO passport-style portraits. NO direct eye contact with the camera lens.`;
 
   function tryParseJSON(raw: string) {
     const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -734,7 +723,7 @@ RULES:
 3. Return ONLY the final revised English prompt. No explanations, no markdown fences, no quotes.
 4. Keep all cinematic and technical terminology (--ar flags, etc.) intact.
 5. If the user asks to remove something, remove it naturally without breaking the sentence structure.
-6. NEVER introduce a frontal face or direct portrait angle during revision — maintain indirect framing.`;
+6. Faces can be visible for natural interaction, but NEVER introduce direct eye contact with the lens or stiff passport-style portraits.`;
 
 export async function revisePrompt(
   originalPrompt: string,
