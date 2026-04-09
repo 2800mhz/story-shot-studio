@@ -245,18 +245,42 @@ function cleanJsonResponse(text: string): string {
 function splitTextIntoChunks(text: string, maxChars = 2500): string[] {
   if (text.length <= maxChars) return [text];
   const chunks: string[] = [];
-  // Paragrafları hem tek hem çift satır sonlarına göre bölelim
   const paragraphs = text.split(/\n+/);
-  let current = '';
+  
+  let currentChunk = '';
+
   for (const para of paragraphs) {
-    if ((current + '\n' + para).length > maxChars && current) {
-      chunks.push(current.trim());
-      current = para;
+    // Eğer tek bir paragraf maxChars sınırından büyükse cümlelere böl
+    if (para.length > maxChars) {
+      if (currentChunk) {
+        chunks.push(currentChunk.trim());
+        currentChunk = '';
+      }
+      const sentences = para.split(/(?<=[.!?])\s+/);
+      let currentSentenceChunk = '';
+      
+      for (const sentence of sentences) {
+        if ((currentSentenceChunk + ' ' + sentence).length > maxChars && currentSentenceChunk) {
+          chunks.push(currentSentenceChunk.trim());
+          currentSentenceChunk = sentence;
+        } else {
+          currentSentenceChunk = currentSentenceChunk ? currentSentenceChunk + ' ' + sentence : sentence;
+        }
+      }
+      if (currentSentenceChunk) {
+        currentChunk = currentSentenceChunk;
+      }
     } else {
-      current = current ? current + '\n' + para : para;
+      if ((currentChunk + '\n' + para).length > maxChars && currentChunk) {
+        chunks.push(currentChunk.trim());
+        currentChunk = para;
+      } else {
+        currentChunk = currentChunk ? currentChunk + '\n' + para : para;
+      }
     }
   }
-  if (current.trim()) chunks.push(current.trim());
+  
+  if (currentChunk.trim()) chunks.push(currentChunk.trim());
   return chunks;
 }
 
