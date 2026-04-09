@@ -115,25 +115,25 @@ class AIProviderManager {
     operationType: string = 'api_request',
     images?: Array<{ inlineData: { data: string, mimeType: string } }>
   ): Promise<string> {
-    const maxRetries = 25;
+    // maxRetries: tüm key sayısı * birkaç bulk-wait turu
+    const maxRetries = 60;
 
     if (retryCount >= maxRetries) {
-      throw new Error('All AI providers exhausted. Please add more API keys in Settings.');
+      throw new Error('All AI providers exhausted after many retries. Please try again later.');
     }
 
     let key = this.getCurrentKey();
     if (!key) {
-      if (retryCount < maxRetries) {
-        console.warn(`⏳ All keys exhausted, waiting 10s before retry (attempt ${retryCount + 1}/${maxRetries})...`);
-        await new Promise(resolve => setTimeout(resolve, 10_000));
-        this.currentKeyIndex = 0;
-        return this._generateWithRetry(prompt, systemInstruction, retryCount + 1, operationType, images);
-      }
-      throw new Error('No active API keys available. Please add more Gemini API keys in Settings.');
+      // Tüm keyler rate-limited veya inactive — başa dön ve bekle
+      console.warn(`⏳ All keys exhausted, waiting 15s before retry (attempt ${retryCount + 1}/${maxRetries})...`);
+      this.currentKeyIndex = 0;
+      await new Promise(resolve => setTimeout(resolve, 15_000));
+      return this._generateWithRetry(prompt, systemInstruction, retryCount + 1, operationType, images);
     }
 
     try {
-      console.log(` Trying ${key.provider} (key ${this.currentKeyIndex + 1})`);
+      const providerKeys = this.keys.get(this.currentProvider) || [];
+      console.log(` Trying ${key.provider} (key ${this.currentKeyIndex + 1}/${providerKeys.length})`);
       const result = await this.callProvider(key, prompt, systemInstruction, images);
       // Başarılı istek — 503 sayacını sıfırla
       this.consecutiveServerErrors = 0;
@@ -156,30 +156,34 @@ class AIProviderManager {
       } else if (err.status === 503 || err.status === 500) {
         this.consecutiveServerErrors++;
         this.lastServerErrorAt = Date.now();
+        // ÖNEMLİ: rotateKey() çağır ama currentKeyIndex'i SIFIRLAMAZ
+        // Bu sayede key 1→2→3→...→N sırasıyla denir, tekrar başa dönmez
         this.rotateKey();
 
-        // Gemini Retry-After header'ı göndermiş olabilir
         const retryAfterMs = err.retryAfterMs ?? 0;
+        const providerKeys = this.keys.get(this.currentProvider) || [];
+        const totalKeys = providerKeys.length;
 
-        if (this.consecutiveServerErrors >= this.BULK_WAIT_THRESHOLD) {
-          // Tüm keyler overloaded — uzun bir toplu bekleme yap
+        if (this.consecutiveServerErrors >= totalKeys) {
+          // Bütün key'ler denendi, hepsi 503 — uzun toplu bekleme
           const bulkWait = retryAfterMs > 0
             ? retryAfterMs
-            : Math.round(15_000 + Math.random() * 30_000); // 15-45s
+            : Math.round(20_000 + Math.random() * 25_000); // 20-45s
           console.warn(
-            `🌐 ${this.consecutiveServerErrors} ard arda 503 — Gemini yoğun. ` +
-            `${(bulkWait / 1000).toFixed(1)}s bekleniyor...`
+            `🌐 Tüm ${totalKeys} key denendi, hepsi 503. ` +
+            `Gemini çok yoğun — ${(bulkWait / 1000).toFixed(1)}s bekleniyor, sonra baştan...`
           );
-          this.currentKeyIndex = 0; // sonra baştan dene
+          // Bekleme sonrası başa dön ve sayacı sıfırla
           await new Promise(resolve => setTimeout(resolve, bulkWait));
-          this.consecutiveServerErrors = 0; // bekleme sonrası sıfırla
+          this.currentKeyIndex = 0;
+          this.consecutiveServerErrors = 0;
         } else {
-          // İlk birkaç 503 — sadece exponential backoff
+          // Henüz tüm key'ler denenmedi — kısa backoff ile sonraki key'e geç
           const backoffMs = retryAfterMs > 0
             ? retryAfterMs
-            : this.getBackoffMs(this.consecutiveServerErrors);
+            : this.getBackoffMs(Math.min(this.consecutiveServerErrors, 4)); // max 16s
           console.warn(
-            `⚠️ Server error ${err.status} (${this.consecutiveServerErrors}. hata) — ` +
+            `⚠️ Server error ${err.status} — key ${this.consecutiveServerErrors}/${totalKeys} denendi, ` +
             `${(backoffMs / 1000).toFixed(1)}s bekleniyor...`
           );
           await new Promise(resolve => setTimeout(resolve, backoffMs));
@@ -237,27 +241,24 @@ class AIProviderManager {
     operationType: string = 'api_request',
     onChunk?: (text: string) => void
   ): Promise<string> {
-    const maxRetries = 25;
+    const maxRetries = 60;
 
     if (retryCount >= maxRetries) {
-      throw new Error('All AI providers exhausted. Please add more API keys in Settings.');
+      throw new Error('All AI providers exhausted after many retries. Please try again later.');
     }
 
     let key = this.getCurrentKey();
     if (!key) {
-      if (retryCount < maxRetries) {
-        console.warn(`⏳ All keys exhausted [STREAM], waiting 10s before retry (attempt ${retryCount + 1}/${maxRetries})...`);
-        await new Promise(resolve => setTimeout(resolve, 10_000));
-        this.currentKeyIndex = 0;
-        return this._generateWithRetryStream(prompt, systemInstruction, retryCount + 1, operationType, onChunk);
-      }
-      throw new Error('No active API keys available. Please add more Gemini API keys in Settings.');
+      console.warn(`⏳ All keys exhausted [STREAM], waiting 15s before retry (attempt ${retryCount + 1}/${maxRetries})...`);
+      this.currentKeyIndex = 0;
+      await new Promise(resolve => setTimeout(resolve, 15_000));
+      return this._generateWithRetryStream(prompt, systemInstruction, retryCount + 1, operationType, onChunk);
     }
 
     try {
-      console.log(` Trying ${key.provider} (key ${this.currentKeyIndex + 1}) [STREAMING]`);
+      const providerKeys = this.keys.get(this.currentProvider) || [];
+      console.log(` Trying ${key.provider} (key ${this.currentKeyIndex + 1}/${providerKeys.length}) [STREAMING]`);
       const result = await this.callProviderStream(key, prompt, systemInstruction, onChunk);
-      // Başarılı — 503 sayacını sıfırla
       this.consecutiveServerErrors = 0;
       await this.updateKeyUsage(key.id, result.promptTokens, result.completionTokens, operationType, result.modelUsed);
       return result.text;
@@ -281,24 +282,26 @@ class AIProviderManager {
         this.rotateKey();
 
         const retryAfterMs = err.retryAfterMs ?? 0;
+        const providerKeys = this.keys.get(this.currentProvider) || [];
+        const totalKeys = providerKeys.length;
 
-        if (this.consecutiveServerErrors >= this.BULK_WAIT_THRESHOLD) {
+        if (this.consecutiveServerErrors >= totalKeys) {
           const bulkWait = retryAfterMs > 0
             ? retryAfterMs
-            : Math.round(15_000 + Math.random() * 30_000);
+            : Math.round(20_000 + Math.random() * 25_000);
           console.warn(
-            `🌐 [STREAM] ${this.consecutiveServerErrors} ard arda 503 — Gemini yoğun. ` +
-            `${(bulkWait / 1000).toFixed(1)}s bekleniyor...`
+            `🌐 [STREAM] Tüm ${totalKeys} key denendi, hepsi 503. ` +
+            `${(bulkWait / 1000).toFixed(1)}s bekleniyor, sonra baştan...`
           );
-          this.currentKeyIndex = 0;
           await new Promise(resolve => setTimeout(resolve, bulkWait));
+          this.currentKeyIndex = 0;
           this.consecutiveServerErrors = 0;
         } else {
           const backoffMs = retryAfterMs > 0
             ? retryAfterMs
-            : this.getBackoffMs(this.consecutiveServerErrors);
+            : this.getBackoffMs(Math.min(this.consecutiveServerErrors, 4));
           console.warn(
-            `⚠️ [STREAM] Server error ${err.status} (${this.consecutiveServerErrors}. hata) — ` +
+            `⚠️ [STREAM] Server error ${err.status} — key ${this.consecutiveServerErrors}/${totalKeys} denendi, ` +
             `${(backoffMs / 1000).toFixed(1)}s bekleniyor...`
           );
           await new Promise(resolve => setTimeout(resolve, backoffMs));
