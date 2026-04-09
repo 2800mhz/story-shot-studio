@@ -19,6 +19,12 @@ class AIProviderManager {
   private initialized = false;
   private model = 'gemini-2.0-flash';
 
+  // 503 backoff tracking
+  private consecutiveServerErrors = 0;
+  private lastServerErrorAt = 0;
+  private readonly MAX_BACKOFF_MS = 30_000;  // 30s cap
+  private readonly BULK_WAIT_THRESHOLD = 3;  // kaç 503'ten sonra uzun bekle
+
   async initialize(userId: string) {
     const { data, error } = await supabase
       .from('api_keys')
@@ -91,8 +97,25 @@ class AIProviderManager {
     return this._generateWithRetryStream(prompt, systemInstruction, 0, options?.operationType, options?.onChunk);
   }
 
-  private async _generateWithRetry(prompt: string, systemInstruction: string | undefined, retryCount: number, operationType: string = 'api_request', images?: Array<{ inlineData: { data: string, mimeType: string } }>): Promise<string> {
-    const maxRetries = 25; // Increase max retries to accommodate 19+ keys
+  /**
+   * Exponential backoff hesaplar (jitter ile).
+   * consecutiveServerErrors sayısına göre 1s → 2s → 4s → … → 30s artar.
+   */
+  private getBackoffMs(errorCount: number): number {
+    const base = Math.min(1000 * Math.pow(2, errorCount - 1), this.MAX_BACKOFF_MS);
+    // %20 jitter — aynı anda birden fazla istek varsa çakışmayı önler
+    const jitter = base * 0.2 * Math.random();
+    return Math.round(base + jitter);
+  }
+
+  private async _generateWithRetry(
+    prompt: string,
+    systemInstruction: string | undefined,
+    retryCount: number,
+    operationType: string = 'api_request',
+    images?: Array<{ inlineData: { data: string, mimeType: string } }>
+  ): Promise<string> {
+    const maxRetries = 25;
 
     if (retryCount >= maxRetries) {
       throw new Error('All AI providers exhausted. Please add more API keys in Settings.');
@@ -100,12 +123,10 @@ class AIProviderManager {
 
     let key = this.getCurrentKey();
     if (!key) {
-      // All keys are currently rate-limited or inactive.
-      // If we haven't exhausted maxRetries, wait 10s and try again from the top.
       if (retryCount < maxRetries) {
         console.warn(`⏳ All keys exhausted, waiting 10s before retry (attempt ${retryCount + 1}/${maxRetries})...`);
         await new Promise(resolve => setTimeout(resolve, 10_000));
-        this.currentKeyIndex = 0; // reset so we try from start after the wait
+        this.currentKeyIndex = 0;
         return this._generateWithRetry(prompt, systemInstruction, retryCount + 1, operationType, images);
       }
       throw new Error('No active API keys available. Please add more Gemini API keys in Settings.');
@@ -114,26 +135,61 @@ class AIProviderManager {
     try {
       console.log(` Trying ${key.provider} (key ${this.currentKeyIndex + 1})`);
       const result = await this.callProvider(key, prompt, systemInstruction, images);
+      // Başarılı istek — 503 sayacını sıfırla
+      this.consecutiveServerErrors = 0;
       await this.updateKeyUsage(key.id, result.promptTokens, result.completionTokens, operationType, result.modelUsed);
       return result.text;
     } catch (error: unknown) {
-      const err = error as { status?: number; message?: string };
+      const err = error as { status?: number; message?: string; retryAfterMs?: number };
       console.error(`❌ Error with ${this.currentProvider}:`, error);
 
       if (err.status === 429 || err.message?.includes('429') || err.message?.includes('quota')) {
         console.warn(`⚠️ Rate limit hit for ${this.currentProvider}, rotating...`);
         await this.markRateLimited(key);
+        this.rotateKey();
+        await new Promise(resolve => setTimeout(resolve, 1500));
       } else if (err.status === 403 || err.status === 400 || err.message?.includes('API key not valid')) {
         console.warn(`🚫 Invalid API key for ${this.currentProvider}, marking inactive...`);
         await this.markInvalid(key, `Invalid or unauthorized API key (${err.status || 400})`);
+        this.rotateKey();
+        await new Promise(resolve => setTimeout(resolve, 500));
       } else if (err.status === 503 || err.status === 500) {
-        console.warn(`⚠️ Server error ${err.status} for ${this.currentProvider}, rotating and waiting...`);
+        this.consecutiveServerErrors++;
+        this.lastServerErrorAt = Date.now();
+        this.rotateKey();
+
+        // Gemini Retry-After header'ı göndermiş olabilir
+        const retryAfterMs = err.retryAfterMs ?? 0;
+
+        if (this.consecutiveServerErrors >= this.BULK_WAIT_THRESHOLD) {
+          // Tüm keyler overloaded — uzun bir toplu bekleme yap
+          const bulkWait = retryAfterMs > 0
+            ? retryAfterMs
+            : Math.round(15_000 + Math.random() * 30_000); // 15-45s
+          console.warn(
+            `🌐 ${this.consecutiveServerErrors} ard arda 503 — Gemini yoğun. ` +
+            `${(bulkWait / 1000).toFixed(1)}s bekleniyor...`
+          );
+          this.currentKeyIndex = 0; // sonra baştan dene
+          await new Promise(resolve => setTimeout(resolve, bulkWait));
+          this.consecutiveServerErrors = 0; // bekleme sonrası sıfırla
+        } else {
+          // İlk birkaç 503 — sadece exponential backoff
+          const backoffMs = retryAfterMs > 0
+            ? retryAfterMs
+            : this.getBackoffMs(this.consecutiveServerErrors);
+          console.warn(
+            `⚠️ Server error ${err.status} (${this.consecutiveServerErrors}. hata) — ` +
+            `${(backoffMs / 1000).toFixed(1)}s bekleniyor...`
+          );
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+        }
+      } else {
+        // Bilinmeyen hata — kısa bekleme
+        this.rotateKey();
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      this.rotateKey();
-
-      // Add a small delay before retrying to avoid hammering a downed API or getting instantly rate-limited again
-      await new Promise(resolve => setTimeout(resolve, 1000));
       return this._generateWithRetry(prompt, systemInstruction, retryCount + 1, operationType, images);
     }
   }
@@ -201,24 +257,57 @@ class AIProviderManager {
     try {
       console.log(` Trying ${key.provider} (key ${this.currentKeyIndex + 1}) [STREAMING]`);
       const result = await this.callProviderStream(key, prompt, systemInstruction, onChunk);
+      // Başarılı — 503 sayacını sıfırla
+      this.consecutiveServerErrors = 0;
       await this.updateKeyUsage(key.id, result.promptTokens, result.completionTokens, operationType, result.modelUsed);
       return result.text;
     } catch (error: unknown) {
-      const err = error as { status?: number; message?: string };
+      const err = error as { status?: number; message?: string; retryAfterMs?: number };
       console.error(`❌ Error with ${this.currentProvider} [STREAMING]:`, error);
 
       if (err.status === 429 || err.message?.includes('429') || err.message?.includes('quota')) {
         console.warn(`⚠️ Rate limit hit for ${this.currentProvider}, rotating...`);
         await this.markRateLimited(key);
+        this.rotateKey();
+        await new Promise(resolve => setTimeout(resolve, 1500));
       } else if (err.status === 403 || err.status === 400 || err.message?.includes('API key not valid')) {
         console.warn(`🚫 Invalid API key for ${this.currentProvider}, marking inactive...`);
         await this.markInvalid(key, `Invalid or unauthorized API key (${err.status || 400})`);
+        this.rotateKey();
+        await new Promise(resolve => setTimeout(resolve, 500));
       } else if (err.status === 503 || err.status === 500) {
-        console.warn(`⚠️ Server error ${err.status} for ${this.currentProvider}, rotating and waiting...`);
+        this.consecutiveServerErrors++;
+        this.lastServerErrorAt = Date.now();
+        this.rotateKey();
+
+        const retryAfterMs = err.retryAfterMs ?? 0;
+
+        if (this.consecutiveServerErrors >= this.BULK_WAIT_THRESHOLD) {
+          const bulkWait = retryAfterMs > 0
+            ? retryAfterMs
+            : Math.round(15_000 + Math.random() * 30_000);
+          console.warn(
+            `🌐 [STREAM] ${this.consecutiveServerErrors} ard arda 503 — Gemini yoğun. ` +
+            `${(bulkWait / 1000).toFixed(1)}s bekleniyor...`
+          );
+          this.currentKeyIndex = 0;
+          await new Promise(resolve => setTimeout(resolve, bulkWait));
+          this.consecutiveServerErrors = 0;
+        } else {
+          const backoffMs = retryAfterMs > 0
+            ? retryAfterMs
+            : this.getBackoffMs(this.consecutiveServerErrors);
+          console.warn(
+            `⚠️ [STREAM] Server error ${err.status} (${this.consecutiveServerErrors}. hata) — ` +
+            `${(backoffMs / 1000).toFixed(1)}s bekleniyor...`
+          );
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+        }
+      } else {
+        this.rotateKey();
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      this.rotateKey();
-      await new Promise(resolve => setTimeout(resolve, 1000));
       return this._generateWithRetryStream(prompt, systemInstruction, retryCount + 1, operationType, onChunk);
     }
   }
@@ -252,8 +341,12 @@ class AIProviderManager {
         });
 
         if (!response.ok) {
-          const err = new Error(`Gemini API error: ${response.status}`) as Error & { status: number };
+          const err = new Error(`Gemini API error: ${response.status}`) as Error & { status: number; retryAfterMs?: number };
           err.status = response.status;
+          const retryAfterSec = response.headers.get('Retry-After');
+          if (retryAfterSec) {
+            err.retryAfterMs = parseInt(retryAfterSec, 10) * 1000;
+          }
           throw err;
         }
 
@@ -350,8 +443,13 @@ class AIProviderManager {
           body: JSON.stringify(body),
         });
         if (!response.ok) {
-          const err = new Error(`Gemini API error: ${response.status}`) as Error & { status: number };
+          const err = new Error(`Gemini API error: ${response.status}`) as Error & { status: number; retryAfterMs?: number };
           err.status = response.status;
+          // Gemini bazen Retry-After header'ı gönderir (saniye cinsinden)
+          const retryAfterSec = response.headers.get('Retry-After');
+          if (retryAfterSec) {
+            err.retryAfterMs = parseInt(retryAfterSec, 10) * 1000;
+          }
           throw err;
         }
         const data = await response.json();
