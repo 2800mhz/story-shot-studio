@@ -1787,6 +1787,7 @@ const Index = () => {
         characters={state.characters}
         locations={state.locations}
         timeContexts={state.timeContexts}
+        projectTitle={project?.title || 'proje'}
         episodeTitle={episode?.title || 'episode'}
         episodeId={episodeId || ''}
         episodePrompt={state.episodePrompt}

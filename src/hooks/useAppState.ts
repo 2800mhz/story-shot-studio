@@ -372,10 +372,15 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       const canonicalLabelToId = new Map<string, string>();
       mergedTimeContexts.forEach(tc => canonicalLabelToId.set(tc.label, tc.id));
 
+      const nextSequenceStart = state.sceneCards.length > 0 
+        ? Math.max(...state.sceneCards.map(s => s.sceneNumber)) + 1 
+        : 1;
+
       // Remap each card's timeContextIds from incoming IDs to canonical IDs
       // Each card keeps ONLY its own time context (not all of them)
-      const updatedNewCards = newCards.map(sc => ({
+      const updatedNewCards = newCards.map((sc, index) => ({
         ...sc,
+        sceneNumber: nextSequenceStart + index,
         timeContextIds: (sc.timeContextIds ?? [])
           .map(incomingId => {
             const label = incomingIdToLabel.get(incomingId);

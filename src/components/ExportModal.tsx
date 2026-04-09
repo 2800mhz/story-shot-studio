@@ -14,6 +14,7 @@ interface ExportModalProps {
   characters: Character[];
   locations: Location[];
   timeContexts: TimeContext[];
+  projectTitle: string;
   episodeTitle: string;
   episodeId: string;
   episodePrompt?: string;
@@ -27,12 +28,13 @@ export function ExportModal({
   characters, 
   locations, 
   timeContexts, 
+  projectTitle,
   episodeTitle, 
   episodeId,
   episodePrompt,
   episodePromptTr
 }: ExportModalProps) {
-  const filename = `${episodeTitle.replace(/\s+/g, '_')}_promptforge_${episodeId.substring(0, 8)}`;
+  const filename = `${projectTitle.replace(/\s+/g, '_')}_${episodeTitle.replace(/\s+/g, '_')}_promptforge_${episodeId.substring(0, 8)}`;
 
   const getExportData = () => {
     return sceneCards.map(sc => {
