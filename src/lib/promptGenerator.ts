@@ -1,4 +1,4 @@
-import type { SceneCard, Character, Location, TimeContext, PromptCard, PromptAnalysis, GenerationResult, SceneAnalysis, SceneReference } from '@/types';
+import type { SceneCard, Character, Location, TimeContext, PromptCard, PromptAnalysis, GenerationResult, SceneAnalysis, SceneReference, NarrativeLayer } from '@/types';
 import { aiProvider } from './aiProvider';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -440,124 +440,189 @@ export async function generatePromptsForScene(
   generationType: 'initial' | 'regenerate' = 'initial',
   onRetry?: () => void
 ): Promise<GenerationResult> {
+  const layer: NarrativeLayer = scene.narrativeLayer ?? 'historical';
+
+  // ─── VISUAL STYLE NOTE ─────────────────────────────────────────────────────
   let userMessage = `SAHNE METNİ:\n${scene.text}\n\n`;
   userMessage += `TÜRKÇE GÖRSEL NOT: "${scene.visualNote}"\n\n`;
 
-  const styleNote = scene.visualStyle === 'symbolic'
-    ? `\nVISUAL STYLE: This is a symbolic/metaphorical scene inspired by Central Asian Tengrist art traditions. 
-Use painterly, ethereal aesthetics. Reference: Turkic shamanic iconography, Inner Asian manuscript 
+  // styleNote: visualStyle + narrativeLayer birlikte değerlendirilir
+  let styleNote: string;
+  if (scene.visualStyle === 'symbolic') {
+    styleNote = `\nVISUAL STYLE: Symbolic/metaphorical scene inspired by Central Asian Tengrist art traditions.
+Use painterly, ethereal aesthetics. Reference: Turkic shamanic iconography, Inner Asian manuscript
 illumination, cosmic symbolism. NOT photorealistic — more like a painted vision or dream sequence.
-Avoid literal interpretation of metaphors.\n`
-    : `\nVISUAL STYLE: Photorealistic, cinematic documentary style.\n`;
-
+Avoid literal interpretation of metaphors.\n`;
+  } else if (scene.visualStyle === 'scientific' || layer === 'scientific') {
+    styleNote = `\nVISUAL STYLE: Scientific documentary mode — MACRO PHOTOGRAPHY AESTHETIC.
+NOT sci-fi, NOT neon hologram, NOT electric blue void.
+Use: organic textures, micro biology, warm amber studio light, photorealistic macro detail.
+Setting: modern neuroscience laboratory, clinical environment, or abstract biological close-up.
+NO historical characters, costumes, or architecture in this scene.\n`;
+  } else if (scene.visualStyle === 'abstract' || layer === 'universal') {
+    styleNote = `\nVISUAL STYLE: Universal/timeless documentary — emotionally anchored but era-unspecified.
+Choose ONE visual anchor (ancient OR modern, not mixed). Prefer natural light, human gesture, landscape.
+NO anachronistic mixing. Let the emotion carry the frame.\n`;
+  } else {
+    styleNote = `\nVISUAL STYLE: Photorealistic, cinematic documentary style.\n`;
+  }
   userMessage += styleNote;
 
-  // ─── ENTITY HEADER ───────────────────────────────────────────────────────────
+  // ─── UNIVERSAL CAMERA RULE ─────────────────────────────────────────────────
+  // Bu kural karakterden bağımsız, HER sahneye eklenir
+  const UNIVERSAL_CAMERA_RULE = `
+=== CAMERA RULE (APPLIES TO ALL SHOTS, NO EXCEPTIONS) ===
+✓ Candid, documentary-style composition — people caught in action, not posing
+✓ Faces CAN and SHOULD appear to convey emotion (laughing, concentrating, grieving)
+✓ Eyes must look OFF-camera — at another person, at an object, into the distance
+✗ NEVER: direct eye contact with the lens
+✗ NEVER: stiff passport-style / vesikalık portrait
+✗ NEVER: symmetrical posed group photo
+✗ NEVER: artificial frozen smile
+`;
+
+  // ─── ENTITY HEADER ────────────────────────────────────────────────────────
   let entityHeader = '';
 
-  if (characters.length > 0) {
-    const individualChars = characters.filter(c => !c.isCrowd);
+  // Bilimsel sahnelerde tarihsel entity'leri sıfırla — Scientific Override
+  const isScientificOverride = layer === 'scientific' || scene.visualStyle === 'scientific';
 
-    // All characters → faces allowed in candid moments but no direct visual contact with lens
+  if (isScientificOverride) {
+    // ── BİLİMSEL MOD: Tarihsel entity'ler enjekte edilmez ──────────────────
+    entityHeader = `=== SCIENTIFIC MODE — HISTORICAL ENTITIES SUSPENDED ===
+This scene describes a biological/neurological/scientific process.
+DO NOT render historical characters (e.g. Nasreddin Hoca), Ottoman costumes, or ancient architecture.
+INSTEAD RENDER:
+- Macro photography of organic tissue, neurons, muscle fiber, or cellular structures
+- Modern neuroscience or biology laboratory environment (clinical, precise, warm amber lighting)
+- Abstract biological visualization: cross-sections, macro skin texture, brain tissue
+- If a human appears: anonymous, contemporary clothing, seen from behind or as body part only
+${UNIVERSAL_CAMERA_RULE}\n`;
+
+  } else if (layer === 'universal') {
+    // ── EVRENSEL MOD: Tarihsel entity opsiyonel, çıpa seçilir ──────────────
+    entityHeader = `=== UNIVERSAL / TIMELESS MODE ===
+This scene describes a universal human experience (emotion, instinct, social bond).
+Choose ONE era anchor — either anchor it in antiquity OR in the present, never both.
+Prefer: natural environments, simple human gestures, unadorned settings.
+Avoid: anachronistic mixing, specific cultural markers unless they serve emotion.
+${UNIVERSAL_CAMERA_RULE}\n`;
+
+    // Universal modda karakter bağlamı varsa yine de ekle (ama "timeless" damgasıyla)
+    if (characters.length > 0) {
+      const individualChars = characters.filter(c => !c.isCrowd);
+      if (individualChars.length > 0) {
+        entityHeader += `=== OPTIONAL CHARACTER REFERENCE (timeless context) ===\n`;
+        individualChars.forEach(char => {
+          entityHeader += `${char.name}: ${char.visualDescription || ''}\n`;
+        });
+        entityHeader += `Note: If shown, use archetypal/universal version — not period-specific.\n\n`;
+      }
+    }
+
+  } else {
+    // ── TARİHSEL / MODERN MOD: Normal entity injection ────────────────────
     const FACE_RULE = `⚠️ CAMERA RULE:
 Faces CAN and SHOULD be visible, showing natural emotion and interactions (laughing, hugging, talking).
 However, ABSOLUTELY NO direct eye contact with the camera lens, and NO stiff passport-style (vesikalık) portraits.
 Subjects must look off-camera or at each other. Embed all clothing and physical details verbatim.\n`;
 
-    if (individualChars.length === 1) {
-      const char = individualChars[0];
-      const isNamed = Boolean(char.name && char.name.trim().length > 0);
-      entityHeader += `=== CHARACTER TO DEPICT: ${char.name}${char.role ? ` (${char.role})` : ''} ===\n`;
-      entityHeader += `⚠️ EMBED ALL OF THE FOLLOWING FIELDS VERBATIM INTO EVERY PROMPT. DO NOT OMIT OR SUMMARIZE ANY FIELD.\n`;
-      entityHeader += FACE_RULE;
-      if (char.age) entityHeader += `Age/build: ${char.age}\n`;
-      if (char.ethnicity) entityHeader += `Phenotype/Ethnicity (costume and posture context): ${char.ethnicity}\n`;
-      if (char.physicalFeatures) entityHeader += `Physical features: ${char.physicalFeatures}\n`;
-      if (char.hair) entityHeader += `Hair: ${char.hair}\n`;
-      if (char.beard) entityHeader += `Beard: ${char.beard}\n`;
-      if (char.clothing) entityHeader += `Costume (every garment and accessory): ${char.clothing}\n`;
-      if (char.visualDescription) entityHeader += `Full visual description: ${char.visualDescription}\n`;
-      entityHeader += `⚠️ MAINTAIN EXACT APPEARANCE ACROSS ALL 3 PROMPTS. FACES VISIBLE BUT NO DIRECT EYE CONTACT WITH LENS.\n\n`;
+    if (characters.length > 0) {
+      const individualChars = characters.filter(c => !c.isCrowd);
 
-    } else if (individualChars.length > 1) {
-      entityHeader += `=== MULTIPLE CHARACTERS IN THIS SCENE ===\n`;
-      entityHeader += `Compose ALL characters in the SAME frame. Embed ALL fields of EACH character verbatim.\n\n`;
-      individualChars.forEach((char, idx) => {
-        const isNamed = Boolean(char.name && char.name.trim().length > 0);
-        const position = idx === 0 ? 'FOREGROUND' : idx === 1 ? 'MIDGROUND' : 'BACKGROUND';
-        entityHeader += `[${position}] ${char.name}${char.role ? ` (${char.role})` : ''}:\n`;
-        entityHeader += `  ${FACE_RULE}`;
-        if (char.age) entityHeader += `  Age/build: ${char.age}\n`;
-        if (char.ethnicity) entityHeader += `  Phenotype/Ethnicity (costume context): ${char.ethnicity}\n`;
-        if (char.physicalFeatures) entityHeader += `  Physical features: ${char.physicalFeatures}\n`;
-        if (char.hair) entityHeader += `  Hair: ${char.hair}\n`;
-        if (char.beard) entityHeader += `  Beard: ${char.beard}\n`;
-        if (char.clothing) entityHeader += `  Costume: ${char.clothing}\n`;
-        if (char.visualDescription) entityHeader += `  Full description: ${char.visualDescription}\n`;
-        entityHeader += `  ⚠️ FACES VISIBLE INTERACTING BUT NO DIRECT EYE CONTACT WITH LENS.\n\n`;
-      });
+      if (individualChars.length === 1) {
+        const char = individualChars[0];
+        entityHeader += `=== CHARACTER TO DEPICT: ${char.name}${char.role ? ` (${char.role})` : ''} ===\n`;
+        entityHeader += `⚠️ EMBED ALL OF THE FOLLOWING FIELDS VERBATIM INTO EVERY PROMPT. DO NOT OMIT OR SUMMARIZE ANY FIELD.\n`;
+        entityHeader += FACE_RULE;
+        if (char.age) entityHeader += `Age/build: ${char.age}\n`;
+        if (char.ethnicity) entityHeader += `Phenotype/Ethnicity (costume and posture context): ${char.ethnicity}\n`;
+        if (char.physicalFeatures) entityHeader += `Physical features: ${char.physicalFeatures}\n`;
+        if (char.hair) entityHeader += `Hair: ${char.hair}\n`;
+        if (char.beard) entityHeader += `Beard: ${char.beard}\n`;
+        if (char.clothing) entityHeader += `Costume (every garment and accessory): ${char.clothing}\n`;
+        if (char.visualDescription) entityHeader += `Full visual description: ${char.visualDescription}\n`;
+        entityHeader += `⚠️ MAINTAIN EXACT APPEARANCE ACROSS ALL PROMPTS. FACES VISIBLE BUT NO DIRECT EYE CONTACT WITH LENS.\n\n`;
+
+      } else if (individualChars.length > 1) {
+        entityHeader += `=== MULTIPLE CHARACTERS IN THIS SCENE ===\n`;
+        entityHeader += `Compose ALL characters in the SAME frame. Embed ALL fields of EACH character verbatim.\n\n`;
+        individualChars.forEach((char, idx) => {
+          const position = idx === 0 ? 'FOREGROUND' : idx === 1 ? 'MIDGROUND' : 'BACKGROUND';
+          entityHeader += `[${position}] ${char.name}${char.role ? ` (${char.role})` : ''}:\n`;
+          entityHeader += `  ${FACE_RULE}`;
+          if (char.age) entityHeader += `  Age/build: ${char.age}\n`;
+          if (char.ethnicity) entityHeader += `  Phenotype/Ethnicity (costume context): ${char.ethnicity}\n`;
+          if (char.physicalFeatures) entityHeader += `  Physical features: ${char.physicalFeatures}\n`;
+          if (char.hair) entityHeader += `  Hair: ${char.hair}\n`;
+          if (char.beard) entityHeader += `  Beard: ${char.beard}\n`;
+          if (char.clothing) entityHeader += `  Costume: ${char.clothing}\n`;
+          if (char.visualDescription) entityHeader += `  Full description: ${char.visualDescription}\n`;
+          entityHeader += `  ⚠️ FACES VISIBLE INTERACTING BUT NO DIRECT EYE CONTACT WITH LENS.\n\n`;
+        });
+      }
+
+      const crowds = characters.filter(c => c.isCrowd);
+      if (crowds.length > 0) {
+        entityHeader += '=== CROWD IN THIS SCENE ===\n';
+        entityHeader += '⚠️ Crowd: use backlit silhouettes, seen from behind or bird\'s-eye. No individual faces.\n';
+        crowds.forEach(char => {
+          entityHeader += `[CROWD] ${char.name}${char.role ? ` — ${char.role}` : ''}\n`;
+          if (char.visualDescription) entityHeader += `Group appearance: ${char.visualDescription}\n`;
+          entityHeader += '\n';
+        });
+      }
+    } else {
+      // Karaktersiz tarihsel/modern sahnede yine de kamera kuralı enjekte edilir
+      entityHeader += UNIVERSAL_CAMERA_RULE + '\n';
     }
 
-    const crowds = characters.filter(c => c.isCrowd);
-    if (crowds.length > 0) {
-      entityHeader += '=== CROWD IN THIS SCENE ===\n';
-      entityHeader += '⚠️ Crowd: use backlit silhouettes, seen from behind or bird\'s-eye. No individual faces.\n';
-      crowds.forEach(char => {
-        entityHeader += `[CROWD] ${char.name}${char.role ? ` — ${char.role}` : ''}\n`;
-        if (char.visualDescription) entityHeader += `Group appearance: ${char.visualDescription}\n`;
-        entityHeader += '\n';
-      });
-    }
-  }
-
-  if (locations.length > 0) {
-    // CRITICAL: location visualDescription = permanent architecture only.
-    // The CURRENT state of the location (damage, tension, siege, intact) comes from timeContext.historicalNotes above.
-    // Do NOT add destruction/atmosphere to the location block — it is already in SCENE SETTING.
-    if (locations.length === 1) {
-      const loc = locations[0];
-      entityHeader += `=== LOCATION TO DEPICT: ${loc.name} ===\n`;
-      entityHeader += `⚠️ This is the PERMANENT ARCHITECTURAL description of the location.\n`;
-      entityHeader += `⚠️ The current condition (damage, siege, intact, tense) is defined in SCENE SETTING above — use that for atmosphere.\n`;
-      entityHeader += `⚠️ EMBED THE ARCHITECTURAL DESCRIPTION VERBATIM in every wide and medium shot.\n`;
-      if (loc.visualDescription) entityHeader += `${loc.visualDescription}\n`;
-      entityHeader += `⚠️ THIS EXACT ARCHITECTURE MUST APPEAR. Atmospheric state comes from SCENE SETTING, not this block.\n\n`;
-    } else if (locations.length > 1) {
-      entityHeader += `=== MULTIPLE LOCATIONS IN THIS SCENE ===\n`;
-      entityHeader += `⚠️ These are PERMANENT ARCHITECTURAL descriptions. Current condition comes from SCENE SETTING above.\n`;
-      locations.forEach((loc, idx) => {
-        const pos = idx === 0 ? 'PRIMARY' : 'SECONDARY';
-        entityHeader += `[${pos} LOCATION] ${loc.name}:\n`;
+    if (locations.length > 0) {
+      if (locations.length === 1) {
+        const loc = locations[0];
+        entityHeader += `=== LOCATION TO DEPICT: ${loc.name} ===\n`;
+        entityHeader += `⚠️ This is the PERMANENT ARCHITECTURAL description of the location.\n`;
+        entityHeader += `⚠️ The current condition (damage, siege, intact, tense) is defined in SCENE SETTING above — use that for atmosphere.\n`;
+        entityHeader += `⚠️ EMBED THE ARCHITECTURAL DESCRIPTION VERBATIM in every wide and medium shot.\n`;
         if (loc.visualDescription) entityHeader += `${loc.visualDescription}\n`;
-        entityHeader += '\n';
-      });
+        entityHeader += `⚠️ THIS EXACT ARCHITECTURE MUST APPEAR. Atmospheric state comes from SCENE SETTING, not this block.\n\n`;
+      } else if (locations.length > 1) {
+        entityHeader += `=== MULTIPLE LOCATIONS IN THIS SCENE ===\n`;
+        entityHeader += `⚠️ These are PERMANENT ARCHITECTURAL descriptions. Current condition comes from SCENE SETTING above.\n`;
+        locations.forEach((loc, idx) => {
+          const pos = idx === 0 ? 'PRIMARY' : 'SECONDARY';
+          entityHeader += `[${pos} LOCATION] ${loc.name}:\n`;
+          if (loc.visualDescription) entityHeader += `${loc.visualDescription}\n`;
+          entityHeader += '\n';
+        });
+      }
     }
-  }
+  } // end of layer routing
 
-  // Agresif ışık ifadelerini yumuşat
-  function sanitizeLighting(raw: string): string {
-    return raw
-      .replace(/\bblinding\b/gi, 'intense')
-      .replace(/\bblinding white[- ]gold\b/gi, 'warm gold')
-      .replace(/\bblinding white\b/gi, 'bright')
-      .replace(/\bsupernatural stillness\b/gi, 'ethereal stillness')
-      .replace(/\bsupernatural\b/gi, 'otherworldly')
-      .replace(/\bethereal white[- ]gold\b/gi, 'soft gold')
-      .replace(/\bcosmically bright\b/gi, 'softly luminous')
-      .replace(/\bcosmically\b/gi, 'distantly')
-      .replace(/\bwhite[- ]gold cosmic\b/gi, 'warm amber')
-      .replace(/\bfrozen light\b/gi, 'still, quiet light')
-      .replace(/\bglowing eyes\b/gi, 'natural eyes with soft catchlights')
-      .replace(/\beyes.*?glow\b/gi, 'natural eyes with realistic reflections')
-      .replace(/\bmystical glow\b/gi, 'soft ambient light')
-      .replace(/\bspiritual light\b/gi, 'faint radiance')
-      .replace(/\bhale\b/gi, 'subtle rim light')
-      .replace(/\baura\b/gi, 'gentle illumination')
-      .replace(/\bcosmic\b/gi, 'celestial');
-  }
+  // ─── ZAMAN BAĞLAMI ──────────────────────────────────────────────────────────
+  // Bilimsel sahnede TimeContext zaman etiketini bastır — kendi ortamını kurar
+  if (!isScientificOverride && timeContexts && timeContexts.length > 0) {
+    function sanitizeLighting(raw: string): string {
+      return raw
+        .replace(/\bblinding\b/gi, 'intense')
+        .replace(/\bblinding white[- ]gold\b/gi, 'warm gold')
+        .replace(/\bblinding white\b/gi, 'bright')
+        .replace(/\bsupernatural stillness\b/gi, 'ethereal stillness')
+        .replace(/\bsupernatural\b/gi, 'otherworldly')
+        .replace(/\bethereal white[- ]gold\b/gi, 'soft gold')
+        .replace(/\bcosmically bright\b/gi, 'softly luminous')
+        .replace(/\bcosmically\b/gi, 'distantly')
+        .replace(/\bwhite[- ]gold cosmic\b/gi, 'warm amber')
+        .replace(/\bfrozen light\b/gi, 'still, quiet light')
+        .replace(/\bglowing eyes\b/gi, 'natural eyes with soft catchlights')
+        .replace(/\beyes.*?glow\b/gi, 'natural eyes with realistic reflections')
+        .replace(/\bmystical glow\b/gi, 'soft ambient light')
+        .replace(/\bspiritual light\b/gi, 'faint radiance')
+        .replace(/\bhale\b/gi, 'subtle rim light')
+        .replace(/\baura\b/gi, 'gentle illumination')
+        .replace(/\bcosmic\b/gi, 'celestial');
+    }
 
-  // ZAMAN BAĞLAMI — entityHeader'ın EN BAŞINA eklenir
-  if (timeContexts && timeContexts.length > 0) {
     let timeHeader = `=== SCENE SETTING (CRITICAL — DO NOT IGNORE) ===\n`;
     timeContexts.forEach(tc => {
       timeHeader += `Time/Era: ${tc.label}${tc.era ? ` (${tc.era})` : ''}\n`;
@@ -595,25 +660,39 @@ Subjects must look off-camera or at each other. Embed all clothing and physical 
   userMessage += `COMPOSITION HINT: ${compositionHints[aspectRatio] ?? compositionHints['16:9']}\n`;
   userMessage += `KOMPOZİSYON İPUCU: ${compositionHint}\n\n`;
 
+  // ─── SAHNE ANALİZİ + TİMELAPSE PHASE OVERRIDE ──────────────────────────────
+  let shotFormatOverride: string | null = null;
+
   if (sceneAnalysis) {
     userMessage += `🔍 SAHNE ANALİZİ (sceneAnalyzer sonucu):\n`;
     userMessage += `- narrativeType: ${sceneAnalysis.narrativeType}\n`;
     userMessage += `- temporalComplexity: ${sceneAnalysis.temporalComplexity}\n`;
+
     if (sceneAnalysis.narrativeType === 'timelapse') {
-      userMessage += `- ⚠️ TIMELAPSE DETECTED: Her prompt farklı bir zaman dilimini göstermeli (başlangıç → geçiş → son durum)\n`;
+      // Phase-N formatı: sahne karmaşıklığına göre kaç faz üretileceği belirlenir
+      const phaseCount = sceneAnalysis.temporalComplexity === 'complex' ? 5
+        : sceneAnalysis.temporalComplexity === 'moderate' ? 4
+        : 3;
+      const phases = Array.from({ length: phaseCount }, (_, i) => `Phase ${i + 1}`);
+      shotFormatOverride = phases.join(' → ');
+      userMessage += `- ⚠️ TIMELAPSE DETECTED (${phaseCount} phases): ${shotFormatOverride}\n`;
+      userMessage += `  Each prompt MUST show a DIFFERENT temporal state of the scene.\n`;
+      userMessage += `  Phase 1 = beginning state / Phase ${phaseCount} = final transformed state.\n`;
+      userMessage += `  Do NOT produce Wide/Medium/Close-up — produce temporal progression instead.\n`;
     } else if (sceneAnalysis.narrativeType === 'sequence') {
       userMessage += `- ℹ️ SEQUENCE DETECTED: Prompts should show sequential stages of the event\n`;
     }
     userMessage += '\n';
   }
 
+  // ─── FOCUS DIRECTIVE (karaktersiz sahneler için) ─────────────────────────
   const hasCharacters = characters.length > 0;
   const hasLocations = locations.length > 0;
-
   let focusDirective = '';
 
-  if (!hasCharacters && hasLocations) {
-    focusDirective = `
+  if (!isScientificOverride) {
+    if (!hasCharacters && hasLocations) {
+      focusDirective = `
 SCENE FOCUS: No characters in this scene. This is an ENVIRONMENT/ARCHITECTURE shot.
 - Focus entirely on the location: texture, light, atmosphere, architectural detail
 - Wide shot: establish the full scale and grandeur of the location
@@ -622,22 +701,34 @@ SCENE FOCUS: No characters in this scene. This is an ENVIRONMENT/ARCHITECTURE sh
 - NO human figures unless absolutely necessary for scale
 - Emphasize: time of day atmosphere, weathering, historical authenticity of materials
 `;
-  } else if (!hasCharacters && !hasLocations) {
-    focusDirective = `
+    } else if (!hasCharacters && !hasLocations) {
+      focusDirective = `
 SCENE FOCUS: Abstract or narrative scene with no entities.
 - Create atmospheric, evocative imagery based on the scene text and visual note only
 - Wide shot: environmental establishing shot
 - Medium shot: key symbolic object or environmental detail
 - Close-up: texture, material, or symbolic detail
 `;
+    }
   }
 
   if (focusDirective) {
     userMessage += focusDirective;
   }
 
-  userMessage += `3 farklı açıdan sinematik prompt üret. Her prompt'ta "${scene.visualNote}" notunun ruhunu koru. Her prompt sonuna "--ar ${aspectRatio} --v 6" ekle.`;
-  userMessage += `\n\n⚠️ REMINDER: Characters should be visible interacting and expressing emotion (smiling, hugging, etc). NO passport-style portraits. NO direct eye contact with the camera lens.`;
+  // ─── FİNAL KOMUT ────────────────────────────────────────────────────────────
+  if (shotFormatOverride) {
+    // Timelapse: Phase-N komut
+    const phaseCount = shotFormatOverride.split('→').length;
+    userMessage += `${phaseCount} aşamalı TIMELAPSE prompt üret (${shotFormatOverride}). `;
+    userMessage += `Her aşamada farklı bir temporal durum gösterilmeli. `;
+    userMessage += `Her prompt sonuna "--ar ${aspectRatio} --v 6 --no direct gaze, eye contact, looking at camera, posed portrait, passport photo, artificial smile" ekle.`;
+  } else {
+    userMessage += `3 farklı açıdan sinematik prompt üret. Her prompt'ta "${scene.visualNote}" notunun ruhunu koru. `;
+    userMessage += `Her prompt sonuna "--ar ${aspectRatio} --v 6 --no direct gaze, eye contact, looking at camera, posed portrait, passport photo, artificial smile" ekle.`;
+  }
+
+  userMessage += `\n\n⚠️ REMINDER: ALL subjects must be caught in natural action — NO passport-style portraits, NO direct eye contact with lens, NO frozen smile, NO posed symmetry.`;
 
   function tryParseJSON(raw: string) {
     const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();

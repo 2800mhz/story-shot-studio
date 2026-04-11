@@ -1,3 +1,9 @@
+export type NarrativeLayer =
+  | 'historical'   // Tarihsel canlandırma — karakter + mekân + dönem aktif
+  | 'scientific'   // Bilimsel/nörofizyolojik — modern lab, makro biyoloji, soyut anatomi
+  | 'modern'       // Günümüz belgeseli — röportaj, modern mekân, çağdaş yaşam
+  | 'universal';   // Evrensel/zamansız — duygular, insan doğası, soyut kavramlar
+
 export interface TextSegment {
   id: string;
   text: string;
@@ -178,7 +184,8 @@ export interface SceneCard {
   sceneNumber: number;
   text: string;
   visualNote: string;
-  visualStyle?: 'realistic' | 'symbolic';
+  visualStyle?: 'realistic' | 'symbolic' | 'scientific' | 'abstract';
+  narrativeLayer?: NarrativeLayer;
   characterIds: string[];
   locationIds: string[];
   timeContextIds: string[];

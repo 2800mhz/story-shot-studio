@@ -1,4 +1,4 @@
-import type { SceneCard, Character, Location, TimeContext } from '@/types';
+import type { SceneCard, Character, Location, TimeContext, NarrativeLayer } from '@/types';
 import { aiProvider } from './aiProvider';
 
 export function getSceneAnalysisSystemPrompt(targetSceneCount?: number): string {
@@ -144,6 +144,25 @@ AYNI MEKANIN FARKLI TEMPORAL HALLERİ:
 - YASAK: Aynı fiziksel mekânı farklı temporal halleri için ayrı entity olarak tanımlamak
 - YASAK: Soyut mekanlar, süreçler, eylemler
 
+NARRATIVE LAYER KURALI (KRİTİK)
+
+Her sahne için aşağıdaki dört katmandan birini seç ve "narrativeLayer" alanına yaz:
+
+- "historical"  : Metinde tarihsel kişi (Nasreddin Hoca vb.), dönem (13. yüzyıl vb.) veya tarihi mekân anlatımı varsa.
+                  Entity (karakter/mekân/zaman) enjeksiyonu tam aktif olacak.
+
+- "scientific"  : Biyoloji, nöroloji, fizyoloji, psikoloji, kimya, fizik veya bilimsel süreç anlatımı varsa.
+                  Tarihsel entity'ler devre dışı kalır. Modern lab/makro estetik devreye girer.
+
+- "modern"      : Günümüz insanı, modern mekân (hastane, şehir, stresyo, sokak), çağdaş yaşam anlatımı varsa.
+
+- "universal"   : Soyut kavramlar (sevgi, gülüş, acı, adalet), insan doğası, zaman ve mekândan bağımsız evrensel anlar.
+                  Tarihsel entity'ler opsiyonel. Tek bir zaman/mekân çıpası seçilir.
+
+KARISIKLIK KURALI: Aynı sahnede hem bilimsel hem tarihsel içerik varsa önce ne anlatılıyorsa onu seç.
+Metin açıklamayla (ne anlatılıyor?) başlıyor ve tarihsel’den geliyorsa: "historical".
+Bilimsel yorumla başlıyor ve tarihi referans veriyorsa: "scientific".
+
 ZAMAN BAGLAMI KURALLARI (KRİTİK)
 
 - Farklı dönemler kesinlikle ayrı timeContext
@@ -203,6 +222,7 @@ JSON CIKTI:
       "sceneNumber": 1,
       "text": "Seslendirme metninden orijinal kelime grubu, degistirme",
       "visualNote": "Kısa Türkçe görsel açıklama (maks 10 kelime)",
+      "narrativeLayer": "historical | scientific | modern | universal",
       "characterNames": ["Karakter Adı"],
       "locationNames": ["Mekan Adı"],
       "timeContextLabel": "Dönem ve durum adı (Türkçe)"
@@ -210,7 +230,7 @@ JSON CIKTI:
   ]
 }
 
-KRİTİK: Her sahnede timeContextLabel dolu olmalı. timeContexts en az 1 eleman içermeli.
+KRİTİK: Her sahnede timeContextLabel ve narrativeLayer dolu olmalı. timeContexts en az 1 eleman içermeli.
 METİN:`;
 }
 
@@ -311,6 +331,7 @@ type SceneRaw = {
   sceneNumber?: number;
   text?: string;
   visualNote?: string;
+  narrativeLayer?: NarrativeLayer;
   timeContextLabel?: string;
   characterNames?: string[];
   locationNames?: string[];
@@ -491,6 +512,7 @@ function buildResultFromScenes(
       sceneNumber: globalIdx + 1,
       text: scene.text || '',
       visualNote: scene.visualNote || `Sahne ${globalIdx + 1}`,
+      narrativeLayer: scene.narrativeLayer,
       characterIds,
       locationIds,
       timeContextIds: [],
