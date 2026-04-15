@@ -44,7 +44,7 @@ function safeParseJsonObject(text: string): Record<string, unknown> | null {
     // fallback to first object block in text
   }
 
-  const match = text.match(/\{[\s\S]*\}/);
+  const match = text.match(/\{[\s\S]*?\}/);
   if (!match) return null;
 
   try {

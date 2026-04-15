@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { generateMotionPrompt } from '@/lib/motionPromptApi';
 import { buildMotionContextFromFields, formatFinalPrompt, type TargetModel } from '@/lib/motionPromptFormatter';
+import type { MotionPromptAnalysis } from '@/lib/motionPromptParser';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
 
@@ -90,6 +91,7 @@ export default function MotionPrompt() {
   useEffect(() => {
     setQueue(prev => prev.map(item => {
       if (item.status !== 'done') return item;
+      if (item.targetModel === targetModel) return item;
       const updated = { ...item, targetModel };
       return { ...updated, prompt: formatFinalPrompt(updated, targetModel) };
     }));
@@ -167,7 +169,7 @@ export default function MotionPrompt() {
           const analysis = await generateMotionPrompt(
             item.file, model, projectContext, globalNote, item.note, lastMotionContext
           );
-          const basePrompt = item.note.trim() || `Documentary scene focusing on ${analysis.focalPoint}.`;
+          const basePrompt = buildDefaultBasePrompt(item.note, analysis);
           const updatedItem: QueueItem = {
             ...item,
             status: 'done',
@@ -260,6 +262,9 @@ export default function MotionPrompt() {
   }, []);
 
   // ─── Regenerate single item ───
+  /**
+   * Regenerates one item and returns a storyboard context string for the next shot.
+   */
   const regenerateItem = useCallback(async (itemId: string, previousMotionContext?: string) => {
     const item = queue.find(i => i.id === itemId);
     if (!item) return '';
@@ -272,7 +277,7 @@ export default function MotionPrompt() {
     while (attempts < 3 && !success) {
       try {
         const analysis = await generateMotionPrompt(item.file, model, projectContext, globalNote, item.note, previousMotionContext);
-        const basePrompt = item.note.trim() || `Documentary scene focusing on ${analysis.focalPoint}.`;
+        const basePrompt = buildDefaultBasePrompt(item.note, analysis);
         const updatedItem: QueueItem = {
           ...item,
           status: 'done',
@@ -766,6 +771,13 @@ export default function MotionPrompt() {
 
 function buildMotionContext(item: QueueItem): string {
   return buildMotionContextFromFields(item);
+}
+
+function buildDefaultBasePrompt(note: string, analysis: MotionPromptAnalysis): string {
+  const trimmedNote = note.trim();
+  if (trimmedNote) return trimmedNote;
+  const focalPoint = analysis.focalPoint?.trim() || 'the scene';
+  return `Documentary scene focusing on ${focalPoint}.`;
 }
 
 function getLastMotionContext(queue: QueueItem[]): string {

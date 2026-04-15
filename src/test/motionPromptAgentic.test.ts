@@ -23,6 +23,16 @@ describe('motion prompt agentic helpers', () => {
     });
   });
 
+  it('parses plain json and falls back invalid intensity to medium', () => {
+    const result = parseMotionPromptResponse(
+      '{"cameraMotion":"Tilt Up","cinematicStyle":"Drone","intensity":"VeryHigh","focalPoint":"mountain ridge","reasoning":"drama"}'
+    );
+
+    expect(result.intensity).toBe('Medium');
+    expect(result.cameraMotion).toBe('Tilt Up');
+    expect(result.cinematicStyle).toBe('Drone');
+  });
+
   it('formats runway prompts with params', () => {
     const item = {
       cameraMotion: 'Pan Right',
@@ -34,6 +44,22 @@ describe('motion prompt agentic helpers', () => {
 
     expect(formatFinalPrompt(item, 'Runway Gen-3')).toBe(
       'A dramatic documentary frame. --camera pan_right --motion 3'
+    );
+  });
+
+  it('formats kling/luma prompts as natural language and supports base fallback', () => {
+    const item = {
+      cameraMotion: 'Dolly In',
+      cinematicStyle: 'Steadycam',
+      intensity: 'Low' as const,
+      focalPoint: 'the old door',
+    };
+
+    expect(formatFinalPrompt(item, 'Kling AI')).toBe(
+      'A steadycam camera style with low intensity dolly in, focusing on the old door. Documentary scene focusing on the old door.'
+    );
+    expect(formatFinalPrompt(item, 'Luma Dream Machine')).toBe(
+      'A steadycam camera style with low intensity dolly in, focusing on the old door. Documentary scene focusing on the old door.'
     );
   });
 });

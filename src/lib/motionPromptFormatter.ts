@@ -8,6 +8,12 @@ export interface MotionPromptFields {
   basePrompt?: string;
 }
 
+const RUNWAY_MOTION_LEVEL = {
+  low: 1,
+  medium: 3,
+  high: 5,
+} as const;
+
 export function formatFinalPrompt(item: MotionPromptFields, targetModel: TargetModel): string {
   const cameraMotion = item.cameraMotion || 'Static';
   const cinematicStyle = item.cinematicStyle || 'Steadycam';
@@ -21,7 +27,7 @@ export function formatFinalPrompt(item: MotionPromptFields, targetModel: TargetM
     return `${basePrompt} --camera ${camera} --motion ${motionLevel}`;
   }
 
-  return `${cinematicStyle} camera style. ${intensity} intensity ${cameraMotion} focusing on ${focalPoint}. ${basePrompt}`;
+  return `A ${cinematicStyle.toLowerCase()} camera style with ${intensity.toLowerCase()} intensity ${cameraMotion.toLowerCase()}, focusing on ${focalPoint}. ${basePrompt}`;
 }
 
 export function buildMotionContextFromFields(item: MotionPromptFields): string {
@@ -46,7 +52,7 @@ function toRunwayCameraParam(cameraMotion: string): string {
 }
 
 function toRunwayMotionLevel(intensity: MotionPromptFields['intensity']): number {
-  if (intensity === 'Low') return 1;
-  if (intensity === 'High') return 5;
-  return 3;
+  if (intensity === 'Low') return RUNWAY_MOTION_LEVEL.low;
+  if (intensity === 'High') return RUNWAY_MOTION_LEVEL.high;
+  return RUNWAY_MOTION_LEVEL.medium;
 }

@@ -51,7 +51,7 @@ Return EXACTLY one JSON object with this schema and no extra keys:
   "reasoning": "why the AI chose this"
 }
 
-NEVER wrap output in markdown code fences.`;
+Return strict JSON only. Do not wrap output in markdown code fences.`;
 
 export interface MotionPromptResult {
   imageFile: File;
