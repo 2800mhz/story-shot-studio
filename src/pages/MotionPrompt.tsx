@@ -5,10 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { generateMotionPrompt } from '@/lib/motionPromptApi';
+import { buildMotionContextFromFields, formatFinalPrompt, type TargetModel } from '@/lib/motionPromptFormatter';
+import type { MotionPromptAnalysis } from '@/lib/motionPromptParser';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
 
@@ -22,8 +25,14 @@ interface QueueItem {
   prompt?: string;
   error?: string;
   apiKeyUsed?: string;
+  cameraMotion?: string;
+  cinematicStyle?: string;
+  intensity?: 'Low' | 'Medium' | 'High';
+  focalPoint?: string;
+  targetModel?: TargetModel;
+  basePrompt?: string;
+  reasoning?: string;
 }
-
 
 const MODEL_PRESETS = [
   'gemini-2.5-flash',
@@ -39,12 +48,20 @@ const DELAYS = [
   { label: '3s', value: 3000 },
 ];
 
+const CAMERA_MOTIONS = ['Pan Right', 'Pan Left', 'Dolly In', 'Dolly Out', 'Zoom In', 'Zoom Out', 'Tilt Up', 'Tilt Down', 'Static'];
+const CINEMATIC_STYLES = ['Handheld', 'Steadycam', 'Drone', 'Static'];
+const INTENSITIES: Array<'Low' | 'Medium' | 'High'> = ['Low', 'Medium', 'High'];
+const TARGET_MODELS: TargetModel[] = ['Runway Gen-3', 'Kling AI', 'Luma Dream Machine'];
+
 export default function MotionPrompt() {
   const { user } = useAuth();
   // ─── State ───
   const [hasKeys, setHasKeys] = useState(false);
   const [keysLoaded, setKeysLoaded] = useState(false);
   const [model, setModel] = useState(localStorage.getItem('motion_model') || 'gemini-2.0-flash');
+  const [targetModel, setTargetModel] = useState<TargetModel>(
+    (localStorage.getItem('motion_target_model') as TargetModel) || 'Runway Gen-3'
+  );
   const [projectContext, setProjectContext] = useState('general');
   const [globalNote, setGlobalNote] = useState('');
   const [delay, setDelay] = useState(1000);
@@ -55,6 +72,7 @@ export default function MotionPrompt() {
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => { localStorage.setItem('motion_model', model); }, [model]);
+  useEffect(() => { localStorage.setItem('motion_target_model', targetModel); }, [targetModel]);
 
   useEffect(() => {
     if (user?.id) {
@@ -70,6 +88,15 @@ export default function MotionPrompt() {
     }
   }, [user]);
 
+  useEffect(() => {
+    setQueue(prev => prev.map(item => {
+      if (item.status !== 'done') return item;
+      if (item.targetModel === targetModel) return item;
+      const updated = { ...item, targetModel };
+      return { ...updated, prompt: formatFinalPrompt(updated, targetModel) };
+    }));
+  }, [targetModel]);
+
   // ─── File handling ───
   const addFiles = useCallback((files: FileList | File[]) => {
     const items: QueueItem[] = Array.from(files)
@@ -80,9 +107,15 @@ export default function MotionPrompt() {
         thumbnailUrl: URL.createObjectURL(f),
         note: '',
         status: 'waiting' as const,
+        cameraMotion: 'Static',
+        cinematicStyle: 'Steadycam',
+        intensity: 'Medium',
+        focalPoint: '',
+        basePrompt: '',
+        targetModel,
       }));
     setQueue(prev => [...prev, ...items]);
-  }, []);
+  }, [targetModel]);
 
   const removeItem = useCallback((id: string) => {
     setQueue(prev => {
@@ -95,6 +128,17 @@ export default function MotionPrompt() {
   const updateNote = useCallback((id: string, note: string) => {
     setQueue(prev => prev.map(i => i.id === id ? { ...i, note } : i));
   }, []);
+
+  const updateDoneItemSettings = useCallback((
+    id: string,
+    updates: Partial<Pick<QueueItem, 'cameraMotion' | 'cinematicStyle' | 'intensity' | 'focalPoint' | 'basePrompt'>>
+  ) => {
+    setQueue(prev => prev.map(i => {
+      if (i.id !== id) return i;
+      const updated = { ...i, ...updates, targetModel };
+      return { ...updated, prompt: formatFinalPrompt(updated, targetModel) };
+    }));
+  }, [targetModel]);
 
   // ─── Drop handler ───
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -110,6 +154,7 @@ export default function MotionPrompt() {
     abortRef.current = false;
 
     const waiting = queue.filter(i => i.status === 'waiting' || i.status === 'error');
+    let lastMotionContext = getLastMotionContext(queue);
 
     for (const item of waiting) {
       if (abortRef.current) break;
@@ -121,15 +166,30 @@ export default function MotionPrompt() {
 
       while (attempts < 3 && !success) { // Retry up to 3 times via aiProvider
         try {
-          const prompt = await generateMotionPrompt(
-            item.file, model, projectContext, globalNote, item.note
+          const analysis = await generateMotionPrompt(
+            item.file, model, projectContext, globalNote, item.note, lastMotionContext
           );
+          const basePrompt = buildDefaultBasePrompt(item.note, analysis);
+          const updatedItem: QueueItem = {
+            ...item,
+            status: 'done',
+            apiKeyUsed: 'auto',
+            basePrompt,
+            cameraMotion: analysis.cameraMotion,
+            cinematicStyle: analysis.cinematicStyle,
+            intensity: analysis.intensity,
+            focalPoint: analysis.focalPoint,
+            reasoning: analysis.reasoning,
+            targetModel,
+          };
           setQueue(prev => prev.map(i => i.id === item.id ? {
-            ...i, status: 'done', prompt, apiKeyUsed: 'auto'
+            ...updatedItem,
+            prompt: formatFinalPrompt(updatedItem, targetModel),
           } : i));
+          lastMotionContext = buildMotionContext(updatedItem);
           success = true;
-        } catch (err: any) {
-          const msg = err?.message || '';
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : '';
           if (msg.includes('API_429') || msg.includes('API_403')) {
             attempts++;
             await new Promise(r => setTimeout(r, 1000));
@@ -155,7 +215,7 @@ export default function MotionPrompt() {
 
     setIsProcessing(false);
     toast.success('İşlem tamamlandı');
-  }, [model, projectContext, globalNote, delay, queue]);
+  }, [model, projectContext, globalNote, delay, queue, targetModel]);
 
   const stopProcessing = useCallback(() => { abortRef.current = true; }, []);
 
@@ -170,6 +230,12 @@ export default function MotionPrompt() {
     const results = queue.filter(i => i.status === 'done').map(i => ({
       filename: i.file.name,
       prompt: i.prompt,
+      basePrompt: i.basePrompt,
+      cameraMotion: i.cameraMotion,
+      cinematicStyle: i.cinematicStyle,
+      intensity: i.intensity,
+      focalPoint: i.focalPoint,
+      targetModel: i.targetModel || targetModel,
       apiKey: i.apiKeyUsed,
     }));
     const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
@@ -177,7 +243,7 @@ export default function MotionPrompt() {
     a.href = URL.createObjectURL(blob);
     a.download = 'motion-prompts.json';
     a.click();
-  }, [queue]);
+  }, [queue, targetModel]);
 
   const exportTxt = useCallback(() => {
     const text = queue.filter(i => i.status === 'done')
@@ -196,9 +262,12 @@ export default function MotionPrompt() {
   }, []);
 
   // ─── Regenerate single item ───
-  const regenerateItem = useCallback(async (itemId: string) => {
+  /**
+   * Regenerates one item and returns a storyboard context string for the next shot.
+   */
+  const regenerateItem = useCallback(async (itemId: string, previousMotionContext?: string) => {
     const item = queue.find(i => i.id === itemId);
-    if (!item) return;
+    if (!item) return '';
 
     setQueue(prev => prev.map(i => i.id === itemId ? { ...i, status: 'processing', prompt: undefined, error: undefined } : i));
 
@@ -207,11 +276,28 @@ export default function MotionPrompt() {
 
     while (attempts < 3 && !success) {
       try {
-        const prompt = await generateMotionPrompt(item.file, model, projectContext, globalNote, item.note);
-        setQueue(prev => prev.map(i => i.id === itemId ? { ...i, status: 'done', prompt, apiKeyUsed: 'auto' } : i));
+        const analysis = await generateMotionPrompt(item.file, model, projectContext, globalNote, item.note, previousMotionContext);
+        const basePrompt = buildDefaultBasePrompt(item.note, analysis);
+        const updatedItem: QueueItem = {
+          ...item,
+          status: 'done',
+          apiKeyUsed: 'auto',
+          basePrompt,
+          cameraMotion: analysis.cameraMotion,
+          cinematicStyle: analysis.cinematicStyle,
+          intensity: analysis.intensity,
+          focalPoint: analysis.focalPoint,
+          reasoning: analysis.reasoning,
+          targetModel,
+        };
+        setQueue(prev => prev.map(i => i.id === itemId ? {
+          ...updatedItem,
+          prompt: formatFinalPrompt(updatedItem, targetModel),
+        } : i));
         success = true;
-      } catch (err: any) {
-        const msg = err?.message || '';
+        return buildMotionContext(updatedItem);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : '';
         if (msg.includes('API_429') || msg.includes('API_403')) {
           attempts++;
           await new Promise(r => setTimeout(r, 1000));
@@ -224,7 +310,8 @@ export default function MotionPrompt() {
     if (!success) {
       setQueue(prev => prev.map(i => i.id === itemId ? { ...i, status: 'error', error: 'API hatası veya Rate Limit aşıldı' } : i));
     }
-  }, [model, projectContext, globalNote, queue]);
+    return '';
+  }, [model, projectContext, globalNote, queue, targetModel]);
 
   // ─── Regenerate all done items ───
   const regenerateAll = useCallback(async () => {
@@ -233,10 +320,11 @@ export default function MotionPrompt() {
 
     setIsProcessing(true);
     abortRef.current = false;
+    let lastMotionContext = '';
 
     for (const item of doneItems) {
       if (abortRef.current) break;
-      await regenerateItem(item.id);
+      lastMotionContext = await regenerateItem(item.id, lastMotionContext);
       if (!abortRef.current && doneItems.indexOf(item) < doneItems.length - 1) {
         await new Promise(r => setTimeout(r, delay));
       }
@@ -318,6 +406,21 @@ export default function MotionPrompt() {
                     <SelectItem value="general">Genel</SelectItem>
                     <SelectItem value="hive">Hive / Khwarezm — İpek Yolu</SelectItem>
                     <SelectItem value="atabeyit">Ata-Beyit — Kırgızistan</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Target Model */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground font-medium">Target AI Video Model</label>
+                <Select value={targetModel} onValueChange={value => setTargetModel(value as TargetModel)}>
+                  <SelectTrigger className="bg-secondary border-border text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TARGET_MODELS.map(m => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -536,7 +639,10 @@ export default function MotionPrompt() {
               </div>
             )}
             {queue.filter(i => i.status === 'done' || i.status === 'processing').map(item => (
-              <div key={item.id} className={`rounded-lg border bg-card p-3 space-y-2 ${item.status === 'processing' ? 'border-primary/50 ring-1 ring-primary/20 animate-pulse' : 'border-border'}`}>
+              <Card
+                key={item.id}
+                className={`p-3 space-y-2 ${item.status === 'processing' ? 'border-primary/50 ring-1 ring-primary/20 animate-pulse' : 'border-border'}`}
+              >
                 <div className="flex items-start gap-3">
                   <img
                     src={item.thumbnailUrl}
@@ -544,12 +650,15 @@ export default function MotionPrompt() {
                     className="h-20 w-20 rounded object-cover shrink-0"
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-medium text-foreground truncate">{item.file.name}</p>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {item.status === 'processing' && (
                           <Badge variant="outline" className="text-[9px] text-primary animate-pulse">Üretiliyor...</Badge>
                         )}
+                        <Badge variant="outline" className="text-[9px]">
+                          {item.targetModel || targetModel}
+                        </Badge>
                         {item.apiKeyUsed && (
                           <Badge variant="outline" className="text-[9px]">
                             Key: ...{item.apiKeyUsed}
@@ -562,6 +671,73 @@ export default function MotionPrompt() {
                         {item.prompt}
                       </p>
                     )}
+
+                    {item.status === 'done' && (
+                      <div className="mt-2 grid grid-cols-1 gap-2 rounded-md border border-border bg-secondary/30 p-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <p className="text-[10px] text-muted-foreground">Camera Motion</p>
+                            <Select
+                              value={item.cameraMotion || 'Static'}
+                              onValueChange={value => updateDoneItemSettings(item.id, { cameraMotion: value })}
+                            >
+                              <SelectTrigger className="h-7 text-[11px] bg-background">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {CAMERA_MOTIONS.map(motion => (
+                                  <SelectItem key={motion} value={motion}>{motion}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[10px] text-muted-foreground">Cinematic Style</p>
+                            <Select
+                              value={item.cinematicStyle || 'Steadycam'}
+                              onValueChange={value => updateDoneItemSettings(item.id, { cinematicStyle: value })}
+                            >
+                              <SelectTrigger className="h-7 text-[11px] bg-background">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {CINEMATIC_STYLES.map(style => (
+                                  <SelectItem key={style} value={style}>{style}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <p className="text-[10px] text-muted-foreground">Intensity</p>
+                            <Select
+                              value={item.intensity || 'Medium'}
+                              onValueChange={value => updateDoneItemSettings(item.id, { intensity: value as QueueItem['intensity'] })}
+                            >
+                              <SelectTrigger className="h-7 text-[11px] bg-background">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {INTENSITIES.map(level => (
+                                  <SelectItem key={level} value={level}>{level}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[10px] text-muted-foreground">Focal Point</p>
+                            <Input
+                              value={item.focalPoint || ''}
+                              onChange={e => updateDoneItemSettings(item.id, { focalPoint: e.target.value })}
+                              className="h-7 text-[11px] bg-background"
+                              placeholder="Main subject..."
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex gap-1.5 mt-2">
                       <Button
                         size="sm"
@@ -584,13 +760,30 @@ export default function MotionPrompt() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+function buildMotionContext(item: QueueItem): string {
+  return buildMotionContextFromFields(item);
+}
+
+function buildDefaultBasePrompt(note: string, analysis: MotionPromptAnalysis): string {
+  const trimmedNote = note.trim();
+  if (trimmedNote) return trimmedNote;
+  const focalPoint = analysis.focalPoint?.trim() || 'the scene';
+  return `Documentary scene focusing on ${focalPoint}.`;
+}
+
+function getLastMotionContext(queue: QueueItem[]): string {
+  const doneItems = queue.filter(item => item.status === 'done');
+  const lastDone = doneItems[doneItems.length - 1];
+  return lastDone ? buildMotionContext(lastDone) : '';
 }
 
 function StatusBadge({ status }: { status: QueueItem['status'] }) {

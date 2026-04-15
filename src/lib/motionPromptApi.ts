@@ -1,4 +1,6 @@
 // Motion Prompt Generator — Gemini API integration
+import { aiProvider } from './aiProvider';
+import { parseMotionPromptResponse, type MotionPromptAnalysis } from './motionPromptParser';
 
 const PROJECT_CONTEXTS: Record<string, string> = {
   hive: `HISTORICAL CONTEXT: Central Asian Silk Road, Khwarezm Empire, 10-12th century.
@@ -18,15 +20,12 @@ MATERIAL CULTURE: 1938 — NKVD dark wool greatcoats, peaked caps; Kyrgyz intell
   general: `General documentary context. Analyze the image content directly and generate appropriate motion.`,
 };
 
-const SYSTEM_INSTRUCTION = `You are a specialist AI video motion director. Analyze historical documentary still images and write precise, minimal motion prompts for AI video generation (Google Flow, Runway, Kling).
+const SYSTEM_INSTRUCTION = `You are an AI video director that must return STRICT JSON only.
 
-RULES:
-1. Analyze EXACTLY what is in the image
-2. Motion must be SIMPLE, PREDICTABLE, stable for AI video synthesis
-3. Motion feels like natural continuation of the image
-4. Start directly with motion description — no preamble, no title
+Analyze the uploaded image and produce a motion direction that is simple, stable, and suitable for AI video generation.
+Prioritize continuity if previous shot context is provided.
 
-FORBIDDEN motions (AI video fails on these):
+FORBIDDEN motions:
 - Flowing water, splashing, liquid dynamics
 - Fire or flame movement
 - Fabric billowing or wind effects
@@ -43,9 +42,16 @@ PREFERRED motions:
 - Rack focus foreground to background
 - Light shift: shadow slowly crossing a surface
 
-Write ONLY the motion prompt. Nothing else.`;
+Return EXACTLY one JSON object with this schema and no extra keys:
+{
+  "cameraMotion": "Pan Right",
+  "cinematicStyle": "Handheld",
+  "intensity": "Medium",
+  "focalPoint": "description of what to focus on",
+  "reasoning": "why the AI chose this"
+}
 
-import { aiProvider } from './aiProvider';
+Return strict JSON only. Do not wrap output in markdown code fences.`;
 
 export interface MotionPromptResult {
   imageFile: File;
@@ -59,7 +65,8 @@ export async function generateMotionPrompt(
   projectContext: string,
   globalNote: string,
   perImageNote: string,
-): Promise<string> {
+  previousMotionContext?: string,
+): Promise<MotionPromptAnalysis> {
   const base64 = await fileToBase64(imageFile);
   const mimeType = imageFile.type || 'image/jpeg';
 
@@ -68,7 +75,10 @@ export async function generateMotionPrompt(
   let userText = `PROJECT CONTEXT:\n${contextText}\n\n`;
   if (globalNote.trim()) userText += `GLOBAL DIRECTOR NOTE:\n${globalNote.trim()}\n\n`;
   if (perImageNote.trim()) userText += `IMAGE-SPECIFIC NOTE:\n${perImageNote.trim()}\n\n`;
-  userText += `Analyze this image and write a single motion prompt for AI video generation. Write ONLY the prompt text, nothing else.`;
+  if (previousMotionContext?.trim()) {
+    userText += `PREVIOUS SHOT CONTEXT:\n${previousMotionContext.trim()}\n\n`;
+  }
+  userText += `Analyze this image and return STRICT JSON only. Follow the schema exactly.`;
 
   aiProvider.setModel(model);
 
@@ -82,10 +92,15 @@ export async function generateMotionPrompt(
       SYSTEM_INSTRUCTION,
       { operationType: 'motion_prompt', images }
     );
-    return result.trim();
-  } catch (err: any) {
-    throw new Error(err.message || 'Error generating motion prompt');
+    return parseMotionPromptResponse(result);
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err) || 'Error generating motion prompt');
   }
+}
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return '';
 }
 
 async function fileToBase64(file: File): Promise<string> {
