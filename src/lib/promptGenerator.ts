@@ -185,6 +185,127 @@ SHOT SELECTION LOGIC:
   Never make all 3 prompts the same scale
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5B — CINEMATIC COMPOSITION (Zettl: Sight, Sound, Motion)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+These rules apply to EVERY prompt regardless of era, subject, or shot type.
+Violation of these rules produces flat, static, un-cinematic images.
+
+─── 1. FIGURE / GROUND SEPARATION (mandatory) ───────────────
+The subject must visually separate from the background through tonal or color contrast.
+NEVER place a mid-tone subject in front of a mid-tone background — they merge.
+
+  HOW TO SEPARATE:
+  ✓ Dark subject against bright sky or light-colored architecture
+  ✓ Bright-lit face against deep shadow of a doorway, cave, or dark interior
+  ✓ Silhouette: subject backlit (bright exterior behind), figure becomes pure dark form
+  ✓ Light subject against a deeply shadowed, blurred background (bokeh separation)
+  ✓ Color contrast: warm-toned subject against cool-toned background or vice versa
+
+  FORBIDDEN:
+  ✗ Subject and background at the same mid-tone (sand-colored person on sand-colored wall)
+  ✗ Flat even ambient light that treats subject and background equally
+  ✗ Subject "floating" in a uniformly-lit space with no visual anchor
+
+─── 2. Z-AXIS DEPTH — THREE PLANES (mandatory) ──────────────
+Every cinematic frame must have three distinct depth planes. This is what separates a
+photograph from a FILM FRAME. Specify all three planes explicitly in each prompt.
+
+  PLANE 1 — FOREGROUND (closest to lens, often OUT OF FOCUS or partially visible):
+    Examples: edge of a stone wall, a candle flame in blur, a rope, fabric hem,
+    a shoulder, a wooden beam, blurred reeds in front of the scene, a hand at frame edge.
+    Purpose: creates optical depth, frames the scene, anchors the viewer in the space.
+
+  PLANE 2 — MIDGROUND (subject of the shot, in FOCUS):
+    The character, the action, the key object. This is where the eye lands.
+    Subject must be OFF-CENTER — placed on the left or right third, never dead center.
+
+  PLANE 3 — BACKGROUND (deep space, SOFT FOCUS or atmospheric haze):
+    Examples: mountain range, open sky, distant architecture, blurred crowd,
+    horizon over a lake, dark interior void, hazy Anatolian plain.
+    Purpose: gives the world a sense of infinite continuation.
+
+  APPLY THIS TO EVERY SHOT TYPE:
+    Wide Shot: foreground terrain/debris → midground figures → background landscape
+    Medium Shot: foreground object edge → midground character in action → blurred background
+    Close-up: foreground texture detail in blur → sharp face/hand → background as wash of color
+
+─── 3. SUBJECT PLACEMENT — OFF-CENTER IS MANDATORY ──────────
+NEVER place the subject at the exact center of the frame.
+The center is dead. It has no tension, no energy, no direction.
+
+  CORRECT POSITIONS:
+  ✓ Left-third placement: subject on left, right side is negative space or background
+  ✓ Right-third placement: subject on right, left side is negative space or leading lines
+  ✓ Upper-third: subject placed high, ground/environment fills lower frame (dominance)
+  ✓ Lower-third: subject placed low, sky or ceiling dominates (vulnerability, scale)
+
+  USE NEGATIVE SPACE INTENTIONALLY:
+  ✓ If character looks RIGHT → place them on LEFT, space opens to the right (anticipation)
+  ✓ If character looks LEFT → place them on RIGHT, space opens to the left (looking back)
+  ✓ If character walks toward camera → place them off-center, let path fill one side
+
+─── 4. DIRECTIONAL VECTORS — SPECIFY SCREEN DIRECTION ───────
+Every subject in motion or gaze has a DIRECTION. Specify it explicitly.
+This direction creates narrative energy (forward, retreat, conflict, resolution).
+
+  SCREEN DIRECTION RULES:
+  ✓ Left-to-right movement = forward, positive, progressive narrative energy
+  ✓ Right-to-left movement = return, resistance, weight, going against the flow
+  ✓ Toward camera (z-axis in) = power, confrontation, revelation, arrival
+  ✓ Away from camera (z-axis out) = departure, loneliness, philosophical retreat
+  ✓ Lateral with back to camera = mystery, the unseen face, the unknowable interior
+
+  HOW TO WRITE IT IN PROMPTS:
+  → "...walking from screen-left toward screen-right along the path..."
+  → "...his gaze directed toward screen-left, open negative space to his right..."
+  → "...moving toward the camera along the z-axis, growing larger in the frame..."
+  → "...retreating away from camera into the distance, shrinking against the vast landscape..."
+
+─── 5. LIGHT ANGLE — BE SPECIFIC, NEVER GENERIC ─────────────
+"Warm diffuse sunlight" repeated in every prompt is meaningless to an AI model.
+Specify the ANGLE and QUALITY of light. This determines the 3D form of subjects.
+
+  LIGHT ANGLE OPTIONS — choose one per shot:
+  ✓ LOW-ANGLE SIDE RAKE (dawn/dusk): light skims across surfaces at 10–20°, reveals
+    every texture groove, creates long sweeping shadows along the ground plane.
+  ✓ 45° DIAGONAL (classic portrait): light from upper-left or upper-right, creates
+    attached shadow on half the face (chiaroscuro), reveals 3D form of subjects.
+  ✓ BACKLIGHT / RIM LIGHT: light source behind subject, creates glowing halo of rim
+    light on edges (hair, shoulders, fabric), subject's face in shadow — silhouette mode.
+  ✓ OVERHEAD / ZENITHAL (harsh noon): light directly above, creates deep under-eye and
+    chin shadows, oppressive, menacing quality — use for scenes of hardship.
+  ✓ BELOW LIGHT (candle/fire): light from below, creates inverse shadows, unsettling,
+    intimate — use for night interior scenes.
+  ✓ WINDOW / SLOT LIGHT: single shaft of light through a narrow opening, rest of scene
+    in darkness — creates dramatic chiaroscuro isolation.
+
+  ATTACHED vs. CAST SHADOWS:
+  → Always specify both. Attached shadow falls ON the subject (reveals its 3D form).
+    Cast shadow falls ON the environment (connects subject to the ground, the world).
+  Example: "...low-angle side light creates a sharp attached shadow across the left half of
+  his face, deepening the orbital socket, while his elongated cast shadow stretches
+  across the stone pavement to the right of the frame..."
+
+─── 6. SHOT-TO-SHOT COMPOSITIONAL VARIETY (mandatory) ───────
+The 3 prompts per scene MUST use 3 DIFFERENT compositional strategies.
+Repeating the same framing at different scales is not variation.
+
+  EACH PROMPT MUST DIFFER IN AT LEAST 3 OF THESE DIMENSIONS:
+  □ Subject position (left-third vs. right-third vs. upper-frame vs. lower-frame)
+  □ Camera height (eye-level vs. low-angle Dutch vs. high-angle bird's-eye)
+  □ Light angle (side rake vs. backlight vs. window slot vs. overhead)
+  □ Depth planes (foreground element present or absent)
+  □ Screen direction (subject moving/looking left vs. right vs. toward/away)
+  □ Figure/ground strategy (silhouette vs. lit face on dark bg vs. dark figure on bright bg)
+
+  FORBIDDEN REPETITION:
+  ✗ Wide: "subject in midground, warm diffuse light" → Medium: "subject in midground, warm diffuse light"
+  ✗ All 3 prompts showing subject at same horizontal position in frame
+  ✗ All 3 prompts using the same light direction
+  ✗ All 3 prompts using "rule of thirds" without specifying WHICH third
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 STEP 6 — LIGHTING AND COLOR
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -348,10 +469,10 @@ RESPONSE FORMAT — JSON only, no markdown
 
 
 const ASPECT_RATIO_HINTS: Record<string, string> = {
-  '16:9': 'Landscape cinematic widescreen composition (16:9). Use horizontal space, rule of thirds, strong horizon lines.',
-  '4:3': 'Classic 4:3 ratio composition. Balanced framing, centered subjects, traditional cinematic feel.',
-  '1:1': 'Square 1:1 composition. Centered subject, symmetrical framing, social-media-friendly crop.',
-  '9:16': 'Vertical portrait composition (9:16). Fill frame vertically, subject-forward, mobile-optimized framing.',
+  '16:9': 'Landscape cinematic widescreen (16:9). Subject placed on LEFT or RIGHT THIRD — never dead center. Use full horizontal depth: foreground element + midground subject + deep background. Strong horizon line. Open negative space in the direction the subject looks or moves.',
+  '4:3': 'Classic 4:3 cinematic format. Subject off-center — left or right third. Three depth planes required: blurred foreground element, sharp midground subject, soft background. Camera height varied per shot (eye-level / low-angle / high-angle).',
+  '1:1': 'Square 1:1 format. Subject placed off-center in one quadrant. Use foreground framing element (doorframe, fabric edge, plant) to create depth illusion. Strong figure/ground tonal contrast required — no flat mid-tone-on-mid-tone.',
+  '9:16': 'Vertical portrait (9:16). Exploit vertical z-axis: foreground low + subject mid + sky or ceiling as background. Subject placed on upper or lower third, not exact center. Screen direction: subject looking up = aspiration, looking down = weight/gravity.',
 };
 
 const aspectRatioGuide: Record<string, string> = {
@@ -362,10 +483,10 @@ const aspectRatioGuide: Record<string, string> = {
 };
 
 const compositionHints: Record<string, string> = {
-  '16:9': 'Use horizontal composition, emphasize width, panoramic views',
-  '4:3': 'Balanced composition, classic framing',
-  '1:1': 'Centered composition, symmetrical framing',
-  '9:16': 'Vertical composition, emphasize height, portrait orientation',
+  '16:9': 'Subject on left or right third (never center). Three depth planes: blurred foreground + sharp midground subject + soft-focus background. Specify screen direction (left-to-right or right-to-left or toward/away from camera). Specify exact light angle (side-rake, backlight, 45° diagonal, window-slot). Figure must contrast against ground tonally.',
+  '4:3': 'Off-center subject placement. Foreground framing element required. Varied camera height across the 3 prompts. Specify light angle and attached/cast shadow direction. No flat even lighting.',
+  '1:1': 'Off-center subject in one quadrant. Strong tonal figure/ground contrast. Foreground framing element (partial object, edge, texture) creates depth. Specify light angle. No symmetrical centered composition.',
+  '9:16': 'Vertical depth exploitation: foreground bottom + subject mid-frame (off-center left or right) + background top. Specify screen direction as vertical (upward aspiration or downward weight). Side-rake or backlight preferred for tall figure separation.',
 };
 
 const DEFAULT_ANALYSIS: PromptAnalysis = {
