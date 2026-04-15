@@ -123,13 +123,13 @@ export default function Settings() {
   // ─── Data Loading ─────────────────────────────────────────────────────────
 
   useEffect(() => {
-    loadData();
+    loadData(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  async function loadData() {
+  async function loadData(showLoading = true) {
     if (!user?.id) return;
-    setLoading(true);
+    if (showLoading) setLoading(true);
     try {
       const [keysRes, logsRes, countRes] = await Promise.all([
         supabase
@@ -150,13 +150,21 @@ export default function Settings() {
       ]);
 
       if (keysRes.error) throw keysRes.error;
-      setKeys(keysRes.data || []);
+      
+      const fetchedKeys = keysRes.data || [];
+      // Kayıt zamanı aynı olan anahtarların sırasının rastgele değişmesini önlemek için ID'ye göre sırala
+      fetchedKeys.sort((a, b) => {
+        if (a.created_at === b.created_at) return a.id.localeCompare(b.id);
+        return 0;
+      });
+
+      setKeys(fetchedKeys);
       setLogs(logsRes.data || []);
       setTrueTotalRequests(countRes.count || 0);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }
 
@@ -180,7 +188,7 @@ export default function Settings() {
       toast({ title: '✅ API anahtarı eklendi' });
       setNewKey('');
       setNewLabel('');
-      loadData();
+      loadData(false);
     } catch (error) {
       console.error('Error adding key:', error);
       toast({ title: 'API anahtarı eklenemedi', variant: 'destructive' });
@@ -207,7 +215,7 @@ export default function Settings() {
       if (error) throw error;
       toast({ title: `✅ ${lines.length} anahtar eklendi` });
       setBulkText('');
-      loadData();
+      loadData(false);
     } catch (error) {
       console.error('Error bulk adding keys:', error);
       toast({ title: 'Toplu ekleme başarısız', variant: 'destructive' });
@@ -222,7 +230,7 @@ export default function Settings() {
       const { error } = await supabase.from('api_keys').delete().eq('id', keyId);
       if (error) throw error;
       toast({ title: 'API anahtarı silindi' });
-      loadData();
+      loadData(false);
     } catch (error) {
       console.error('Error deleting key:', error);
       toast({ title: 'Anahtar silinemedi', variant: 'destructive' });
@@ -230,12 +238,19 @@ export default function Settings() {
   }
 
   async function handleToggleActive(keyId: string, isActive: boolean) {
+    // İyimser (optimistic) güncelleme: Arayüzü titremeden hemen güncelle
+    setKeys(prev => prev.map(k => k.id === keyId ? { ...k, is_active: isActive } : k));
     try {
       const { error } = await supabase.from('api_keys').update({ is_active: isActive }).eq('id', keyId);
-      if (error) throw error;
-      loadData();
+      if (error) {
+        // Hata olursa işlemi geri al
+        setKeys(prev => prev.map(k => k.id === keyId ? { ...k, is_active: !isActive } : k));
+        throw error;
+      }
+      // loadData() çağırmaya gerek yok çünkü veride başka bir değişim yok.
     } catch (error) {
       console.error('Error toggling key:', error);
+      toast({ title: 'Durum güncellenemedi', variant: 'destructive' });
     }
   }
 
@@ -640,7 +655,7 @@ export default function Settings() {
               API Bilanço
             </h2>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={loadData} className="gap-1">
+              <Button variant="outline" size="sm" onClick={() => loadData(true)} className="gap-1">
                 <RefreshCw className="h-3.5 w-3.5" />
                 Yenile
               </Button>
