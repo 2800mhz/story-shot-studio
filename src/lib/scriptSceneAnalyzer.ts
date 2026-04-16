@@ -155,9 +155,8 @@ JSON ÇIKTI:
 }
 
 KRİTİK: Her sahnede timeContextLabel dolu olmalı.
-KRİTİK: Her character için "age", "ethnicity", "clothing", "physicalFeatures" ve "visualDescription" alanlarını AYRI AYRI dolu string olarak üret.
-Bu bilgileri yalnızca visualDescription içine gömme; her alan explicit dolu olmalı.
-BLOKLAR:`;
+KRİTİK: Her character için "visualDescription" alanı HER ZAMAN zorunludur. "age", "ethnicity", "clothing", "physicalFeatures" alanlarını üretebiliyorsan üret, eğer metinde geçmiyorsa boş bırakabilirsin (opsiyoneldir).
+BLOKLAR:\n`;
 
 export async function analyzeScriptChunk(
   chunk: ScriptChunk,
@@ -175,12 +174,13 @@ export async function analyzeScriptChunk(
   const targetScenes = Math.round(totalBlocks * 1.5);
 
   const chunkScenesText = chunk.scenes.map(s =>
-    `${s.perdeNo} — ${s.perdeTitle}\nGÖRÜNTÜ:\n${s.visualBlock}\n${s.voContext ? `V.O. BAĞLAM: ${s.voContext}` : ''}`
+    `
+${s.perdeNo} — ${s.perdeTitle}\nGÖRÜNTÜ:\n${s.visualBlock}\n${s.voContext ? `V.O. BAĞLAM: ${s.voContext}` : ''}`
   ).join('\n\n---\n\n');
 
   const chunkText = `HEDEF SAHNE SAYISI: Bu chunk için tam olarak ${targetScenes} sahne üret. Ne az ne fazla.\n\n${chunkScenesText}`;
 
-  onProgress?.(`🎬 Chunk ${chunk.chunkIndex + 1}/${chunk.totalChunks} analiz ediliyor...`);
+  onProgress?.(`🎬 Chunk ${chunk.chunkIndex + 1}/${chunk.totalChunks} analiz ediliyor...");
 
   const content = await aiProvider.generateContent(chunkText, SCRIPT_ANALYSIS_SYSTEM_PROMPT, {
     operationType: 'script_scene_analysis',
@@ -192,7 +192,7 @@ export async function analyzeScriptChunk(
   try {
     parsed = parseScriptAnalysisResponse(content);
     console.log(`📊 Chunk ${chunk.chunkIndex + 1}: ${chunk.scenes.length} perde → ${parsed.scenes?.length} sahne üretildi`);
-    console.log(`📝 İlk sahne örneği:`, JSON.stringify(parsed.scenes?.[0], null, 2));
+    console.log(`📝 İlk sahne örneği:", JSON.stringify(parsed.scenes?.[0], null, 2));
   } catch {
     console.error('Script chunk parse error');
     return { sceneCards: [], characters: [], locations: [], suggestedTimeContexts: [] };
