@@ -120,6 +120,12 @@ export const scriptAnalysisResponseJsonSchema: Record<string, unknown> = {
 };
 
 export function parseScriptAnalysisResponse(content: string) {
+  const pickString = (value: unknown, fallback: unknown): string | undefined => {
+    if (typeof value === 'string' && value.trim()) return value;
+    if (typeof fallback === 'string' && fallback.trim()) return fallback;
+    return undefined;
+  };
+
   const clean = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   const parsed = JSON.parse(clean) as {
     characters?: Array<Record<string, unknown>>;
@@ -129,11 +135,10 @@ export function parseScriptAnalysisResponse(content: string) {
   if (Array.isArray(parsed.characters)) {
     parsed.characters = parsed.characters.map((character) => ({
       ...character,
-      age: typeof character.age === 'string' ? character.age : character['ageAndEra'],
-      ethnicity: typeof character.ethnicity === 'string' ? character.ethnicity : character['ethnicityPhenotype'],
-      clothing: typeof character.clothing === 'string' ? character.clothing : character['clothingCostume'],
-      physicalFeatures:
-        typeof character.physicalFeatures === 'string' ? character.physicalFeatures : character['physicalTraits'],
+      age: pickString(character.age, character['ageAndEra']),
+      ethnicity: pickString(character.ethnicity, character['ethnicityPhenotype']),
+      clothing: pickString(character.clothing, character['clothingCostume']),
+      physicalFeatures: pickString(character.physicalFeatures, character['physicalTraits']),
     }));
   }
 
