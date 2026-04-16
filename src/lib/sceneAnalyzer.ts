@@ -92,8 +92,9 @@ GÖRSEL TUTARLILIK VE KALİTE
 DÖNEM TUTARLILIĞI:
 - Osmanlı sahnesi: kıyafet, mimari, ışık döneme yüzde yüz uygun
 - Günümüz sahnesi: modern Türkiye/dünya estetiği
-- Tarihsel ve günümüz sahnelerini asla karıştırma
-- Orta Asya/İpek Yolu sahnesi: step mimarisi, kervan estetiği, toprak renkler
+DÖNEM VE IŞIK TUTARLILIĞI:
+- Osmanlı, İpek Yolu, Günümüz: Kıyafet, mimari ve ışık döneme yüzde yüz uygun.
+- Orta Asya/İpek Yolu sahnesi: step mimarisi, kervan estetiği, toprak renkler.
 
 IŞIK SÜREKLİLİĞİ:
 - Çöl sahneleri: sert güneş, kızıl-sarı tonlar, toz
@@ -101,120 +102,73 @@ IŞIK SÜREKLİLİĞİ:
 - İç mekan: yumuşak yayılmış ışık, taş/ahşap dokular
 - Gece sahneleri: ateş ışığı, yıldızlı gökyüzü
 
-ÖZNE SÜREKLİLİĞİ:
-- Tanıttığın karakteri sonraki ilgili sahnede tekrar kullan
-- Kalabalık, birey geçişlerini görsel olarak mantıklı kur
-- Yakın çekim ve geniş plan dönüşümlerini belirt
+KARAKTER STANDARDI (ANTROPOLOJİK DOĞRULUK — DETAYLI):
+Her karakter için İngilizce visualDescription yazarken şu sırayı takip et:
 
-KARAKTER STANDARDI (ANTROPOLOJİK DOĞRULUK)
+1. FİZİKSEL ANTROPOLOJİ TİPİ:
+   Turanid, Mongoloid, Alpinid, Mediterranid vb.
+   Örn: "Turanid-Mongoloid phenotype"
 
-- SADECE sahnede fiziksel olarak GÖRÜNEN kişileri ekle
-- Her karakter için maksimum 30 kelimelik İngilizce visualDescription yaz:
-  Yaş ve beden tipi, siluet karakteri,
-  kıyafet (kumaş, renk, desen, dönem ve kültür doğruluğu),
-  kültürel kimlik belirteçleri (sarık tipi, başörtüsü stili, sakal,
-  Orta Asya/Osmanlı/modern Türk farkı).
-  Sonunda mutlaka: "photorealistic, cinematic lighting, documentary style"
-- Kalabalık: isCrowd true, grup kompozisyonunu tanımla
-- Birey: isCrowd false, tam birey detayı
-- YASAK: Psikoloji, motivasyon, hikaye, yüz ifadesi tarifi
+2. YÜZ YAPISI:
+   - Kafa şekli (broad/narrow/round)
+   - Elmacık kemikleri (prominent/flat/high)
+   - Göz (narrow/wide, epicanthic fold varsa belirt)
+   - Burun (low/high bridge, wide/narrow nostrils)
+   - Çene (strong/soft/square)
 
-MEKAN STANDARDI (MİMARİ DOĞRULUK + TEMPORAL AYRIMI)
+3. CİLT:
+   - Ton (bronze/olive/dark/light)
+   - Doku (weathered/smooth/lined)
 
+4. SAÇ & SAKAL (KRİTİK):
+   - Renk, uzunluk, stil, durum
+
+5. YAŞ & BEDEN:
+   - Yaş aralığı (mid-40s to 50s), beden tipi
+
+6. KIYAFETLERİN TAMAMI:
+   - Her parça ayrı ayrı, kumaş tipi, renk, dönem ve kültürel doğruluk
+
+7. SONUNDA MUTLAKA:
+   "photorealistic, cinematic lighting, documentary style, anthropologically accurate"
+
+KRİTİK (Karakter Verisi): "visualDescription" alanı, yukarıdaki detayların sentezi olmalıdır. ANCAK "age", "ethnicity", "clothing", "physicalFeatures", "hair" ve "beard" alanları da AYRI AYRI doldurulmalıdır.
+
+MEKAN STANDARDI:
 - SADECE fiziksel, fotoğraflanabilir mekanlar
-- Her mekan için maksimum 30 kelimelik İngilizce visualDescription yaz:
-  Mimari stil ve dönem, yapı malzemeleri (kerpiç, kesme taş, ahşap, çini, mermer, halı),
-  ölçek ve coğrafi bağlam (Orta Asya çölü, Anadolu, İstanbul vb.)
-
-KRİTİK — FİZİKSEL YAPI vs DURUMSAL ATMOSFER AYRIMI:
-- visualDescription = mekânın KALICI fiziksel ve mimari özellikleri, değişmez gerçekliği
-  YANLIŞ: "burning buildings, scattered debris, smoke" — bu durum/atmosfer, mimari değil
-  YANLIŞ: "signs of destruction, fire damage, abandoned streets" — bunlar timeContext'e ait
-  YANLIŞ: "ominous atmosphere, tense mood" — atmosfer değil mimari yaz
-  DOĞRU: "mud-brick houses with carved archways, vaulted market halls, central courtyard fountain"
-  DOĞRU: "massive stone walls with battlements and towers, arched gateways, mud-brick construction"
-  DOĞRU: "opulent palace interior, geometric tilework, silk hangings, carved stone columns, domed ceiling"
-- Hasar, yıkım, kuşatma, yangın, terk edilmişlik, gerilim bilgisi visualDescription'a KESİNLİKLE GİRMEZ
-  Bu bilgiler timeContext.historicalNotes ve timeContext.lighting'e aittir
-
-AYNI MEKANIN FARKLI TEMPORAL HALLERİ:
-- Bir mekân hikaye boyunca farklı durumlarda görünüyorsa:
-  LOKASYON ENTITY'Sİ TEK KALIR (mimari yapı değişmez)
-  O anın durumu ve atmosferi timeContext.historicalNotes ile taşınır
-- YASAK: Aynı fiziksel mekânı farklı temporal halleri için ayrı entity olarak tanımlamak
-- YASAK: Soyut mekanlar, süreçler, eylemler
-
-NARRATIVE LAYER KURALI (KRİTİK)
-
-Her sahne için aşağıdaki dört katmandan birini seç ve "narrativeLayer" alanına yaz:
-
-- "historical"  : Metinde tarihsel kişi (Nasreddin Hoca vb.), dönem (13. yüzyıl vb.) veya tarihi mekân anlatımı varsa.
-                  Entity (karakter/mekân/zaman) enjeksiyonu tam aktif olacak.
-
-- "scientific"  : Biyoloji, nöroloji, fizyoloji, psikoloji, kimya, fizik veya bilimsel süreç anlatımı varsa.
-                  Tarihsel entity'ler devre dışı kalır. Modern lab/makro estetik devreye girer.
-
-- "modern"      : Günümüz insanı, modern mekân (hastane, şehir, stresyo, sokak), çağdaş yaşam anlatımı varsa.
-
-- "universal"   : Soyut kavramlar (sevgi, gülüş, acı, adalet), insan doğası, zaman ve mekândan bağımsız evrensel anlar.
-                  Tarihsel entity'ler opsiyonel. Tek bir zaman/mekân çıpası seçilir.
-
-KARISIKLIK KURALI: Aynı sahnede hem bilimsel hem tarihsel içerik varsa önce ne anlatılıyorsa onu seç.
-Metin açıklamayla (ne anlatılıyor?) başlıyor ve tarihsel’den geliyorsa: "historical".
-Bilimsel yorumla başlıyor ve tarihi referans veriyorsa: "scientific".
-
-ZAMAN BAGLAMI KURALLARI (KRİTİK)
-
-- Farklı dönemler kesinlikle ayrı timeContext
-- Aynı dönem ama mekânın farklı temporal durumu = ayrı timeContext
-  Örnekler:
-  kuşatma öncesi Ürgenç sarayı ≠ kuşatma altındaki Ürgenç sarayı ≠ yıkılmış Ürgenç
-  savaş öncesi konuşlanma ≠ açık savaş ≠ savaş sonrası enkaz
-  Fatih İstanbul kuşatması ≠ surların düşüşü ≠ fetih sabahı
-
-historicalNotes — EN KRİTİK ALAN (atmosfer ve temporal bağlam buraya yazılır):
-- Mekânın O ANKİ fiziksel ve sosyal durumunu tam olarak tarif et
-- Örnekler:
-  "City fully intact, palace and markets functioning — Mongol forces approaching but walls not yet breached"
-  "Palace interior intact but in crisis: sultan absent, court tense, candles unlit, servants fled to corners"
-  "City under active siege: outer walls partially breached but palace structure still standing, population in hiding"
-  "Post-sack: structures gutted, halls stripped of valuables, streets emptied — only dust and ruins remain"
-  "Open battlefield before engagement: armies positioned in tense stillness, no blood yet shed"
-  "Siege in progress: dust and fire outside city walls, interior spaces intact but fearful"
-
-lighting — DUYGUSAL ATMOSFERİ FIZIKSEL YIKIM OLMADAN DA TAŞIYABİLİR:
-  "cold grey light through narrow palace windows, candles unlit, ominous stillness — siege outside, interior intact"
-  "warm torchlight in functioning throne room, deep shadows in corners, tension without destruction"
-  "harsh desert sunlight, golden dust haze, dry heat shimmer"
-  "warm candlelight, golden hour through mosque windows, Ramadan night"
-  "blue hour pre-dawn, soft ambient light, modern cityscape"
-  "dramatic low sunlight filtering through smoke, deep shadows, orange hues from distant fires"
+- Max 30 kelimelik İngilizce visualDescription
 
 JSON CIKTI:
 {
   "characters": [
     {
       "name": "Karakter Adı",
-      "role": "Rolü/mesleği/kimliği (örn: 'Süvari', 'Padişah')",
+      "role": "Rolü",
       "isCrowd": false,
-      "visualDescription": "Maksimum 30 kelimelik İngilizce — kostüm/siluet/beden, yüz ifadesi YOK"
+      "age": "mid-40s",
+      "ethnicity": "Turanid",
+      "physicalFeatures": "prominent cheekbones, narrow eyes",
+      "hair": "black, braided",
+      "beard": "thin goatee",
+      "clothing": "wool kaftan, linen turban",
+      "visualDescription": "..."
     }
   ],
   "locations": [
     {
       "name": "Mekan Adı",
-      "visualDescription": "Maksimum 30 kelimelik İngilizce — SADECE kalıcı mimari özellikler, hasar/atmosfer/durum YOK"
+      "visualDescription": "..."
     }
   ],
   "timeContexts": [
     {
-      "label": "Dönem ve durum adı (Türkçe, örn: 'Kuşatma Öncesi Ürgenç - Gündüz')",
-      "era": "Tarihsel dönem",
-      "season": "Mevsim",
-      "timeOfDay": "gündüz/gece/sabah/akşam/iftar vakti",
-      "lighting": "İngilizce ışık ve atmosfer tanımı — duygusal ton burada yaratılır",
-      "weather": "Hava (opsiyonel)",
-      "historicalNotes": "Mekânın O ANKİ fiziksel ve sosyal durumu (İngilizce) — temporal bağlam ve atmosfer burada"
+      "label": "Gündüz",
+      "era": "13. Yüzyıl Selçuklu",
+      "season": "Yaz",
+      "timeOfDay": "gündüz",
+      "lighting": "warm golden sunlight",
+      "weather": "açık",
+      "historicalNotes": "Mekânın O ANKİ fiziksel ve sosyal durumu (İngilizce)"
     }
   ],
   "scenes": [
@@ -628,6 +582,12 @@ export async function analyzeTextIntoScenes(
             name: char.name,
             role: char.role,
             isCrowd: char.isCrowd ?? false,
+            age: char.age,
+            ethnicity: char.ethnicity,
+            physicalFeatures: char.physicalFeatures,
+            hair: char.hair,
+            beard: char.beard,
+            clothing: char.clothing,
             visualDescription: char.visualDescription,
           });
         }
