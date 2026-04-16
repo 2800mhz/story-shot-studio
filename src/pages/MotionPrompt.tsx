@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Film, ArrowLeft, Plus, Trash2, Play, Square, Copy, Download, Check, Image as ImageIcon, Settings, ChevronDown, RefreshCw } from 'lucide-react';
+import { Film, ArrowLeft, Plus, Trash2, Play, Square, Copy, Download, Upload, Check, Image as ImageIcon, Settings, ChevronDown, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,7 +21,8 @@ interface QueueItem {
   file: File;
   thumbnailUrl: string;
   note: string;
-  status: 'waiting' | 'processing' | 'done' | 'error';
+  status: 'waiting' | 'processing' | 'analyzed' | 'done' | 'error';
+  shortDescription?: string;
   prompt?: string;
   error?: string;
   apiKeyUsed?: string;
@@ -52,6 +53,36 @@ const CAMERA_MOTIONS = ['Pan Right', 'Pan Left', 'Dolly In', 'Dolly Out', 'Zoom 
 const CINEMATIC_STYLES = ['Handheld', 'Steadycam', 'Drone', 'Static'];
 const INTENSITIES: Array<'Low' | 'Medium' | 'High'> = ['Low', 'Medium', 'High'];
 const TARGET_MODELS: TargetModel[] = ['Runway Gen-3', 'Kling AI', 'Luma Dream Machine'];
+const PROJECT_EXPORT_VERSION = 1;
+
+interface ExportedQueueItem {
+  filename: string;
+  mimeType: string;
+  size: number;
+  imageBase64: string;
+  note: string;
+  status: QueueItem['status'];
+  shortDescription?: string;
+  prompt?: string;
+  error?: string;
+  cameraMotion?: string;
+  cinematicStyle?: string;
+  intensity?: QueueItem['intensity'];
+  focalPoint?: string;
+  targetModel?: TargetModel;
+  basePrompt?: string;
+  reasoning?: string;
+}
+
+interface MotionProjectExport {
+  version: number;
+  createdAt: string;
+  model: string;
+  targetModel: TargetModel;
+  globalNote: string;
+  delay: number;
+  queue: ExportedQueueItem[];
+}
 
 export default function MotionPrompt() {
   const { user } = useAuth();
@@ -62,17 +93,19 @@ export default function MotionPrompt() {
   const [targetModel, setTargetModel] = useState<TargetModel>(
     (localStorage.getItem('motion_target_model') as TargetModel) || 'Runway Gen-3'
   );
-  const [projectContext, setProjectContext] = useState('general');
   const [globalNote, setGlobalNote] = useState('');
   const [delay, setDelay] = useState(1000);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const abortRef = useRef(false);
+  const queueRef = useRef<QueueItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => { localStorage.setItem('motion_model', model); }, [model]);
   useEffect(() => { localStorage.setItem('motion_target_model', targetModel); }, [targetModel]);
+  useEffect(() => { queueRef.current = queue; }, [queue]);
 
   useEffect(() => {
     if (user?.id) {
@@ -96,6 +129,12 @@ export default function MotionPrompt() {
       return { ...updated, prompt: formatFinalPrompt(updated, targetModel) };
     }));
   }, [targetModel]);
+
+  useEffect(() => {
+    return () => {
+      queueRef.current.forEach(item => URL.revokeObjectURL(item.thumbnailUrl));
+    };
+  }, []);
 
   // ─── File handling ───
   const addFiles = useCallback((files: FileList | File[]) => {
@@ -136,7 +175,10 @@ export default function MotionPrompt() {
     setQueue(prev => prev.map(i => {
       if (i.id !== id) return i;
       const updated = { ...i, ...updates, targetModel };
-      return { ...updated, prompt: formatFinalPrompt(updated, targetModel) };
+      if (updated.status === 'done') {
+        return { ...updated, prompt: formatFinalPrompt(updated, targetModel) };
+      }
+      return { ...updated, prompt: undefined };
     }));
   }, [targetModel]);
 
@@ -167,13 +209,14 @@ export default function MotionPrompt() {
       while (attempts < 3 && !success) { // Retry up to 3 times via aiProvider
         try {
           const analysis = await generateMotionPrompt(
-            item.file, model, projectContext, globalNote, item.note, lastMotionContext
+            item.file, model, globalNote, item.note, lastMotionContext
           );
           const basePrompt = buildDefaultBasePrompt(item.note, analysis);
           const updatedItem: QueueItem = {
             ...item,
-            status: 'done',
+            status: 'analyzed',
             apiKeyUsed: 'auto',
+            shortDescription: analysis.shortDescription,
             basePrompt,
             cameraMotion: analysis.cameraMotion,
             cinematicStyle: analysis.cinematicStyle,
@@ -181,11 +224,9 @@ export default function MotionPrompt() {
             focalPoint: analysis.focalPoint,
             reasoning: analysis.reasoning,
             targetModel,
+            prompt: undefined,
           };
-          setQueue(prev => prev.map(i => i.id === item.id ? {
-            ...updatedItem,
-            prompt: formatFinalPrompt(updatedItem, targetModel),
-          } : i));
+          setQueue(prev => prev.map(i => i.id === item.id ? updatedItem : i));
           lastMotionContext = buildMotionContext(updatedItem);
           success = true;
         } catch (err: unknown) {
@@ -215,46 +256,107 @@ export default function MotionPrompt() {
 
     setIsProcessing(false);
     toast.success('İşlem tamamlandı');
-  }, [model, projectContext, globalNote, delay, queue, targetModel]);
+  }, [model, globalNote, delay, queue, targetModel]);
 
   const stopProcessing = useCallback(() => { abortRef.current = true; }, []);
+  const approveAndGenerateFinalPrompts = useCallback(() => {
+    setQueue(prev => prev.map(item => {
+      if (item.status !== 'analyzed') return item;
+      const prompt = formatFinalPrompt(item, item.targetModel || targetModel);
+      return { ...item, status: 'done', prompt, targetModel: item.targetModel || targetModel };
+    }));
+    toast.success('Final promptlar üretildi');
+  }, [targetModel]);
 
   // ─── Stats ───
   const total = queue.length;
   const done = queue.filter(i => i.status === 'done').length;
+  const analyzed = queue.filter(i => i.status === 'analyzed').length;
   const errors = queue.filter(i => i.status === 'error').length;
-  const progress = total > 0 ? (done / total) * 100 : 0;
+  const progress = total > 0 ? ((done + analyzed) / total) * 100 : 0;
 
   // ─── Export ───
-  const exportResults = useCallback(() => {
-    const results = queue.filter(i => i.status === 'done').map(i => ({
-      filename: i.file.name,
-      prompt: i.prompt,
-      basePrompt: i.basePrompt,
-      cameraMotion: i.cameraMotion,
-      cinematicStyle: i.cinematicStyle,
-      intensity: i.intensity,
-      focalPoint: i.focalPoint,
-      targetModel: i.targetModel || targetModel,
-      apiKey: i.apiKeyUsed,
-    }));
-    const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'motion-prompts.json';
-    a.click();
-  }, [queue, targetModel]);
+  const exportProject = useCallback(async () => {
+    if (queue.length === 0) {
+      toast.error('Dışa aktarım için kuyrukta veri yok');
+      return;
+    }
 
-  const exportTxt = useCallback(() => {
-    const text = queue.filter(i => i.status === 'done')
-      .map(i => `=== ${i.file.name} ===\n${i.prompt}\n`)
-      .join('\n');
-    const blob = new Blob([text], { type: 'text/plain' });
+    const exportedQueue: ExportedQueueItem[] = await Promise.all(queue.map(async item => ({
+      filename: item.file.name,
+      mimeType: item.file.type || 'image/jpeg',
+      size: item.file.size,
+      imageBase64: await fileToBase64(item.file),
+      note: item.note,
+      status: item.status,
+      shortDescription: item.shortDescription,
+      prompt: item.prompt,
+      error: item.error,
+      cameraMotion: item.cameraMotion,
+      cinematicStyle: item.cinematicStyle,
+      intensity: item.intensity,
+      focalPoint: item.focalPoint,
+      targetModel: item.targetModel || targetModel,
+      basePrompt: item.basePrompt,
+      reasoning: item.reasoning,
+    })));
+
+    const payload: MotionProjectExport = {
+      version: PROJECT_EXPORT_VERSION,
+      createdAt: new Date().toISOString(),
+      model,
+      targetModel,
+      globalNote,
+      delay,
+      queue: exportedQueue,
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'motion-prompts.txt';
+    a.href = url;
+    a.download = `motion-project-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
-  }, [queue]);
+    URL.revokeObjectURL(url);
+  }, [delay, globalNote, model, queue, targetModel]);
+
+  const importProject = useCallback(async (file: File) => {
+    const text = await file.text();
+    const parsed = JSON.parse(text) as MotionProjectExport;
+
+    if (!Array.isArray(parsed.queue)) {
+      throw new Error('Geçersiz proje dosyası');
+    }
+
+    const restoredQueue = await Promise.all(parsed.queue.map(async item => {
+      const restoredFile = base64ToFile(item.imageBase64, item.filename, item.mimeType);
+      return {
+        id: crypto.randomUUID(),
+        file: restoredFile,
+        thumbnailUrl: URL.createObjectURL(restoredFile),
+        note: item.note || '',
+        status: normalizeImportedStatus(item.status),
+        shortDescription: item.shortDescription,
+        prompt: item.prompt,
+        error: item.error,
+        cameraMotion: item.cameraMotion || 'Static',
+        cinematicStyle: item.cinematicStyle || 'Steadycam',
+        intensity: item.intensity || 'Medium',
+        focalPoint: item.focalPoint || '',
+        targetModel: item.targetModel || targetModel,
+        basePrompt: item.basePrompt || '',
+        reasoning: item.reasoning,
+      } satisfies QueueItem;
+    }));
+
+    queue.forEach(item => URL.revokeObjectURL(item.thumbnailUrl));
+    setModel(parsed.model || model);
+    setTargetModel(parsed.targetModel || targetModel);
+    setGlobalNote(parsed.globalNote || '');
+    setDelay(parsed.delay || 1000);
+    setQueue(restoredQueue);
+    toast.success('Proje içe aktarıldı');
+  }, [model, queue, targetModel]);
 
   const copyPrompt = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
@@ -276,12 +378,13 @@ export default function MotionPrompt() {
 
     while (attempts < 3 && !success) {
       try {
-        const analysis = await generateMotionPrompt(item.file, model, projectContext, globalNote, item.note, previousMotionContext);
+        const analysis = await generateMotionPrompt(item.file, model, globalNote, item.note, previousMotionContext);
         const basePrompt = buildDefaultBasePrompt(item.note, analysis);
         const updatedItem: QueueItem = {
           ...item,
-          status: 'done',
+          status: 'analyzed',
           apiKeyUsed: 'auto',
+          shortDescription: analysis.shortDescription,
           basePrompt,
           cameraMotion: analysis.cameraMotion,
           cinematicStyle: analysis.cinematicStyle,
@@ -289,11 +392,9 @@ export default function MotionPrompt() {
           focalPoint: analysis.focalPoint,
           reasoning: analysis.reasoning,
           targetModel,
+          prompt: undefined,
         };
-        setQueue(prev => prev.map(i => i.id === itemId ? {
-          ...updatedItem,
-          prompt: formatFinalPrompt(updatedItem, targetModel),
-        } : i));
+        setQueue(prev => prev.map(i => i.id === itemId ? updatedItem : i));
         success = true;
         return buildMotionContext(updatedItem);
       } catch (err: unknown) {
@@ -311,11 +412,11 @@ export default function MotionPrompt() {
       setQueue(prev => prev.map(i => i.id === itemId ? { ...i, status: 'error', error: 'API hatası veya Rate Limit aşıldı' } : i));
     }
     return '';
-  }, [model, projectContext, globalNote, queue, targetModel]);
+  }, [model, globalNote, queue, targetModel]);
 
   // ─── Regenerate all done items ───
   const regenerateAll = useCallback(async () => {
-    const doneItems = queue.filter(i => i.status === 'done');
+    const doneItems = queue.filter(i => i.status === 'done' || i.status === 'analyzed');
     if (doneItems.length === 0) return;
 
     setIsProcessing(true);
@@ -395,21 +496,6 @@ export default function MotionPrompt() {
                 </div>
               </div>
 
-              {/* Project Context */}
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground font-medium">Proje Bağlamı</label>
-                <Select value={projectContext} onValueChange={setProjectContext}>
-                  <SelectTrigger className="bg-secondary border-border text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="general">Genel</SelectItem>
-                    <SelectItem value="hive">Hive / Khwarezm — İpek Yolu</SelectItem>
-                    <SelectItem value="atabeyit">Ata-Beyit — Kırgızistan</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
               {/* Target Model */}
               <div className="space-y-1.5">
                 <label className="text-xs text-muted-foreground font-medium">Target AI Video Model</label>
@@ -487,8 +573,9 @@ export default function MotionPrompt() {
             <div className="border-b border-border px-4 py-2 space-y-1.5">
               <div className="flex items-center justify-between text-[11px]">
                 <span className="text-muted-foreground">
-                  Toplam: <strong className="text-foreground">{total}</strong> · 
-                  Tamam: <strong className="text-emerald-400">{done}</strong> · 
+                  Toplam: <strong className="text-foreground">{total}</strong> ·
+                  Analiz: <strong className="text-blue-400">{analyzed}</strong> ·
+                  Tamam: <strong className="text-emerald-400">{done}</strong> ·
                   Hata: <strong className="text-destructive">{errors}</strong>
                 </span>
               </div>
@@ -515,6 +602,23 @@ export default function MotionPrompt() {
               className="hidden"
               onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }}
             />
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={async e => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (!file) return;
+                try {
+                  await importProject(file);
+                } catch (error) {
+                  const message = error instanceof Error ? error.message : 'İçe aktarma başarısız';
+                  toast.error(message);
+                }
+              }}
+            />
             {!isProcessing ? (
               <Button
                 size="sm"
@@ -522,23 +626,31 @@ export default function MotionPrompt() {
                 disabled={queue.filter(i => i.status === 'waiting' || i.status === 'error').length === 0}
                 className="bg-primary text-primary-foreground text-xs"
               >
-                <Play className="mr-1 h-3.5 w-3.5" /> Başlat
+                <Play className="mr-1 h-3.5 w-3.5" /> Analyze
               </Button>
             ) : (
               <Button size="sm" variant="destructive" onClick={stopProcessing} className="text-xs">
                 <Square className="mr-1 h-3.5 w-3.5" /> Durdur
               </Button>
             )}
-            {done > 0 && (
-              <>
-                <Button size="sm" variant="outline" onClick={exportTxt} className="text-xs ml-auto">
-                  <Download className="mr-1 h-3 w-3" /> TXT
-                </Button>
-                <Button size="sm" variant="outline" onClick={exportResults} className="text-xs">
-                  <Download className="mr-1 h-3 w-3" /> JSON
-                </Button>
-              </>
-            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => importInputRef.current?.click()}
+              className="text-xs ml-auto"
+              disabled={isProcessing}
+            >
+              <Upload className="mr-1 h-3 w-3" /> Import Project
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={exportProject}
+              className="text-xs"
+              disabled={queue.length === 0 || isProcessing}
+            >
+              <Download className="mr-1 h-3 w-3" /> Export Project
+            </Button>
           </div>
 
           {/* Image Queue */}
@@ -604,25 +716,36 @@ export default function MotionPrompt() {
         {/* Right: Results */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Bulk regenerate header */}
-          {queue.filter(i => i.status === 'done').length > 0 && (
+          {(queue.filter(i => i.status === 'done' || i.status === 'analyzed').length > 0) && (
             <div className="flex items-center justify-between border-b border-border px-4 py-2">
               <p className="text-xs text-muted-foreground">
-                <strong className="text-foreground">{queue.filter(i => i.status === 'done').length}</strong> prompt üretildi
+                <strong className="text-foreground">{queue.filter(i => i.status === 'analyzed').length}</strong> analiz bekliyor ·
+                <strong className="ml-1 text-foreground">{queue.filter(i => i.status === 'done').length}</strong> final prompt hazır
               </p>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs"
-                onClick={regenerateAll}
-                disabled={isProcessing}
-              >
-                <RefreshCw className="mr-1 h-3 w-3" /> Tümünü Yeniden Üret
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={approveAndGenerateFinalPrompts}
+                  disabled={isProcessing || analyzed === 0}
+                >
+                  <Check className="mr-1 h-3 w-3" /> Approve & Generate Final Prompts
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={regenerateAll}
+                  disabled={isProcessing}
+                >
+                  <RefreshCw className="mr-1 h-3 w-3" /> Tümünü Yeniden Analiz Et
+                </Button>
+              </div>
             </div>
           )}
 
           <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-3">
-            {queue.filter(i => i.status === 'done' || i.status === 'processing').length === 0 && (
+            {queue.filter(i => i.status === 'done' || i.status === 'processing' || i.status === 'analyzed').length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-4 animate-in fade-in zoom-in-95 duration-500">
                 <div className="relative">
                   <div className="absolute -inset-3 rounded-full bg-primary/10 blur animate-pulse duration-1000"></div>
@@ -633,12 +756,12 @@ export default function MotionPrompt() {
                 <div className="space-y-1.5 text-center">
                   <p className="text-sm font-medium text-foreground">Motion promptlar için hazırız</p>
                   <p className="text-xs max-w-[280px] leading-relaxed opacity-80">
-                    Sol panelden görsel ekleyin, bağlamı seçin ve <strong className="text-primary">Başlat</strong> butonuna tıklayarak sihrin gerçekleşmesini izleyin.
-                  </p>
+                      Sol panelden görsel ekleyin ve <strong className="text-primary">Analyze</strong> butonuna tıklayın. Taslağı kontrol ettikten sonra final promptları üretin.
+                    </p>
+                  </div>
                 </div>
-              </div>
             )}
-            {queue.filter(i => i.status === 'done' || i.status === 'processing').map(item => (
+            {queue.filter(i => i.status === 'done' || i.status === 'processing' || i.status === 'analyzed').map(item => (
               <Card
                 key={item.id}
                 className={`p-3 space-y-2 ${item.status === 'processing' ? 'border-primary/50 ring-1 ring-primary/20 animate-pulse' : 'border-border'}`}
@@ -656,6 +779,12 @@ export default function MotionPrompt() {
                         {item.status === 'processing' && (
                           <Badge variant="outline" className="text-[9px] text-primary animate-pulse">Üretiliyor...</Badge>
                         )}
+                        {item.status === 'analyzed' && (
+                          <Badge variant="outline" className="text-[9px] text-blue-400">Taslak Hazır</Badge>
+                        )}
+                        {item.status === 'done' && (
+                          <Badge variant="outline" className="text-[9px] text-emerald-400">Final Hazır</Badge>
+                        )}
                         <Badge variant="outline" className="text-[9px]">
                           {item.targetModel || targetModel}
                         </Badge>
@@ -666,13 +795,19 @@ export default function MotionPrompt() {
                         )}
                       </div>
                     </div>
-                    {item.prompt && (
+                    {item.shortDescription && (
+                      <p className="text-xs text-foreground/90 leading-relaxed mt-1 whitespace-pre-wrap">
+                        <strong className="text-muted-foreground mr-1">Draft:</strong>
+                        {item.shortDescription}
+                      </p>
+                    )}
+                    {item.prompt && item.status === 'done' && (
                       <p className="text-sm text-foreground/90 leading-relaxed mt-1.5 whitespace-pre-wrap">
                         {item.prompt}
                       </p>
                     )}
 
-                    {item.status === 'done' && (
+                    {(item.status === 'done' || item.status === 'analyzed') && (
                       <div className="mt-2 grid grid-cols-1 gap-2 rounded-md border border-border bg-secondary/30 p-2">
                         <div className="grid grid-cols-2 gap-2">
                           <div className="space-y-1">
@@ -755,7 +890,7 @@ export default function MotionPrompt() {
                         onClick={() => regenerateItem(item.id)}
                         disabled={item.status === 'processing'}
                       >
-                        <RefreshCw className="mr-1 h-3 w-3" /> Yeniden Üret
+                        <RefreshCw className="mr-1 h-3 w-3" /> Yeniden Analiz
                       </Button>
                     </div>
                   </div>
@@ -776,12 +911,11 @@ function buildMotionContext(item: QueueItem): string {
 function buildDefaultBasePrompt(note: string, analysis: MotionPromptAnalysis): string {
   const trimmedNote = note.trim();
   if (trimmedNote) return trimmedNote;
-  const focalPoint = analysis.focalPoint?.trim() || 'the scene';
-  return `Documentary scene focusing on ${focalPoint}.`;
+  return analysis.shortDescription?.trim() || `Documentary scene focusing on ${analysis.focalPoint?.trim() || 'the scene'}.`;
 }
 
 function getLastMotionContext(queue: QueueItem[]): string {
-  const doneItems = queue.filter(item => item.status === 'done');
+  const doneItems = queue.filter(item => item.status === 'done' || item.status === 'analyzed');
   const lastDone = doneItems[doneItems.length - 1];
   return lastDone ? buildMotionContext(lastDone) : '';
 }
@@ -790,6 +924,7 @@ function StatusBadge({ status }: { status: QueueItem['status'] }) {
   const config = {
     waiting: { label: 'Bekliyor', className: 'bg-muted text-muted-foreground' },
     processing: { label: 'İşleniyor', className: 'bg-primary/20 text-primary animate-pulse' },
+    analyzed: { label: 'Taslak', className: 'bg-blue-500/20 text-blue-400' },
     done: { label: 'Tamam', className: 'bg-emerald-500/20 text-emerald-400' },
     error: { label: 'Hata', className: 'bg-destructive/20 text-destructive' },
   }[status];
@@ -799,4 +934,29 @@ function StatusBadge({ status }: { status: QueueItem['status'] }) {
       {config.label}
     </span>
   );
+}
+
+function normalizeImportedStatus(status: string | undefined): QueueItem['status'] {
+  if (status === 'processing') return 'waiting';
+  if (status === 'waiting' || status === 'analyzed' || status === 'done' || status === 'error') {
+    return status;
+  }
+  return 'waiting';
+}
+
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(',')[1] ?? '');
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function base64ToFile(base64: string, filename: string, mimeType: string): File {
+  const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+  return new File([bytes], filename, { type: mimeType || 'image/jpeg' });
 }
