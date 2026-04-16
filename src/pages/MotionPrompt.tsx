@@ -102,6 +102,29 @@ export default function MotionPrompt() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(420);
+  const isResizing = useRef(false);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isResizing.current) return;
+    const newWidth = Math.max(300, Math.min(800, e.clientX));
+    setSidebarWidth(newWidth);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    isResizing.current = false;
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', stopResizing);
+    document.body.style.cursor = 'default';
+  }, [handleMouseMove]);
+
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizing.current = true;
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', stopResizing);
+    document.body.style.cursor = 'col-resize';
+  }, [handleMouseMove, stopResizing]);
 
   useEffect(() => { localStorage.setItem('motion_model', model); }, [model]);
   useEffect(() => { localStorage.setItem('motion_target_model', targetModel); }, [targetModel]);
@@ -464,11 +487,22 @@ export default function MotionPrompt() {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         {/* Left: Settings + Queue */}
-        <div className="w-[420px] shrink-0 border-r border-border flex flex-col overflow-hidden">
+        <div 
+          style={{ width: `${sidebarWidth}px` }}
+          className="shrink-0 border-r border-border flex flex-col overflow-hidden relative group/sidebar"
+        >
+          {/* Resize Handle */}
+          <div
+            onMouseDown={startResizing}
+            className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary/40 transition-colors z-50 flex items-center justify-center group-hover/sidebar:bg-primary/10"
+          >
+            <div className="w-[1px] h-8 bg-border group-hover/sidebar:bg-primary/40" />
+          </div>
+
           {/* Settings Panel */}
-          <div className={`border-b border-border overflow-hidden transition-all ${showSettings ? 'max-h-[600px] p-4' : 'max-h-0 p-0'}`}>
+          <div className={`border-b border-border overflow-y-auto scrollbar-thin transition-all duration-300 ease-in-out ${showSettings ? 'max-h-[70vh] p-4 bg-card/50' : 'max-h-0 p-0'}`}>
             <div className="space-y-3">
               {/* Model */}
               <div className="space-y-1.5">
@@ -584,12 +618,12 @@ export default function MotionPrompt() {
           )}
 
           {/* Controls */}
-          <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+          <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3 bg-card/30">
             <Button
               size="sm"
               onClick={() => fileInputRef.current?.click()}
               variant="outline"
-              className="text-xs"
+              className="text-xs h-8"
               disabled={isProcessing}
             >
               <Plus className="mr-1 h-3.5 w-3.5" /> Görsel Ekle
@@ -624,33 +658,35 @@ export default function MotionPrompt() {
                 size="sm"
                 onClick={processQueue}
                 disabled={queue.filter(i => i.status === 'waiting' || i.status === 'error').length === 0}
-                className="bg-primary text-primary-foreground text-xs"
+                className="bg-primary text-primary-foreground text-xs h-8"
               >
                 <Play className="mr-1 h-3.5 w-3.5" /> Analiz Et
               </Button>
             ) : (
-              <Button size="sm" variant="destructive" onClick={stopProcessing} className="text-xs">
+              <Button size="sm" variant="destructive" onClick={stopProcessing} className="text-xs h-8">
                 <Square className="mr-1 h-3.5 w-3.5" /> Durdur
               </Button>
             )}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => importInputRef.current?.click()}
-              className="text-xs ml-auto"
-              disabled={isProcessing}
-            >
-              <Upload className="mr-1 h-3 w-3" /> Projeyi İçe Aktar
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={exportProject}
-              className="text-xs"
-              disabled={queue.length === 0 || isProcessing}
-            >
-              <Download className="mr-1 h-3 w-3" /> Projeyi Dışa Aktar
-            </Button>
+            <div className="flex items-center gap-2 ml-auto">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => importInputRef.current?.click()}
+                className="text-xs h-8"
+                disabled={isProcessing}
+              >
+                <Upload className="mr-1 h-3 w-3" /> İçe Aktar
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={exportProject}
+                className="text-xs h-8"
+                disabled={queue.length === 0 || isProcessing}
+              >
+                <Download className="mr-1 h-3 w-3" /> Dışa Aktar
+              </Button>
+            </div>
           </div>
 
           {/* Image Queue */}
