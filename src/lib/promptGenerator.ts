@@ -107,38 +107,17 @@ WHEN TO USE OBJECTS / ENVIRONMENTS INSTEAD:
 
 NEVER default to "old manuscript on a wooden table" when the scene is about a person.
 
-─── FACE RULES ────────────────────────────────────────────
+─── CHARACTER CONSISTENCY (MANDATORY) ──────────────────────────
 
-Faces CAN and SHOULD be visible to convey human emotion, connection, and life.
-However, NEVER create "passport-style" portraits or direct-to-camera poses.
+THE MOST CRITICAL RULE: Every prompt featuring a specific character MUST be identical in its physical description of that character to maintain visual continuity.
 
-ALL CHARACTERS (Named or Unnamed):
-  Capture people in candid, natural moments of interaction:
-    ✓ Genuine emotional expressions — laughing, smiling, grieving, concentration
-    ✓ Moments of connection — hugging, conversing, working together
-    ✓ Cinematic angles — 3/4 view, profile, or natural frontal WITHOUT looking at the lens
-    ✓ Caught-in-motion — deeply engaged in their action or with each other
-
-  FORBIDDEN FOR ALL PEOPLE:
-    ✗ Direct eye contact with the camera lens
-    ✗ Stiff, posed frontal portraits (like an ID card or passport photo)
-    ✗ Addressing or posing for the camera/viewer
-    ✗ Frozen, "stock photo" artificial smiles
-
-  NOTE: Close-ups can show intense facial emotion, but eyes must look off-camera.
-  You can still use back views or silhouettes when it serves the story scale, but faces ARE allowed and encouraged for intimate, human moments.
-
-CROWD:
-  ✓ Backlit silhouettes from behind or bird's-eye
-  ✓ Sea of heads from elevated angle
-  ✓ Individual in foreground from behind, crowd blurred behind
-  FORBIDDEN: individual faces readable in crowd
-
-MODERN PEOPLE (contemporary era):
-  All the same rules apply. A modern person from behind on a busy Istanbul street
-  is a valid and strong documentary frame. Use it.
+1. START WITH THE CHARACTER: Every prompt for a character-focused scene MUST begin with the character's physical description.
+2. VERBATIM METADATA: Use the age, ethnicity, physicalFeatures, hair, beard, and clothing fields word-for-word.
+3. NO PARAPHRASING: Do not summarize or "interpret" the character's appearance. If the character is "Nasreddin Hoca", every prompt must describe his beard, turban, and face exactly the same way.
+4. FACE AS ANCHOR: The anthropological phenotype and specific facial features (e.g., "prominent Turanid cheekbones", "narrow deep-set eyes") are the anchors for the AI. Embed them in every shot type (Wide, Medium, Close-up).
 
 ─── POSE AND COMPOSITION RULES ───────────────────────────
+
 
 FORBIDDEN in every prompt regardless of era:
   ✗ Person posing for camera — casting call, hero pose, portrait studio
@@ -416,11 +395,11 @@ PROMPT WRITING RULES
 
 Length: 100–140 words per prompt. Precise. No filler.
 Language: English only in prompts.
-Structure: subject → context → light → camera → mood → technical suffix
+Structure: [VERBATIM CHARACTER METADATA] → [ACTION/CONTEXT] → [LIGHTING/ENVIRONMENT] → [CAMERA/ANGLE] → [TECHNICAL SUFFIX]
 
 TECHNICAL SUFFIX for cinematic/symbolic:
-  "anthropologically accurate, based on period sources not film adaptations,
-  documentary realism, --ar [ratio] --v 6"
+  "anthropologically accurate, cinematic realism, documentary photography, --ar [ratio] --v 6"
+
 
 TECHNICAL SUFFIX for scientific:
   "photorealistic documentary photography, Nano Banana Pro,
@@ -653,17 +632,18 @@ Subjects must look off-camera or at each other. Embed all clothing and physical 
 
       if (individualChars.length === 1) {
         const char = individualChars[0];
-        entityHeader += `=== CHARACTER TO DEPICT: ${char.name}${char.role ? ` (${char.role})` : ''} ===\n`;
-        entityHeader += `⚠️ EMBED ALL OF THE FOLLOWING FIELDS VERBATIM INTO EVERY PROMPT. DO NOT OMIT OR SUMMARIZE ANY FIELD.\n`;
-        entityHeader += FACE_RULE;
+        entityHeader += `=== CHARACTER MASTER REFERENCE (MANDATORY CONSISTENCY) ===\n`;
+        entityHeader += `Name: ${char.name}${char.role ? ` (${char.role})` : ''}\n`;
+        entityHeader += `⚠️ RULE: USE THESE EXACT FIELDS WORD-FOR-WORD AS THE SUBJECT DESCRIPTION IN EVERY PROMPT. DO NOT SUMMARIZE.\n`;
         if (char.age) entityHeader += `Age/build: ${char.age}\n`;
-        if (char.ethnicity) entityHeader += `Phenotype/Ethnicity (costume and posture context): ${char.ethnicity}\n`;
+        if (char.ethnicity) entityHeader += `Phenotype/Ethnicity: ${char.ethnicity}\n`;
         if (char.physicalFeatures) entityHeader += `Physical features: ${char.physicalFeatures}\n`;
         if (char.hair) entityHeader += `Hair: ${char.hair}\n`;
         if (char.beard) entityHeader += `Beard: ${char.beard}\n`;
-        if (char.clothing) entityHeader += `Costume (every garment and accessory): ${char.clothing}\n`;
+        if (char.clothing) entityHeader += `Costume: ${char.clothing}\n`;
         if (char.visualDescription) entityHeader += `Full visual description: ${char.visualDescription}\n`;
-        entityHeader += `⚠️ MAINTAIN EXACT APPEARANCE ACROSS ALL PROMPTS. FACES VISIBLE BUT NO DIRECT EYE CONTACT WITH LENS.\n\n`;
+        entityHeader += `⚠️ MAINTAIN EXACT APPEARANCE ACROSS ALL PROMPTS. FACES MUST BE VISIBLE BUT NO DIRECT EYE CONTACT WITH LENS.\n\n`;
+
 
       } else if (individualChars.length > 1) {
         entityHeader += `=== MULTIPLE CHARACTERS IN THIS SCENE ===\n`;
