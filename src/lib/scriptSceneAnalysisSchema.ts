@@ -72,6 +72,10 @@ export const scriptAnalysisResponseJsonSchema: Record<string, unknown> = {
         required: [
           'name',
           'visualDescription',
+          'age',
+          'ethnicity',
+          'clothing',
+          'physicalFeatures'
         ],
         properties: {
           name: { type: 'string' },
