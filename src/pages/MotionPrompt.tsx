@@ -315,7 +315,7 @@ export default function MotionPrompt() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `motion-project-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `motion-project-export-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }, [delay, globalNote, model, queue, targetModel]);
@@ -626,7 +626,7 @@ export default function MotionPrompt() {
                 disabled={queue.filter(i => i.status === 'waiting' || i.status === 'error').length === 0}
                 className="bg-primary text-primary-foreground text-xs"
               >
-                <Play className="mr-1 h-3.5 w-3.5" /> Analyze
+                <Play className="mr-1 h-3.5 w-3.5" /> Analiz Et
               </Button>
             ) : (
               <Button size="sm" variant="destructive" onClick={stopProcessing} className="text-xs">
@@ -640,7 +640,7 @@ export default function MotionPrompt() {
               className="text-xs ml-auto"
               disabled={isProcessing}
             >
-              <Upload className="mr-1 h-3 w-3" /> Import Project
+              <Upload className="mr-1 h-3 w-3" /> Projeyi İçe Aktar
             </Button>
             <Button
               size="sm"
@@ -649,7 +649,7 @@ export default function MotionPrompt() {
               className="text-xs"
               disabled={queue.length === 0 || isProcessing}
             >
-              <Download className="mr-1 h-3 w-3" /> Export Project
+              <Download className="mr-1 h-3 w-3" /> Projeyi Dışa Aktar
             </Button>
           </div>
 
@@ -729,7 +729,7 @@ export default function MotionPrompt() {
                   onClick={approveAndGenerateFinalPrompts}
                   disabled={isProcessing || analyzed === 0}
                 >
-                  <Check className="mr-1 h-3 w-3" /> Approve & Generate Final Prompts
+                  <Check className="mr-1 h-3 w-3" /> Onayla ve Final Promptları Üret
                 </Button>
                 <Button
                   size="sm"
@@ -756,7 +756,7 @@ export default function MotionPrompt() {
                 <div className="space-y-1.5 text-center">
                   <p className="text-sm font-medium text-foreground">Motion promptlar için hazırız</p>
                   <p className="text-xs max-w-[280px] leading-relaxed opacity-80">
-                      Sol panelden görsel ekleyin ve <strong className="text-primary">Analyze</strong> butonuna tıklayın. Taslağı kontrol ettikten sonra final promptları üretin.
+                      Sol panelden görsel ekleyin ve <strong className="text-primary">Analiz Et</strong> butonuna tıklayın. Taslağı kontrol ettikten sonra final promptları üretin.
                     </p>
                   </div>
                 </div>
@@ -911,7 +911,7 @@ function buildMotionContext(item: QueueItem): string {
 function buildDefaultBasePrompt(note: string, analysis: MotionPromptAnalysis): string {
   const trimmedNote = note.trim();
   if (trimmedNote) return trimmedNote;
-  return analysis.shortDescription?.trim() || `Documentary scene focusing on ${analysis.focalPoint?.trim() || 'the scene'}.`;
+  return `Documentary scene focusing on ${analysis.focalPoint?.trim() || 'the scene'}.`;
 }
 
 function getLastMotionContext(queue: QueueItem[]): string {
@@ -949,7 +949,12 @@ async function fileToBase64(file: File): Promise<string> {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      resolve(result.split(',')[1] ?? '');
+      const base64 = result.split(',')[1];
+      if (!base64) {
+        reject(new Error('Unable to encode image for project export.'));
+        return;
+      }
+      resolve(base64);
     };
     reader.onerror = reject;
     reader.readAsDataURL(file);
@@ -957,6 +962,10 @@ async function fileToBase64(file: File): Promise<string> {
 }
 
 function base64ToFile(base64: string, filename: string, mimeType: string): File {
-  const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-  return new File([bytes], filename, { type: mimeType || 'image/jpeg' });
+  try {
+    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+    return new File([bytes], filename, { type: mimeType || 'image/jpeg' });
+  } catch {
+    throw new Error(`Invalid image data for "${filename}". The project file may be corrupted.`);
+  }
 }
