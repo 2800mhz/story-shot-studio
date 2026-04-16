@@ -19,15 +19,24 @@ export function formatFinalPrompt(item: MotionPromptFields, targetModel: TargetM
   const cinematicStyle = item.cinematicStyle || 'Steadycam';
   const intensity = item.intensity || 'Medium';
   const focalPoint = item.focalPoint?.trim() || 'main subject';
-  const basePrompt = item.basePrompt?.trim() || `Documentary scene focusing on ${focalPoint}.`;
+  const shortDraft = item.basePrompt?.trim() || `Documentary scene focusing on ${focalPoint}.`;
+  const comprehensiveBase = [
+    `Scene draft: ${shortDraft}.`,
+    `Focus on ${focalPoint}.`,
+    `Camera motion: ${cameraMotion}.`,
+    `Cinematic style: ${cinematicStyle}.`,
+    `Motion intensity: ${intensity}.`,
+    'Keep physical continuity, realistic movement, and coherent depth across foreground and background.',
+    'Avoid fast chaotic action, deformations, and unstable temporal artifacts.'
+  ].join(' ');
 
   if (targetModel === 'Runway Gen-3') {
     const camera = toRunwayCameraParam(cameraMotion);
     const motionLevel = toRunwayMotionLevel(intensity);
-    return `${basePrompt} --camera ${camera} --motion ${motionLevel}`;
+    return `${comprehensiveBase} --camera ${camera} --motion ${motionLevel}`;
   }
 
-  return `A ${cinematicStyle.toLowerCase()} camera style with ${intensity.toLowerCase()} intensity ${cameraMotion.toLowerCase()}, focusing on ${focalPoint}. ${basePrompt}`;
+  return `${comprehensiveBase} Render with a ${cinematicStyle.toLowerCase()} language and ${intensity.toLowerCase()} motion emphasis for ${targetModel}.`;
 }
 
 export function buildMotionContextFromFields(item: MotionPromptFields): string {

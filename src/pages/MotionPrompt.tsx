@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Film, ArrowLeft, Plus, Trash2, Play, Square, Copy, Download, Check, Image as ImageIcon, Settings, ChevronDown, RefreshCw } from 'lucide-react';
+import { Film, ArrowLeft, Plus, Trash2, Play, Square, Copy, Download, Upload, Check, Image as ImageIcon, Settings, ChevronDown, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,6 +14,7 @@ import { buildMotionContextFromFields, formatFinalPrompt, type TargetModel } fro
 import type { MotionPromptAnalysis } from '@/lib/motionPromptParser';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 
 // ─── Types ───
 interface QueueItem {
@@ -21,10 +22,11 @@ interface QueueItem {
   file: File;
   thumbnailUrl: string;
   note: string;
-  status: 'waiting' | 'processing' | 'done' | 'error';
+  status: 'waiting' | 'processing' | 'analyzed' | 'done' | 'error';
   prompt?: string;
   error?: string;
   apiKeyUsed?: string;
+  shortDraft?: string;
   cameraMotion?: string;
   cinematicStyle?: string;
   intensity?: 'Low' | 'Medium' | 'High';
@@ -53,6 +55,36 @@ const CINEMATIC_STYLES = ['Handheld', 'Steadycam', 'Drone', 'Static'];
 const INTENSITIES: Array<'Low' | 'Medium' | 'High'> = ['Low', 'Medium', 'High'];
 const TARGET_MODELS: TargetModel[] = ['Runway Gen-3', 'Kling AI', 'Luma Dream Machine'];
 
+interface MotionQueueExportItem {
+  id: string;
+  filename: string;
+  imagePath: string;
+  note: string;
+  status: QueueItem['status'];
+  prompt?: string;
+  error?: string;
+  apiKeyUsed?: string;
+  shortDraft?: string;
+  cameraMotion?: string;
+  cinematicStyle?: string;
+  intensity?: QueueItem['intensity'];
+  focalPoint?: string;
+  targetModel?: TargetModel;
+  basePrompt?: string;
+  reasoning?: string;
+}
+
+interface MotionQueueExportFile {
+  version: 1;
+  settings: {
+    model: string;
+    targetModel: TargetModel;
+    globalNote: string;
+    delay: number;
+  };
+  queue: MotionQueueExportItem[];
+}
+
 export default function MotionPrompt() {
   const { user } = useAuth();
   // ─── State ───
@@ -62,13 +94,13 @@ export default function MotionPrompt() {
   const [targetModel, setTargetModel] = useState<TargetModel>(
     (localStorage.getItem('motion_target_model') as TargetModel) || 'Runway Gen-3'
   );
-  const [projectContext, setProjectContext] = useState('general');
   const [globalNote, setGlobalNote] = useState('');
   const [delay, setDelay] = useState(1000);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const abortRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => { localStorage.setItem('motion_model', model); }, [model]);
@@ -90,10 +122,16 @@ export default function MotionPrompt() {
 
   useEffect(() => {
     setQueue(prev => prev.map(item => {
-      if (item.status !== 'done') return item;
+      if (item.status === 'processing') return item;
       if (item.targetModel === targetModel) return item;
       const updated = { ...item, targetModel };
-      return { ...updated, prompt: formatFinalPrompt(updated, targetModel) };
+      if (updated.status === 'done') {
+        return { ...updated, prompt: formatFinalPrompt({
+          ...updated,
+          basePrompt: updated.shortDraft || updated.basePrompt,
+        }, targetModel) };
+      }
+      return updated;
     }));
   }, [targetModel]);
 
@@ -129,14 +167,18 @@ export default function MotionPrompt() {
     setQueue(prev => prev.map(i => i.id === id ? { ...i, note } : i));
   }, []);
 
-  const updateDoneItemSettings = useCallback((
+  const updateItemSettings = useCallback((
     id: string,
-    updates: Partial<Pick<QueueItem, 'cameraMotion' | 'cinematicStyle' | 'intensity' | 'focalPoint' | 'basePrompt'>>
+    updates: Partial<Pick<QueueItem, 'cameraMotion' | 'cinematicStyle' | 'intensity' | 'focalPoint' | 'basePrompt' | 'shortDraft'>>
   ) => {
     setQueue(prev => prev.map(i => {
       if (i.id !== id) return i;
       const updated = { ...i, ...updates, targetModel };
-      return { ...updated, prompt: formatFinalPrompt(updated, targetModel) };
+      return {
+        ...updated,
+        status: updated.status === 'processing' ? 'processing' : 'analyzed',
+        prompt: undefined,
+      };
     }));
   }, [targetModel]);
 
@@ -167,13 +209,14 @@ export default function MotionPrompt() {
       while (attempts < 3 && !success) { // Retry up to 3 times via aiProvider
         try {
           const analysis = await generateMotionPrompt(
-            item.file, model, projectContext, globalNote, item.note, lastMotionContext
+            item.file, model, globalNote, item.note, lastMotionContext
           );
           const basePrompt = buildDefaultBasePrompt(item.note, analysis);
           const updatedItem: QueueItem = {
             ...item,
-            status: 'done',
+            status: 'analyzed',
             apiKeyUsed: 'auto',
+            shortDraft: analysis.shortDraft,
             basePrompt,
             cameraMotion: analysis.cameraMotion,
             cinematicStyle: analysis.cinematicStyle,
@@ -182,10 +225,7 @@ export default function MotionPrompt() {
             reasoning: analysis.reasoning,
             targetModel,
           };
-          setQueue(prev => prev.map(i => i.id === item.id ? {
-            ...updatedItem,
-            prompt: formatFinalPrompt(updatedItem, targetModel),
-          } : i));
+          setQueue(prev => prev.map(i => i.id === item.id ? updatedItem : i));
           lastMotionContext = buildMotionContext(updatedItem);
           success = true;
         } catch (err: unknown) {
@@ -215,46 +255,152 @@ export default function MotionPrompt() {
 
     setIsProcessing(false);
     toast.success('İşlem tamamlandı');
-  }, [model, projectContext, globalNote, delay, queue, targetModel]);
+  }, [model, globalNote, delay, queue, targetModel]);
 
   const stopProcessing = useCallback(() => { abortRef.current = true; }, []);
 
   // ─── Stats ───
   const total = queue.length;
+  const analyzed = queue.filter(i => i.status === 'analyzed').length;
   const done = queue.filter(i => i.status === 'done').length;
   const errors = queue.filter(i => i.status === 'error').length;
-  const progress = total > 0 ? (done / total) * 100 : 0;
+  const processed = analyzed + done;
+  const progress = total > 0 ? (processed / total) * 100 : 0;
 
-  // ─── Export ───
-  const exportResults = useCallback(() => {
-    const results = queue.filter(i => i.status === 'done').map(i => ({
-      filename: i.file.name,
-      prompt: i.prompt,
-      basePrompt: i.basePrompt,
-      cameraMotion: i.cameraMotion,
-      cinematicStyle: i.cinematicStyle,
-      intensity: i.intensity,
-      focalPoint: i.focalPoint,
-      targetModel: i.targetModel || targetModel,
-      apiKey: i.apiKeyUsed,
+  const generateFinalPromptForItem = useCallback((itemId: string) => {
+    setQueue(prev => prev.map(item => {
+      if (item.id !== itemId || item.status === 'processing') return item;
+      const finalPrompt = formatFinalPrompt({
+        ...item,
+        basePrompt: item.shortDraft || item.basePrompt,
+      }, item.targetModel || targetModel);
+      return {
+        ...item,
+        targetModel: item.targetModel || targetModel,
+        prompt: finalPrompt,
+        status: 'done',
+      };
     }));
-    const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'motion-prompts.json';
-    a.click();
-  }, [queue, targetModel]);
+  }, [targetModel]);
 
-  const exportTxt = useCallback(() => {
-    const text = queue.filter(i => i.status === 'done')
-      .map(i => `=== ${i.file.name} ===\n${i.prompt}\n`)
-      .join('\n');
-    const blob = new Blob([text], { type: 'text/plain' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'motion-prompts.txt';
-    a.click();
-  }, [queue]);
+  const generateFinalPrompts = useCallback(() => {
+    setQueue(prev => prev.map(item => {
+      if (item.status !== 'analyzed') return item;
+      const itemTargetModel = item.targetModel || targetModel;
+      const finalPrompt = formatFinalPrompt({
+        ...item,
+        basePrompt: item.shortDraft || item.basePrompt,
+      }, itemTargetModel);
+      return {
+        ...item,
+        targetModel: itemTargetModel,
+        prompt: finalPrompt,
+        status: 'done',
+      };
+    }));
+    toast.success('Final promptlar üretildi');
+  }, [targetModel]);
+
+  const exportZip = useCallback(async () => {
+    if (queue.length === 0) return;
+    try {
+      const zipData: Record<string, Uint8Array> = {};
+      const metadata: MotionQueueExportFile = {
+        version: 1,
+        settings: { model, targetModel, globalNote, delay },
+        queue: [],
+      };
+
+      for (const item of queue) {
+        const safeName = item.file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const imagePath = `images/${item.id}_${safeName}`;
+        const bytes = new Uint8Array(await item.file.arrayBuffer());
+        zipData[imagePath] = bytes;
+        metadata.queue.push({
+          id: item.id,
+          filename: item.file.name,
+          imagePath,
+          note: item.note,
+          status: item.status,
+          prompt: item.prompt,
+          error: item.error,
+          apiKeyUsed: item.apiKeyUsed,
+          shortDraft: item.shortDraft,
+          cameraMotion: item.cameraMotion,
+          cinematicStyle: item.cinematicStyle,
+          intensity: item.intensity,
+          focalPoint: item.focalPoint,
+          targetModel: item.targetModel,
+          basePrompt: item.basePrompt,
+          reasoning: item.reasoning,
+        });
+      }
+
+      zipData['data.json'] = strToU8(JSON.stringify(metadata, null, 2));
+      const zipped = zipSync(zipData);
+      const blob = new Blob([zipped], { type: 'application/zip' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'motion-prompt-export.zip';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      toast.error('ZIP dışa aktarma başarısız oldu');
+    }
+  }, [queue, model, targetModel, globalNote, delay]);
+
+  const importZip = useCallback(async (zipFile: File) => {
+    try {
+      const bytes = new Uint8Array(await zipFile.arrayBuffer());
+      const archive = unzipSync(bytes);
+      const dataBytes = archive['data.json'];
+      if (!dataBytes) {
+        toast.error('Geçersiz arşiv: data.json bulunamadı');
+        return;
+      }
+
+      const parsed = JSON.parse(strFromU8(dataBytes)) as MotionQueueExportFile;
+      if (!parsed?.queue || !Array.isArray(parsed.queue)) {
+        toast.error('Geçersiz arşiv formatı');
+        return;
+      }
+
+      setModel(parsed.settings?.model || model);
+      setTargetModel(parsed.settings?.targetModel || targetModel);
+      setGlobalNote(parsed.settings?.globalNote || '');
+      setDelay(parsed.settings?.delay || 1000);
+
+      setQueue(prev => {
+        prev.forEach(item => URL.revokeObjectURL(item.thumbnailUrl));
+        return parsed.queue.flatMap((entry): QueueItem[] => {
+          const imageBytes = archive[entry.imagePath];
+          if (!imageBytes) return [];
+          const file = new File([imageBytes], entry.filename, { type: inferImageType(entry.filename) });
+          return [{
+            id: entry.id || crypto.randomUUID(),
+            file,
+            thumbnailUrl: URL.createObjectURL(file),
+            note: entry.note || '',
+            status: entry.status || 'waiting',
+            prompt: entry.prompt,
+            error: entry.error,
+            apiKeyUsed: entry.apiKeyUsed,
+            shortDraft: entry.shortDraft,
+            cameraMotion: entry.cameraMotion || 'Static',
+            cinematicStyle: entry.cinematicStyle || 'Steadycam',
+            intensity: entry.intensity || 'Medium',
+            focalPoint: entry.focalPoint || '',
+            targetModel: entry.targetModel || parsed.settings?.targetModel || targetModel,
+            basePrompt: entry.basePrompt || entry.shortDraft || '',
+            reasoning: entry.reasoning,
+          }];
+        });
+      });
+      toast.success('Motion arşivi içe aktarıldı');
+    } catch {
+      toast.error('ZIP içe aktarma başarısız oldu');
+    }
+  }, [model, targetModel]);
 
   const copyPrompt = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
@@ -276,12 +422,13 @@ export default function MotionPrompt() {
 
     while (attempts < 3 && !success) {
       try {
-        const analysis = await generateMotionPrompt(item.file, model, projectContext, globalNote, item.note, previousMotionContext);
+        const analysis = await generateMotionPrompt(item.file, model, globalNote, item.note, previousMotionContext);
         const basePrompt = buildDefaultBasePrompt(item.note, analysis);
         const updatedItem: QueueItem = {
           ...item,
-          status: 'done',
+          status: 'analyzed',
           apiKeyUsed: 'auto',
+          shortDraft: analysis.shortDraft,
           basePrompt,
           cameraMotion: analysis.cameraMotion,
           cinematicStyle: analysis.cinematicStyle,
@@ -290,10 +437,7 @@ export default function MotionPrompt() {
           reasoning: analysis.reasoning,
           targetModel,
         };
-        setQueue(prev => prev.map(i => i.id === itemId ? {
-          ...updatedItem,
-          prompt: formatFinalPrompt(updatedItem, targetModel),
-        } : i));
+        setQueue(prev => prev.map(i => i.id === itemId ? updatedItem : i));
         success = true;
         return buildMotionContext(updatedItem);
       } catch (err: unknown) {
@@ -311,21 +455,21 @@ export default function MotionPrompt() {
       setQueue(prev => prev.map(i => i.id === itemId ? { ...i, status: 'error', error: 'API hatası veya Rate Limit aşıldı' } : i));
     }
     return '';
-  }, [model, projectContext, globalNote, queue, targetModel]);
+  }, [model, globalNote, queue, targetModel]);
 
   // ─── Regenerate all done items ───
   const regenerateAll = useCallback(async () => {
-    const doneItems = queue.filter(i => i.status === 'done');
-    if (doneItems.length === 0) return;
+    const analyzedItems = queue.filter(i => i.status === 'analyzed' || i.status === 'done');
+    if (analyzedItems.length === 0) return;
 
     setIsProcessing(true);
     abortRef.current = false;
     let lastMotionContext = '';
 
-    for (const item of doneItems) {
+    for (const item of analyzedItems) {
       if (abortRef.current) break;
       lastMotionContext = await regenerateItem(item.id, lastMotionContext);
-      if (!abortRef.current && doneItems.indexOf(item) < doneItems.length - 1) {
+      if (!abortRef.current && analyzedItems.indexOf(item) < analyzedItems.length - 1) {
         await new Promise(r => setTimeout(r, delay));
       }
     }
@@ -393,21 +537,6 @@ export default function MotionPrompt() {
                     </button>
                   ))}
                 </div>
-              </div>
-
-              {/* Project Context */}
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground font-medium">Proje Bağlamı</label>
-                <Select value={projectContext} onValueChange={setProjectContext}>
-                  <SelectTrigger className="bg-secondary border-border text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="general">Genel</SelectItem>
-                    <SelectItem value="hive">Hive / Khwarezm — İpek Yolu</SelectItem>
-                    <SelectItem value="atabeyit">Ata-Beyit — Kırgızistan</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
 
               {/* Target Model */}
@@ -488,7 +617,8 @@ export default function MotionPrompt() {
               <div className="flex items-center justify-between text-[11px]">
                 <span className="text-muted-foreground">
                   Toplam: <strong className="text-foreground">{total}</strong> · 
-                  Tamam: <strong className="text-emerald-400">{done}</strong> · 
+                  Analiz: <strong className="text-sky-400">{analyzed}</strong> · 
+                  Final: <strong className="text-emerald-400">{done}</strong> · 
                   Hata: <strong className="text-destructive">{errors}</strong>
                 </span>
               </div>
@@ -515,6 +645,26 @@ export default function MotionPrompt() {
               className="hidden"
               onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }}
             />
+            <Button
+              size="sm"
+              onClick={() => importInputRef.current?.click()}
+              variant="outline"
+              className="text-xs"
+              disabled={isProcessing}
+            >
+              <Upload className="mr-1 h-3.5 w-3.5" /> İçe Aktar
+            </Button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".zip,application/zip"
+              className="hidden"
+              onChange={e => {
+                const file = e.target.files?.[0];
+                if (file) void importZip(file);
+                e.target.value = '';
+              }}
+            />
             {!isProcessing ? (
               <Button
                 size="sm"
@@ -522,22 +672,17 @@ export default function MotionPrompt() {
                 disabled={queue.filter(i => i.status === 'waiting' || i.status === 'error').length === 0}
                 className="bg-primary text-primary-foreground text-xs"
               >
-                <Play className="mr-1 h-3.5 w-3.5" /> Başlat
+                <Play className="mr-1 h-3.5 w-3.5" /> Analiz Et
               </Button>
             ) : (
               <Button size="sm" variant="destructive" onClick={stopProcessing} className="text-xs">
                 <Square className="mr-1 h-3.5 w-3.5" /> Durdur
               </Button>
             )}
-            {done > 0 && (
-              <>
-                <Button size="sm" variant="outline" onClick={exportTxt} className="text-xs ml-auto">
-                  <Download className="mr-1 h-3 w-3" /> TXT
-                </Button>
-                <Button size="sm" variant="outline" onClick={exportResults} className="text-xs">
-                  <Download className="mr-1 h-3 w-3" /> JSON
-                </Button>
-              </>
+            {queue.length > 0 && (
+              <Button size="sm" variant="outline" onClick={() => void exportZip()} className="text-xs ml-auto">
+                <Download className="mr-1 h-3 w-3" /> Dışa Aktar
+              </Button>
             )}
           </div>
 
@@ -603,26 +748,37 @@ export default function MotionPrompt() {
 
         {/* Right: Results */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Bulk regenerate header */}
-          {queue.filter(i => i.status === 'done').length > 0 && (
+          {/* Bulk actions */}
+          {queue.filter(i => i.status === 'analyzed' || i.status === 'done').length > 0 && (
             <div className="flex items-center justify-between border-b border-border px-4 py-2">
               <p className="text-xs text-muted-foreground">
-                <strong className="text-foreground">{queue.filter(i => i.status === 'done').length}</strong> prompt üretildi
+                Analiz: <strong className="text-foreground">{analyzed}</strong> · Final: <strong className="text-foreground">{done}</strong>
               </p>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs"
-                onClick={regenerateAll}
-                disabled={isProcessing}
-              >
-                <RefreshCw className="mr-1 h-3 w-3" /> Tümünü Yeniden Üret
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={generateFinalPrompts}
+                  disabled={analyzed === 0 || isProcessing}
+                >
+                  <Check className="mr-1 h-3 w-3" /> Final Promptları Üret
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={regenerateAll}
+                  disabled={isProcessing}
+                >
+                  <RefreshCw className="mr-1 h-3 w-3" /> Analizleri Yenile
+                </Button>
+              </div>
             </div>
           )}
 
           <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-3">
-            {queue.filter(i => i.status === 'done' || i.status === 'processing').length === 0 && (
+            {queue.filter(i => i.status === 'analyzed' || i.status === 'done' || i.status === 'processing').length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-4 animate-in fade-in zoom-in-95 duration-500">
                 <div className="relative">
                   <div className="absolute -inset-3 rounded-full bg-primary/10 blur animate-pulse duration-1000"></div>
@@ -633,12 +789,12 @@ export default function MotionPrompt() {
                 <div className="space-y-1.5 text-center">
                   <p className="text-sm font-medium text-foreground">Motion promptlar için hazırız</p>
                   <p className="text-xs max-w-[280px] leading-relaxed opacity-80">
-                    Sol panelden görsel ekleyin, bağlamı seçin ve <strong className="text-primary">Başlat</strong> butonuna tıklayarak sihrin gerçekleşmesini izleyin.
+                    Sol panelden görsel ekleyin ve <strong className="text-primary">Analiz Et</strong> ile kısa taslakları oluşturun. Sonra ayarları düzenleyip final prompt üretin.
                   </p>
                 </div>
               </div>
             )}
-            {queue.filter(i => i.status === 'done' || i.status === 'processing').map(item => (
+            {queue.filter(i => i.status === 'analyzed' || i.status === 'done' || i.status === 'processing').map(item => (
               <Card
                 key={item.id}
                 className={`p-3 space-y-2 ${item.status === 'processing' ? 'border-primary/50 ring-1 ring-primary/20 animate-pulse' : 'border-border'}`}
@@ -666,20 +822,23 @@ export default function MotionPrompt() {
                         )}
                       </div>
                     </div>
-                    {item.prompt && (
-                      <p className="text-sm text-foreground/90 leading-relaxed mt-1.5 whitespace-pre-wrap">
-                        {item.prompt}
-                      </p>
-                    )}
-
-                    {item.status === 'done' && (
+                    {(item.status === 'analyzed' || item.status === 'done') && (
                       <div className="mt-2 grid grid-cols-1 gap-2 rounded-md border border-border bg-secondary/30 p-2">
+                        <div className="space-y-1">
+                          <p className="text-[10px] text-muted-foreground">Short Draft</p>
+                          <Textarea
+                            value={item.shortDraft || ''}
+                            onChange={e => updateItemSettings(item.id, { shortDraft: e.target.value, basePrompt: e.target.value })}
+                            className="text-[11px] bg-background min-h-[56px]"
+                            placeholder="Kısa sahne taslağı..."
+                          />
+                        </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div className="space-y-1">
                             <p className="text-[10px] text-muted-foreground">Camera Motion</p>
                             <Select
                               value={item.cameraMotion || 'Static'}
-                              onValueChange={value => updateDoneItemSettings(item.id, { cameraMotion: value })}
+                              onValueChange={value => updateItemSettings(item.id, { cameraMotion: value })}
                             >
                               <SelectTrigger className="h-7 text-[11px] bg-background">
                                 <SelectValue />
@@ -695,7 +854,7 @@ export default function MotionPrompt() {
                             <p className="text-[10px] text-muted-foreground">Cinematic Style</p>
                             <Select
                               value={item.cinematicStyle || 'Steadycam'}
-                              onValueChange={value => updateDoneItemSettings(item.id, { cinematicStyle: value })}
+                              onValueChange={value => updateItemSettings(item.id, { cinematicStyle: value })}
                             >
                               <SelectTrigger className="h-7 text-[11px] bg-background">
                                 <SelectValue />
@@ -713,7 +872,7 @@ export default function MotionPrompt() {
                             <p className="text-[10px] text-muted-foreground">Intensity</p>
                             <Select
                               value={item.intensity || 'Medium'}
-                              onValueChange={value => updateDoneItemSettings(item.id, { intensity: value as QueueItem['intensity'] })}
+                              onValueChange={value => updateItemSettings(item.id, { intensity: value as QueueItem['intensity'] })}
                             >
                               <SelectTrigger className="h-7 text-[11px] bg-background">
                                 <SelectValue />
@@ -729,7 +888,7 @@ export default function MotionPrompt() {
                             <p className="text-[10px] text-muted-foreground">Focal Point</p>
                             <Input
                               value={item.focalPoint || ''}
-                              onChange={e => updateDoneItemSettings(item.id, { focalPoint: e.target.value })}
+                              onChange={e => updateItemSettings(item.id, { focalPoint: e.target.value })}
                               className="h-7 text-[11px] bg-background"
                               placeholder="Main subject..."
                             />
@@ -738,7 +897,24 @@ export default function MotionPrompt() {
                       </div>
                     )}
 
+                    {item.status === 'done' && item.prompt && (
+                      <div className="mt-2 space-y-1">
+                        <p className="text-[10px] text-muted-foreground">Final Prompt</p>
+                        <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
+                          {item.prompt}
+                        </p>
+                      </div>
+                    )}
+
                     <div className="flex gap-1.5 mt-2">
+                      <Button
+                        size="sm"
+                        className="h-6 text-[10px]"
+                        onClick={() => generateFinalPromptForItem(item.id)}
+                        disabled={item.status === 'processing' || !item.shortDraft}
+                      >
+                        <Check className="mr-1 h-3 w-3" /> Generate Final Prompt
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -755,7 +931,7 @@ export default function MotionPrompt() {
                         onClick={() => regenerateItem(item.id)}
                         disabled={item.status === 'processing'}
                       >
-                        <RefreshCw className="mr-1 h-3 w-3" /> Yeniden Üret
+                        <RefreshCw className="mr-1 h-3 w-3" /> Analizi Yenile
                       </Button>
                     </div>
                   </div>
@@ -776,12 +952,11 @@ function buildMotionContext(item: QueueItem): string {
 function buildDefaultBasePrompt(note: string, analysis: MotionPromptAnalysis): string {
   const trimmedNote = note.trim();
   if (trimmedNote) return trimmedNote;
-  const focalPoint = analysis.focalPoint?.trim() || 'the scene';
-  return `Documentary scene focusing on ${focalPoint}.`;
+  return analysis.shortDraft?.trim() || 'Documentary scene with stable cinematic framing.';
 }
 
 function getLastMotionContext(queue: QueueItem[]): string {
-  const doneItems = queue.filter(item => item.status === 'done');
+  const doneItems = queue.filter(item => item.status === 'analyzed' || item.status === 'done');
   const lastDone = doneItems[doneItems.length - 1];
   return lastDone ? buildMotionContext(lastDone) : '';
 }
@@ -790,6 +965,7 @@ function StatusBadge({ status }: { status: QueueItem['status'] }) {
   const config = {
     waiting: { label: 'Bekliyor', className: 'bg-muted text-muted-foreground' },
     processing: { label: 'İşleniyor', className: 'bg-primary/20 text-primary animate-pulse' },
+    analyzed: { label: 'Taslak Hazır', className: 'bg-sky-500/20 text-sky-400' },
     done: { label: 'Tamam', className: 'bg-emerald-500/20 text-emerald-400' },
     error: { label: 'Hata', className: 'bg-destructive/20 text-destructive' },
   }[status];
@@ -799,4 +975,13 @@ function StatusBadge({ status }: { status: QueueItem['status'] }) {
       {config.label}
     </span>
   );
+}
+
+function inferImageType(filename: string): string {
+  const lower = filename.toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.gif')) return 'image/gif';
+  if (lower.endsWith('.bmp')) return 'image/bmp';
+  return 'image/jpeg';
 }

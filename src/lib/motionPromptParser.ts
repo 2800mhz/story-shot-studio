@@ -1,4 +1,5 @@
 export interface MotionPromptAnalysis {
+  shortDraft: string;
   cameraMotion: string;
   cinematicStyle: string;
   intensity: 'Low' | 'Medium' | 'High';
@@ -7,6 +8,7 @@ export interface MotionPromptAnalysis {
 }
 
 const DEFAULT_MOTION_ANALYSIS: MotionPromptAnalysis = {
+  shortDraft: 'Main subject framed in a stable documentary composition.',
   cameraMotion: 'Static',
   cinematicStyle: 'Steadycam',
   intensity: 'Medium',
@@ -19,6 +21,7 @@ export function parseMotionPromptResponse(raw: string): MotionPromptAnalysis {
   const parsed = safeParseJsonObject(cleaned);
 
   return {
+    shortDraft: toSafeText(parsed?.shortDraft, DEFAULT_MOTION_ANALYSIS.shortDraft),
     cameraMotion: toSafeText(parsed?.cameraMotion, DEFAULT_MOTION_ANALYSIS.cameraMotion),
     cinematicStyle: toSafeText(parsed?.cinematicStyle, DEFAULT_MOTION_ANALYSIS.cinematicStyle),
     intensity: toIntensity(parsed?.intensity),

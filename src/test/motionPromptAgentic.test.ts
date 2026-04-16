@@ -6,6 +6,7 @@ describe('motion prompt agentic helpers', () => {
   it('parses markdown wrapped json safely', () => {
     const result = parseMotionPromptResponse(`\`\`\`json
 {
+  "shortDraft": "Hero holds sword in smoky courtyard",
   "cameraMotion": "Pan Right",
   "cinematicStyle": "Handheld",
   "intensity": "High",
@@ -15,6 +16,7 @@ describe('motion prompt agentic helpers', () => {
 \`\`\``);
 
     expect(result).toEqual({
+      shortDraft: 'Hero holds sword in smoky courtyard',
       cameraMotion: 'Pan Right',
       cinematicStyle: 'Handheld',
       intensity: 'High',
@@ -25,10 +27,11 @@ describe('motion prompt agentic helpers', () => {
 
   it('parses plain json and falls back invalid intensity to medium', () => {
     const result = parseMotionPromptResponse(
-      '{"cameraMotion":"Tilt Up","cinematicStyle":"Drone","intensity":"VeryHigh","focalPoint":"mountain ridge","reasoning":"drama"}'
+      '{"shortDraft":"Mountain monument in fog","cameraMotion":"Tilt Up","cinematicStyle":"Drone","intensity":"VeryHigh","focalPoint":"mountain ridge","reasoning":"drama"}'
     );
 
     expect(result.intensity).toBe('Medium');
+    expect(result.shortDraft).toBe('Mountain monument in fog');
     expect(result.cameraMotion).toBe('Tilt Up');
     expect(result.cinematicStyle).toBe('Drone');
   });
@@ -42,9 +45,9 @@ describe('motion prompt agentic helpers', () => {
       basePrompt: 'A dramatic documentary frame.',
     };
 
-    expect(formatFinalPrompt(item, 'Runway Gen-3')).toBe(
-      'A dramatic documentary frame. --camera pan_right --motion 3'
-    );
+    const result = formatFinalPrompt(item, 'Runway Gen-3');
+    expect(result).toContain('Scene draft: A dramatic documentary frame.');
+    expect(result).toContain('--camera pan_right --motion 3');
   });
 
   it('formats kling/luma prompts as natural language and supports base fallback', () => {
@@ -55,11 +58,11 @@ describe('motion prompt agentic helpers', () => {
       focalPoint: 'the old door',
     };
 
-    expect(formatFinalPrompt(item, 'Kling AI')).toBe(
-      'A steadycam camera style with low intensity dolly in, focusing on the old door. Documentary scene focusing on the old door.'
-    );
-    expect(formatFinalPrompt(item, 'Luma Dream Machine')).toBe(
-      'A steadycam camera style with low intensity dolly in, focusing on the old door. Documentary scene focusing on the old door.'
-    );
+    const kling = formatFinalPrompt(item, 'Kling AI');
+    const luma = formatFinalPrompt(item, 'Luma Dream Machine');
+
+    expect(kling).toContain('Scene draft: Documentary scene focusing on the old door.');
+    expect(kling).toContain('Kling AI');
+    expect(luma).toContain('Luma Dream Machine');
   });
 });

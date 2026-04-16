@@ -2,26 +2,9 @@
 import { aiProvider } from './aiProvider';
 import { parseMotionPromptResponse, type MotionPromptAnalysis } from './motionPromptParser';
 
-const PROJECT_CONTEXTS: Record<string, string> = {
-  hive: `HISTORICAL CONTEXT: Central Asian Silk Road, Khwarezm Empire, 10-12th century.
-PHENOTYPE: Turanid-Iranid Central Asian features — broad faces, almond eyes, olive-bronze skin.
-CLOTHING: Richly embroidered chapan robes, turbans, leather boots, silk garments.
-ENVIRONMENT: Transoxiana steppe, caravanserai, desert oases, Bactrian camels, dusty trade routes.
-AESTHETIC: Werner Herzog documentary realism — unflinching, observational, grand landscape scale.
-ARCHITECTURE: Islamic geometric tilework, mudbrick, domed bazaars, minaret silhouettes.`,
-
-  atabeyit: `HISTORICAL CONTEXT: Ata-Beyit National Memorial Complex, Chong-Tash village, Kyrgyzstan.
-LAYERS: 1938 Stalinist purge (symbolic/indirect only — NO explicit violence), 1991 discovery period, present-day memorial.
-PHENOTYPE: Kyrgyz Central Asian Turkic — broad face, high cheekbones, epicanthic fold, dark almond eyes, bronze-olive skin.
-ENVIRONMENT: Chuy Valley steppe, Tian Shan mountain silhouette on southern horizon, dry golden grass, overcast high-altitude light.
-AESTHETIC: Andrei Tarkovsky contemplative framing — slow, meditative, objects as memory vessels. Elem Klimov shadow and implied horror. Sebastião Salgado dignified grief portraiture.
-MATERIAL CULTURE: 1938 — NKVD dark wool greatcoats, peaked caps; Kyrgyz intellectuals in Soviet-era collarless shirts, kalpak hats. 1991 — post-Soviet civilian wool coats, headscarves.`,
-
-  general: `General documentary context. Analyze the image content directly and generate appropriate motion.`,
-};
-
 const SYSTEM_INSTRUCTION = `You are an AI video director that must return STRICT JSON only.
 
+You are using a universal IMG2VIDEO MASTER PROMPT strategy.
 Analyze the uploaded image and produce a motion direction that is simple, stable, and suitable for AI video generation.
 Prioritize continuity if previous shot context is provided.
 
@@ -44,6 +27,7 @@ PREFERRED motions:
 
 Return EXACTLY one JSON object with this schema and no extra keys:
 {
+  "shortDraft": "Very short scene summary (5-20 words)",
   "cameraMotion": "Pan Right",
   "cinematicStyle": "Handheld",
   "intensity": "Medium",
@@ -62,7 +46,6 @@ export interface MotionPromptResult {
 export async function generateMotionPrompt(
   imageFile: File,
   model: string,
-  projectContext: string,
   globalNote: string,
   perImageNote: string,
   previousMotionContext?: string,
@@ -70,9 +53,7 @@ export async function generateMotionPrompt(
   const base64 = await fileToBase64(imageFile);
   const mimeType = imageFile.type || 'image/jpeg';
 
-  const contextText = PROJECT_CONTEXTS[projectContext] || PROJECT_CONTEXTS.general;
-
-  let userText = `PROJECT CONTEXT:\n${contextText}\n\n`;
+  let userText = 'UNIVERSAL IMG2VIDEO MASTER PROMPT MODE ACTIVE.\n\n';
   if (globalNote.trim()) userText += `GLOBAL DIRECTOR NOTE:\n${globalNote.trim()}\n\n`;
   if (perImageNote.trim()) userText += `IMAGE-SPECIFIC NOTE:\n${perImageNote.trim()}\n\n`;
   if (previousMotionContext?.trim()) {
