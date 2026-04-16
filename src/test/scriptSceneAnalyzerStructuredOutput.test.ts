@@ -41,4 +41,36 @@ describe('scriptSceneAnalyzer structured output parsing', () => {
       visualDescription: 'Diverse group of modern-day tourists in contemporary casual clothing.',
     });
   });
+
+  it('rejects blank required structured character fields', () => {
+    expect(() => parseScriptAnalysisResponse(`{
+      "scenes": [
+        {
+          "text": "Test sahne",
+          "visualNote": "Test notu",
+          "visualStyle": "realistic",
+          "characterNames": ["Modern Visitors"],
+          "locationNames": ["Müze Salonu"],
+          "timeContextLabel": "Modern Dönem"
+        }
+      ],
+      "characters": [
+        {
+          "name": "Modern Visitors",
+          "role": "Turist",
+          "age": "   ",
+          "ethnicity": "   ",
+          "clothing": "   ",
+          "physicalFeatures": "   ",
+          "visualDescription": "   "
+        }
+      ],
+      "locations": [
+        { "name": "Müze Salonu", "visualDescription": "Wide interior hall with marble floors." }
+      ],
+      "timeContexts": [
+        { "label": "Modern Dönem" }
+      ]
+    }`)).toThrow();
+  });
 });
