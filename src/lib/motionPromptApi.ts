@@ -21,7 +21,7 @@ OUTPUT RULES:
 
 Return EXACTLY one JSON object with this schema:
 {
-  "shortDescription": "brief scene draft summary",
+  "shortDraft": "brief scene draft summary (5-20 words)",
   "cameraMotion": "Pan Right",
   "cinematicStyle": "Handheld",
   "intensity": "Medium",
