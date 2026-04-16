@@ -1,6 +1,11 @@
 import type { SceneCard, Character, Location, TimeContext } from '@/types';
 import { aiProvider } from './aiProvider';
 import type { ScriptChunk } from './scriptParser';
+import {
+  parseScriptAnalysisResponse,
+  scriptAnalysisResponseJsonSchema,
+  scriptAnalysisResponseSchema,
+} from './scriptSceneAnalysisSchema';
 
 const SCRIPT_ANALYSIS_SYSTEM_PROMPT = `Sen bir belgesel film görsel editörüsün.
 Sana bir belgesel senaryosundan alınan GÖRÜNTÜ blokları verilecek.
@@ -150,6 +155,8 @@ JSON ÇIKTI:
 }
 
 KRİTİK: Her sahnede timeContextLabel dolu olmalı.
+KRİTİK: Her character için "age", "ethnicity", "clothing", "physicalFeatures" ve "visualDescription" alanlarını AYRI AYRI dolu string olarak üret.
+Bu bilgileri yalnızca visualDescription içine gömme; her alan explicit dolu olmalı.
 BLOKLAR:`;
 
 export async function analyzeScriptChunk(
@@ -175,43 +182,15 @@ export async function analyzeScriptChunk(
 
   onProgress?.(`🎬 Chunk ${chunk.chunkIndex + 1}/${chunk.totalChunks} analiz ediliyor...`);
 
-  const content = await aiProvider.generateContent(chunkText, SCRIPT_ANALYSIS_SYSTEM_PROMPT);
+  const content = await aiProvider.generateContent(chunkText, SCRIPT_ANALYSIS_SYSTEM_PROMPT, {
+    operationType: 'script_scene_analysis',
+    responseMimeType: 'application/json',
+    responseSchema: scriptAnalysisResponseJsonSchema,
+  });
 
-  let parsed: {
-    scenes?: Array<{
-      perdeNo?: string;
-      sceneNumber?: number;
-      text?: string;
-      visualNote?: string;
-      visualStyle?: 'realistic' | 'symbolic';
-      characterNames?: string[];
-      locationNames?: string[];
-      timeContextLabel?: string;
-    }>;
-    characters?: Array<{
-      name?: string;
-      role?: string;
-      isCrowd?: boolean;
-      age?: string;
-      ethnicity?: string;
-      physicalFeatures?: string;
-      hair?: string;
-      beard?: string;
-      clothing?: string;
-      visualDescription?: string;
-    }>;
-    locations?: Array<{ name?: string; visualDescription?: string }>;
-    timeContexts?: Array<{
-      label?: string;
-      era?: string;
-      timeOfDay?: string;
-      lighting?: string;
-      historicalNotes?: string;
-    }>;
-  };
+  let parsed: z.infer<typeof scriptAnalysisResponseSchema>;
   try {
-    const clean = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    parsed = JSON.parse(clean);
+    parsed = parseScriptAnalysisResponse(content);
     console.log(`📊 Chunk ${chunk.chunkIndex + 1}: ${chunk.scenes.length} perde → ${parsed.scenes?.length} sahne üretildi`);
     console.log(`📝 İlk sahne örneği:`, JSON.stringify(parsed.scenes?.[0], null, 2));
   } catch {
