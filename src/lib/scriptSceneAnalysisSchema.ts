@@ -37,8 +37,10 @@ export const scriptAnalysisResponseSchema = z.object({
     z.object({
       label: z.string().optional(),
       era: z.string().optional(),
+      season: z.string().optional(),
       timeOfDay: z.string().optional(),
       lighting: z.string().optional(),
+      weather: z.string().optional(),
       historicalNotes: z.string().optional(),
     })
   ).default([]),
@@ -75,7 +77,9 @@ export const scriptAnalysisResponseJsonSchema: Record<string, unknown> = {
           'age',
           'ethnicity',
           'clothing',
-          'physicalFeatures'
+          'physicalFeatures',
+          'hair',
+          'beard'
         ],
         properties: {
           name: { type: 'string' },
@@ -106,12 +110,14 @@ export const scriptAnalysisResponseJsonSchema: Record<string, unknown> = {
       type: 'array',
       items: {
         type: 'object',
-        required: ['label'],
+        required: ['label', 'era', 'timeOfDay', 'lighting'],
         properties: {
           label: { type: 'string' },
           era: { type: 'string' },
+          season: { type: 'string' },
           timeOfDay: { type: 'string' },
           lighting: { type: 'string' },
+          weather: { type: 'string' },
           historicalNotes: { type: 'string' },
         },
       },
@@ -143,4 +149,4 @@ export function parseScriptAnalysisResponse(content: string) {
   }
 
   return scriptAnalysisResponseSchema.parse(parsed);
-}
+}

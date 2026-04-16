@@ -37,10 +37,7 @@ Birbirine çok yakın görsel anları birleştir.
 
 HER SAHNE İÇİN:
 - text: O sahnenin Türkçe kısa özeti (5-10 kelime)
-- visualNote: Kameranın tam olarak ne gördüğü (max 10 kelime, somut, Türkçe)
-- V.O. bağlamı varsa karakterleri/mekanları tespit et
-
-KARAKTER STANDARDI (ANTROPOLOJİK DOĞRULUK — DETAYLI):
+- visualNote: Kameranın tKARAKTER STANDARDI (ANTROPOLOJİK DOĞRULUK — DETAYLI):
 Her karakter için İngilizce visualDescription yazarken şu sırayı takip et:
 
 1. FİZİKSEL ANTROPOLOJİ TİPİ:
@@ -82,6 +79,8 @@ Her karakter için İngilizce visualDescription yazarken şu sırayı takip et:
 
 8. SONUNDA MUTLAKA:
    "photorealistic, cinematic lighting, documentary style, anthropologically accurate, based on period manuscripts, NOT film or television adaptations"
+
+KRİTİK (Karakter Verisi): "visualDescription" alanı, yukarıdaki tüm detayların bir sentezi olan akıcı bir paragraf olmalıdır. ANCAK "age", "ethnicity", "clothing", "physicalFeatures", "hair" ve "beard" alanları da AYRI AYRI ve eksiksiz doldurulmalıdır. Bir bilgiyi visualDescription'a yazmış olman, o alanı boş bırakabileceğin anlamına gelmez.
 
 YASAK: Psikoloji, motivasyon, hikaye, soyut nitelikler
 
@@ -129,35 +128,38 @@ JSON ÇIKTI:
       "role": "Şaman",
       "isCrowd": false,
       "age": "mid-40s to 50s",
-      "ethnicity": "Turanid-Mongoloid",
-      "physicalFeatures": "broad flat face, prominent cheekbones, narrow epicanthic eyes, low nasal bridge, bronze-olive skin, deep facial lines",
-      "hair": "black, long, braided",
-      "beard": "short dark beard",
-      "clothing": "deer-hide shamanic coat with bone/metal talismans, feathered headpiece",
-      "visualDescription": "..."
+      "ethnicity": "Turanid-Mongoloid phenotype",
+      "physicalFeatures": "broad flat face, prominent cheekbones, narrow eyes with epicanthic fold, low nasal bridge, bronze-olive skin, deep sun-lined texture",
+      "hair": "long black hair, loose with small ritual braids",
+      "beard": "thin black goatee and mustache",
+      "clothing": "heavy deer-hide kaftan with bronze mirrors and bone talismans, fur-lined boots, feathered ritual headpiece",
+      "visualDescription": "A middle-aged Shaman with Turanid-Mongoloid features, weathered bronze skin, and deep facial lines. He wears a heavy deer-hide kaftan adorned with bone talismans and bronze mirrors. His long black hair is partially braided. Photorealistic, cinematic lighting, documentary style, anthropologically accurate."
     }
   ],
   "locations": [
     {
       "name": "Ötüken Düzlüğü",
-      "visualDescription": "..."
+      "visualDescription": "Vast open Eurasian steppe with sparse dry grass, rolling low hills in the distance under a clear deep blue twilight sky."
     }
   ],
   "timeContexts": [
     {
       "label": "Ötüken - Gece",
-      "era": "Göktürk Dönemi",
-      "timeOfDay": "gece",
-      "lighting": "moonlit steppe, deep blue sky, stars appearing",
-      "historicalNotes": "6th-8th century Central Asian Turkic steppe"
+      "era": "6th-8th Century Göktürk Era",
+      "season": "Late Summer",
+      "timeOfDay": "night",
+      "lighting": "cool blue moonlight, high contrast, stars just beginning to appear",
+      "weather": "clear, calm night",
+      "historicalNotes": "Ancient Turkic heartland, high plateau atmosphere, nomadic settlement context"
     }
   ]
 }
 
 KRİTİK: Her sahnede timeContextLabel dolu olmalı.
-KRİTİK: Her character için "age", "ethnicity", "clothing", "physicalFeatures" ve "visualDescription" alanlarını AYRI AYRI dolu string olarak üret.
-EĞER bu detaylar senaryo metninde açıkça geçmiyorsa, karakterin rolüne, tarihi döneme ve mekana uygun olarak SEN TAHMİN ET VE KESİNLİKLE DOLDUR. Asla boş ("") bırakma!
+KRİTİK: Her character için "age", "ethnicity", "clothing", "physicalFeatures", "hair", "beard" ve "visualDescription" alanlarını KESİNLİKLE doldur. 
+EĞER bu detaylar senaryo metninde açıkça geçmiyorsa, karakterin rolüne, tarihi döneme ve mekana uygun olarak SEN TAHMİN ET VE MUTLAKA DOLDUR. Boş bırakmak veya "unknown" yazmak yasaktır!
 BLOKLAR:`;
+
 
 export async function analyzeScriptChunk(
   chunk: ScriptChunk,
@@ -222,6 +224,7 @@ ${s.perdeNo} — ${s.perdeTitle}\nGÖRÜNTÜ:\n${s.visualBlock}\n${s.voContext ?
     }
   });
 
+
   (parsed.locations || []).forEach((l) => {
     if (!l.name) return;
     const id = `loc-${l.name.replace(/\s+/g, '-').toLocaleLowerCase('tr-TR')}`;
@@ -234,10 +237,13 @@ ${s.perdeNo} — ${s.perdeTitle}\nGÖRÜNTÜ:\n${s.visualBlock}\n${s.voContext ?
     id: `tc-${crypto.randomUUID()}`,
     label: tc.label ?? '',
     era: tc.era,
+    season: tc.season,
     timeOfDay: tc.timeOfDay,
     lighting: tc.lighting,
+    weather: tc.weather,
     historicalNotes: tc.historicalNotes,
   }));
+
 
   const labelToId = new Map(timeContexts.map(tc => [tc.label, tc.id]));
 
