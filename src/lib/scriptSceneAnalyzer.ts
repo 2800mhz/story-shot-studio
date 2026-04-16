@@ -157,6 +157,7 @@ JSON ÇIKTI:
 KRİTİK: Her sahnede timeContextLabel dolu olmalı.
 KRİTİK: Her character için "age", "ethnicity", "clothing", "physicalFeatures" ve "visualDescription" alanlarını AYRI AYRI dolu string olarak üret.
 Bu bilgileri yalnızca visualDescription içine gömme; her alan explicit dolu olmalı.
+KRİTİK: Bu alanlarda boş string, sadece boşluk, "unknown", "n/a", "belirsiz" kullanma. Metinden açık değilse bile görsel olarak makul bir tahminle doldur.
 BLOKLAR:`;
 
 export async function analyzeScriptChunk(

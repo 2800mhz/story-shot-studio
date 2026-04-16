@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+const nonEmptyTrimmedString = z.string().trim().min(1);
+
 export const scriptAnalysisResponseSchema = z.object({
   scenes: z.array(
     z.object({
@@ -15,16 +17,16 @@ export const scriptAnalysisResponseSchema = z.object({
   ).default([]),
   characters: z.array(
     z.object({
-      name: z.string().min(1),
+      name: nonEmptyTrimmedString,
       role: z.string().optional(),
       isCrowd: z.boolean().optional(),
-      age: z.string().min(1),
-      ethnicity: z.string().min(1),
-      physicalFeatures: z.string().min(1),
+      age: nonEmptyTrimmedString,
+      ethnicity: nonEmptyTrimmedString,
+      physicalFeatures: nonEmptyTrimmedString,
       hair: z.string().optional(),
       beard: z.string().optional(),
-      clothing: z.string().min(1),
-      visualDescription: z.string().min(1),
+      clothing: nonEmptyTrimmedString,
+      visualDescription: nonEmptyTrimmedString,
     })
   ).default([]),
   locations: z.array(
@@ -47,21 +49,23 @@ export const scriptAnalysisResponseSchema = z.object({
 export const scriptAnalysisResponseJsonSchema: Record<string, unknown> = {
   type: 'object',
   required: ['scenes', 'characters', 'locations', 'timeContexts'],
+  additionalProperties: false,
   properties: {
     scenes: {
       type: 'array',
       items: {
         type: 'object',
         required: ['text', 'visualNote', 'visualStyle', 'characterNames', 'locationNames', 'timeContextLabel'],
+        additionalProperties: false,
         properties: {
           perdeNo: { type: 'string' },
           sceneNumber: { type: 'number' },
-          text: { type: 'string' },
-          visualNote: { type: 'string' },
+          text: { type: 'string', minLength: 1, pattern: '.*\\S.*' },
+          visualNote: { type: 'string', minLength: 1, pattern: '.*\\S.*' },
           visualStyle: { type: 'string', enum: ['realistic', 'symbolic'] },
           characterNames: { type: 'array', items: { type: 'string' } },
           locationNames: { type: 'array', items: { type: 'string' } },
-          timeContextLabel: { type: 'string' },
+          timeContextLabel: { type: 'string', minLength: 1, pattern: '.*\\S.*' },
         },
       },
     },
@@ -77,17 +81,18 @@ export const scriptAnalysisResponseJsonSchema: Record<string, unknown> = {
           'clothing',
           'visualDescription',
         ],
+        additionalProperties: false,
         properties: {
-          name: { type: 'string' },
+          name: { type: 'string', minLength: 1, pattern: '.*\\S.*' },
           role: { type: 'string' },
           isCrowd: { type: 'boolean' },
-          age: { type: 'string' },
-          ethnicity: { type: 'string' },
-          physicalFeatures: { type: 'string' },
+          age: { type: 'string', minLength: 1, pattern: '.*\\S.*' },
+          ethnicity: { type: 'string', minLength: 1, pattern: '.*\\S.*' },
+          physicalFeatures: { type: 'string', minLength: 1, pattern: '.*\\S.*' },
           hair: { type: 'string' },
           beard: { type: 'string' },
-          clothing: { type: 'string' },
-          visualDescription: { type: 'string' },
+          clothing: { type: 'string', minLength: 1, pattern: '.*\\S.*' },
+          visualDescription: { type: 'string', minLength: 1, pattern: '.*\\S.*' },
         },
       },
     },
@@ -96,9 +101,10 @@ export const scriptAnalysisResponseJsonSchema: Record<string, unknown> = {
       items: {
         type: 'object',
         required: ['name', 'visualDescription'],
+        additionalProperties: false,
         properties: {
-          name: { type: 'string' },
-          visualDescription: { type: 'string' },
+          name: { type: 'string', minLength: 1, pattern: '.*\\S.*' },
+          visualDescription: { type: 'string', minLength: 1, pattern: '.*\\S.*' },
         },
       },
     },
@@ -107,8 +113,9 @@ export const scriptAnalysisResponseJsonSchema: Record<string, unknown> = {
       items: {
         type: 'object',
         required: ['label'],
+        additionalProperties: false,
         properties: {
-          label: { type: 'string' },
+          label: { type: 'string', minLength: 1, pattern: '.*\\S.*' },
           era: { type: 'string' },
           timeOfDay: { type: 'string' },
           lighting: { type: 'string' },
@@ -121,8 +128,8 @@ export const scriptAnalysisResponseJsonSchema: Record<string, unknown> = {
 
 export function parseScriptAnalysisResponse(content: string) {
   const pickString = (value: unknown, fallback: unknown): string | undefined => {
-    if (typeof value === 'string' && value.trim()) return value;
-    if (typeof fallback === 'string' && fallback.trim()) return fallback;
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof fallback === 'string' && fallback.trim()) return fallback.trim();
     return undefined;
   };
 
