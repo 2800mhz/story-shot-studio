@@ -155,8 +155,9 @@ JSON ÇIKTI:
 }
 
 KRİTİK: Her sahnede timeContextLabel dolu olmalı.
-KRİTİK: Her character için "visualDescription" alanı HER ZAMAN zorunludur. "age", "ethnicity", "clothing", "physicalFeatures" alanlarını üretebiliyorsan üret, eğer metinde geçmiyorsa boş bırakabilirsin (opsiyoneldir).
-BLOKLAR:\n`;
+KRİTİK: Her character için "age", "ethnicity", "clothing", "physicalFeatures" ve "visualDescription" alanlarını AYRI AYRI dolu string olarak üret.
+EĞER bu detaylar senaryo metninde açıkça geçmiyorsa, karakterin rolüne, tarihi döneme ve mekana uygun olarak SEN TAHMİN ET VE KESİNLİKLE DOLDUR. Asla boş ("") bırakma!
+BLOKLAR:`;
 
 export async function analyzeScriptChunk(
   chunk: ScriptChunk,

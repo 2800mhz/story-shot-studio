@@ -15,7 +15,7 @@ export const scriptAnalysisResponseSchema = z.object({
   ).default([]),
   characters: z.array(
     z.object({
-      name: z.string().min(1),
+      name: z.string().optional(),
       role: z.string().optional(),
       isCrowd: z.boolean().optional(),
       age: z.string().optional(),
@@ -24,7 +24,7 @@ export const scriptAnalysisResponseSchema = z.object({
       hair: z.string().optional(),
       beard: z.string().optional(),
       clothing: z.string().optional(),
-      visualDescription: z.string().min(1),
+      visualDescription: z.string().optional(),
     })
   ).default([]),
   locations: z.array(
