@@ -59,6 +59,7 @@ interface MotionQueueExportItem {
   id: string;
   filename: string;
   imagePath: string;
+  mimeType?: string;
   note: string;
   status: QueueItem['status'];
   prompt?: string;
@@ -320,6 +321,7 @@ export default function MotionPrompt() {
           id: item.id,
           filename: item.file.name,
           imagePath,
+          mimeType: item.file.type || undefined,
           note: item.note,
           status: item.status,
           prompt: item.prompt,
@@ -373,27 +375,32 @@ export default function MotionPrompt() {
       setQueue(prev => {
         prev.forEach(item => URL.revokeObjectURL(item.thumbnailUrl));
         return parsed.queue.flatMap((entry): QueueItem[] => {
-          const imageBytes = archive[entry.imagePath];
-          if (!imageBytes) return [];
-          const file = new File([imageBytes], entry.filename, { type: inferImageType(entry.filename) });
-          return [{
-            id: entry.id || crypto.randomUUID(),
-            file,
-            thumbnailUrl: URL.createObjectURL(file),
-            note: entry.note || '',
-            status: entry.status || 'waiting',
-            prompt: entry.prompt,
-            error: entry.error,
-            apiKeyUsed: entry.apiKeyUsed,
-            shortDraft: entry.shortDraft,
-            cameraMotion: entry.cameraMotion || 'Static',
-            cinematicStyle: entry.cinematicStyle || 'Steadycam',
-            intensity: entry.intensity || 'Medium',
-            focalPoint: entry.focalPoint || '',
-            targetModel: entry.targetModel || parsed.settings?.targetModel || targetModel,
-            basePrompt: entry.basePrompt || entry.shortDraft || '',
-            reasoning: entry.reasoning,
-          }];
+          try {
+            const imageBytes = archive[entry.imagePath];
+            if (!imageBytes) return [];
+            const file = new File([imageBytes], entry.filename, { type: entry.mimeType || inferImageType(entry.filename) });
+            return [{
+              id: entry.id || crypto.randomUUID(),
+              file,
+              thumbnailUrl: URL.createObjectURL(file),
+              note: entry.note || '',
+              status: entry.status || 'waiting',
+              prompt: entry.prompt,
+              error: entry.error,
+              apiKeyUsed: entry.apiKeyUsed,
+              shortDraft: entry.shortDraft,
+              cameraMotion: entry.cameraMotion || 'Static',
+              cinematicStyle: entry.cinematicStyle || 'Steadycam',
+              intensity: entry.intensity || 'Medium',
+              focalPoint: entry.focalPoint || '',
+              targetModel: entry.targetModel || parsed.settings?.targetModel || targetModel,
+              basePrompt: entry.shortDraft || entry.basePrompt || '',
+              reasoning: entry.reasoning,
+            }];
+          } catch {
+            toast.error(`${entry.filename} içe aktarılamadı`);
+            return [];
+          }
         });
       });
       toast.success('Motion arşivi içe aktarıldı');
@@ -828,7 +835,7 @@ export default function MotionPrompt() {
                           <p className="text-[10px] text-muted-foreground">Short Draft</p>
                           <Textarea
                             value={item.shortDraft || ''}
-                            onChange={e => updateItemSettings(item.id, { shortDraft: e.target.value, basePrompt: e.target.value })}
+                            onChange={e => updateItemSettings(item.id, { shortDraft: e.target.value })}
                             className="text-[11px] bg-background min-h-[56px]"
                             placeholder="Kısa sahne taslağı..."
                           />

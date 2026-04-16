@@ -36,7 +36,7 @@ export function formatFinalPrompt(item: MotionPromptFields, targetModel: TargetM
     return `${comprehensiveBase} --camera ${camera} --motion ${motionLevel}`;
   }
 
-  return `${comprehensiveBase} Render with a ${cinematicStyle.toLowerCase()} language and ${intensity.toLowerCase()} motion emphasis for ${targetModel}.`;
+  return `${comprehensiveBase} Render with a ${cinematicStyle.toLowerCase()} style and ${intensity.toLowerCase()} motion emphasis for ${targetModel}.`;
 }
 
 export function buildMotionContextFromFields(item: MotionPromptFields): string {
