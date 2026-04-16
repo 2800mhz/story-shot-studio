@@ -18,12 +18,12 @@ export const scriptAnalysisResponseSchema = z.object({
       name: z.string().min(1),
       role: z.string().optional(),
       isCrowd: z.boolean().optional(),
-      age: z.string().min(1),
-      ethnicity: z.string().min(1),
-      physicalFeatures: z.string().min(1),
+      age: z.string().optional(),
+      ethnicity: z.string().optional(),
+      physicalFeatures: z.string().optional(),
       hair: z.string().optional(),
       beard: z.string().optional(),
-      clothing: z.string().min(1),
+      clothing: z.string().optional(),
       visualDescription: z.string().min(1),
     })
   ).default([]),
@@ -71,10 +71,6 @@ export const scriptAnalysisResponseJsonSchema: Record<string, unknown> = {
         type: 'object',
         required: [
           'name',
-          'age',
-          'ethnicity',
-          'physicalFeatures',
-          'clothing',
           'visualDescription',
         ],
         properties: {
