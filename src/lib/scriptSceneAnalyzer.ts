@@ -181,7 +181,7 @@ ${s.perdeNo} — ${s.perdeTitle}\nGÖRÜNTÜ:\n${s.visualBlock}\n${s.voContext ?
 
   const chunkText = `HEDEF SAHNE SAYISI: Bu chunk için tam olarak ${targetScenes} sahne üret. Ne az ne fazla.\n\n${chunkScenesText}`;
 
-  onProgress?.(`🎬 Chunk ${chunk.chunkIndex + 1}/${chunk.totalChunks} analiz ediliyor...");
+  onProgress?.(`🎬 Chunk ${chunk.chunkIndex + 1}/${chunk.totalChunks} analiz ediliyor...`);
 
   const content = await aiProvider.generateContent(chunkText, SCRIPT_ANALYSIS_SYSTEM_PROMPT, {
     operationType: 'script_scene_analysis',
@@ -193,7 +193,7 @@ ${s.perdeNo} — ${s.perdeTitle}\nGÖRÜNTÜ:\n${s.visualBlock}\n${s.voContext ?
   try {
     parsed = parseScriptAnalysisResponse(content);
     console.log(`📊 Chunk ${chunk.chunkIndex + 1}: ${chunk.scenes.length} perde → ${parsed.scenes?.length} sahne üretildi`);
-    console.log(`📝 İlk sahne örneği:", JSON.stringify(parsed.scenes?.[0], null, 2));
+    console.log(`📝 İlk sahne örneği:`, JSON.stringify(parsed.scenes?.[0], null, 2));
   } catch {
     console.error('Script chunk parse error');
     return { sceneCards: [], characters: [], locations: [], suggestedTimeContexts: [] };
