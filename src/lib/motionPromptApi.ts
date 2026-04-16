@@ -2,46 +2,32 @@
 import { aiProvider } from './aiProvider';
 import { parseMotionPromptResponse, type MotionPromptAnalysis } from './motionPromptParser';
 
-const SYSTEM_INSTRUCTION = `You are an AI video director that must return STRICT JSON only.
+const SYSTEM_INSTRUCTION = `You are an elite img2video prompt strategist and motion director.
 
-You are using a universal IMG2VIDEO MASTER PROMPT strategy.
-Analyze the uploaded image and produce a motion direction that is simple, stable, and suitable for AI video generation.
+Analyze the uploaded image and produce a concise draft that can be expanded into a long final prompt later.
+This instruction is universal and must work for any uploaded image (subject, era, style, lighting, composition).
 Prioritize continuity if previous shot context is provided.
 
-FORBIDDEN motions:
-- Flowing water, splashing, liquid dynamics
-- Fire or flame movement
-- Fabric billowing or wind effects
-- Crowds or many simultaneous figures moving
-- Fast camera movements
-- Dramatic facial expression changes
-- Animals running or turning
+GOALS:
+- infer scene content in plain language
+- propose coherent camera movement
+- keep movement physically plausible
+- avoid artifact-prone or chaotic motion
 
-PREFERRED motions:
-- Slow camera push-in or pull-back (3-6 second arc)
-- Static lock-off with micro-movement (breathing, dust settling)
-- Single figure slow deliberate action
-- Drone: slow vertical descend or ascend only
-- Rack focus foreground to background
-- Light shift: shadow slowly crossing a surface
+OUTPUT RULES:
+- return STRICT JSON only
+- do not use markdown fences
+- no extra keys beyond schema
 
-Return EXACTLY one JSON object with this schema and no extra keys:
+Return EXACTLY one JSON object with this schema:
 {
-  "shortDraft": "Very short scene summary (5-20 words)",
+  "shortDraft": "brief scene draft summary (5-20 words)",
   "cameraMotion": "Pan Right",
   "cinematicStyle": "Handheld",
   "intensity": "Medium",
   "focalPoint": "description of what to focus on",
   "reasoning": "why the AI chose this"
-}
-
-Return strict JSON only. Do not wrap output in markdown code fences.`;
-
-export interface MotionPromptResult {
-  imageFile: File;
-  prompt: string;
-  error?: string;
-}
+}`;
 
 export async function generateMotionPrompt(
   imageFile: File,
@@ -53,13 +39,13 @@ export async function generateMotionPrompt(
   const base64 = await fileToBase64(imageFile);
   const mimeType = imageFile.type || 'image/jpeg';
 
-  let userText = 'UNIVERSAL IMG2VIDEO MASTER PROMPT MODE ACTIVE.\n\n';
+  let userText = `TASK:\nAnalyze this uploaded image and return strict JSON using the required schema.\n\n`;
   if (globalNote.trim()) userText += `GLOBAL DIRECTOR NOTE:\n${globalNote.trim()}\n\n`;
   if (perImageNote.trim()) userText += `IMAGE-SPECIFIC NOTE:\n${perImageNote.trim()}\n\n`;
   if (previousMotionContext?.trim()) {
     userText += `PREVIOUS SHOT CONTEXT:\n${previousMotionContext.trim()}\n\n`;
   }
-  userText += `Analyze this image and return STRICT JSON only. Follow the schema exactly.`;
+  userText += `Draft short description + camera settings only.`;
 
   aiProvider.setModel(model);
 

@@ -1,6 +1,7 @@
 export type TargetModel = 'Runway Gen-3' | 'Kling AI' | 'Luma Dream Machine';
 
 export interface MotionPromptFields {
+  shortDraft?: string;
   cameraMotion?: string;
   cinematicStyle?: string;
   intensity?: 'Low' | 'Medium' | 'High';
@@ -19,24 +20,16 @@ export function formatFinalPrompt(item: MotionPromptFields, targetModel: TargetM
   const cinematicStyle = item.cinematicStyle || 'Steadycam';
   const intensity = item.intensity || 'Medium';
   const focalPoint = item.focalPoint?.trim() || 'main subject';
-  const shortDraft = item.basePrompt?.trim() || `Documentary scene focusing on ${focalPoint}.`;
-  const comprehensiveBase = [
-    `Scene draft: ${shortDraft}.`,
-    `Focus on ${focalPoint}.`,
-    `Camera motion: ${cameraMotion}.`,
-    `Cinematic style: ${cinematicStyle}.`,
-    `Motion intensity: ${intensity}.`,
-    'Keep physical continuity, realistic movement, and coherent depth across foreground and background.',
-    'Avoid fast chaotic action, deformations, and unstable temporal artifacts.'
-  ].join(' ');
+  const shortDraft = item.shortDraft?.trim() || item.basePrompt?.trim() || 'A cinematic documentary scene.';
+  const richPrompt = `${shortDraft}. Cinematic style: ${cinematicStyle}. Camera motion: ${cameraMotion}. Intensity: ${intensity}. Keep focus on ${focalPoint}. Preserve realistic continuity and natural movement while maintaining visual coherence.`;
 
   if (targetModel === 'Runway Gen-3') {
     const camera = toRunwayCameraParam(cameraMotion);
     const motionLevel = toRunwayMotionLevel(intensity);
-    return `${comprehensiveBase} --camera ${camera} --motion ${motionLevel}`;
+    return `${richPrompt} --camera ${camera} --motion ${motionLevel}`;
   }
 
-  return `${comprehensiveBase} Render with a ${cinematicStyle.toLowerCase()} style and ${intensity.toLowerCase()} motion emphasis for ${targetModel}.`;
+  return richPrompt;
 }
 
 export function buildMotionContextFromFields(item: MotionPromptFields): string {

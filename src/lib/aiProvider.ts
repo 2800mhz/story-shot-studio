@@ -97,8 +97,25 @@ class AIProviderManager {
     return this.model;
   }
 
-  async generateContent(prompt: string, systemInstruction?: string, options?: { operationType?: string, images?: Array<{ inlineData: { data: string, mimeType: string } }> }): Promise<string> {
-    return this._generateWithRetry(prompt, systemInstruction, 0, options?.operationType, options?.images);
+  async generateContent(
+    prompt: string,
+    systemInstruction?: string,
+    options?: {
+      operationType?: string;
+      images?: Array<{ inlineData: { data: string, mimeType: string } }>;
+      responseMimeType?: 'application/json';
+      responseSchema?: Record<string, unknown>;
+    }
+  ): Promise<string> {
+    return this._generateWithRetry(
+      prompt,
+      systemInstruction,
+      0,
+      options?.operationType,
+      options?.images,
+      options?.responseMimeType,
+      options?.responseSchema
+    );
   }
 
   async generateContentStream(
@@ -128,7 +145,9 @@ class AIProviderManager {
     systemInstruction: string | undefined,
     retryCount: number,
     operationType: string = 'api_request',
-    images?: Array<{ inlineData: { data: string, mimeType: string } }>
+    images?: Array<{ inlineData: { data: string, mimeType: string } }>,
+    responseMimeType?: 'application/json',
+    responseSchema?: Record<string, unknown>
   ): Promise<string> {
     // maxRetries: tüm key sayısı * birkaç bulk-wait turu
     const maxRetries = 60;
@@ -137,8 +156,8 @@ class AIProviderManager {
       throw new Error('All AI providers exhausted after many retries. Please try again later.');
     }
 
-    let key = this.getCurrentKey();
-    if (!key) {
+    const currentKey = this.getCurrentKey();
+    if (!currentKey) {
       // Tüm keyler rate-limited veya inactive — başa dön ve bekle
       console.warn(`⏳ All keys exhausted, waiting 15s before retry (attempt ${retryCount + 1}/${maxRetries})...`);
       this.currentKeyIndex = 0;
@@ -148,13 +167,20 @@ class AIProviderManager {
 
     try {
       const providerKeys = this.keys.get(this.currentProvider) || [];
-      console.log(` Trying ${key.provider} (key ${this.currentKeyIndex + 1}/${providerKeys.length})`);
-      const result = await this.callProvider(key, prompt, systemInstruction, images);
+      console.log(` Trying ${currentKey.provider} (key ${this.currentKeyIndex + 1}/${providerKeys.length})`);
+      const result = await this.callProvider(
+        currentKey,
+        prompt,
+        systemInstruction,
+        images,
+        responseMimeType,
+        responseSchema
+      );
       // Başarılı istek — 503 sayacını ve fallback'i sıfırla
       this.consecutiveServerErrors = 0;
       this._tempModel = null;
       this.activeFallbackModelIndex = -1;
-      await this.updateKeyUsage(key.id, result.promptTokens, result.completionTokens, operationType, result.modelUsed);
+      await this.updateKeyUsage(currentKey.id, result.promptTokens, result.completionTokens, operationType, result.modelUsed);
       return result.text;
     } catch (error: unknown) {
       const err = error as { status?: number; message?: string; retryAfterMs?: number };
@@ -162,12 +188,12 @@ class AIProviderManager {
 
       if (err.status === 429 || err.message?.includes('429') || err.message?.includes('quota')) {
         console.warn(`⚠️ Rate limit hit for ${this.currentProvider}, rotating...`);
-        await this.markRateLimited(key);
+        await this.markRateLimited(currentKey);
         this.rotateKey();
         await new Promise(resolve => setTimeout(resolve, 1500));
       } else if (err.status === 403 || err.status === 400 || err.message?.includes('API key not valid')) {
         console.warn(`🚫 Invalid API key for ${this.currentProvider}, marking inactive...`);
-        await this.markInvalid(key, `Invalid or unauthorized API key (${err.status || 400})`);
+        await this.markInvalid(currentKey, `Invalid or unauthorized API key (${err.status || 400})`);
         this.rotateKey();
         await new Promise(resolve => setTimeout(resolve, 500));
       } else if (err.status === 503 || err.status === 500) {
@@ -229,7 +255,15 @@ class AIProviderManager {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      return this._generateWithRetry(prompt, systemInstruction, retryCount + 1, operationType, images);
+      return this._generateWithRetry(
+        prompt,
+        systemInstruction,
+        retryCount + 1,
+        operationType,
+        images,
+        responseMimeType,
+        responseSchema
+      );
     }
   }
 
@@ -237,9 +271,9 @@ class AIProviderManager {
     const providerKeys = this.keys.get(this.currentProvider) || [];
     if (providerKeys.length === 0) return null;
 
-    let startIndex = this.currentKeyIndex;
+    const initialKeyIndex = this.currentKeyIndex;
     for (let i = 0; i < providerKeys.length; i++) {
-      const index = (startIndex + i) % providerKeys.length;
+      const index = (initialKeyIndex + i) % providerKeys.length;
       const key = providerKeys[index];
       
       const isRateLimited = key.rate_limited_until ? new Date(key.rate_limited_until) > new Date() : false;
@@ -282,8 +316,8 @@ class AIProviderManager {
       throw new Error('All AI providers exhausted after many retries. Please try again later.');
     }
 
-    let key = this.getCurrentKey();
-    if (!key) {
+    const currentKey = this.getCurrentKey();
+    if (!currentKey) {
       console.warn(`⏳ All keys exhausted [STREAM], waiting 15s before retry (attempt ${retryCount + 1}/${maxRetries})...`);
       this.currentKeyIndex = 0;
       await new Promise(resolve => setTimeout(resolve, 15_000));
@@ -292,12 +326,12 @@ class AIProviderManager {
 
     try {
       const providerKeys = this.keys.get(this.currentProvider) || [];
-      console.log(` Trying ${key.provider} (key ${this.currentKeyIndex + 1}/${providerKeys.length}) [STREAMING]`);
-      const result = await this.callProviderStream(key, prompt, systemInstruction, onChunk);
+      console.log(` Trying ${currentKey.provider} (key ${this.currentKeyIndex + 1}/${providerKeys.length}) [STREAMING]`);
+      const result = await this.callProviderStream(currentKey, prompt, systemInstruction, onChunk);
       this.consecutiveServerErrors = 0;
       this._tempModel = null;
       this.activeFallbackModelIndex = -1;
-      await this.updateKeyUsage(key.id, result.promptTokens, result.completionTokens, operationType, result.modelUsed);
+      await this.updateKeyUsage(currentKey.id, result.promptTokens, result.completionTokens, operationType, result.modelUsed);
       return result.text;
     } catch (error: unknown) {
       const err = error as { status?: number; message?: string; retryAfterMs?: number };
@@ -305,12 +339,12 @@ class AIProviderManager {
 
       if (err.status === 429 || err.message?.includes('429') || err.message?.includes('quota')) {
         console.warn(`⚠️ Rate limit hit for ${this.currentProvider}, rotating...`);
-        await this.markRateLimited(key);
+        await this.markRateLimited(currentKey);
         this.rotateKey();
         await new Promise(resolve => setTimeout(resolve, 1500));
       } else if (err.status === 403 || err.status === 400 || err.message?.includes('API key not valid')) {
         console.warn(`🚫 Invalid API key for ${this.currentProvider}, marking inactive...`);
-        await this.markInvalid(key, `Invalid or unauthorized API key (${err.status || 400})`);
+        await this.markInvalid(currentKey, `Invalid or unauthorized API key (${err.status || 400})`);
         this.rotateKey();
         await new Promise(resolve => setTimeout(resolve, 500));
       } else if (err.status === 503 || err.status === 500) {
@@ -473,7 +507,14 @@ class AIProviderManager {
     }
   }
 
-  private async callProvider(key: APIKey, prompt: string, systemInstruction?: string, images?: Array<{ inlineData: { data: string, mimeType: string } }>): Promise<{ text: string; promptTokens: number; completionTokens: number; modelUsed: string }> {
+  private async callProvider(
+    key: APIKey,
+    prompt: string,
+    systemInstruction?: string,
+    images?: Array<{ inlineData: { data: string, mimeType: string } }>,
+    responseMimeType?: 'application/json',
+    responseSchema?: Record<string, unknown>
+  ): Promise<{ text: string; promptTokens: number; completionTokens: number; modelUsed: string }> {
     const decryptedKey = decryptKey(key.api_key);
 
     switch (key.provider) {
@@ -488,6 +529,8 @@ class AIProviderManager {
           generationConfig: {
             temperature: 0.7,
             maxOutputTokens: 65536,
+            ...(responseMimeType ? { response_mime_type: responseMimeType } : {}),
+            ...(responseSchema ? { response_schema: responseSchema } : {}),
           },
         };
         if (systemInstruction) {
@@ -531,17 +574,30 @@ class AIProviderManager {
         }
         messages.push({ role: 'user', content: prompt });
 
+        const body: Record<string, unknown> = {
+          model: 'gpt-4o',
+          messages,
+          // Structured outputs are more reliable with lower temperature for deterministic schema filling.
+          temperature: responseSchema ? 0.2 : 0.7,
+        };
+        if (responseSchema) {
+          body.response_format = {
+            type: 'json_schema',
+            json_schema: {
+              name: 'structured_output',
+              strict: true,
+              schema: responseSchema,
+            },
+          };
+        }
+
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${decryptedKey}`
           },
-          body: JSON.stringify({
-            model: 'gpt-4o',
-            messages,
-            temperature: 0.7
-          })
+          body: JSON.stringify(body)
         });
         if (!response.ok) {
           const err = new Error(`OpenAI API error: ${response.status}`) as Error & { status: number };

@@ -20,12 +20,16 @@ export async function extractEntitiesFromText(
       const parsed = JSON.parse(jsonMatch[0]);
 
       if (parsed.characters) {
-        parsed.characters.forEach((char: { name: string; description: string }) => {
+        parsed.characters.forEach((char: any) => {
           allEntities.push({
             id: `char-${++entityCounter}`,
             type: 'character',
             name: char.name,
-            visualDescription: char.description,
+            visualDescription: char.description || char.visualDescription,
+            age: char.age || '',
+            ethnicity: char.ethnicity || '',
+            clothing: char.clothing || '',
+            physicalFeatures: char.physicalFeatures || '',
             sceneIds: [],
             firstMention: text.indexOf(char.name),
           });
@@ -33,12 +37,12 @@ export async function extractEntitiesFromText(
       }
 
       if (parsed.locations) {
-        parsed.locations.forEach((loc: { name: string; description: string }) => {
+        parsed.locations.forEach((loc: any) => {
           allEntities.push({
             id: `loc-${++entityCounter}`,
             type: 'location',
             name: loc.name,
-            visualDescription: loc.description,
+            visualDescription: loc.description || loc.visualDescription,
             sceneIds: [],
             firstMention: text.indexOf(loc.name),
           });
@@ -46,12 +50,12 @@ export async function extractEntitiesFromText(
       }
 
       if (parsed.objects) {
-        parsed.objects.forEach((obj: { name: string; description: string }) => {
+        parsed.objects.forEach((obj: any) => {
           allEntities.push({
             id: `obj-${++entityCounter}`,
             type: 'object',
             name: obj.name,
-            visualDescription: obj.description,
+            visualDescription: obj.description || obj.visualDescription,
             sceneIds: [],
             firstMention: text.indexOf(obj.name),
           });
