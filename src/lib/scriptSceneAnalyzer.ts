@@ -41,17 +41,25 @@ HER SAHNE İÇİN:
 Her karakter için İngilizce visualDescription yazarken "Photorealistic", "Cinematic" gibi teknik terimler ASLA kullanma. Bunlar zaten ana sistem tarafından eklenecektir. Bunun yerine bir heykel tıraş veya terzi gibi fiziksel detaylara odaklan:
 
 1. YÜZ GEOMETRİSİ (SABİT ÇAPA):
-   - "Broad zygomatic arches" (Geniş elmacık kemikleri), "Low-bridge hooked nose" (Kemerli burun), "Deep-set almond eyes" (Derin badem gözler).
-   - "Deep nasolabial folds" (Belirgin gülme çizgileri), "Weathered bronze skin texture" (Güneş yanığı bronz deri).
+   - Elmacık kemiği genişliği: "Broad zygomatic arches spanning wide facial structure"
+   - Burun: "Low-bridge hooked nose with wide nostrils" gibi mimari betimle
+   - Göz: "Deep-set almond-shaped eyes under heavy brow ridge"
+   - Deri: "Weathered bronze skin with deep nasolabial folds and crow's feet at eye corners"
+   - Çene: "Strong square jawline" veya "Soft rounded jaw" — net seç, ikisi karışmasın
 
-2. SAKAL VE SAÇ (DEĞİŞMEZ):
-   - Sakalın uzunluğu, rengi ve dokusu (Örn: "Snowy white thick beard reaching mid-chest, natural texture").
+2. SAKAL VE SAÇ (SAYISAL ÖLÇÜ ZORUNLU):
+   - Sakalın uzunluğu CM cinsinden: "Full beard extending 10-12cm below chin"
+   - Rengi kesin: "Snowy white throughout, no gray patches, slightly unkempt at lower edges"
+   - Dokusu: "Dense, naturally parted, with visible coarse strands"
 
-3. KIYAFET MİMARİSİ (DETAYLI):
-   - Sarık sarım şekli (Örn: "Large white linen turban with coarse visible folds, wrapped multiple times").
-   - Kumaş dokusu (Örn: "Heavy coarse-woven wool kaftan, visible rough stitches, deep ochre color").
+3. KIYAFET MİMARİSİ (DETAYLI + NEGATIF):
+   - Sarık: "Oversized white linen turban wrapped in 3 full coils, rising 15cm above crown, slightly asymmetric to left"
+   - Kumaş: "Heavy coarse-woven wool kaftan, visible rough stitching at seams, deep ochre-brown color"
+   - NEGATIF ÇAPA — her karakter tanımına ekle: Karakterin olmadığı şeyi yaz.
+     Örnek Nasreddin Hoca için: "NOT a thin man, NOT dark beard, NOT small turban, NOT clean-shaven, NOT young face"
 
-4. YASAK: Duygusal, hikayesel veya teknik betimleme yapma. Sadece fiziksel "çapa" (anchor) verisi üret.
+4. YASAK: Duygusal, hikayesel veya teknik betimleme. Sadece fiziksel "çapa" verisi.
+5. YASAK: "Wise", "kind", "intelligent" gibi sıfatlar. Bunlar yorum, fizik değil.
  YAŞ & BEDEN:
    - Yaş aralığı (örn: mid-40s to 50s)
    - Beden tipi (lean/muscular/stocky/thin)

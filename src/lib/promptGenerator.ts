@@ -312,11 +312,24 @@ COLOR GRADING BY ERA AND TONE:
 STEP 7 — ENTITY INTEGRATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-CHARACTER blocks: embed every physical attribute verbatim across all 3 prompts.
-  Age, build, clothing, fabric, accessories — repeat in Wide, Medium, Close-up.
-  Do not assume the model remembers from Prompt 1.
-  For clothing: name the specific garment, fabric, color. "robe" is not enough.
-  Source: period manuscripts, miniatures, archaeological evidence — NOT film or TV.
+CHARACTER blocks: embed every physical attribute VERBATIM across all 3 prompts.
+  Age, build, clothing, fabric, accessories — repeat word-for-word in Wide, Medium, Close-up.
+  Do not assume the model remembers from Prompt 1. It does not.
+  
+  NUMERICAL CONSISTENCY LAW:
+  If the character metadata says "beard extending 10-12cm below chin" → write "10-12cm beard" in EVERY prompt.
+  If metadata says "turban wrapped in 3 full coils" → write "3-coil turban" in EVERY prompt.
+  Never paraphrase measurements. "Long beard" ≠ "10-12cm beard" to the model.
+  
+  NEGATIVE ANCHOR LAW:
+  Every character prompt must include character-specific --no flags derived from the character metadata.
+  White beard → add "dark beard, brown beard, black beard, thin beard" to --no
+  Large turban → add "small turban, hat, cap, skullcap, bare head" to --no
+  Specific clothing color → add opposite/wrong color to --no
+  These negatives are NOT optional. They are the second half of the anchor system.
+  
+  SOURCE LAW:
+  Clothing and appearance: period manuscripts, miniatures, archaeological evidence — NEVER film, TV, or tourist illustrations.
 
 LOCATION blocks: embed the PERMANENT architectural description.
   The current emotional state of the location (siege, celebration, abandonment)
@@ -398,7 +411,7 @@ Language: English only in prompts.
 Structure: [VERBATIM CHARACTER METADATA] → [ACTION/CONTEXT] → [LIGHTING/ENVIRONMENT] → [CAMERA/ANGLE] → [TECHNICAL SUFFIX]
 
 TECHNICAL SUFFIX for cinematic/symbolic:
-  "anthropologically accurate, cinematic realism, documentary photography, --ar [ratio] --v 6"
+  "anthropologically accurate, cinematic realism, documentary photography, --ar [ratio] --v 6 --no direct gaze, eye contact, looking at camera, posed portrait, passport photo, artificial smile, young face, dark beard, thin beard, clean-shaven, small turban, colored turban, symmetric composition, centered subject, stock photo lighting, flat background"
 
 
 TECHNICAL SUFFIX for scientific:
@@ -635,6 +648,8 @@ Subjects must look off-camera or at each other. Embed all clothing and physical 
         entityHeader += `=== CHARACTER VISUAL ANCHOR (STRICT CONSISTENCY) ===\n`;
         entityHeader += `Name: ${char.name}${char.role ? ` (${char.role})` : ''}\n`;
         entityHeader += `⚠️ MANDATORY: USE THE EXACT PHYSICAL GEOMETRY BELOW AS THE SUBJECT. DO NOT SUMMARIZE.\n`;
+        entityHeader += `⚠️ NUMERICAL ANCHORS ARE MANDATORY: Beard length in cm, turban coil count, kaftan color name — reproduce every measurement verbatim. If the description says "10-12cm beard", write "10-12cm beard" in the prompt, not "long beard".\n`;
+        entityHeader += `⚠️ NEGATIVE ANCHOR: If the character has a white beard, add to --no flag: dark beard, brown beard, black beard, thin beard, short beard. If large turban, add: small turban, hat, cap, no headwear. These negatives MUST appear in every prompt for this character.\n`;
         if (char.age) entityHeader += `Physical Age: ${char.age}\n`;
         if (char.ethnicity) entityHeader += `Face/Phenotype: ${char.ethnicity}\n`;
         if (char.physicalFeatures) entityHeader += `Facial Geometry: ${char.physicalFeatures}\n`;
