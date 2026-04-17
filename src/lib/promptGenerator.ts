@@ -632,17 +632,18 @@ Subjects must look off-camera or at each other. Embed all clothing and physical 
 
       if (individualChars.length === 1) {
         const char = individualChars[0];
-        entityHeader += `=== CHARACTER MASTER REFERENCE (MANDATORY CONSISTENCY) ===\n`;
+        entityHeader += `=== CHARACTER VISUAL ANCHOR (STRICT CONSISTENCY) ===\n`;
         entityHeader += `Name: ${char.name}${char.role ? ` (${char.role})` : ''}\n`;
-        entityHeader += `⚠️ RULE: USE THESE EXACT FIELDS WORD-FOR-WORD AS THE SUBJECT DESCRIPTION IN EVERY PROMPT. DO NOT SUMMARIZE.\n`;
-        if (char.age) entityHeader += `Age/build: ${char.age}\n`;
-        if (char.ethnicity) entityHeader += `Phenotype/Ethnicity: ${char.ethnicity}\n`;
-        if (char.physicalFeatures) entityHeader += `Physical features: ${char.physicalFeatures}\n`;
+        entityHeader += `⚠️ MANDATORY: USE THE EXACT PHYSICAL GEOMETRY BELOW AS THE SUBJECT. DO NOT SUMMARIZE.\n`;
+        if (char.age) entityHeader += `Physical Age: ${char.age}\n`;
+        if (char.ethnicity) entityHeader += `Face/Phenotype: ${char.ethnicity}\n`;
+        if (char.physicalFeatures) entityHeader += `Facial Geometry: ${char.physicalFeatures}\n`;
         if (char.hair) entityHeader += `Hair: ${char.hair}\n`;
         if (char.beard) entityHeader += `Beard: ${char.beard}\n`;
-        if (char.clothing) entityHeader += `Costume: ${char.clothing}\n`;
-        if (char.visualDescription) entityHeader += `Full visual description: ${char.visualDescription}\n`;
-        entityHeader += `⚠️ MAINTAIN EXACT APPEARANCE ACROSS ALL PROMPTS. FACES MUST BE VISIBLE BUT NO DIRECT EYE CONTACT WITH LENS.\n\n`;
+        if (char.clothing) entityHeader += `Costume Architecture: ${char.clothing}\n`;
+        if (char.visualDescription) entityHeader += `Visual Anchor Details: ${char.visualDescription}\n`;
+        entityHeader += `⚠️ NO DIRECT CAMERA CONTACT. EYES MUST BE FOCUSING ON ACTION OR COMPANION.\n\n`;
+
 
 
       } else if (individualChars.length > 1) {

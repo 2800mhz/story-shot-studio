@@ -37,37 +37,22 @@ Birbirine çok yakın görsel anları birleştir.
 
 HER SAHNE İÇİN:
 - text: O sahnenin Türkçe kısa özeti (5-10 kelime)
-- visualNote: Kameranın tKARAKTER STANDARDI (ANTROPOLOJİK DOĞRULUK — DETAYLI):
-Her karakter için İngilizce visualDescription yazarken şu sırayı takip et:
+- visualNote: Kameranın tKARAKTER STANDARDI (FİZİKSEL ÇAPA — TUTARLILIK):
+Her karakter için İngilizce visualDescription yazarken "Photorealistic", "Cinematic" gibi teknik terimler ASLA kullanma. Bunlar zaten ana sistem tarafından eklenecektir. Bunun yerine bir heykel tıraş veya terzi gibi fiziksel detaylara odaklan:
 
-1. FİZİKSEL ANTROPOLOJİ TİPİ:
-   Turanid, Mongoloid, Alpinid, Mediterranid vb.
-   Örn: "Turanid-Mongoloid phenotype"
+1. YÜZ GEOMETRİSİ (SABİT ÇAPA):
+   - "Broad zygomatic arches" (Geniş elmacık kemikleri), "Low-bridge hooked nose" (Kemerli burun), "Deep-set almond eyes" (Derin badem gözler).
+   - "Deep nasolabial folds" (Belirgin gülme çizgileri), "Weathered bronze skin texture" (Güneş yanığı bronz deri).
 
-2. YÜZ YAPISI:
-   - Kafa şekli (broad/narrow/round)
-   - Elmacık kemikleri (prominent/flat/high)
-   - Göz (narrow/wide, epicanthic fold varsa belirt)
-   - Burun (low/high bridge, wide/narrow nostrils)
-   - Çene (strong/soft/square)
+2. SAKAL VE SAÇ (DEĞİŞMEZ):
+   - Sakalın uzunluğu, rengi ve dokusu (Örn: "Snowy white thick beard reaching mid-chest, natural texture").
 
-3. CİLT:
-   - Ton (bronze/olive/dark/light)
-   - Doku (weathered/smooth/lined)
-   - Özel detay (sun-damaged, steppe exposure vb.)
+3. KIYAFET MİMARİSİ (DETAYLI):
+   - Sarık sarım şekli (Örn: "Large white linen turban with coarse visible folds, wrapped multiple times").
+   - Kumaş dokusu (Örn: "Heavy coarse-woven wool kaftan, visible rough stitches, deep ochre color").
 
-4. SAÇ (KRİTİK — TUTARLILIK İÇİN):
-   - Renk (black/dark brown/grey vb.)
-   - Uzunluk (short/medium/long/very long)
-   - Stil (braided/loose/tied/shaved sides)
-   - Durum (clean/matted/oiled vb.)
-
-5. SAKAL/BIYIK (KRİTİK):
-   - Var mı yok mu (clean-shaven/stubble/full beard)
-   - Uzunluk ve stil (short beard/long beard/mustache only)
-   - Renk ve doku
-
-6. YAŞ & BEDEN:
+4. YASAK: Duygusal, hikayesel veya teknik betimleme yapma. Sadece fiziksel "çapa" (anchor) verisi üret.
+ YAŞ & BEDEN:
    - Yaş aralığı (örn: mid-40s to 50s)
    - Beden tipi (lean/muscular/stocky/thin)
    - Boy (tall/medium/short)

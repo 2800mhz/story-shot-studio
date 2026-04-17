@@ -102,37 +102,22 @@ IŞIK SÜREKLİLİĞİ:
 - İç mekan: yumuşak yayılmış ışık, taş/ahşap dokular
 - Gece sahneleri: ateş ışığı, yıldızlı gökyüzü
 
-KARAKTER STANDARDI (ANTROPOLOJİK DOĞRULUK — DETAYLI):
-Her karakter için İngilizce visualDescription yazarken şu sırayı takip et:
+KARAKTER STANDARDI (FİZİKSEL ÇAPA — TUTARLILIK):
+Her karakter için İngilizce visualDescription yazarken "Photorealistic", "Cinematic" gibi teknik terimler ASLA kullanma. Bunlar zaten ana sistem tarafından eklenecektir. Bunun yerine bir heykel tıraş veya terzi gibi fiziksel detaylara odaklan:
 
-1. FİZİKSEL ANTROPOLOJİ TİPİ:
-   Turanid, Mongoloid, Alpinid, Mediterranid vb.
-   Örn: "Turanid-Mongoloid phenotype"
+1. YÜZ GEOMETRİSİ (SABİT ÇAPA):
+   - "Broad zygomatic arches" (Geniş elmacık kemikleri), "Low-bridge hooked nose" (Kemerli burun), "Deep-set almond eyes" (Derin badem gözler).
+   - "Deep nasolabial folds" (Belirgin gülme çizgileri), "Weathered bronze skin texture" (Güneş yanığı bronz deri).
 
-2. YÜZ YAPISI:
-   - Kafa şekli (broad/narrow/round)
-   - Elmacık kemikleri (prominent/flat/high)
-   - Göz (narrow/wide, epicanthic fold varsa belirt)
-   - Burun (low/high bridge, wide/narrow nostrils)
-   - Çene (strong/soft/square)
+2. SAKAL VE SAÇ (DEĞİŞMEZ):
+   - Sakalın uzunluğu, rengi ve dokusu (Örn: "Snowy white thick beard reaching mid-chest, natural texture").
 
-3. CİLT:
-   - Ton (bronze/olive/dark/light)
-   - Doku (weathered/smooth/lined)
+3. KIYAFET MİMARİSİ (DETAYLI):
+   - Sarık sarım şekli (Örn: "Large white linen turban with coarse visible folds, wrapped multiple times").
+   - Kumaş dokusu (Örn: "Heavy coarse-woven wool kaftan, visible rough stitches, deep ochre color").
 
-4. SAÇ & SAKAL (KRİTİK):
-   - Renk, uzunluk, stil, durum
+4. YASAK: Duygusal, hikayesel veya teknik betimleme yapma. Sadece fiziksel "çapa" (anchor) verisi üret.
 
-5. YAŞ & BEDEN:
-   - Yaş aralığı (mid-40s to 50s), beden tipi
-
-6. KIYAFETLERİN TAMAMI:
-   - Her parça ayrı ayrı, kumaş tipi, renk, dönem ve kültürel doğruluk
-
-7. SONUNDA MUTLAKA:
-   "photorealistic, cinematic lighting, documentary style, anthropologically accurate"
-
-KRİTİK (Karakter Verisi): "visualDescription" alanı, yukarıdaki detayların sentezi olmalıdır. ANCAK "age", "ethnicity", "clothing", "physicalFeatures", "hair" ve "beard" alanları da AYRI AYRI doldurulmalıdır.
 
 MEKAN STANDARDI:
 - SADECE fiziksel, fotoğraflanabilir mekanlar
