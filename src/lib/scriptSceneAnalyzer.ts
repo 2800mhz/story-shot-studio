@@ -40,6 +40,13 @@ HER SAHNE İÇİN:
 - visualNote: Kameranın tKARAKTER STANDARDI (FİZİKSEL ÇAPA — TUTARLILIK):
 Her karakter için İngilizce visualDescription yazarken "Photorealistic", "Cinematic" gibi teknik terimler ASLA kullanma. Bunlar zaten ana sistem tarafından eklenecektir. Bunun yerine bir heykel tıraş veya terzi gibi fiziksel detaylara odaklan:
 
+0. VÜCUT MİMARİSİ (TEMEL ÇAPA):
+   - Ağırlık ve boy tahmini: "Stocky heavyset build, approximately 80-90kg on 165cm frame"
+   - Omuz genişliği: "Broad shoulders" veya "Narrow sloping shoulders"
+   - Karın: "Slight belly" veya "Lean torso" — açık seç
+   - Duruş: "Slightly hunched with age" veya "Upright commanding posture"
+   - Bu veriler yüz kadar önemlidir. Model her sahnede aynı vücut tipini çizecek.
+
 1. YÜZ GEOMETRİSİ (SABİT ÇAPA):
    - Elmacık kemiği genişliği: "Broad zygomatic arches spanning wide facial structure"
    - Burun: "Low-bridge hooked nose with wide nostrils" gibi mimari betimle

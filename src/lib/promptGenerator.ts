@@ -834,15 +834,38 @@ SCENE FOCUS: Abstract or narrative scene with no entities.
   }
 
   // ─── FİNAL KOMUT ────────────────────────────────────────────────────────────
+  // Karakter-spesifik negatif flagler üret
+  const characterNegatives: string[] = [];
+  characters.forEach(char => {
+    if (!char.isCrowd) {
+      if (char.beard?.toLowerCase().includes('white')) {
+        characterNegatives.push('dark beard', 'brown beard', 'black beard', 'thin beard', 'short beard', 'clean-shaven');
+      }
+      if (char.beard?.toLowerCase().includes('thick') || char.beard?.toLowerCase().includes('full')) {
+        characterNegatives.push('thin beard', 'patchy beard', 'stubble');
+      }
+      if (char.clothing?.toLowerCase().includes('large') || char.clothing?.toLowerCase().includes('turban')) {
+        characterNegatives.push('small turban', 'hat', 'cap', 'skullcap', 'bare head', 'colored turban');
+      }
+      if (char.age?.includes('60') || char.age?.includes('50')) {
+        characterNegatives.push('young face', 'smooth skin', 'no wrinkles');
+      }
+    }
+  });
+
+  const baseNegatives = 'direct gaze, eye contact, looking at camera, posed portrait, passport photo, artificial smile, symmetric composition, centered subject, flat lighting, stock photo, studio backdrop';
+  const charNegativeStr = characterNegatives.length > 0 ? `, ${[...new Set(characterNegatives)].join(', ')}` : '';
+  const fullNegatives = `--no ${baseNegatives}${charNegativeStr}`;
+
   if (shotFormatOverride) {
     // Timelapse: Phase-N komut
     const phaseCount = shotFormatOverride.split('→').length;
     userMessage += `${phaseCount} aşamalı TIMELAPSE prompt üret (${shotFormatOverride}). `;
     userMessage += `Her aşamada farklı bir temporal durum gösterilmeli. `;
-    userMessage += `Her prompt sonuna "--ar ${aspectRatio} --v 6 --no direct gaze, eye contact, looking at camera, posed portrait, passport photo, artificial smile" ekle.`;
+    userMessage += `Her prompt sonuna "--ar ${aspectRatio} --v 6 ${fullNegatives}" ekle.`;
   } else {
     userMessage += `3 farklı açıdan sinematik prompt üret. Her prompt'ta "${scene.visualNote}" notunun ruhunu koru. `;
-    userMessage += `Her prompt sonuna "--ar ${aspectRatio} --v 6 --no direct gaze, eye contact, looking at camera, posed portrait, passport photo, artificial smile" ekle.`;
+    userMessage += `Her prompt sonuna "--ar ${aspectRatio} --v 6 ${fullNegatives}" ekle.`;
   }
 
   userMessage += `\n\n⚠️ REMINDER: ALL subjects must be caught in natural action — NO passport-style portraits, NO direct eye contact with lens, NO frozen smile, NO posed symmetry.`;
