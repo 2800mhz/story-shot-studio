@@ -220,7 +220,7 @@ function splitTextIntoChunks(text: string, maxChars = 2500): string[] {
   if (text.length <= maxChars) return [text];
   const chunks: string[] = [];
   const paragraphs = text.split(/\n+/);
-  
+
   let currentChunk = '';
 
   for (const para of paragraphs) {
@@ -232,7 +232,7 @@ function splitTextIntoChunks(text: string, maxChars = 2500): string[] {
       }
       const sentences = para.split(/(?<=[.!?])\s+/);
       let currentSentenceChunk = '';
-      
+
       for (const sentence of sentences) {
         if ((currentSentenceChunk + ' ' + sentence).length > maxChars && currentSentenceChunk) {
           chunks.push(currentSentenceChunk.trim());
@@ -253,7 +253,7 @@ function splitTextIntoChunks(text: string, maxChars = 2500): string[] {
       }
     }
   }
-  
+
   if (currentChunk.trim()) chunks.push(currentChunk.trim());
   return chunks;
 }
@@ -493,7 +493,7 @@ async function analyzeChunk(
 ): Promise<AnalysisPayload> {
   const content = await aiProvider.generateContent(chunk, getSceneAnalysisSystemPrompt(targetSceneCount), { operationType: 'scene_analysis' });
 
-  console.log('🤖 Raw Gemini response:', content.substring(0, 1000));
+  console.log('🤖 Raw Gemini responsse:', content.substring(0, 1000));
 
   let cleanedContent: string;
   try {
