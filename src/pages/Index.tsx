@@ -16,23 +16,20 @@ import { ReferencePanel } from '@/components/ReferencePanel';
 import { ScriptUploader } from '@/components/ScriptUploader';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useAppState } from '@/hooks/useAppState';
+import { useEpisodeData } from '@/hooks/useEpisodeData';
+import { useGenerationHandlers } from '@/hooks/useGenerationHandlers';
 import { parseDocument } from '@/lib/documentParser';
-import { parseEpisodes } from '@/lib/contextDetection';
-import { generatePrompts, loadSystemPrompt } from '@/lib/geminiApi';
 import { analyzeTextIntoScenes, generateEpisodePrompt, generateEpisodePromptTurkishExplanation, reviseEpisodePrompt } from '@/lib/sceneAnalyzer';
 import { analyzeReferenceImage } from '@/lib/referenceAnalyzer';
-import { generatePromptsForScene, revisePrompt, autoSelectBestPrompt } from '@/lib/promptGenerator';
-import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetchAllPromptsForScenes, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts, setPinnedPrompt, fetchReferences, updateReferenceAssignments, fetchUserModel, saveUserModel } from '@/lib/supabaseQueries';
+import { generatePromptsForScene, revisePrompt } from '@/lib/promptGenerator';
+import { updateEpisode, upsertGlobalCharacter, upsertGlobalLocation, updateReferenceAssignments, fetchUserModel, saveUserModel, setPinnedPrompt } from '@/lib/supabaseQueries';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
-import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis, PromptCard, EpisodeStyleVersion } from '@/types';
+import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptCard, EpisodeStyleVersion } from '@/types';
 
 
 const GROUP_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-
-const PROMPT_GENERATION_DELAY_MS = 2000;
-const AUTO_SAVE_DEBOUNCE_MS = 2000;
 
 const Index = () => {
   const { id: projectId, episodeId } = useParams<{ id: string; episodeId: string }>();
@@ -40,12 +37,7 @@ const Index = () => {
   const { state, dispatch, undo, redo } = useAppState();
   const { toast } = useToast();
   const { user } = useAuth();
-  const [loadingData, setLoadingData] = useState(false);
-  const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [analysisLog, setAnalysisLog] = useState<string[]>([]);
-  const [project, setProject] = useState<{ title: string; master_prompt?: string } | null>(null);
-  const [episode, setEpisode] = useState<{ title: string; document_text?: string } | null>(null);
   const [noKeysWarning, setNoKeysWarning] = useState(false);
   useEffect(() => {
     if (user?.id) {
@@ -74,325 +66,20 @@ const Index = () => {
     aiProvider.setModel(state.settings.model);
   }, [state.settings.model]);
 
-  // Load episode data from Supabase
-  useEffect(() => {
-    if (projectId && episodeId) {
-      loadEpisodeData();
-    }
-  }, [projectId, episodeId]);
-
-  async function loadEpisodeData() {
-    setLoadingData(true);
-    try {
-      console.log('📥 Loading episode data:', episodeId);
-
-      const [projectData, episodeData, scenesData, globalChars, globalLocs, referencesData] = await Promise.all([
-        fetchProject(projectId!),
-        fetchEpisode(episodeId!),
-        fetchScenes(episodeId!),
-        fetchGlobalCharacters(projectId!),
-        fetchGlobalLocations(projectId!),
-        fetchReferences(episodeId!)
-      ]);
-
-      console.log('✅ Loaded:', {
-        project: projectData.title,
-        episode: episodeData.title,
-        scenes: scenesData.length
-      });
-
-      setProject(projectData);
-      setEpisode(episodeData);
-
-      console.log('📎 References from DB:', referencesData?.length, referencesData);
-      // Add references to state
-      dispatch({ type: 'SET_REFERENCES', payload: referencesData || [] });
-      console.log('📎 SET_REFERENCES dispatched');
-
-      // Load master prompt from project
-      if (projectData.master_prompt) {
-        dispatch({ type: 'SET_MASTER_PROMPT', payload: projectData.master_prompt });
-      }
-
-      // Load document text — sync both mainText and documentText
-      if (episodeData.document_text) {
-        dispatch({ type: 'SET_DOCUMENT_TEXT', payload: episodeData.document_text });
-        // Re-derive episodes from the stored HTML by stripping tags first,
-        // so the navigator (LeftPanel) is populated correctly after a page refresh.
-        const plainText = episodeData.document_text.replace(/<[^>]+>/g, '');
-        const derivedEpisodes = parseEpisodes(plainText);
-        dispatch({ type: 'SET_EPISODES', payload: derivedEpisodes });
-      }
-
-      // Load episode-level style prompt (overrides/extends master prompt for this episode)
-      if (episodeData.episode_prompt) {
-        dispatch({ type: 'SET_EPISODE_PROMPT', payload: episodeData.episode_prompt });
-      } else {
-        dispatch({ type: 'SET_EPISODE_PROMPT', payload: '' });
-      }
-
-      // Load Turkish translation of the episode prompt
-      if (episodeData.episode_prompt_tr) {
-        dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: episodeData.episode_prompt_tr });
-      } else {
-        dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: '' });
-      }
-
-      // Load episode style history
-      if (Array.isArray(episodeData.episode_style_history) && episodeData.episode_style_history.length > 0) {
-        dispatch({ type: 'SET_EPISODE_STYLE_HISTORY', payload: episodeData.episode_style_history as EpisodeStyleVersion[] });
-      } else {
-        dispatch({ type: 'SET_EPISODE_STYLE_HISTORY', payload: [] });
-      }
-
-      // Load characters: prefer episode-specific character_data (preserves exact IDs
-      // used by scene cards) over global_characters table.
-      if (episodeData.character_data) {
-        try {
-          dispatch({ type: 'SET_CHARACTERS', payload: JSON.parse(episodeData.character_data) });
-        } catch (e) {
-          console.warn('Failed to parse character_data, falling back to global characters:', e);
-          if (globalChars.length > 0) {
-            dispatch({
-              type: 'SET_CHARACTERS',
-              payload: globalChars.map((c: { id: string; name: string; role?: string | null; is_crowd?: boolean | null; visual_description?: string | null }) => ({
-                id: c.id,
-                name: c.name,
-                role: c.role || undefined,
-                isCrowd: c.is_crowd ?? false,
-                visualDescription: c.visual_description || undefined,
-              }))
-            });
-          }
-        }
-      } else if (globalChars.length > 0) {
-        dispatch({
-          type: 'SET_CHARACTERS',
-          payload: globalChars.map((c: { id: string; name: string; role?: string | null; is_crowd?: boolean | null; visual_description?: string | null }) => ({
-            id: c.id,
-            name: c.name,
-            role: c.role || undefined,
-            isCrowd: c.is_crowd ?? false,
-            visualDescription: c.visual_description || undefined,
-          }))
-        });
-      }
-
-      // Load locations: prefer episode-specific location_data over global_locations table.
-      if (episodeData.location_data) {
-        try {
-          dispatch({ type: 'SET_LOCATIONS', payload: JSON.parse(episodeData.location_data) });
-        } catch (e) {
-          console.warn('Failed to parse location_data, falling back to global locations:', e);
-          if (globalLocs.length > 0) {
-            dispatch({
-              type: 'SET_LOCATIONS',
-              payload: globalLocs.map((l: { id: string; name: string; visual_description?: string | null }) => ({
-                id: l.id,
-                name: l.name,
-                visualDescription: l.visual_description || undefined,
-              }))
-            });
-          }
-        }
-      } else if (globalLocs.length > 0) {
-        dispatch({
-          type: 'SET_LOCATIONS',
-          payload: globalLocs.map((l: { id: string; name: string; visual_description?: string | null }) => ({
-            id: l.id,
-            name: l.name,
-            visualDescription: l.visual_description || undefined,
-          }))
-        });
-      }
-
-      // Load scenes into state
-      if (scenesData.length > 0) {
-        const mappedScenes = scenesData.map((scene: any) => ({
-          id: scene.id,
-          sceneNumber: scene.scene_number,
-          text: scene.text,
-          visualNote: scene.visual_note || '',
-          characterIds: scene.character_ids || [],
-          locationIds: scene.location_ids || [],
-          timeContextIds: scene.time_context_ids || [],
-          startIndex: scene.start_index ?? undefined,
-          endIndex: scene.end_index ?? undefined,
-          prompts: [],
-          status: 'ready' as const,
-          noteEditable: false,
-          analysis: scene.analysis,
-          optimizations: scene.optimizations || []
-        }));
-
-        dispatch({ type: 'SET_SCENES', payload: mappedScenes });
-
-        // Load ALL prompts in a SINGLE batch request
-        const promptsByScene = await fetchAllPromptsForScenes(scenesData.map(s => s.id));
-        const allMappedPrompts: Record<string, any[]> = {};
-        
-        promptsByScene.forEach((prompts, sceneId) => {
-          if (prompts.length > 0) {
-            allMappedPrompts[sceneId] = prompts.map((p: any) => ({
-              id: p.id,
-              type: p.type,
-              label: p.label,
-              shotType: p.shot_type,
-              summary: p.summary,
-              explanation: p.explanation,
-              promptText: p.prompt_text,
-              aspectRatio: p.aspect_ratio,
-              versions: [p.prompt_text],
-              isPinned: p.is_pinned ?? false,
-              isPinnedByAI: false,
-            }));
-          }
-        });
-
-        if (Object.keys(allMappedPrompts).length > 0) {
-          dispatch({ type: 'SET_ALL_PROMPTS', payload: allMappedPrompts });
-        }
-      }
-
-      // Load time contexts from Supabase (backward compatible: if column missing treat as [])
-      const storedTimeContexts = Array.isArray(episodeData.time_contexts) && episodeData.time_contexts.length > 0
-        ? episodeData.time_contexts
-        : null;
-      if (storedTimeContexts) {
-        dispatch({ type: 'SET_TIME_CONTEXTS', payload: storedTimeContexts });
-      }
-    } catch (error) {
-      console.error('❌ Error loading episode data:', error);
-      toast({
-        title: "Error loading episode",
-        description: error instanceof Error ? error.message : "Failed to load episode data",
-        variant: "destructive"
-      });
-    } finally {
-      setLoadingData(false);
-    }
-  }
-
-  // Auto-save scenes + episode-level data to Supabase whenever relevant state changes.
-  // Merging both saves into doSave to avoid duplicate Supabase writes.
-  const isSavingRef = useRef(false);
-  const pendingSaveRef = useRef(false);
-
-  // Keep a ref to latest state values so doSave always reads fresh data
-  // without needing to be recreated on every state change.
-  const saveStateRef = useRef({
-    sceneCards: state.sceneCards,
-    timeContexts: state.timeContexts,
-    episodePrompt: state.episodePrompt,
-    episodePromptTr: state.episodePromptTr,
-    episodeStyleHistory: state.episodeStyleHistory,
-    documentText: state.documentText,
-    characters: state.characters,
-    locations: state.locations,
+  const {
+    loadingData,
+    savingStatus,
+    lastSavedAt,
+    project,
+    episode,
+    doSave,
+  } = useEpisodeData({
+    projectId,
+    episodeId,
+    state,
+    dispatch,
+    toast: ({ title, description, variant }) => toast({ title, description, variant }),
   });
-  saveStateRef.current = {
-    sceneCards: state.sceneCards,
-    timeContexts: state.timeContexts,
-    episodePrompt: state.episodePrompt,
-    episodePromptTr: state.episodePromptTr,
-    episodeStyleHistory: state.episodeStyleHistory,
-    documentText: state.documentText,
-    characters: state.characters,
-    locations: state.locations,
-  };
-
-  const doSave = useCallback(async () => {
-    if (!episodeId) return;
-    const snap = saveStateRef.current;
-    if (snap.sceneCards.length === 0) return;
-    if (isSavingRef.current) {
-      pendingSaveRef.current = true;
-      console.log('⏳ Save already in progress, queuing…');
-      return;
-    }
-
-    isSavingRef.current = true;
-    pendingSaveRef.current = false;
-
-    try {
-      setSavingStatus('saving');
-      console.log('💾 Auto-saving scenes + episode data...');
-
-      // Save scenes
-      await saveScenes(episodeId, snap.sceneCards);
-
-      // Save all episode-level data in a SINGLE call (no duplicate writes)
-      await updateEpisode(episodeId, {
-        time_contexts: snap.timeContexts,
-        episode_prompt: snap.episodePrompt || undefined,
-        episode_prompt_tr: snap.episodePromptTr || undefined,
-        episode_style_history: snap.episodeStyleHistory,
-        document_text: snap.documentText || undefined,
-        character_data: JSON.stringify(snap.characters),
-        location_data: JSON.stringify(snap.locations),
-      });
-
-      // Save prompts in parallel batches (5 at a time) with error isolation
-      const PROMPT_BATCH = 5;
-      const scenesWithPrompts = snap.sceneCards.filter(scene => scene.prompts.length > 0);
-
-      let failedCount = 0;
-      for (let i = 0; i < scenesWithPrompts.length; i += PROMPT_BATCH) {
-        const batch = scenesWithPrompts.slice(i, i + PROMPT_BATCH);
-        const results = await Promise.allSettled(
-          batch.map(scene => savePrompts(scene.id, scene.prompts))
-        );
-        results.forEach((r, idx) => {
-          if (r.status === 'rejected') {
-            failedCount++;
-            console.error(`❌ Failed to save prompts for scene ${batch[idx].id}:`, r.reason);
-          }
-        });
-      }
-
-      if (failedCount > 0) {
-        console.warn(`⚠️ ${failedCount}/${scenesWithPrompts.length} prompt saves failed`);
-        setSavingStatus('error');
-        toast({
-          title: "Kısmi kaydetme hatası",
-          description: `${scenesWithPrompts.length - failedCount}/${scenesWithPrompts.length} sahne kaydedildi. ${failedCount} sahne başarısız.`,
-          variant: "destructive"
-        });
-      } else {
-        setSavingStatus('saved');
-        setLastSavedAt(new Date());
-        console.log('✅ Auto-save complete');
-      }
-
-      // Reset to idle after 2 seconds
-      setTimeout(() => setSavingStatus('idle'), 2000);
-    } catch (error) {
-      console.error('❌ Error saving scenes:', error);
-      setSavingStatus('error');
-      toast({
-        title: "Save failed",
-        description: error instanceof Error ? error.message : "Failed to save changes",
-        variant: "destructive"
-      });
-    } finally {
-      isSavingRef.current = false;
-      if (pendingSaveRef.current) {
-        pendingSaveRef.current = false;
-        doSave();
-      }
-    }
-  }, [episodeId, toast]);
-
-  useEffect(() => {
-    if (!loadingData && episode && episodeId) {
-      const timeoutId = setTimeout(doSave, AUTO_SAVE_DEBOUNCE_MS);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [
-    state.sceneCards, state.timeContexts, state.episodePrompt, state.episodePromptTr,
-    state.episodeStyleHistory, state.documentText, state.characters, state.locations,
-    episodeId, loadingData, episode, doSave
-  ]);
 
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [infoOpen, setInfoOpen] = React.useState(false);
@@ -457,10 +144,23 @@ const Index = () => {
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const bulkAbortRef = useRef<AbortController | null>(null);
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
-  const [isBulkGeneratingPrompts, setIsBulkGeneratingPrompts] = useState(false);
-  const [bulkPromptsProgress, setBulkPromptsProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
-  const bulkPromptsAbortRef = useRef<AbortController | null>(null);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '4:3' | '1:1' | '9:16'>('16:9');
+  const {
+    isBulkGeneratingPrompts,
+    bulkPromptsProgress,
+    handleGeneratePromptsForScene,
+    handleGenerateAllPrompts,
+    handleCancelBulkPrompts,
+    handleRegenerateAllScenes,
+    handleRegenerateAllPrompts,
+    handleAddVariation,
+  } = useGenerationHandlers({
+    state,
+    dispatch,
+    aspectRatio,
+    onMissingApiKeys: () => setNoKeysWarning(true),
+    toast: ({ title, description, variant }) => toast({ title, description, variant }),
+  });
   // Use a ref to access current scenes without adding them as a callback dependency
   const scenesRef = useRef(state.scenes);
   scenesRef.current = state.scenes;
@@ -682,32 +382,46 @@ const Index = () => {
     const updatedSub: SubScene = { ...subScene, status: 'generating' };
     dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: updatedSub } });
 
-    const parentGroups = state.consistencyGroups.filter(g => scene.consistencyGroupIds?.includes(g.id));
-    const subGroups = state.consistencyGroups.filter(g => subScene.consistencyGroupIds?.includes(g.id));
-
     try {
-      const results = await generatePrompts({
-        scene,
-        apiKey: '',
-        model: state.settings.model,
-        variantCount: state.settings.variantCount,
-        temperature: state.settings.temperature,
-        consistencyGroups: subGroups.length > 0 ? subGroups : undefined,
-        allScenes: state.scenes,
-        systemPrompt: loadSystemPrompt(),
-        subScene,
-        parentScene: scene,
-        parentConsistencyGroups: parentGroups.length > 0 ? parentGroups : undefined,
-        generateFn: aiProvider.generateContent.bind(aiProvider),
-      });
+      const generated = await generatePromptsForScene(
+        {
+          id: subScene.id,
+          sceneNumber: scene.number,
+          text: subScene.segments.map(s => s.text).join(' ').trim() || subScene.label,
+          visualNote: subScene.note || scene.note || '',
+          characterIds: [],
+          locationIds: [],
+          timeContextIds: [],
+          prompts: [],
+          status: 'analyzed',
+          noteEditable: false,
+        },
+        [],
+        [],
+        state.masterPrompt,
+        undefined,
+        undefined,
+        aspectRatio,
+        state.sceneAnalyses[sceneId],
+        undefined,
+        state.episodePrompt || undefined,
+        state.references,
+        'initial',
+        () => {
+          toast({
+            title: '⚠️ Yapay Zeka Yanıtı Onarılıyor',
+            description: 'Yapay zeka yanıtı bozuk geldi, otomatik onarım deneniyor...',
+          });
+        }
+      );
 
-      const prompts: PromptVariant[] = results.map((r, i) => ({
-        id: crypto.randomUUID(),
-        shotType: r.shotType,
-        text: r.text,
-        summary: r.summary,
+      const prompts: PromptVariant[] = generated.prompts.map((p) => ({
+        id: p.id,
+        shotType: p.shotType,
+        text: p.promptText,
+        summary: p.summary,
         attachedEntityIds: [],
-        versions: [r.text],
+        versions: [p.promptText],
         isRevising: false,
       }));
       dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, prompts, status: 'done' } } });
@@ -715,7 +429,7 @@ const Index = () => {
       console.error('Sub-scene generation failed:', e);
       dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, status: 'error' } } });
     }
-  }, [state, dispatch]);
+  }, [aspectRatio, state, dispatch, toast]);
 
   const handleReviseSubScene = useCallback(async (sceneId: string, subSceneId: string, promptId: string, instruction: string) => {
     const scene = state.scenes.find(s => s.id === sceneId);
@@ -744,7 +458,7 @@ const Index = () => {
     } catch (e: any) {
       console.error('Sub-scene revizyon başarısız', e);
     }
-  }, [state, dispatch]);
+  }, [aspectRatio, dispatch, toast]);
 
 
   const handleCancel = useCallback((sceneId: string) => {
@@ -779,50 +493,50 @@ const Index = () => {
 
     dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'generating' } });
 
-    const groups = stateRef.current.consistencyGroups.filter(g => scene.consistencyGroupIds?.includes(g.id));
-
-    // Determine effective variant count based on scene analysis
-    const sceneAnalysis = stateRef.current.sceneAnalyses[sceneId];
-    let effectiveVariantCount: number = stateRef.current.settings.variantCount;
-    if (sceneAnalysis) {
-      if (sceneAnalysis.narrativeType === 'timelapse') {
-        effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, stateRef.current.settings.variantCount), 5);
-      } else if (sceneAnalysis.narrativeType === 'sequence') {
-        effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, stateRef.current.settings.variantCount), 4);
-      }
-    }
-
     try {
       if (controller.signal.aborted) {
         abortControllersRef.current.delete(sceneId);
         return;
       }
-      const sceneEntities = {
-        characters: stateRef.current.extractedEntities.filter(e => e.type === 'character' && e.sceneIds.includes(sceneId)),
-        locations: stateRef.current.extractedEntities.filter(e => e.type === 'location' && e.sceneIds.includes(sceneId)),
-      };
-      const results = await generatePrompts({
-        scene,
-        apiKey: '',
-        model: stateRef.current.settings.model,
-        variantCount: effectiveVariantCount,
-        temperature: stateRef.current.settings.temperature,
-        consistencyGroups: groups.length > 0 ? groups : undefined,
-        allScenes: stateRef.current.scenes,
-        systemPrompt: loadSystemPrompt(),
-        sceneEntities: (sceneEntities.characters.length > 0 || sceneEntities.locations.length > 0) ? sceneEntities : undefined,
-        sceneAnalysis: sceneAnalysis,
-        signal: controller.signal,
-        generateFn: aiProvider.generateContent.bind(aiProvider),
-      });
+      const generated = await generatePromptsForScene(
+        {
+          id: scene.id,
+          sceneNumber: scene.number,
+          text: scene.text || scene.segments.map(s => s.text).join(' ').trim(),
+          visualNote: scene.note || '',
+          characterIds: [],
+          locationIds: [],
+          timeContextIds: [],
+          prompts: [],
+          status: 'analyzed',
+          noteEditable: false,
+        },
+        [],
+        [],
+        stateRef.current.masterPrompt,
+        undefined,
+        undefined,
+        aspectRatio,
+        stateRef.current.sceneAnalyses[sceneId],
+        undefined,
+        stateRef.current.episodePrompt || undefined,
+        stateRef.current.references,
+        'initial',
+        () => {
+          toast({
+            title: '⚠️ Yapay Zeka Yanıtı Onarılıyor',
+            description: 'Yapay zeka yanıtı bozuk geldi, otomatik onarım deneniyor...',
+          });
+        }
+      );
 
-      const prompts: PromptVariant[] = results.map((r) => ({
-        id: crypto.randomUUID(),
-        shotType: r.shotType,
-        text: r.text,
-        summary: r.summary,
+      const prompts: PromptVariant[] = generated.prompts.map((p) => ({
+        id: p.id,
+        shotType: p.shotType,
+        text: p.promptText,
+        summary: p.summary,
         attachedEntityIds: [],
-        versions: [r.text],
+        versions: [p.promptText],
         isRevising: false,
       }));
       dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, prompts, status: 'done' } });
@@ -836,7 +550,7 @@ const Index = () => {
       dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'error' } });
       abortControllersRef.current.delete(sceneId);
     }
-  }, [state, dispatch]);
+  }, [aspectRatio, state, dispatch, toast]);
 
   const handleGenerateAll = useCallback(async () => {
     const pending = stateRef.current.scenes.filter(s => s.status === 'pending');
@@ -853,51 +567,51 @@ const Index = () => {
 
       dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'generating' } });
 
-      const groups = state.consistencyGroups.filter(g => sceneRef.consistencyGroupIds?.includes(g.id));
-
-      // Determine effective variant count based on scene analysis
-      const sceneAnalysis = state.sceneAnalyses[sceneRef.id];
-      let effectiveVariantCount: number = state.settings.variantCount;
-      if (sceneAnalysis) {
-        if (sceneAnalysis.narrativeType === 'timelapse') {
-          effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, state.settings.variantCount), 5);
-        } else if (sceneAnalysis.narrativeType === 'sequence') {
-          effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, state.settings.variantCount), 4);
-        }
-      }
-
       if (bulkController.signal.aborted) {
         dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'pending' } });
         break;
       }
 
       try {
-        const sceneEntitiesAll = {
-          characters: state.extractedEntities.filter(e => e.type === 'character' && e.sceneIds.includes(sceneRef.id)),
-          locations: state.extractedEntities.filter(e => e.type === 'location' && e.sceneIds.includes(sceneRef.id)),
-        };
-        const results = await generatePrompts({
-          scene: sceneRef,
-          apiKey: '',
-          model: state.settings.model,
-          variantCount: effectiveVariantCount,
-          temperature: state.settings.temperature,
-          consistencyGroups: groups.length > 0 ? groups : undefined,
-          allScenes: state.scenes,
-          systemPrompt: loadSystemPrompt(),
-          sceneEntities: (sceneEntitiesAll.characters.length > 0 || sceneEntitiesAll.locations.length > 0) ? sceneEntitiesAll : undefined,
-          sceneAnalysis: sceneAnalysis,
-          signal: bulkController.signal,
-          generateFn: aiProvider.generateContent.bind(aiProvider),
-        });
+        const generated = await generatePromptsForScene(
+          {
+            id: sceneRef.id,
+            sceneNumber: sceneRef.number,
+            text: sceneRef.text || sceneRef.segments.map(s => s.text).join(' ').trim(),
+            visualNote: sceneRef.note || '',
+            characterIds: [],
+            locationIds: [],
+            timeContextIds: [],
+            prompts: [],
+            status: 'analyzed',
+            noteEditable: false,
+          },
+          [],
+          [],
+          state.masterPrompt,
+          undefined,
+          undefined,
+          aspectRatio,
+          state.sceneAnalyses[sceneRef.id],
+          undefined,
+          state.episodePrompt || undefined,
+          state.references,
+          'initial',
+          () => {
+            toast({
+              title: '⚠️ Yapay Zeka Yanıtı Onarılıyor',
+              description: 'Yapay zeka yanıtı bozuk geldi, otomatik onarım deneniyor...',
+            });
+          }
+        );
 
-        const prompts: PromptVariant[] = results.map((r) => ({
-          id: crypto.randomUUID(),
-          shotType: r.shotType,
-          text: r.text,
-          summary: r.summary,
+        const prompts: PromptVariant[] = generated.prompts.map((p) => ({
+          id: p.id,
+          shotType: p.shotType,
+          text: p.promptText,
+          summary: p.summary,
           attachedEntityIds: [],
-          versions: [r.text],
+          versions: [p.promptText],
           isRevising: false,
         }));
         dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, prompts, status: 'done' } });
@@ -1052,274 +766,6 @@ const Index = () => {
       dispatch({ type: 'FINISH_ANALYSIS', payload: { sceneCards: [], characters: [], locations: [] } });
     }
   }, [dispatch, toast, state.references]);
-
-  const handleGeneratePromptsForScene = useCallback(async (sceneId: string, isRegeneration: boolean = false): Promise<boolean> => {
-    const scene = state.sceneCards.find(s => s.id === sceneId);
-    if (!scene) return false;
-
-    const sceneCharacters = state.characters.filter(c => scene.characterIds.includes(c.id));
-    const sceneLocations = state.locations.filter(l => scene.locationIds.includes(l.id));
-    // Use only the scene's own time contexts (no fallback to all)
-    const sceneTimeContexts = state.timeContexts.filter(tc => (scene.timeContextIds ?? []).includes(tc.id));
-
-    dispatch({ type: 'START_PROMPT_GENERATION', payload: { sceneId } });
-
-    try {
-      const result = await generatePromptsForScene(
-        scene,
-        sceneCharacters,
-        sceneLocations,
-        state.masterPrompt,
-        undefined,
-        undefined,
-        aspectRatio,
-        state.sceneAnalyses[sceneId],
-        sceneTimeContexts,
-        state.episodePrompt || undefined,
-        state.references,
-        isRegeneration ? 'regenerate' : 'initial',
-        () => {
-          toast({
-            title: '⚠️ Yapay Zeka Yanıtı Onarılıyor',
-            description: 'Yapay zeka yanıtı bozuk geldi, otomatik onarım deneniyor...',
-          });
-        }
-      );
-      // Final dispatch with complete result
-      dispatch({ 
-        type: 'FINISH_PROMPT_GENERATION', 
-        payload: { 
-          sceneId, 
-          prompts: result.prompts,
-          analysis: result.analysis,
-          optimizations: result.optimizations,
-        } 
-      });
-
-      // ── Auto-pin: AI selects the best prompt ──
-      if (result.prompts.length > 1) {
-        try {
-          const sceneForPin = state.sceneCards.find(s => s.id === sceneId);
-          const { selectedIndex, reason } = await autoSelectBestPrompt(
-            result.prompts,
-            sceneForPin?.text || '',
-            sceneForPin?.visualNote || ''
-          );
-          const bestPrompt = result.prompts[selectedIndex];
-          if (bestPrompt) {
-            console.log(`[autoPin] Scene ${sceneId}: selected prompt ${selectedIndex} — ${reason}`);
-            dispatch({ type: 'SET_PINNED_PROMPT', payload: { sceneId, promptId: bestPrompt.id, byAI: true } });
-            // Persist to DB (fire-and-forget)
-            setPinnedPrompt(sceneId, bestPrompt.id).catch(err =>
-              console.warn('[autoPin] DB save failed:', err)
-            );
-          }
-        } catch (pinErr) {
-          console.warn('[autoPin] Auto-selection failed, skipping:', pinErr);
-        }
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Prompt generation error:', error);
-      // Revert status to analyzed on error
-      dispatch({
-        type: 'FINISH_PROMPT_GENERATION',
-        payload: { sceneId, prompts: [] },
-      });
-      return false;
-    }
-  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, dispatch, aspectRatio]);
-
-  const WORKER_COUNT = 3;
-
-  const handleGenerateAllPrompts = useCallback(async () => {
-    if (isBulkGeneratingPrompts) return;
-
-    const scenesWithoutPrompts = state.sceneCards.filter(
-      s => s.prompts.length === 0 && s.status !== 'generating'
-    );
-    if (scenesWithoutPrompts.length === 0) return;
-
-    const controller = new AbortController();
-    bulkPromptsAbortRef.current = controller;
-    setIsBulkGeneratingPrompts(true);
-    setBulkPromptsProgress({ done: 0, total: scenesWithoutPrompts.length });
-
-    // Paylaşılan kuyruk
-    const queue = [...scenesWithoutPrompts];
-    const failedScenes: typeof scenesWithoutPrompts = [];
-    let done = 0;
-    let consecutiveFailures = 0;
-
-    const processScene = async (scene: typeof scenesWithoutPrompts[0]): Promise<void> => {
-      if (controller.signal.aborted) return;
-      
-      const success = await handleGeneratePromptsForScene(scene.id);
-      
-      if (success) {
-        done++;
-        consecutiveFailures = 0;
-        setBulkPromptsProgress({ done, total: scenesWithoutPrompts.length });
-      } else {
-        consecutiveFailures++;
-        failedScenes.push(scene);
-        
-        // Ardışık 5 hata = tüm keyler rate limit yedi, 10sn bekle
-        if (consecutiveFailures >= 5) {
-          toast({
-            title: '⚠️ Rate limit — 10sn bekleniyor...',
-            description: 'Tüm API anahtarları geçici olarak limit yedi.',
-          });
-          await new Promise(r => setTimeout(r, 10000));
-          consecutiveFailures = 0;
-        }
-      }
-    };
-
-    // Worker fonksiyonu — kuyruktan sahne çeker
-    const worker = async (): Promise<void> => {
-      while (queue.length > 0 && !controller.signal.aborted) {
-        const scene = queue.shift();
-        if (!scene) break;
-        await processScene(scene);
-        // Worker'lar arası küçük offset (rate limit dağıtımı)
-        await new Promise(r => setTimeout(r, 200));
-      }
-    };
-
-    try {
-      // 3 worker paralel çalışır
-      await Promise.all(
-        Array.from({ length: WORKER_COUNT }, () => worker())
-      );
-
-      // Hata worker: başarısız sahneleri tekrar dene
-      if (failedScenes.length > 0 && !controller.signal.aborted) {
-        toast({
-          title: `🔄 ${failedScenes.length} sahne yeniden deneniyor...`,
-        });
-        // 5sn bekle, sonra tek tek dene
-        await new Promise(r => setTimeout(r, 5000));
-        for (const scene of failedScenes) {
-          if (controller.signal.aborted) break;
-          await processScene(scene);
-          await new Promise(r => setTimeout(r, 500));
-        }
-      }
-    } finally {
-      setIsBulkGeneratingPrompts(false);
-      bulkPromptsAbortRef.current = null;
-      setBulkPromptsProgress({ done: 0, total: 0 });
-      
-      const stillFailed = failedScenes.filter(
-        s => state.sceneCards.find(sc => sc.id === s.id)?.prompts.length === 0
-      );
-      if (stillFailed.length > 0) {
-        toast({
-          title: `❌ ${stillFailed.length} sahne üretilemedi`,
-          description: 'Manuel olarak tekrar deneyebilirsiniz.',
-          variant: 'destructive'
-        });
-      }
-    }
-  }, [isBulkGeneratingPrompts, state.sceneCards, handleGeneratePromptsForScene, toast]);
-
-  const handleCancelBulkPrompts = useCallback(() => {
-    bulkPromptsAbortRef.current?.abort();
-  }, []);
-
-  const handleRegenerateAllScenes = useCallback(async () => {
-    if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
-      setNoKeysWarning(true);
-      return;
-    }
-    // Take a snapshot of the current scene IDs BEFORE clearing prompts.
-    // This avoids the race condition where dispatch is async and the generator
-    // would read stale (already-cleared) state.
-    const sceneIds = stateRef.current.sceneCards.map(sc => sc.id);
-    if (sceneIds.length === 0) {
-      toast({ title: 'Sahne yok', description: 'Önce sahneleri analiz edin.' });
-      return;
-    }
-
-    // Clear all prompts optimistically
-    sceneIds.forEach(sceneId => {
-      dispatch({
-        type: 'FINISH_PROMPT_GENERATION',
-        payload: { sceneId, prompts: [] },
-      });
-    });
-
-    setIsBulkGeneratingPrompts(true);
-    const controller = new AbortController();
-    bulkPromptsAbortRef.current = controller;
-    setBulkPromptsProgress({ done: 0, total: sceneIds.length });
-
-    let done = 0;
-    for (const sceneId of sceneIds) {
-      if (controller.signal.aborted) break;
-      // Pass isRegeneration=true so the generator uses the correct operation type
-      await handleGeneratePromptsForScene(sceneId, true);
-      done++;
-      setBulkPromptsProgress({ done, total: sceneIds.length });
-      await new Promise(r => setTimeout(r, 200));
-    }
-
-    setIsBulkGeneratingPrompts(false);
-    bulkPromptsAbortRef.current = null;
-    setBulkPromptsProgress({ done: 0, total: 0 });
-  }, [dispatch, handleGeneratePromptsForScene, toast]);
-
-
-
-  const handleRegenerateAllPrompts = useCallback(async (sceneId: string) => {
-    await handleGeneratePromptsForScene(sceneId, true);
-  }, [handleGeneratePromptsForScene]);
-
-  const handleAddVariation = useCallback(async (sceneId: string) => {
-    const scene = state.sceneCards.find(s => s.id === sceneId);
-    if (!scene) return;
-
-    const sceneCharacters = state.characters.filter(c => scene.characterIds.includes(c.id));
-    const sceneLocations = state.locations.filter(l => scene.locationIds.includes(l.id));
-    const sceneTimeContexts = state.timeContexts.filter(tc => (scene.timeContextIds ?? []).includes(tc.id));
-    const existingPrompts = scene.prompts;
-
-    dispatch({ type: 'START_PROMPT_GENERATION', payload: { sceneId } });
-
-    try {
-      const result = await generatePromptsForScene(
-        scene,
-        sceneCharacters,
-        sceneLocations,
-        state.masterPrompt,
-        undefined,
-        undefined,
-        aspectRatio,
-        state.sceneAnalyses[sceneId],
-        sceneTimeContexts,
-        state.episodePrompt || undefined,
-        state.references,
-        'regenerate',
-        () => {
-          toast({
-            title: '⚠️ Yapay Zeka Yanıtı Onarılıyor',
-            description: 'Yapay zeka yanıtı bozuk geldi, otomatik onarım deneniyor...',
-          });
-        }
-      );
-      
-      // Final complete update
-      dispatch({
-        type: 'FINISH_PROMPT_GENERATION',
-        payload: { sceneId, prompts: [...existingPrompts, ...result.prompts] },
-      });
-    } catch (error) {
-      console.error('Variation generation error:', error);
-      dispatch({ type: 'FINISH_PROMPT_GENERATION', payload: { sceneId, prompts: existingPrompts } });
-    }
-  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, dispatch, aspectRatio]);
 
   const handleRestoreSceneCardPrompt = useCallback((sceneId: string, entry: any) => {
     const scene = state.sceneCards.find(s => s.id === sceneId);

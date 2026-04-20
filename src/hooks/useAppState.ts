@@ -1,4 +1,4 @@
-import { useReducer, useCallback, useRef } from 'react';
+import { useReducer, useCallback, useEffect, useRef } from 'react';
 import type { AppState, AppAction } from '@/types';
 
 function loadKeys(key: string): string[] {
@@ -6,13 +6,6 @@ function loadKeys(key: string): string[] {
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : [];
   } catch { return []; }
-}
-
-function loadJson<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch { return fallback; }
 }
 
 const initialState: AppState = {
@@ -40,7 +33,7 @@ const initialState: AppState = {
   sceneCards: [],
   characters: [],
   locations: [],
-  timeContexts: loadJson('time_contexts', []),
+  timeContexts: [],
   masterPrompt: '',
   episodePrompt: '',
   episodePromptTr: '',
@@ -75,13 +68,10 @@ type InternalAction = AppAction | { type: '__RESTORE__'; payload: AppState };
 
 function reducer(state: AppState, action: InternalAction): AppState {
   if (action.type === '__RESTORE__') {
-    persistState(action.payload);
     return action.payload;
   }
 
-  const next = reducerCore(state, action);
-  if (next !== state) persistState(next);
-  return next;
+  return reducerCore(state, action);
 }
 
 function persistState(s: AppState) {
@@ -159,10 +149,8 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
     case 'SET_SELECTION_MODE':
       return { ...state, selectionMode: action.payload };
     case 'SET_API_KEYS':
-      localStorage.setItem('gemini_api_keys', JSON.stringify(action.payload));
       return { ...state, apiKeys: action.payload, currentKeyIndex: 0 };
     case 'SET_IMAGE_API_KEYS':
-      localStorage.setItem('gemini_image_api_keys', JSON.stringify(action.payload));
       return { ...state, imageApiKeys: action.payload };
     case 'SET_CURRENT_KEY_INDEX':
       return { ...state, currentKeyIndex: action.payload };
@@ -171,8 +159,6 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       return { ...state, currentKeyIndex: (state.currentKeyIndex + 1) % state.apiKeys.length };
     case 'SET_SETTINGS': {
       const newSettings = { ...state.settings, ...action.payload };
-      localStorage.setItem('gemini_model', newSettings.model);
-      if (newSettings.imageModel) localStorage.setItem('gemini_image_model', newSettings.imageModel);
       return { ...state, settings: newSettings };
     }
     case 'ADD_SEGMENT_TO_SCENE':
@@ -625,6 +611,12 @@ const MAX_HISTORY = 50;
 
 export function useAppState() {
   const [state, rawDispatch] = useReducer(reducer, initialState);
+  const persistTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestPersistableRef = useRef({
+    apiKeys: state.apiKeys,
+    imageApiKeys: state.imageApiKeys,
+    settings: state.settings,
+  });
 
   // Keep a snapshot of current state for undo
   const stateRef = useRef<AppState>(initialState);
@@ -664,6 +656,48 @@ export function useAppState() {
     indexRef.current++;
     const snap = historyRef.current[indexRef.current];
     rawDispatch({ type: '__RESTORE__', payload: snap });
+  }, []);
+
+  useEffect(() => {
+    latestPersistableRef.current = {
+      apiKeys: state.apiKeys,
+      imageApiKeys: state.imageApiKeys,
+      settings: state.settings,
+    };
+
+    if (persistTimeoutRef.current) {
+      clearTimeout(persistTimeoutRef.current);
+    }
+
+    persistTimeoutRef.current = setTimeout(() => {
+      persistState({
+        ...stateRef.current,
+        apiKeys: latestPersistableRef.current.apiKeys,
+        imageApiKeys: latestPersistableRef.current.imageApiKeys,
+        settings: latestPersistableRef.current.settings,
+      });
+      persistTimeoutRef.current = null;
+    }, 500);
+
+    return () => {
+      if (persistTimeoutRef.current) {
+        clearTimeout(persistTimeoutRef.current);
+      }
+    };
+  }, [state.apiKeys, state.imageApiKeys, state.settings]);
+
+  useEffect(() => {
+    return () => {
+      if (persistTimeoutRef.current) {
+        clearTimeout(persistTimeoutRef.current);
+      }
+      persistState({
+        ...stateRef.current,
+        apiKeys: latestPersistableRef.current.apiKeys,
+        imageApiKeys: latestPersistableRef.current.imageApiKeys,
+        settings: latestPersistableRef.current.settings,
+      });
+    };
   }, []);
 
   return { state, dispatch, undo, redo };
