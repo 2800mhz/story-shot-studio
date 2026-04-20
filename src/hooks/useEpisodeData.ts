@@ -15,6 +15,17 @@ import {
 import type { AppAction, AppState, EpisodeStyleVersion, PromptCard } from '@/types';
 
 const AUTO_SAVE_DEBOUNCE_MS = 2000;
+const DEFAULT_VISUAL_STYLE = 'realistic' as const;
+const DEFAULT_NARRATIVE_LAYER = 'historical' as const;
+
+function stripHtmlToText(input: string): string {
+  if (typeof DOMParser !== 'undefined') {
+    const parsed = new DOMParser().parseFromString(input, 'text/html');
+    return parsed.body.textContent || '';
+  }
+  console.warn('DOMParser unavailable; falling back to raw document text for episode parsing.');
+  return input;
+}
 
 interface UseEpisodeDataArgs {
   projectId?: string;
@@ -107,7 +118,7 @@ export function useEpisodeData({ projectId, episodeId, state, dispatch, toast }:
 
       if (episodeData.document_text) {
         dispatch({ type: 'SET_DOCUMENT_TEXT', payload: episodeData.document_text });
-        const plainText = episodeData.document_text.replace(/<[^>]+>/g, '');
+        const plainText = stripHtmlToText(episodeData.document_text);
         dispatch({ type: 'SET_EPISODES', payload: parseEpisodes(plainText) });
       }
 
@@ -182,8 +193,8 @@ export function useEpisodeData({ projectId, episodeId, state, dispatch, toast }:
           sceneNumber: scene.scene_number,
           text: scene.text,
           visualNote: scene.visual_note || '',
-          visualStyle: scene.visual_style || 'realistic',
-          narrativeLayer: scene.narrative_layer || 'historical',
+          visualStyle: scene.visual_style || DEFAULT_VISUAL_STYLE,
+          narrativeLayer: scene.narrative_layer || DEFAULT_NARRATIVE_LAYER,
           characterIds: scene.character_ids || [],
           locationIds: scene.location_ids || [],
           timeContextIds: scene.time_context_ids || [],
@@ -274,8 +285,11 @@ export function useEpisodeData({ projectId, episodeId, state, dispatch, toast }:
       for (let i = 0; i < scenesWithPrompts.length; i += PROMPT_BATCH) {
         const batch = scenesWithPrompts.slice(i, i + PROMPT_BATCH);
         const results = await Promise.allSettled(batch.map(scene => savePrompts(scene.id, scene.prompts)));
-        results.forEach(result => {
-          if (result.status === 'rejected') failedCount++;
+        results.forEach((result, idx) => {
+          if (result.status === 'rejected') {
+            failedCount++;
+            console.error(`Prompt save failed for scene ${batch[idx].id}:`, result.reason);
+          }
         });
       }
 

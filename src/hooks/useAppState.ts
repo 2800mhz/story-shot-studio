@@ -1,6 +1,8 @@
 import { useReducer, useCallback, useEffect, useRef } from 'react';
 import type { AppState, AppAction } from '@/types';
 
+const PERSIST_DEBOUNCE_MS = 500;
+
 function loadKeys(key: string): string[] {
   try {
     const raw = localStorage.getItem(key);
@@ -677,7 +679,7 @@ export function useAppState() {
         settings: latestPersistableRef.current.settings,
       });
       persistTimeoutRef.current = null;
-    }, 500);
+    }, PERSIST_DEBOUNCE_MS);
 
     return () => {
       if (persistTimeoutRef.current) {

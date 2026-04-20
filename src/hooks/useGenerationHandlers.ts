@@ -13,6 +13,8 @@ interface UseGenerationHandlersArgs {
 }
 
 const WORKER_COUNT = 3;
+const MAX_CONSECUTIVE_FAILURES = 5;
+const RATE_LIMIT_RETRY_DELAY_MS = 10000;
 
 export function useGenerationHandlers({ state, dispatch, aspectRatio, onMissingApiKeys, toast }: UseGenerationHandlersArgs) {
   const [isBulkGeneratingPrompts, setIsBulkGeneratingPrompts] = useState(false);
@@ -77,15 +79,18 @@ export function useGenerationHandlers({ state, dispatch, aspectRatio, onMissingA
           const bestPrompt = result.prompts[selectedIndex];
           if (bestPrompt) {
             dispatch({ type: 'SET_PINNED_PROMPT', payload: { sceneId, promptId: bestPrompt.id, byAI: true } });
-            setPinnedPrompt(sceneId, bestPrompt.id).catch(() => undefined);
+            setPinnedPrompt(sceneId, bestPrompt.id).catch((error) => {
+              console.warn('[autoPin] DB save failed:', error);
+            });
           }
-        } catch {
-          // no-op
+        } catch (error) {
+          console.warn('[autoPin] Auto-selection failed, skipping:', error);
         }
       }
 
       return true;
-    } catch {
+    } catch (error) {
+      console.error('Prompt generation error:', error);
       dispatch({
         type: 'FINISH_PROMPT_GENERATION',
         payload: { sceneId, prompts: [] },
@@ -123,12 +128,12 @@ export function useGenerationHandlers({ state, dispatch, aspectRatio, onMissingA
         consecutiveFailures++;
         failedScenes.push(scene);
 
-        if (consecutiveFailures >= 5) {
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
           toast({
             title: '⚠️ Rate limit — 10sn bekleniyor...',
             description: 'Tüm API anahtarları geçici olarak limit yedi.',
           });
-          await new Promise(r => setTimeout(r, 10000));
+          await new Promise(r => setTimeout(r, RATE_LIMIT_RETRY_DELAY_MS));
           consecutiveFailures = 0;
         }
       }
@@ -254,7 +259,8 @@ export function useGenerationHandlers({ state, dispatch, aspectRatio, onMissingA
         type: 'FINISH_PROMPT_GENERATION',
         payload: { sceneId, prompts: [...existingPrompts, ...result.prompts] },
       });
-    } catch {
+    } catch (error) {
+      console.error('Variation generation error:', error);
       dispatch({ type: 'FINISH_PROMPT_GENERATION', payload: { sceneId, prompts: existingPrompts } });
     }
   }, [aspectRatio, dispatch, toast]);
