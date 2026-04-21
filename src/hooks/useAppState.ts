@@ -16,6 +16,7 @@ function loadJson<T>(key: string, fallback: T): T {
 }
 
 const initialState: AppState = {
+  projectType: 'documentary',
   mainText: '',
   documentText: '',
   episodes: [],
@@ -97,6 +98,8 @@ function persistState(s: AppState) {
 
 function reducerCore(state: AppState, action: InternalAction): AppState {
   switch (action.type) {
+    case 'SET_PROJECT_TYPE':
+      return { ...state, projectType: action.payload };
     case 'SET_MAIN_TEXT':
       return { ...state, mainText: action.payload.text, documentText: action.payload.text, mainFileName: action.payload.fileName };
     case 'SET_EXTRACTED_ENTITIES':

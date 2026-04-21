@@ -17,7 +17,7 @@ import { ScriptUploader } from '@/components/ScriptUploader';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useAppState } from '@/hooks/useAppState';
 import { parseDocument } from '@/lib/documentParser';
-import { parseEpisodes } from '@/lib/contextDetection';
+import { parseEpisodes } from '@/lib/episodeParser';
 import { generatePrompts, loadSystemPrompt } from '@/lib/geminiApi';
 import { analyzeTextIntoScenes, generateEpisodePrompt, generateEpisodePromptTurkishExplanation, reviseEpisodePrompt } from '@/lib/sceneAnalyzer';
 import { analyzeReferenceImage } from '@/lib/referenceAnalyzer';
@@ -26,7 +26,7 @@ import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetc
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
-import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis, PromptCard, EpisodeStyleVersion } from '@/types';
+import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis, PromptCard, EpisodeStyleVersion, ProjectType } from '@/types';
 
 
 const GROUP_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
@@ -44,7 +44,7 @@ const Index = () => {
   const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [analysisLog, setAnalysisLog] = useState<string[]>([]);
-  const [project, setProject] = useState<{ title: string; master_prompt?: string } | null>(null);
+  const [project, setProject] = useState<{ title: string; master_prompt?: string; project_type?: ProjectType } | null>(null);
   const [episode, setEpisode] = useState<{ title: string; document_text?: string } | null>(null);
   const [noKeysWarning, setNoKeysWarning] = useState(false);
   useEffect(() => {
@@ -102,6 +102,7 @@ const Index = () => {
       });
 
       setProject(projectData);
+      dispatch({ type: 'SET_PROJECT_TYPE', payload: (projectData.project_type as ProjectType) || 'documentary' });
       setEpisode(episodeData);
 
       console.log('📎 References from DB:', referencesData?.length, referencesData);
@@ -1083,7 +1084,8 @@ const Index = () => {
             title: '⚠️ Yapay Zeka Yanıtı Onarılıyor',
             description: 'Yapay zeka yanıtı bozuk geldi, otomatik onarım deneniyor...',
           });
-        }
+        },
+        state.projectType
       );
       // Final dispatch with complete result
       dispatch({ 
@@ -1129,7 +1131,7 @@ const Index = () => {
       });
       return false;
     }
-  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, dispatch, aspectRatio]);
+  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, state.projectType, dispatch, aspectRatio]);
 
   const WORKER_COUNT = 3;
 
@@ -1307,7 +1309,8 @@ const Index = () => {
             title: '⚠️ Yapay Zeka Yanıtı Onarılıyor',
             description: 'Yapay zeka yanıtı bozuk geldi, otomatik onarım deneniyor...',
           });
-        }
+        },
+        state.projectType
       );
       
       // Final complete update
@@ -1319,7 +1322,7 @@ const Index = () => {
       console.error('Variation generation error:', error);
       dispatch({ type: 'FINISH_PROMPT_GENERATION', payload: { sceneId, prompts: existingPrompts } });
     }
-  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, dispatch, aspectRatio]);
+  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, state.projectType, dispatch, aspectRatio]);
 
   const handleRestoreSceneCardPrompt = useCallback((sceneId: string, entry: any) => {
     const scene = state.sceneCards.find(s => s.id === sceneId);

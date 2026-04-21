@@ -24,6 +24,7 @@ export interface Database {
           id: string
           user_id: string
           title: string
+          project_type: 'documentary' | 'commercial' | 'narrative'
           style_guide: string | null
           master_prompt: string | null
           created_at: string
@@ -33,6 +34,7 @@ export interface Database {
           id?: string
           user_id: string
           title: string
+          project_type?: 'documentary' | 'commercial' | 'narrative'
           style_guide?: string | null
           master_prompt?: string | null
           created_at?: string
@@ -42,6 +44,7 @@ export interface Database {
           id?: string
           user_id?: string
           title?: string
+          project_type?: 'documentary' | 'commercial' | 'narrative'
           style_guide?: string | null
           master_prompt?: string | null
           created_at?: string

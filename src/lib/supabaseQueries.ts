@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { TimeContext } from '@/types';
+import type { ProjectType, TimeContext } from '@/types';
 
 // ── Retry helper with exponential backoff ────────────────────────────────────
 
@@ -47,6 +47,7 @@ export async function updateProject(projectId: string, updates: {
   title?: string;
   style_guide?: string;
   master_prompt?: string;
+  project_type?: ProjectType;
 }) {
   const { data, error } = await supabase
     .from('projects')

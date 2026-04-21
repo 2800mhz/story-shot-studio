@@ -1,4 +1,4 @@
-import type { SceneCard, Character, Location, TimeContext, PromptCard, PromptAnalysis, GenerationResult, SceneAnalysis, SceneReference, NarrativeLayer } from '@/types';
+import type { SceneCard, Character, Location, TimeContext, PromptCard, PromptAnalysis, GenerationResult, SceneAnalysis, SceneReference, NarrativeLayer, ProjectType } from '@/types';
 import { aiProvider } from './aiProvider';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -7,7 +7,7 @@ import { aiProvider } from './aiProvider';
 // Tarihsel, modern, bilimsel, soyut — her sahne tipi için çalışır
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const PROMPT_GENERATION_SYSTEM_PROMPT = `You are an elite prompt engineer for documentary film visual production.
+export const DOCUMENTARY_SYSTEM_PROMPT = `You are an elite prompt engineer for documentary film visual production.
 Your prompts are used with Flow AI (Nano Banana Pro model), Midjourney, and Runway.
 Every image must feel like a frame pulled from a real documentary — not a fantasy, not a museum exhibit, not a stock photo.
 
@@ -459,6 +459,27 @@ RESPONSE FORMAT — JSON only, no markdown
   "optimizations": ["what was applied or adjusted"]
 }`;
 
+export const COMMERCIAL_SYSTEM_PROMPT = `You are an elite prompt engineer for commercial and advertising film production.
+Generate high-impact, brand-safe, visually persuasive cinematic prompts.
+Prioritize product clarity, emotional hook, polished lighting, controlled composition, and conversion-oriented storytelling.
+Maintain realism unless explicitly stylized by scene note. Keep subjects premium, clean, aspirational, and production-ready.
+Return only valid JSON in the same schema required by the caller.`;
+
+export const NARRATIVE_SYSTEM_PROMPT = `You are an elite prompt engineer for narrative film and episodic television production.
+Generate cinematic prompts that preserve story continuity, character consistency, blocking logic, emotional arc, and scene geography.
+Treat each shot as part of sequence coverage (wide/medium/close-up) with dramatic intent and temporal coherence.
+Avoid ad-like polish unless scene explicitly requests it; prioritize story truth, performance detail, and mise-en-scène continuity.
+Return only valid JSON in the same schema required by the caller.`;
+
+function getBaseSystemPrompt(projectType: ProjectType): string {
+  switch (projectType) {
+    case 'documentary': return DOCUMENTARY_SYSTEM_PROMPT;
+    case 'commercial': return COMMERCIAL_SYSTEM_PROMPT;
+    case 'narrative': return NARRATIVE_SYSTEM_PROMPT;
+    default: return DOCUMENTARY_SYSTEM_PROMPT;
+  }
+}
+
 
 const ASPECT_RATIO_HINTS: Record<string, string> = {
   '16:9': 'Landscape cinematic widescreen (16:9). Subject placed on LEFT or RIGHT THIRD — never dead center. Use full horizontal depth: foreground element + midground subject + deep background. Strong horizon line. Open negative space in the direction the subject looks or moves.',
@@ -551,9 +572,11 @@ export async function generatePromptsForScene(
   episodePrompt?: string,
   references?: SceneReference[],
   generationType: 'initial' | 'regenerate' = 'initial',
-  onRetry?: () => void
+  onRetry?: () => void,
+  projectType: ProjectType = 'documentary'
 ): Promise<GenerationResult> {
   const layer: NarrativeLayer = scene.narrativeLayer ?? 'historical';
+  const systemPrompt = getBaseSystemPrompt(projectType);
 
   // ─── VISUAL STYLE NOTE ─────────────────────────────────────────────────────
   let userMessage = `SAHNE METNİ:\n${scene.text}\n\n`;
@@ -875,7 +898,7 @@ SCENE FOCUS: Abstract or narrative scene with no entities.
     return JSON.parse(cleaned);
   }
 
-  const content = await aiProvider.generateContent(userMessage, PROMPT_GENERATION_SYSTEM_PROMPT, {
+  const content = await aiProvider.generateContent(userMessage, systemPrompt, {
     operationType: 'prompt_generation'
   });
 
@@ -892,7 +915,7 @@ SCENE FOCUS: Abstract or narrative scene with no entities.
     console.error('Malformed response:', content);
     onRetry?.();
     const retryMessage = userMessage + '\n\nIMPORTANT: Return ONLY valid JSON. No markdown, no explanation, no code fences.';
-    const retryContent = await aiProvider.generateContent(retryMessage, PROMPT_GENERATION_SYSTEM_PROMPT, { operationType: 'prompt_generation_retry' });
+    const retryContent = await aiProvider.generateContent(retryMessage, systemPrompt, { operationType: 'prompt_generation_retry' });
     try {
       parsed = tryParseJSON(retryContent);
     } catch (secondErr) {

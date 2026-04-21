@@ -4,6 +4,8 @@ export type NarrativeLayer =
   | 'modern'       // Günümüz belgeseli — röportaj, modern mekân, çağdaş yaşam
   | 'universal';   // Evrensel/zamansız — duygular, insan doğası, soyut kavramlar
 
+export type ProjectType = 'documentary' | 'commercial' | 'narrative';
+
 export interface TextSegment {
   id: string;
   text: string;
@@ -199,6 +201,7 @@ export interface SceneCard {
 }
 
 export interface AppState {
+  projectType: ProjectType;
   mainText: string;
   documentText: string;
   episodes: Episode[];
@@ -234,6 +237,7 @@ export interface AppState {
 }
 
 export type AppAction =
+  | { type: 'SET_PROJECT_TYPE'; payload: ProjectType }
   | { type: 'SET_MAIN_TEXT'; payload: { text: string; fileName: string } }
   | { type: 'SET_EXTRACTED_ENTITIES'; payload: ExtractedEntity[] }
   | { type: 'ADD_EXTRACTED_ENTITY'; payload: ExtractedEntity }

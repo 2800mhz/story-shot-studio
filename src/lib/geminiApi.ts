@@ -1,5 +1,4 @@
 import type { Scene, SubScene, ConsistencyGroup, ExtractedEntity, SceneAnalysis } from '@/types';
-import { detectContext } from './contextDetection';
 
 const DEFAULT_SYSTEM_PROMPT = `You are a cinematic image prompt generator for AI video/image generation tools. Your task is to create detailed, production-ready prompts that can be used with tools like Midjourney, DALL-E, or Runway.
 
@@ -78,7 +77,6 @@ export async function generatePrompts(opts: GenerateOptions & { systemPrompt?: s
 
   const isSubScene = !!subScene && !!parentScene;
 
-  const context = detectContext(scene.episodeTitle);
   const sceneText = isSubScene
     ? subScene!.segments.map(s => s.text).join('\n\n')
     : scene.segments.map(s => s.text).join('\n\n');
@@ -86,7 +84,7 @@ export async function generatePrompts(opts: GenerateOptions & { systemPrompt?: s
     ? subScene!.subjectReferences.map(s => s.text).join('\n') || scene.subjectReferences.map(s => s.text).join('\n')
     : scene.subjectReferences.map(s => s.text).join('\n');
 
-  let userMessage = `EPISODE: ${scene.episodeTitle}\nCONTEXT: ${context}\n\n`;
+  let userMessage = `EPISODE: ${scene.episodeTitle}\n\n`;
 
   // Add AI-extracted entity descriptions
   if (sceneEntities?.characters && sceneEntities.characters.length > 0) {

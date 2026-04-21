@@ -22,10 +22,12 @@ import { supabase } from '@/lib/supabase';
 import { deleteProject, updateProject } from '@/lib/supabaseQueries';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import type { ProjectType } from '@/types';
 
 interface Project {
   id: string;
   title: string;
+  project_type: ProjectType;
   created_at: string;
   updated_at: string;
   episode_count?: number;
@@ -48,6 +50,7 @@ export default function Dashboard() {
   // Search & Sort State
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'updated_at' | 'title' | 'count'>('updated_at');
+  const [projectType, setProjectType] = useState<ProjectType>('documentary');
 
   useEffect(() => {
     fetchProjects();
@@ -68,6 +71,7 @@ export default function Dashboard() {
         .select(`
           id,
           title,
+          project_type,
           created_at,
           updated_at,
           episodes:episodes(count)
@@ -133,6 +137,7 @@ export default function Dashboard() {
         .insert({
           user_id: user?.id,
           title: `Yeni Proje ${new Date().toLocaleDateString('tr-TR')}`,
+          project_type: projectType,
           style_guide: '',
           master_prompt: ''
         })
@@ -305,6 +310,17 @@ export default function Dashboard() {
                 <SelectItem value="updated_at">Son Güncelleme</SelectItem>
                 <SelectItem value="title">İsim (A - Z)</SelectItem>
                 <SelectItem value="count">Bölüm Sayısı</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={projectType} onValueChange={(value: ProjectType) => setProjectType(value)}>
+              <SelectTrigger className="w-[220px] bg-background/50 border-primary/10">
+                <SelectValue placeholder="Proje Türü" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="documentary">🎬 Belgesel</SelectItem>
+                <SelectItem value="commercial">📺 Reklam / Ticari</SelectItem>
+                <SelectItem value="narrative">🎭 Kurgu Film / Dizi</SelectItem>
               </SelectContent>
             </Select>
 

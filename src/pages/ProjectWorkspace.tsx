@@ -8,10 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchProject, fetchEpisodes, createEpisode, deleteEpisode, updateEpisode } from '@/lib/supabaseQueries';
+import { fetchProject, fetchEpisodes, createEpisode, deleteEpisode, updateEpisode, updateProject } from '@/lib/supabaseQueries';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import type { ProjectType } from '@/types';
 
 interface Episode {
   id: string;
@@ -24,6 +25,7 @@ interface Episode {
 interface Project {
   id: string;
   title: string;
+  project_type: ProjectType;
   created_at: string;
   updated_at: string;
 }
@@ -47,6 +49,7 @@ export default function ProjectWorkspace() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'number' | 'newest' | 'oldest' | 'alphabetical'>('number');
   const [dateFilter, setDateFilter] = useState<'all' | 'week' | 'month'>('all');
+  const [projectType, setProjectType] = useState<ProjectType>('documentary');
 
   useEffect(() => {
     if (projectId) {
@@ -78,6 +81,7 @@ export default function ProjectWorkspace() {
         fetchEpisodes(projectId!)
       ]);
       setProject(projectData);
+      setProjectType((projectData.project_type as ProjectType) || 'documentary');
       setEpisodes(episodesData);
     } catch (error) {
       console.error('Error loading project data:', error);
@@ -121,6 +125,20 @@ export default function ProjectWorkspace() {
       console.error('Error renaming episode:', error);
     } finally {
       setEditingId(null);
+    }
+  }
+
+  async function handleProjectTypeChange(nextType: ProjectType) {
+    if (!projectId || !project) return;
+    const previous = projectType;
+    setProjectType(nextType);
+    setProject(prev => prev ? { ...prev, project_type: nextType } : prev);
+    try {
+      await updateProject(projectId, { project_type: nextType });
+    } catch (error) {
+      console.error('Error updating project type:', error);
+      setProjectType(previous);
+      setProject(prev => prev ? { ...prev, project_type: previous } : prev);
     }
   }
 
@@ -181,6 +199,18 @@ export default function ProjectWorkspace() {
                   {project?.title || 'Loading...'}
                 </h1>
                 <p className="text-xs text-muted-foreground">{user?.email}</p>
+                <div className="mt-2">
+                  <Select value={projectType} onValueChange={(value: ProjectType) => handleProjectTypeChange(value)}>
+                    <SelectTrigger className="w-[220px] h-8 bg-background/50 border-primary/10 text-xs">
+                      <SelectValue placeholder="Proje Türü" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="documentary">🎬 Belgesel</SelectItem>
+                      <SelectItem value="commercial">📺 Reklam / Ticari</SelectItem>
+                      <SelectItem value="narrative">🎭 Kurgu Film / Dizi</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </div>
