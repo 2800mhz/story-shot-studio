@@ -22,9 +22,9 @@ OUTPUT RULES:
 Return EXACTLY one JSON object with this schema:
 {
   "shortDraft": "brief scene draft summary (5-20 words)",
-  "cameraMotion": "Pan Right",
-  "cinematicStyle": "Handheld",
-  "intensity": "Medium",
+  "cameraMotion": "Must be exactly one of: Pan Right, Pan Left, Dolly In, Dolly Out, Zoom In, Zoom Out, Tilt Up, Tilt Down, Static",
+  "cinematicStyle": "Must be exactly one of: Handheld, Steadycam, Drone, Static",
+  "intensity": "Must be exactly one of: Low, Medium, High",
   "focalPoint": "description of what to focus on",
   "reasoning": "why the AI chose this"
 }`;

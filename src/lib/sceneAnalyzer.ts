@@ -417,6 +417,12 @@ function buildResultFromScenes(
           role: char.role,
           isCrowd: char.isCrowd ?? false,
           visualDescription: char.visualDescription,
+          age: (char as any).age,
+          ethnicity: (char as any).ethnicity,
+          physicalFeatures: (char as any).physicalFeatures,
+          hair: (char as any).hair,
+          beard: (char as any).beard,
+          clothing: (char as any).clothing,
         });
       }
       if (!characterIds.includes(charId)) characterIds.push(charId);

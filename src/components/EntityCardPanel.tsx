@@ -69,7 +69,7 @@ interface CharacterEditorProps {
 
 function CharacterEditor({ initial, onSave, onCancel }: CharacterEditorProps) {
   const [form, setForm] = useState<Character>({ ...initial });
-  const set = (field: keyof Character, value: string) => setForm(prev => ({ ...prev, [field]: value }));
+  const set = (field: keyof Character, value: any) => setForm(prev => ({ ...prev, [field]: value }));
 
   return (
     <div className="space-y-2 p-3 bg-amber-950/30 border border-amber-800/40 rounded-lg">
@@ -112,6 +112,30 @@ function CharacterEditor({ initial, onSave, onCancel }: CharacterEditorProps) {
             placeholder="Örn: Orta Asya Türk"
           />
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label className="text-xs text-amber-300">Saç (Hair)</Label>
+          <Input
+            className="h-7 text-xs bg-background border-amber-800/50"
+            value={form.hair ?? ''}
+            onChange={e => set('hair', e.target.value)}
+            placeholder="Örn: Siyah gür saçlar"
+          />
+        </div>
+        <div>
+          <Label className="text-xs text-amber-300">Sakal/Bıyık (Beard)</Label>
+          <Input
+            className="h-7 text-xs bg-background border-amber-800/50"
+            value={form.beard ?? ''}
+            onChange={e => set('beard', e.target.value)}
+            placeholder="Örn: Kirli sakal veya Yok"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
         <div>
           <Label className="text-xs text-amber-300">Giyim / Kostüm</Label>
           <Input
@@ -131,6 +155,20 @@ function CharacterEditor({ initial, onSave, onCancel }: CharacterEditorProps) {
           />
         </div>
       </div>
+
+      <div className="flex items-center gap-2 py-1">
+        <input
+          type="checkbox"
+          id={`isCrowd-${form.id}`}
+          checked={!!form.isCrowd}
+          onChange={e => set('isCrowd', e.target.checked)}
+          className="w-3 h-3 accent-amber-500"
+        />
+        <Label htmlFor={`isCrowd-${form.id}`} className="text-xs text-amber-300 cursor-pointer">
+          Bu bir kalabalık / figüran grubudur (isCrowd)
+        </Label>
+      </div>
+
       <div>
         <Label className="text-xs text-amber-300">Görsel Betimleme (AI tarafından otomatik doldurulur)</Label>
         <Textarea
@@ -423,8 +461,13 @@ export function EntityCardPanel({
                             {[char.ethnicity, char.clothing].filter(Boolean).join(' · ')}
                           </div>
                         )}
+                        {(char.hair || char.beard) && (
+                          <div className="text-[10px] text-amber-400/50 truncate mt-0.5">
+                            {[char.hair && `Saç: ${char.hair}`, char.beard && `Sakal: ${char.beard}`].filter(Boolean).join(' · ')}
+                          </div>
+                        )}
                         {char.physicalFeatures && (
-                          <div className="text-xs text-muted-foreground/70 truncate">{char.physicalFeatures}</div>
+                          <div className="text-xs text-muted-foreground/70 truncate mt-0.5">{char.physicalFeatures}</div>
                         )}
                       </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
@@ -511,9 +554,23 @@ export function EntityCardPanel({
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="text-xs font-medium text-amber-300">👥 {char.name}</span>
+                              {char.role && <span className="text-xs text-amber-400/70">({char.role})</span>}
                             </div>
+                            {(char.ethnicity || char.clothing) && (
+                              <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                                {[char.ethnicity, char.clothing].filter(Boolean).join(' · ')}
+                              </div>
+                            )}
+                            {(char.hair || char.beard) && (
+                              <div className="text-[10px] text-amber-400/50 truncate mt-0.5">
+                                {[char.hair && `Saç: ${char.hair}`, char.beard && `Sakal: ${char.beard}`].filter(Boolean).join(' · ')}
+                              </div>
+                            )}
+                            {char.physicalFeatures && (
+                              <div className="text-xs text-muted-foreground/70 truncate mt-0.5">{char.physicalFeatures}</div>
+                            )}
                             {char.visualDescription && (
-                              <div className="text-xs text-muted-foreground/70 line-clamp-2">{char.visualDescription}</div>
+                              <div className="text-xs text-muted-foreground/70 line-clamp-2 mt-1">{char.visualDescription}</div>
                             )}
                           </div>
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">

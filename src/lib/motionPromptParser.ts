@@ -22,8 +22,8 @@ export function parseMotionPromptResponse(raw: string): MotionPromptAnalysis {
 
   return {
     shortDraft: toSafeText(parsed?.shortDraft, DEFAULT_MOTION_ANALYSIS.shortDraft),
-    cameraMotion: toSafeText(parsed?.cameraMotion, DEFAULT_MOTION_ANALYSIS.cameraMotion),
-    cinematicStyle: toSafeText(parsed?.cinematicStyle, DEFAULT_MOTION_ANALYSIS.cinematicStyle),
+    cameraMotion: toCameraMotion(parsed?.cameraMotion),
+    cinematicStyle: toCinematicStyle(parsed?.cinematicStyle),
     intensity: toIntensity(parsed?.intensity),
     focalPoint: toSafeText(parsed?.focalPoint, DEFAULT_MOTION_ANALYSIS.focalPoint),
     reasoning: toSafeText(parsed?.reasoning, DEFAULT_MOTION_ANALYSIS.reasoning),
@@ -65,6 +65,30 @@ function toSafeText(value: unknown, fallback: string): string {
 }
 
 function toIntensity(value: unknown): MotionPromptAnalysis['intensity'] {
-  if (value === 'Low' || value === 'Medium' || value === 'High') return value;
+  if (typeof value === 'string') {
+    const lower = value.toLowerCase().trim();
+    if (lower === 'low') return 'Low';
+    if (lower === 'medium') return 'Medium';
+    if (lower === 'high') return 'High';
+  }
   return DEFAULT_MOTION_ANALYSIS.intensity;
+}
+
+const VALID_CAMERA_MOTIONS = ['Pan Right', 'Pan Left', 'Dolly In', 'Dolly Out', 'Zoom In', 'Zoom Out', 'Tilt Up', 'Tilt Down', 'Static'];
+const VALID_CINEMATIC_STYLES = ['Handheld', 'Steadycam', 'Drone', 'Static'];
+
+function toCameraMotion(value: unknown): string {
+  if (typeof value === 'string') {
+    const matched = VALID_CAMERA_MOTIONS.find(m => m.toLowerCase() === value.toLowerCase().trim());
+    if (matched) return matched;
+  }
+  return DEFAULT_MOTION_ANALYSIS.cameraMotion;
+}
+
+function toCinematicStyle(value: unknown): string {
+  if (typeof value === 'string') {
+    const matched = VALID_CINEMATIC_STYLES.find(m => m.toLowerCase() === value.toLowerCase().trim());
+    if (matched) return matched;
+  }
+  return DEFAULT_MOTION_ANALYSIS.cinematicStyle;
 }
