@@ -1475,44 +1475,71 @@ SCENE FOCUS: Abstract or narrative scene with no entities.
   userMessage += `\n\n⚠️ REMINDER: ALL subjects must be caught in natural action — NO passport-style portraits, NO direct eye contact with lens, NO frozen smile, NO posed symmetry.`;
 
   function tryParseJSON(raw: string) {
-    const cleaned = cleanJsonResponse(raw);
-    try {
-      return JSON.parse(cleaned);
-    } catch {
-      const recovered = recoverTruncatedJson(cleaned);
-      return JSON.parse(recovered);
+    if (!raw || raw.trim().length === 0) {
+      throw new Error('Empty response from API');
     }
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
+
+    // Try to find the start of the JSON object
+    const braceStart = cleaned.indexOf('{');
+    if (braceStart === -1) {
+      throw new Error('No JSON object found in response');
+    }
+    const jsonStr = braceStart > 0 ? cleaned.substring(braceStart) : cleaned;
+    return JSON.parse(jsonStr);
   }
 
   const content = await aiProvider.generateContent(userMessage, systemPrompt, {
     operationType: 'prompt_generation'
   });
 
-  let parsed: {
-    prompts?: Array<{ shotType?: string; summary?: string; explanation?: string; prompt?: string }>;
-    analysis?: Partial<PromptAnalysis>;
-    optimizations?: string[];
-  };
+  const MAX_RETRY_ATTEMPTS = 4;
+  const EMPTY_RESPONSE_RETRY_DELAY_MS = 2000;
+  const MISSING_PROMPTS_RETRY_DELAY_MS = 1500;
+  const BASE_RETRY_DELAY_MS = 2000;
 
-  try {
-    parsed = tryParseJSON(content);
-  } catch (firstErr) {
-    console.error('[⚠️ promptGenerator] JSON parse failed on first attempt, retrying with JSON reminder...', firstErr);
-    console.error('Malformed response:', content);
-    onRetry?.();
-    const retryMessage = userMessage + '\n\nIMPORTANT: Return ONLY valid JSON. No markdown, no explanation, no code fences.';
-    const retryContent = await aiProvider.generateContent(retryMessage, systemPrompt, { operationType: 'prompt_generation_retry' });
+  let parsed: { prompts?: any[]; analysis?: any; optimizations?: string[] } | null = null;
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
     try {
-      parsed = tryParseJSON(retryContent);
-    } catch (secondErr) {
-      console.error('[❌ promptGenerator] JSON parse failed after retry. Giving up.', secondErr);
-      console.error('Malformed retry response:', retryContent);
-      throw new Error('Invalid JSON in prompt response (after retry)');
+      const attemptContent = attempt === 0
+        ? content
+        : await aiProvider.generateContent(
+            userMessage + '\n\nCRITICAL: Return ONLY a valid JSON object. No markdown, no explanation. Start with {',
+            systemPrompt,
+            { operationType: 'prompt_generation_retry' }
+          );
+
+      if (!attemptContent || attemptContent.trim().length === 0) {
+        console.warn(`[promptGenerator] Attempt ${attempt + 1}: Empty response, retrying...`);
+        await new Promise(r => setTimeout(r, EMPTY_RESPONSE_RETRY_DELAY_MS));
+        continue;
+      }
+
+      parsed = tryParseJSON(attemptContent);
+
+      if (!parsed?.prompts || !Array.isArray(parsed.prompts) || parsed.prompts.length === 0) {
+        console.warn(`[promptGenerator] Attempt ${attempt + 1}: No prompts array, retrying...`);
+        parsed = null;
+        await new Promise(r => setTimeout(r, MISSING_PROMPTS_RETRY_DELAY_MS));
+        continue;
+      }
+
+      break; // Success
+    } catch (err) {
+      lastError = err;
+      console.warn(`[promptGenerator] Attempt ${attempt + 1} failed:`, err);
+      onRetry?.();
+      await new Promise(r => setTimeout(r, BASE_RETRY_DELAY_MS * (attempt + 1)));
     }
   }
 
-  if (!parsed.prompts || !Array.isArray(parsed.prompts)) {
-    throw new Error('Invalid prompt response format');
+  if (!parsed?.prompts || !Array.isArray(parsed.prompts)) {
+    throw new Error(`Invalid JSON after 4 attempts. Last error: ${lastError}`);
   }
 
   const arSuffix = `--ar ${aspectRatio} --v 6`;
