@@ -30,7 +30,7 @@ const initialState: AppState = {
   apiKeys: loadKeys('gemini_api_keys'),
   currentKeyIndex: 0,
   settings: {
-    model: localStorage.getItem('gemini_model') || 'gemini-2.5-flash',
+    model: localStorage.getItem('gemini_model') || 'gemini-2.0-flash',
     thinkingMode: false,
     variantCount: 3,
     temperature: 1.0,

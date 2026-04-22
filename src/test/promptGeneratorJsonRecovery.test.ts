@@ -23,8 +23,7 @@ describe('promptGenerator JSON recovery', () => {
       "shotType": "Wide",
       "summary": "Sahne özeti",
       "explanation": "Açıklama",
-      "prompt": "satır 1 \\"alıntı\\"
-satır 2"
+      "prompt": "satır 1 \\"alıntı\\"\\nsatır 2"
     }
   ],
   "analysis": {
@@ -65,11 +64,15 @@ satır 2"
     expect(result.optimizations).toEqual(['Işık açısını güçlendir']);
   });
 
-  it('recovers truncated JSON by closing open objects without retrying', async () => {
+  it('retries after an empty response and succeeds with valid JSON', async () => {
     const onRetry = vi.fn();
-    const generateSpy = vi.mocked(aiProvider.generateContent).mockResolvedValue(
-      'Preamble before JSON {"prompts":[{"shotType":"Wide","summary":"Sahne özeti","explanation":"Açıklama","prompt":"sahne promptu"}],"analysis":{"complexity":"low"} trailing'
-    );
+    vi.spyOn(global, 'setTimeout').mockImplementation(((fn: TimerHandler) => {
+      if (typeof fn === 'function') fn();
+      return 0 as unknown as ReturnType<typeof setTimeout>;
+    }) as typeof setTimeout);
+    const generateSpy = vi.mocked(aiProvider.generateContent)
+      .mockResolvedValueOnce('')
+      .mockResolvedValueOnce('{"prompts":[{"shotType":"Wide","summary":"Sahne özeti","explanation":"Açıklama","prompt":"sahne promptu"}]}');
 
     const result = await generatePromptsForScene(
       { text: 'Örnek sahne', visualNote: 'Örnek not' } as any,
@@ -87,36 +90,38 @@ satır 2"
       onRetry
     );
 
-    expect(generateSpy).toHaveBeenCalledTimes(1);
+    expect(generateSpy).toHaveBeenCalledTimes(2);
     expect(onRetry).not.toHaveBeenCalled();
     expect(result.prompts[0].shotType).toBe('Wide');
   });
 
-  it('recovers when truncation happens mid-object before closure', async () => {
+  it('fails after 4 invalid JSON attempts', async () => {
     const onRetry = vi.fn();
-    const generateSpy = vi.mocked(aiProvider.generateContent).mockResolvedValue(
-      '{"prompts":[{"shotType":"Wide","summary":"Sahne özeti","explanation":"Açıklama","prompt":"sahne promptu"}],"analysis":{"complexity":"low"'
-    );
+    vi.spyOn(global, 'setTimeout').mockImplementation(((fn: TimerHandler) => {
+      if (typeof fn === 'function') fn();
+      return 0 as unknown as ReturnType<typeof setTimeout>;
+    }) as typeof setTimeout);
+    const generateSpy = vi.mocked(aiProvider.generateContent).mockResolvedValue('not-json');
 
-    const result = await generatePromptsForScene(
-      { text: 'Örnek sahne', visualNote: 'Örnek not' } as any,
-      [],
-      [],
-      'master prompt',
-      undefined,
-      undefined,
-      '16:9',
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      'initial',
-      onRetry
-    );
+    await expect(
+      generatePromptsForScene(
+        { text: 'Örnek sahne', visualNote: 'Örnek not' } as any,
+        [],
+        [],
+        'master prompt',
+        undefined,
+        undefined,
+        '16:9',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'initial',
+        onRetry
+      )
+    ).rejects.toThrow('Invalid JSON after 4 attempts');
 
-    expect(generateSpy).toHaveBeenCalledTimes(1);
-    expect(onRetry).not.toHaveBeenCalled();
-    // Incomplete trailing object content is discarded; analysis falls back to defaults.
-    expect(result.analysis.complexity).toBe('medium');
+    expect(generateSpy).toHaveBeenCalledTimes(4);
+    expect(onRetry).toHaveBeenCalledTimes(4);
   });
 });

@@ -1133,7 +1133,7 @@ const Index = () => {
     }
   }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, state.projectType, dispatch, aspectRatio]);
 
-  const WORKER_COUNT = 3;
+  const WORKER_COUNT = 2;
 
   const handleGenerateAllPrompts = useCallback(async () => {
     if (isBulkGeneratingPrompts) return;
@@ -1186,12 +1186,12 @@ const Index = () => {
         if (!scene) break;
         await processScene(scene);
         // Worker'lar arası küçük offset (rate limit dağıtımı)
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise(r => setTimeout(r, 800));
       }
     };
 
     try {
-      // 3 worker paralel çalışır
+      // 2 worker paralel çalışır
       await Promise.all(
         Array.from({ length: WORKER_COUNT }, () => worker())
       );
