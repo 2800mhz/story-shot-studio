@@ -697,7 +697,7 @@ class AIProviderManager {
           model: this.groqModel,
           messages,
           temperature: 0.7,
-          max_completion_tokens: 8192,
+          max_completion_tokens: 4096,
         };
 
         const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
