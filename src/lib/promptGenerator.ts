@@ -1064,27 +1064,32 @@ function findOuterJsonEndIndex(text: string, startIndex: number): number {
   return -1;
 }
 
+function extractJsonObjectCandidate(text: string): string {
+  const firstBrace = text.indexOf('{');
+  if (firstBrace < 0) return text.trim();
+
+  const endIndex = findOuterJsonEndIndex(text, firstBrace);
+  if (endIndex > firstBrace) {
+    return text.substring(firstBrace, endIndex + 1).trim();
+  }
+
+  const fallbackLastBrace = text.lastIndexOf('}');
+  if (fallbackLastBrace > firstBrace) {
+    return text.substring(firstBrace, fallbackLastBrace + 1).trim();
+  }
+
+  return text.substring(firstBrace).trim();
+}
+
 function cleanJsonResponse(text: string): string {
   const jsonBlockMatch = text.match(/```json\s*([\s\S]*?)```/i);
   if (jsonBlockMatch) {
     text = jsonBlockMatch[1].trim();
   } else {
-    const firstBrace = text.indexOf('{');
-
-    if (firstBrace >= 0) {
-      const endIndex = findOuterJsonEndIndex(text, firstBrace);
-      if (endIndex > firstBrace) {
-        text = text.substring(firstBrace, endIndex + 1);
-      } else {
-        const fallbackLastBrace = text.lastIndexOf('}');
-        text = fallbackLastBrace > firstBrace
-          ? text.substring(firstBrace, fallbackLastBrace + 1)
-          : text.substring(firstBrace);
-      }
-    }
-
     text = text.replace(/```\s*$/g, '').trim();
   }
+
+  text = extractJsonObjectCandidate(text);
 
   // Remove non-printable C0/C1 control chars except tab/newline/carriage return.
   // Those whitespace characters are then escaped when they appear inside JSON strings.

@@ -92,6 +92,37 @@ satır 2"
     expect(result.prompts[0].shotType).toBe('Wide');
   });
 
+  it('extracts fenced object content and removes control characters', async () => {
+    const onRetry = vi.fn();
+    const generateSpy = vi.mocked(aiProvider.generateContent).mockResolvedValue(`\`\`\`json
+MODEL NOTE
+{"prompts":[{"shotType":"Wide","summary":"Sahne özeti","explanation":"Açıklama","prompt":"sahne promptu"}],"analysis":{"complexity":"low"}\u0001,"optimizations":["Işık"]}
+extra tail
+\`\`\``);
+
+    const result = await generatePromptsForScene(
+      { text: 'Örnek sahne', visualNote: 'Örnek not' } as any,
+      [],
+      [],
+      'master prompt',
+      undefined,
+      undefined,
+      '16:9',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      'initial',
+      onRetry
+    );
+
+    expect(generateSpy).toHaveBeenCalledTimes(1);
+    expect(onRetry).not.toHaveBeenCalled();
+    expect(result.prompts[0].shotType).toBe('Wide');
+    expect(result.analysis.complexity).toBe('low');
+    expect(result.optimizations).toEqual(['Işık']);
+  });
+
   it('recovers when truncation happens mid-object before closure', async () => {
     const onRetry = vi.fn();
     const generateSpy = vi.mocked(aiProvider.generateContent).mockResolvedValue(
