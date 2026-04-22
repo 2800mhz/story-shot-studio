@@ -179,13 +179,26 @@ class AIProviderManager {
       throw new Error('All AI providers exhausted after many retries. Please try again later.');
     }
 
-    const currentKey = this.getCurrentKey();
+    let currentKey = this.getCurrentKey();
+    
+    // Eğer şu anki provider'da key yoksa, diğer provider'ları kontrol et
     if (!currentKey) {
-      // Tüm keyler rate-limited veya inactive — başa dön ve bekle
-      console.warn(`⏳ All keys exhausted, waiting 15s before retry (attempt ${retryCount + 1}/${maxRetries})...`);
-      this.currentKeyIndex = 0;
-      await new Promise(resolve => setTimeout(resolve, 15_000));
-      return this._generateWithRetry(prompt, systemInstruction, retryCount + 1, operationType, images);
+      let found = false;
+      for (let i = 0; i < 3; i++) {
+        this.forceRotateProvider();
+        currentKey = this.getCurrentKey();
+        if (currentKey) {
+          found = true;
+          break;
+        }
+      }
+      
+      if (!found) {
+        // Tüm keyler rate-limited veya inactive — bekle
+        console.warn(`⏳ All keys across all providers exhausted, waiting 15s before retry (attempt ${retryCount + 1}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, 15_000));
+        return this._generateWithRetry(prompt, systemInstruction, retryCount + 1, operationType, images, responseMimeType, responseSchema);
+      }
     }
 
     try {
@@ -316,14 +329,17 @@ class AIProviderManager {
     this.currentKeyIndex++;
 
     if (this.currentKeyIndex >= providerKeys.length) {
-      console.log(`🔄 Switching provider from ${this.currentProvider}`);
-      this.currentKeyIndex = 0;
-
-      const providers: AIProvider[] = ['gemini', 'groq', 'openai', 'anthropic'];
-      const currentIndex = providers.indexOf(this.currentProvider);
-      const nextIndex = (currentIndex + 1) % providers.length;
-      this.currentProvider = providers[nextIndex];
+      this.forceRotateProvider();
     }
+  }
+
+  private forceRotateProvider() {
+    console.log(`🔄 Switching provider from ${this.currentProvider}`);
+    this.currentKeyIndex = 0;
+    const providers: AIProvider[] = ['gemini', 'groq', 'openai', 'anthropic'];
+    const currentIndex = providers.indexOf(this.currentProvider);
+    const nextIndex = (currentIndex + 1) % providers.length;
+    this.currentProvider = providers[nextIndex];
   }
 
   private async _generateWithRetryStream(
@@ -339,12 +355,25 @@ class AIProviderManager {
       throw new Error('All AI providers exhausted after many retries. Please try again later.');
     }
 
-    const currentKey = this.getCurrentKey();
+    let currentKey = this.getCurrentKey();
+    
+    // Eğer şu anki provider'da key yoksa, diğer provider'ları kontrol et
     if (!currentKey) {
-      console.warn(`⏳ All keys exhausted [STREAM], waiting 15s before retry (attempt ${retryCount + 1}/${maxRetries})...`);
-      this.currentKeyIndex = 0;
-      await new Promise(resolve => setTimeout(resolve, 15_000));
-      return this._generateWithRetryStream(prompt, systemInstruction, retryCount + 1, operationType, onChunk);
+      let found = false;
+      for (let i = 0; i < 3; i++) {
+        this.forceRotateProvider();
+        currentKey = this.getCurrentKey();
+        if (currentKey) {
+          found = true;
+          break;
+        }
+      }
+      
+      if (!found) {
+        console.warn(`⏳ All keys across all providers exhausted [STREAM], waiting 15s before retry (attempt ${retryCount + 1}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, 15_000));
+        return this._generateWithRetryStream(prompt, systemInstruction, retryCount + 1, operationType, onChunk);
+      }
     }
 
     try {
