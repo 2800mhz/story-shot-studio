@@ -1265,7 +1265,7 @@ const Index = () => {
       await handleGeneratePromptsForScene(sceneId, true);
       done++;
       setBulkPromptsProgress({ done, total: sceneIds.length });
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 800));
     }
 
     setIsBulkGeneratingPrompts(false);

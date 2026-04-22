@@ -1483,7 +1483,7 @@ SCENE FOCUS: Abstract or narrative scene with no entities.
       .replace(/```\n?/g, '')
       .trim();
 
-    // Try to find the start of the JSON object
+    // { ile başlamıyorsa bulmaya çalış
     const braceStart = cleaned.indexOf('{');
     if (braceStart === -1) {
       throw new Error('No JSON object found in response');
@@ -1496,15 +1496,14 @@ SCENE FOCUS: Abstract or narrative scene with no entities.
     operationType: 'prompt_generation'
   });
 
-  const MAX_RETRY_ATTEMPTS = 4;
-  const EMPTY_RESPONSE_RETRY_DELAY_MS = 2000;
-  const MISSING_PROMPTS_RETRY_DELAY_MS = 1500;
-  const BASE_RETRY_DELAY_MS = 2000;
-
-  let parsed: { prompts?: any[]; analysis?: any; optimizations?: string[] } | null = null;
+  let parsed: {
+    prompts?: Array<{ shotType?: string; summary?: string; explanation?: string; prompt?: string }>;
+    analysis?: Partial<PromptAnalysis>;
+    optimizations?: string[];
+  } | null = null;
   let lastError: unknown = null;
 
-  for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
     try {
       const attemptContent = attempt === 0
         ? content
@@ -1516,25 +1515,26 @@ SCENE FOCUS: Abstract or narrative scene with no entities.
 
       if (!attemptContent || attemptContent.trim().length === 0) {
         console.warn(`[promptGenerator] Attempt ${attempt + 1}: Empty response, retrying...`);
-        await new Promise(r => setTimeout(r, EMPTY_RESPONSE_RETRY_DELAY_MS));
+        onRetry?.();
+        await new Promise(r => setTimeout(r, 2000));
         continue;
       }
 
       parsed = tryParseJSON(attemptContent);
 
       if (!parsed?.prompts || !Array.isArray(parsed.prompts) || parsed.prompts.length === 0) {
-        console.warn(`[promptGenerator] Attempt ${attempt + 1}: No prompts array, retrying...`);
+        console.warn(`[promptGenerator] Attempt ${attempt + 1}: No prompts array in response, retrying...`);
         parsed = null;
-        await new Promise(r => setTimeout(r, MISSING_PROMPTS_RETRY_DELAY_MS));
+        await new Promise(r => setTimeout(r, 1500));
         continue;
       }
 
-      break; // Success
+      break; // Başarılı
     } catch (err) {
       lastError = err;
       console.warn(`[promptGenerator] Attempt ${attempt + 1} failed:`, err);
       onRetry?.();
-      await new Promise(r => setTimeout(r, BASE_RETRY_DELAY_MS * (attempt + 1)));
+      await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
     }
   }
 
@@ -1683,11 +1683,24 @@ export async function autoSelectBestPrompt(
 
   try {
     const rawContent = await aiProvider.generateContent(userMessage, AUTO_PIN_SYSTEM_PROMPT, { operationType: 'auto_pin_selection' });
-    const cleaned = rawContent
-      .replace(/```json\n?/g, '')
-      .replace(/```\n?/g, '')
-      .trim();
-    const parsed = JSON.parse(cleaned) as { selectedIndex: number; reason: string };
+    function tryParseJSON(raw: string) {
+      if (!raw || raw.trim().length === 0) {
+        throw new Error('Empty response from API');
+      }
+      const cleaned = raw
+        .replace(/```json\n?/g, '')
+        .replace(/```\n?/g, '')
+        .trim();
+
+      // { ile başlamıyorsa bulmaya çalış
+      const braceStart = cleaned.indexOf('{');
+      if (braceStart === -1) {
+        throw new Error('No JSON object found in response');
+      }
+      const jsonStr = braceStart > 0 ? cleaned.substring(braceStart) : cleaned;
+      return JSON.parse(jsonStr);
+    }
+    const parsed = tryParseJSON(rawContent) as { selectedIndex: number; reason: string };
     const idx = Number(parsed.selectedIndex);
     if (isNaN(idx) || idx < 0 || idx >= prompts.length) {
       return { selectedIndex: 0, reason: parsed.reason || '' };

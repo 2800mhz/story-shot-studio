@@ -25,7 +25,7 @@ import { Activity } from 'lucide-react';
 
 interface APIKeyRecord {
   id: string;
-  provider: 'gemini' | 'openai' | 'anthropic';
+  provider: 'gemini' | 'openai' | 'anthropic' | 'groq';
   api_key: string;
   label: string | null;
   is_active: boolean;
@@ -101,12 +101,12 @@ export default function Settings() {
   const [trueTotalRequests, setTrueTotalRequests] = useState<number>(0);
 
   // ── API Key Form State ──
-  const [newProvider, setNewProvider] = useState<'gemini' | 'openai' | 'anthropic'>('gemini');
+  const [newProvider, setNewProvider] = useState<'gemini' | 'openai' | 'anthropic' | 'groq'>('gemini');
   const [newKey, setNewKey] = useState('');
   const [newLabel, setNewLabel] = useState('');
   const [adding, setAdding] = useState(false);
   const [bulkText, setBulkText] = useState('');
-  const [bulkProvider, setBulkProvider] = useState<'gemini' | 'openai' | 'anthropic'>('gemini');
+  const [bulkProvider, setBulkProvider] = useState<'gemini' | 'openai' | 'anthropic' | 'groq'>('gemini');
   const [bulkAdding, setBulkAdding] = useState(false);
 
   // ── Billing Filters ──
@@ -438,6 +438,7 @@ export default function Settings() {
   const rateLimitedCount = keys.filter(k => k.rate_limited_until && new Date(k.rate_limited_until) > new Date()).length;
   const providerLabels: Record<string, string> = {
     gemini: '🤖 Google Gemini',
+    groq: '⚡ Groq',
     openai: '🧠 OpenAI',
     anthropic: '🔮 Anthropic Claude',
   };
@@ -499,6 +500,7 @@ export default function Settings() {
                   className="w-full mt-1 px-3 py-2 border rounded-md bg-background text-sm"
                 >
                   <option value="gemini">Google Gemini</option>
+                  <option value="groq">⚡ Groq (compound-beta / llama)</option>
                   <option value="openai">OpenAI</option>
                   <option value="anthropic">Anthropic Claude</option>
                 </select>
@@ -536,6 +538,7 @@ export default function Settings() {
                   className="w-full mt-1 px-3 py-2 border rounded-md bg-background text-sm"
                 >
                   <option value="gemini">Google Gemini</option>
+                  <option value="groq">⚡ Groq (compound-beta / llama)</option>
                   <option value="openai">OpenAI</option>
                   <option value="anthropic">Anthropic Claude</option>
                 </select>
@@ -578,7 +581,7 @@ export default function Settings() {
               </Card>
             ) : (
               <>
-                {(['gemini', 'openai', 'anthropic'] as const).map(provider => {
+                {(['gemini', 'groq', 'openai', 'anthropic'] as const).map(provider => {
                   const providerKeys = keys.filter(k => k.provider === provider);
                   if (providerKeys.length === 0) return null;
                   const activeCount = providerKeys.filter(k => k.is_active).length;

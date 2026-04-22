@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { decryptKey } from './encryption';
 
-export type AIProvider = 'gemini' | 'openai' | 'anthropic';
+export type AIProvider = 'gemini' | 'openai' | 'anthropic' | 'groq';
 
 interface APIKey {
   id: string;
@@ -21,12 +21,20 @@ const GEMINI_FALLBACK_MODELS = [
   'gemini-1.5-flash-8b',
 ];
 
+// Groq model seçenekleri — compound-beta > llama-3.3-70b > llama-3.1-8b
+const GROQ_MODELS = [
+  'compound-beta',
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
+];
+
 class AIProviderManager {
   private currentProvider: AIProvider = 'gemini';
   private currentKeyIndex = 0;
   private keys: Map<AIProvider, APIKey[]> = new Map();
   private initialized = false;
   private model = 'gemini-2.0-flash';
+  private groqModel = 'compound-beta';
 
   // 503 backoff + model fallback tracking
   private consecutiveServerErrors = 0;
@@ -82,6 +90,7 @@ class AIProviderManager {
 
     console.log('🔑 Loaded API keys:', {
       gemini: this.keys.get('gemini')?.length || 0,
+      groq: this.keys.get('groq')?.length || 0,
       openai: this.keys.get('openai')?.length || 0,
       anthropic: this.keys.get('anthropic')?.length || 0
     });
@@ -95,6 +104,20 @@ class AIProviderManager {
 
   getModel(): string {
     return this.model;
+  }
+
+  setGroqModel(model: string) {
+    if (model && model.trim() && GROQ_MODELS.includes(model.trim())) {
+      this.groqModel = model.trim();
+    }
+  }
+
+  getGroqModel(): string {
+    return this.groqModel;
+  }
+
+  getGroqModelOptions(): string[] {
+    return [...GROQ_MODELS];
   }
 
   async generateContent(
@@ -296,7 +319,7 @@ class AIProviderManager {
       console.log(`🔄 Switching provider from ${this.currentProvider}`);
       this.currentKeyIndex = 0;
 
-      const providers: AIProvider[] = ['gemini', 'openai', 'anthropic'];
+      const providers: AIProvider[] = ['gemini', 'groq', 'openai', 'anthropic'];
       const currentIndex = providers.indexOf(this.currentProvider);
       const nextIndex = (currentIndex + 1) % providers.length;
       this.currentProvider = providers[nextIndex];
@@ -493,8 +516,8 @@ class AIProviderManager {
         return { text: fullText, promptTokens: inputTokens, completionTokens: outputTokens, modelUsed: this.getActiveModel() };
       }
 
-      // For OpenAI and Anthropic, fallback to non-streaming for now but simulate onChunk 
-      // when it completes to maintain API compatibility
+      // For Groq, OpenAI and Anthropic, fallback to non-streaming but simulate onChunk
+      case 'groq':
       case 'openai':
       case 'anthropic': {
         const result = await this.callProvider(key, prompt, systemInstruction);
@@ -636,6 +659,46 @@ class AIProviderManager {
         const promptTokens = data.usage?.input_tokens || 0;
         const completionTokens = data.usage?.output_tokens || 0;
         return { text, promptTokens, completionTokens, modelUsed: 'claude-3-5-sonnet-20241022' };
+      }
+
+      case 'groq': {
+        const messages: Array<{ role: string; content: string }> = [];
+        if (systemInstruction) {
+          messages.push({ role: 'system', content: systemInstruction });
+        }
+        messages.push({ role: 'user', content: prompt });
+
+        const groqBody: Record<string, unknown> = {
+          model: this.groqModel,
+          messages,
+          temperature: 0.7,
+          max_tokens: 8192,
+        };
+
+        const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${decryptedKey}`
+          },
+          body: JSON.stringify(groqBody)
+        });
+
+        if (!groqResponse.ok) {
+          const groqErr = new Error(`Groq API error: ${groqResponse.status}`) as Error & { status: number; retryAfterMs?: number };
+          groqErr.status = groqResponse.status;
+          const retryAfterSec = groqResponse.headers.get('Retry-After') || groqResponse.headers.get('X-RateLimit-Reset');
+          if (retryAfterSec) {
+            groqErr.retryAfterMs = parseInt(retryAfterSec, 10) * 1000;
+          }
+          throw groqErr;
+        }
+
+        const groqData = await groqResponse.json();
+        const groqText = groqData.choices?.[0]?.message?.content || '';
+        const groqPromptTokens = groqData.usage?.prompt_tokens || 0;
+        const groqCompletionTokens = groqData.usage?.completion_tokens || 0;
+        return { text: groqText, promptTokens: groqPromptTokens, completionTokens: groqCompletionTokens, modelUsed: this.groqModel };
       }
 
       default:

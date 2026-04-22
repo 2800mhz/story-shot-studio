@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Film, ArrowLeft, Plus, Trash2, Play, Square, Copy, Download, Upload, Check, Image as ImageIcon, Settings, ChevronDown, RefreshCw } from 'lucide-react';
+import { Film, ArrowLeft, Plus, Trash2, Play, Square, Copy, Download, Upload, Check, Image as ImageIcon, Settings, ChevronDown, RefreshCw, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -106,6 +106,7 @@ export default function MotionPrompt() {
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(420);
   const isResizing = useRef(false);
+  const [selectedImage, setSelectedImage] = useState<{ url: string; name: string } | null>(null);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isResizing.current) return;
@@ -764,7 +765,8 @@ export default function MotionPrompt() {
                   <img
                     src={item.thumbnailUrl}
                     alt={item.file.name}
-                    className="h-14 w-14 rounded object-cover shrink-0"
+                    className="h-14 w-14 rounded object-cover shrink-0 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                    onClick={() => setSelectedImage({ url: item.thumbnailUrl, name: item.file.name })}
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-foreground font-medium truncate">{item.file.name}</p>
@@ -853,7 +855,8 @@ export default function MotionPrompt() {
                   <img
                     src={item.thumbnailUrl}
                     alt={item.file.name}
-                    className="h-20 w-20 rounded object-cover shrink-0"
+                    className="h-20 w-20 rounded object-cover shrink-0 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                    onClick={() => setSelectedImage({ url: item.thumbnailUrl, name: item.file.name })}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
@@ -1000,6 +1003,31 @@ export default function MotionPrompt() {
           </div>
         </div>
       </div>
+
+      {/* Lightbox Overlay */}
+      {selectedImage && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm animate-in fade-in duration-300 p-4"
+          onClick={() => setSelectedImage(null)}
+        >
+          <button
+            className="absolute top-6 right-6 p-2 text-white/50 hover:text-white transition-colors z-[110]"
+            onClick={() => setSelectedImage(null)}
+          >
+            <X className="h-8 w-8" />
+          </button>
+          <div className="max-w-full max-h-full relative group" onClick={e => e.stopPropagation()}>
+            <img
+              src={selectedImage.url}
+              alt={selectedImage.name}
+              className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg shadow-2xl border border-white/10"
+            />
+            <div className="absolute -bottom-10 left-0 right-0 p-2 text-center">
+              <p className="text-white/70 text-xs font-medium truncate">{selectedImage.name}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
