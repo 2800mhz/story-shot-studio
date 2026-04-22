@@ -14,7 +14,6 @@ interface APIKey {
 
 // Gemini model fallback zinciri — stabil modeller önce
 const GEMINI_FALLBACK_MODELS = [
-  'gemini-2.5-flash',
   'gemini-2.0-flash',
   'gemini-2.0-flash-lite',
   'gemini-1.5-flash',
@@ -23,7 +22,7 @@ const GEMINI_FALLBACK_MODELS = [
 
 // Groq model seçenekleri — compound-beta > llama-3.3-70b > llama-3.1-8b
 const GROQ_MODELS = [
-  'compound-beta',
+  'compound',
   'llama-3.3-70b-versatile',
   'llama-3.1-8b-instant',
 ];
@@ -33,8 +32,8 @@ class AIProviderManager {
   private currentKeyIndex = 0;
   private keys: Map<AIProvider, APIKey[]> = new Map();
   private initialized = false;
-  private model = 'gemini-2.0-flash';
-  private groqModel = 'compound-beta';
+  private model = 'gemini-2.5-flash';
+  private groqModel = 'compound';
 
   // 503 backoff + model fallback tracking
   private consecutiveServerErrors = 0;
@@ -298,16 +297,16 @@ class AIProviderManager {
     for (let i = 0; i < providerKeys.length; i++) {
       const index = (initialKeyIndex + i) % providerKeys.length;
       const key = providerKeys[index];
-      
+
       const isRateLimited = key.rate_limited_until ? new Date(key.rate_limited_until) > new Date() : false;
       const isActive = key.is_active !== false;
-      
+
       if (isActive && !isRateLimited) {
         this.currentKeyIndex = index;
         return key;
       }
     }
-    
+
     return null;
   }
 
