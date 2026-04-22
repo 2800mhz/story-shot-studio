@@ -20,11 +20,12 @@ const GEMINI_FALLBACK_MODELS = [
   'gemini-1.5-flash-8b',
 ];
 
-// Groq model seçenekleri — compound-beta > llama-3.3-70b > llama-3.1-8b
+// Groq model seçenekleri — güncel 22 Nisan 2026
 const GROQ_MODELS = [
-  'compound',
-  'llama-3.3-70b-versatile',
-  'llama-3.1-8b-instant',
+  'llama-3.3-70b-versatile',   // Hızlı, güçlü, prompt generation için ideal
+  'groq/compound',             // Tool-use destekli compound model
+  'openai/gpt-oss-120b',      // Reasoning model (reasoning_effort: medium)
+  'llama-3.1-8b-instant',      // Ultra-hızlı fallback
 ];
 
 class AIProviderManager {
@@ -33,7 +34,7 @@ class AIProviderManager {
   private keys: Map<AIProvider, APIKey[]> = new Map();
   private initialized = false;
   private model = 'gemini-2.5-flash';
-  private groqModel = 'compound';
+  private groqModel = 'llama-3.3-70b-versatile';
 
   // 503 backoff + model fallback tracking
   private consecutiveServerErrors = 0;
@@ -106,7 +107,7 @@ class AIProviderManager {
   }
 
   setGroqModel(model: string) {
-    if (model && model.trim() && GROQ_MODELS.includes(model.trim())) {
+    if (model && model.trim()) {
       this.groqModel = model.trim();
     }
   }
@@ -696,7 +697,7 @@ class AIProviderManager {
           model: this.groqModel,
           messages,
           temperature: 0.7,
-          max_tokens: 8192,
+          max_completion_tokens: 8192,
         };
 
         const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
