@@ -962,12 +962,14 @@ const DEFAULT_ANALYSIS: PromptAnalysis = {
   productionNotes: [],
 };
 
+type JsonOpenBracket = '{' | '[';
+
 function recoverTruncatedJson(raw: string): string {
   const firstBrace = raw.indexOf('{');
   if (firstBrace < 0) throw new Error('Cannot recover JSON without opening brace');
 
   let candidate = raw.substring(firstBrace).trim().replace(/,\s*$/g, '');
-  const stack: Array<'{' | '['> = [];
+  const stack: JsonOpenBracket[] = [];
   let inString = false;
   let escape = false;
 
@@ -998,27 +1000,96 @@ function recoverTruncatedJson(raw: string): string {
   return candidate;
 }
 
+function escapeWhitespaceInJsonStrings(text: string): string {
+  const escapedChars: string[] = [];
+  let inString = false;
+  let escape = false;
+
+  for (const ch of text) {
+    if (escape) {
+      escapedChars.push(ch);
+      escape = false;
+      continue;
+    }
+    if (ch === '\\' && inString) {
+      escapedChars.push(ch);
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      escapedChars.push(ch);
+      inString = !inString;
+      continue;
+    }
+    if (!inString) {
+      escapedChars.push(ch);
+      continue;
+    }
+    if (ch === '\n') escapedChars.push('\\n');
+    else if (ch === '\r') escapedChars.push('\\r');
+    else if (ch === '\t') escapedChars.push('\\t');
+    else escapedChars.push(ch);
+  }
+
+  return escapedChars.join('');
+}
+
+function findOuterJsonEndIndex(text: string, startIndex: number): number {
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = startIndex; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === '\\' && inString) {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+
+  return -1;
+}
+
 function cleanJsonResponse(text: string): string {
   const jsonBlockMatch = text.match(/```json\s*([\s\S]*?)```/i);
   if (jsonBlockMatch) {
     text = jsonBlockMatch[1].trim();
   } else {
     const firstBrace = text.indexOf('{');
-    const lastBrace = text.lastIndexOf('}');
 
-    if (firstBrace >= 0 && lastBrace > firstBrace) {
-      text = text.substring(firstBrace, lastBrace + 1);
-    } else if (firstBrace >= 0) {
-      text = text.substring(firstBrace);
+    if (firstBrace >= 0) {
+      const endIndex = findOuterJsonEndIndex(text, firstBrace);
+      if (endIndex > firstBrace) {
+        text = text.substring(firstBrace, endIndex + 1);
+      } else {
+        const fallbackLastBrace = text.lastIndexOf('}');
+        text = fallbackLastBrace > firstBrace
+          ? text.substring(firstBrace, fallbackLastBrace + 1)
+          : text.substring(firstBrace);
+      }
     }
 
     text = text.replace(/```\s*$/g, '').trim();
   }
 
+  // Remove non-printable C0/C1 control chars except tab/newline/carriage return.
+  // Those whitespace characters are then escaped when they appear inside JSON strings.
   text = text.replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, '');
-  text = text.replace(/"([^"\\]*(\\.[^"\\]*)*)"/g, (match) => {
-    return match.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
-  });
+  text = escapeWhitespaceInJsonStrings(text);
 
   return text.trim();
 }
