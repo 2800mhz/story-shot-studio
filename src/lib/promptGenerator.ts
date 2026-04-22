@@ -962,6 +962,138 @@ const DEFAULT_ANALYSIS: PromptAnalysis = {
   productionNotes: [],
 };
 
+type JsonOpenBracket = '{' | '[';
+
+function recoverTruncatedJson(raw: string): string {
+  const firstBrace = raw.indexOf('{');
+  if (firstBrace < 0) throw new Error('Cannot recover JSON without opening brace');
+
+  let candidate = raw.substring(firstBrace).trim().replace(/,\s*$/g, '');
+  const stack: JsonOpenBracket[] = [];
+  let inString = false;
+  let escape = false;
+
+  for (const ch of candidate) {
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === '\\' && inString) {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === '{' || ch === '[') stack.push(ch);
+    else if (ch === '}' && stack[stack.length - 1] === '{') stack.pop();
+    else if (ch === ']' && stack[stack.length - 1] === '[') stack.pop();
+  }
+
+  while (stack.length > 0) {
+    const open = stack.pop();
+    candidate += open === '[' ? ']' : '}';
+  }
+
+  return candidate;
+}
+
+function escapeWhitespaceInJsonStrings(text: string): string {
+  const escapedChars: string[] = [];
+  let inString = false;
+  let escape = false;
+
+  for (const ch of text) {
+    if (escape) {
+      escapedChars.push(ch);
+      escape = false;
+      continue;
+    }
+    if (ch === '\\' && inString) {
+      escapedChars.push(ch);
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      escapedChars.push(ch);
+      inString = !inString;
+      continue;
+    }
+    if (!inString) {
+      escapedChars.push(ch);
+      continue;
+    }
+    if (ch === '\n') escapedChars.push('\\n');
+    else if (ch === '\r') escapedChars.push('\\r');
+    else if (ch === '\t') escapedChars.push('\\t');
+    else escapedChars.push(ch);
+  }
+
+  return escapedChars.join('');
+}
+
+function findOuterJsonEndIndex(text: string, startIndex: number): number {
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = startIndex; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === '\\' && inString) {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+
+  return -1;
+}
+
+function cleanJsonResponse(text: string): string {
+  const jsonBlockMatch = text.match(/```json\s*([\s\S]*?)```/i);
+  if (jsonBlockMatch) {
+    text = jsonBlockMatch[1].trim();
+  } else {
+    const firstBrace = text.indexOf('{');
+
+    if (firstBrace >= 0) {
+      const endIndex = findOuterJsonEndIndex(text, firstBrace);
+      if (endIndex > firstBrace) {
+        text = text.substring(firstBrace, endIndex + 1);
+      } else {
+        const fallbackLastBrace = text.lastIndexOf('}');
+        text = fallbackLastBrace > firstBrace
+          ? text.substring(firstBrace, fallbackLastBrace + 1)
+          : text.substring(firstBrace);
+      }
+    }
+
+    text = text.replace(/```\s*$/g, '').trim();
+  }
+
+  // Remove non-printable C0/C1 control chars except tab/newline/carriage return.
+  // Those whitespace characters are then escaped when they appear inside JSON strings.
+  text = text.replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, '');
+  text = escapeWhitespaceInJsonStrings(text);
+
+  return text.trim();
+}
+
 export function analyzeSceneComplexity(
   sceneText: string,
   visualNote: string,
@@ -1343,8 +1475,13 @@ SCENE FOCUS: Abstract or narrative scene with no entities.
   userMessage += `\n\n⚠️ REMINDER: ALL subjects must be caught in natural action — NO passport-style portraits, NO direct eye contact with lens, NO frozen smile, NO posed symmetry.`;
 
   function tryParseJSON(raw: string) {
-    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    return JSON.parse(cleaned);
+    const cleaned = cleanJsonResponse(raw);
+    try {
+      return JSON.parse(cleaned);
+    } catch {
+      const recovered = recoverTruncatedJson(cleaned);
+      return JSON.parse(recovered);
+    }
   }
 
   const content = await aiProvider.generateContent(userMessage, systemPrompt, {
