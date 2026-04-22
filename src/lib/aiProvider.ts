@@ -512,6 +512,12 @@ class AIProviderManager {
           }
         }
 
+        if (!fullText) {
+          // Stream tamamlandı ama içerik gelmedi — key rotate için throw et
+          const emptyStreamErr = new Error('Gemini stream empty response (no content)') as Error & { status: number };
+          emptyStreamErr.status = 503;
+          throw emptyStreamErr;
+        }
         return { text: fullText, promptTokens: inputTokens, completionTokens: outputTokens, modelUsed: this.getActiveModel() };
       }
 
@@ -575,6 +581,17 @@ class AIProviderManager {
           throw err;
         }
         const data = await response.json();
+
+        // HTTP 200 ama body'de hata alanı var — Gemini bazen böyle yapar
+        if (data.error) {
+          const apiErrMsg = data.error.message || 'Unknown Gemini API error';
+          console.warn(`⚠️ Gemini API body error: ${apiErrMsg}`);
+          const bodyErr = new Error(`Gemini body error: ${apiErrMsg}`) as Error & { status: number };
+          // Kota / rate-limit mesajı içeriyorsa 429, diğerleri 503
+          bodyErr.status = (apiErrMsg.includes('quota') || apiErrMsg.includes('429') || apiErrMsg.includes('RATE_LIMIT')) ? 429 : 503;
+          throw bodyErr;
+        }
+
         // Handle SAFETY blocks gracefully
         const candidate = data.candidates?.[0];
         if (candidate?.finishReason === 'SAFETY') {
@@ -582,7 +599,15 @@ class AIProviderManager {
           return { text: '[İçerik güvenlik filtresine takıldı. Lütfen sahne metnini gözden geçirin.]', promptTokens: 0, completionTokens: 0, modelUsed: this.getActiveModel() };
         }
 
+        // finishReason OTHER / RECITATION / MAX_TOKENS ile içerik yoksa → key rotate
+        const finishReason = candidate?.finishReason;
         const text = candidate?.content?.parts?.[0]?.text || '';
+        if (!text) {
+          console.warn(`⚠️ Gemini empty content. finishReason=${finishReason ?? 'none'}, candidate=${JSON.stringify(candidate)?.slice(0, 200)}`);
+          const emptyErr = new Error(`Gemini empty response (finishReason=${finishReason ?? 'none'})`) as Error & { status: number };
+          emptyErr.status = 503;
+          throw emptyErr;
+        }
         const promptTokens = data.usageMetadata?.promptTokenCount || 0;
         const completionTokens = data.usageMetadata?.candidatesTokenCount || 0;
 
