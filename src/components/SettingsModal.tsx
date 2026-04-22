@@ -112,7 +112,7 @@ export function SettingsModal({ open, onClose, apiKeys, imageApiKeys, settings, 
               <Input
                 value={localSettings.model}
                 onChange={e => setLocalSettings(s => ({ ...s, model: e.target.value }))}
-                placeholder="Örn: gemini-2.5-flash, gemini-3, gpt-4o..."
+                placeholder="Örn: gemini-2.5-flash, gemini-3, gpt-5.4..."
                 className="bg-secondary border-border text-foreground text-sm font-mono"
               />
               <p className="text-[10px] text-muted-foreground">
@@ -127,11 +127,10 @@ export function SettingsModal({ open, onClose, apiKeys, imageApiKeys, settings, 
                   <button
                     key={n}
                     onClick={() => setLocalSettings(s => ({ ...s, variantCount: n }))}
-                    className={`flex-1 rounded-md border py-1.5 text-sm font-medium transition-colors ${
-                      localSettings.variantCount === n
+                    className={`flex-1 rounded-md border py-1.5 text-sm font-medium transition-colors ${localSettings.variantCount === n
                         ? 'border-primary bg-primary/15 text-primary'
                         : 'border-border bg-secondary text-secondary-foreground hover:border-primary/50'
-                    }`}
+                      }`}
                   >
                     {n}
                   </button>
@@ -223,7 +222,7 @@ export function SettingsModal({ open, onClose, apiKeys, imageApiKeys, settings, 
             </div>
             <div className="rounded-md border border-border bg-secondary/50 p-3">
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                💡 <strong>Sistem prompt kalıcıdır</strong> — Siz değiştirmedikçe aynı kalır. 
+                💡 <strong>Sistem prompt kalıcıdır</strong> — Siz değiştirmedikçe aynı kalır.
                 "Sıfırla" butonu ile varsayılana dönebilirsiniz.
                 Prompt içinde <code className="text-primary">{'{N}'}</code> yazarsanız, sahne başına prompt sayısı ile otomatik değiştirilir.
               </p>

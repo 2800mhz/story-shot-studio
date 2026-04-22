@@ -50,27 +50,24 @@ interface LogRecord {
 
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   // Gemini
-  'gemini-2.5-pro-exp-03-25':     { input: 1.25,   output: 10.00  },
-  'gemini-2.5-flash-preview-04-17': { input: 0.15,  output: 0.60   },
-  'gemini-2.5-flash':             { input: 0.10,   output: 0.40   },
-  'gemini-2.5-flash-lite':        { input: 0.075,  output: 0.30   },
-  'gemini-3-flash':               { input: 0.10,   output: 0.40   },
-  'gemini-3.1-flash-lite':        { input: 0.075,  output: 0.30   },
-  'gemini-2.0-flash':             { input: 0.10,   output: 0.40   },
-  'gemini-2.0-flash-lite':        { input: 0.075,  output: 0.30   },
-  'gemini-1.5-pro':               { input: 1.25,   output: 5.00   },
-  'gemini-1.5-flash':             { input: 0.075,  output: 0.30   },
-  'gemini-1.5-flash-8b':          { input: 0.0375, output: 0.15   },
+  'gemini-2.5-pro-exp-03-25': { input: 1.25, output: 10.00 },
+  'gemini-2.5-flash-preview-04-17': { input: 0.15, output: 0.60 },
+  'gemini-2.5-flash': { input: 0.10, output: 0.40 },
+  'gemini-2.5-flash-lite': { input: 0.075, output: 0.30 },
+  'gemini-3-flash': { input: 0.10, output: 0.40 },
+  'gemini-3.1-flash-lite': { input: 0.075, output: 0.30 },
+  'gemini-2.0-flash': { input: 0.10, output: 0.40 },
+  'gemini-2.0-flash-lite': { input: 0.075, output: 0.30 },
+  'gemini-1.5-pro': { input: 1.25, output: 5.00 },
+  'gemini-1.5-flash': { input: 0.075, output: 0.30 },
+  'gemini-1.5-flash-8b': { input: 0.0375, output: 0.15 },
   // OpenAI
-  'gpt-4-turbo-preview':          { input: 10.00,  output: 30.00  },
-  'gpt-4o':                       { input: 2.50,   output: 10.00  },
-  'gpt-4o-mini':                  { input: 0.15,   output: 0.60   },
-  'gpt-3.5-turbo':                { input: 0.50,   output: 1.50   },
+  'gpt-5.4': { input: 10.00, output: 30.00 },
   // Anthropic
-  'claude-3-sonnet-20240229':     { input: 3.00,   output: 15.00  },
-  'claude-3-haiku-20240307':      { input: 0.25,   output: 1.25   },
-  'claude-3-opus-20240229':       { input: 15.00,  output: 75.00  },
-  'claude-3-5-sonnet-20241022':   { input: 3.00,   output: 15.00  },
+  'claude-3-sonnet-20240229': { input: 3.00, output: 15.00 },
+  'claude-3-haiku-20240307': { input: 0.25, output: 1.25 },
+  'claude-3-opus-20240229': { input: 15.00, output: 75.00 },
+  'claude-3-5-sonnet-20241022': { input: 3.00, output: 15.00 },
 };
 
 const DEFAULT_PRICING = { input: 0.10, output: 0.40 }; // fallback
@@ -150,7 +147,7 @@ export default function Settings() {
       ]);
 
       if (keysRes.error) throw keysRes.error;
-      
+
       const fetchedKeys = keysRes.data || [];
       // Kayıt zamanı aynı olan anahtarların sırasının rastgele değişmesini önlemek için ID'ye göre sırala
       fetchedKeys.sort((a, b) => {
@@ -347,7 +344,7 @@ export default function Settings() {
 
     // Efficiency: Tokens per USD
     const efficiency = totalCost > 0 ? totalTokens / totalCost : 0;
-    
+
     // Projection: Cost if usage continues at same rate until end of month
     const daysPassedInMonth = new Date().getDate();
     const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
@@ -361,7 +358,7 @@ export default function Settings() {
   }, [filteredLogs, trueTotalRequests, timeFilter, filterProvider, filterModel, filterOperation]);
 
   // ─── Chart Data (Daily — last 14 days) ──────────────────────────────────
-  
+
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
 
   const modelPieData = useMemo(() => {
@@ -765,7 +762,7 @@ export default function Settings() {
               </div>
             </Card>
             <Card className="p-5 border-primary/10 bg-card/60 backdrop-blur-md shadow-xl overflow-hidden relative group">
-               <div className="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
+              <div className="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
                 <Activity className="h-20 w-20" />
               </div>
               <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-1">Toplam Maliyet</p>

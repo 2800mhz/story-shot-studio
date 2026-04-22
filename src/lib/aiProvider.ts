@@ -623,7 +623,7 @@ class AIProviderManager {
         messages.push({ role: 'user', content: prompt });
 
         const body: Record<string, unknown> = {
-          model: 'gpt-4o',
+          model: 'gpt-5.4',
           messages,
           // Structured outputs are more reliable with lower temperature for deterministic schema filling.
           temperature: responseSchema ? 0.2 : 0.7,
@@ -656,7 +656,7 @@ class AIProviderManager {
         const text = data.choices[0].message.content;
         const promptTokens = data.usage?.prompt_tokens || 0;
         const completionTokens = data.usage?.completion_tokens || 0;
-        return { text, promptTokens, completionTokens, modelUsed: 'gpt-4o' };
+        return { text, promptTokens, completionTokens, modelUsed: 'gpt-5.4' };
       }
 
       case 'anthropic': {
