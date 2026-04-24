@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Settings, Download, Film, Upload, Info, Video, ChevronDown } from 'lucide-react';
+import { Settings, Download, Film, Upload, Info, Video, ChevronDown, FolderUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -13,12 +13,28 @@ interface HeaderProps {
   onUploadMain: () => void;
   onUploadScript: () => void;
   onExport: () => void;
+  onImport: (fileContent: string) => void;
   onSettings: () => void;
   onInfo: () => void;
   mainFileName: string;
 }
 
-export function Header({ onUploadMain, onUploadScript, onExport, onSettings, onInfo, mainFileName }: HeaderProps) {
+export function Header({ onUploadMain, onUploadScript, onExport, onImport, onSettings, onInfo, mainFileName }: HeaderProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      onImport(content);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <header className="film-grain flex items-center justify-between border-b bg-card px-5 py-3">
       <div className="flex items-center gap-3">
@@ -31,6 +47,19 @@ export function Header({ onUploadMain, onUploadScript, onExport, onSettings, onI
         </div>
       </div>
       <div className="flex items-center gap-2">
+        <input 
+          type="file" 
+          accept=".json" 
+          ref={fileInputRef} 
+          style={{ display: 'none' }} 
+          onChange={handleFileChange} 
+        />
+        
+        <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+          <FolderUp className="mr-1.5 h-3.5 w-3.5" />
+          İçe Aktar
+        </Button>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="max-w-[200px]">

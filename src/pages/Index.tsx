@@ -494,6 +494,60 @@ const Index = () => {
     return () => window.removeEventListener('keydown', handleKey);
   }, [undo, redo]);
 
+  const handleImportJson = useCallback((fileContent: string) => {
+    try {
+      const parsedData = JSON.parse(fileContent);
+
+      if (!parsedData.scenes || !parsedData.entities) {
+        toast({ title: "Geçersiz veya bozuk proje dosyası.", variant: "destructive" });
+        return;
+      }
+
+      const restoredSceneCards: SceneCard[] = parsedData.scenes.map((s: any) => {
+        return {
+          id: crypto.randomUUID(),
+          sceneNumber: s.sceneNumber,
+          text: s.text,
+          visualNote: s.visualNote,
+          visualStyle: s.visualStyle,
+          characterIds: s.characterIds || [],
+          locationIds: s.locationIds || [],
+          timeContextIds: s.timeContextIds || [],
+          status: s.allPrompts && s.allPrompts.length > 0 ? 'ready' : 'analyzed',
+          noteEditable: false,
+          prompts: (s.allPrompts || []).map((p: any) => ({
+            id: crypto.randomUUID(),
+            shotType: p.shotType,
+            promptText: p.prompt,
+            summary: "İçe aktarılmış prompt",
+            versions: [p.prompt],
+            isPinned: p.isPinned
+          }))
+        } as SceneCard;
+      });
+
+      dispatch({
+        type: 'IMPORT_PROJECT',
+        payload: {
+          episodeId: parsedData.episodeId,
+          episodeTitle: parsedData.episodeTitle,
+          episodePrompt: parsedData.style?.en || '',
+          episodePromptTr: parsedData.style?.tr || '',
+          characters: parsedData.entities.characters || [],
+          locations: parsedData.entities.locations || [],
+          timeContexts: parsedData.entities.timeContexts || [],
+          sceneCards: restoredSceneCards,
+        }
+      });
+
+      toast({ title: "Proje başarıyla içe aktarıldı." });
+
+    } catch (error) {
+      console.error("JSON okuma hatası:", error);
+      toast({ title: "Dosya okunamadı. Lütfen geçerli bir JSON dosyası seçin.", variant: "destructive" });
+    }
+  }, [dispatch, toast]);
+
   const handleFileUpload = useCallback(async (file: File) => {
     try {
       const text = await parseDocument(file);
@@ -1530,6 +1584,7 @@ const Index = () => {
         onUploadMain={() => mainFileRef.current?.click()}
         onUploadScript={() => setShowScriptUploader(true)}
         onExport={() => setExportOpen(true)}
+        onImport={handleImportJson}
         onSettings={() => setSettingsOpen(true)}
         onInfo={() => setInfoOpen(true)}
         mainFileName={state.mainFileName}

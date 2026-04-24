@@ -320,4 +320,17 @@ export type AppAction =
   | { type: 'SET_ALL_PROMPTS'; payload: Record<string, PromptCard[]> }
   | { type: 'SET_PINNED_PROMPT'; payload: { sceneId: string; promptId: string; byAI?: boolean } }
   | { type: 'ADD_EPISODE_STYLE_VERSION'; payload: EpisodeStyleVersion }
-  | { type: 'SET_EPISODE_STYLE_HISTORY'; payload: EpisodeStyleVersion[] };
+  | { type: 'SET_EPISODE_STYLE_HISTORY'; payload: EpisodeStyleVersion[] }
+  | { 
+      type: 'IMPORT_PROJECT'; 
+      payload: {
+        episodeId?: string;
+        episodeTitle?: string;
+        episodePrompt?: string;
+        episodePromptTr?: string;
+        characters: Character[];
+        locations: Location[];
+        timeContexts: TimeContext[];
+        sceneCards: SceneCard[];
+      }
+    };

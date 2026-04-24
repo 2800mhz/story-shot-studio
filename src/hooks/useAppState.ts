@@ -619,6 +619,17 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
         ),
       };
     }
+    case 'IMPORT_PROJECT':
+      return {
+        ...state,
+        // Eğer episode bilgileri state'te özel tutuluyorsa onlara aktar
+        episodePrompt: action.payload.episodePrompt || state.episodePrompt,
+        episodePromptTr: action.payload.episodePromptTr || state.episodePromptTr,
+        characters: action.payload.characters,
+        locations: action.payload.locations,
+        timeContexts: action.payload.timeContexts,
+        sceneCards: action.payload.sceneCards,
+      };
     default:
       return state;
   }
