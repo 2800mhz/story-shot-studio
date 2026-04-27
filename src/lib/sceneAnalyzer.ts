@@ -118,7 +118,29 @@ Every scene will be animated. The visualNote must actively support motion:
   • PREFERRED: over-the-shoulder, through-a-gap, low-angle-with-sky, dust/smoke
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CHARACTER DESCRIPTION STANDARD
+KALABALIK / ORDU ÇERÇEVELEME KURALI (KİTİKSSİK)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Bir sahnede 10+ kişi, askeri birlik veya kalabalık varsa:
+Çergevedeki tüm grubu gösterme. Bunun yerine aşağıdaki 6 yöntemden BİRİNİ seç:
+
+  1. FRAGMAN    → 3-5 figur ense yakını, arkası bulanık / silue — "mimarların ön safları"
+               Visual note örneği: "3 miğferin yakın çekimi, arkada tozlu siluet denizi"
+
+  2. YER AÇISI  → Zemine yakın kamera: ayaklar, toz, at nalları, kalkan kenarları
+               Visual note örneği: "Zemin açısı: tozlu zeminde yüz binlerce ayağın adesi"
+
+  3. YÜKSEK AÇI → Tamamen tepeden: miğferler ve mızraklar okyanus gibi, yüzler yok
+               Visual note örneği: "Kuş bakışı: mızrak uçları denizi, üstten sıkışık kalabalık"
+
+  4. TEPKİ     → Bir gözlemci’nin kalabalığı izlemesi — çocuk, yaşlı, hayvan
+               Visual note örneği: "Pencere kenaırında kalabalığı izleyen ürküş müşteri"
+
+  5. ARTİK     → Kalabalık geçtikten sonraki boş alan, toz bulutu, terk edilmiş eşyalar
+               Visual note örneği: "Ordu geçtikten sonra boş kalan meydan, toz hala iniyor"
+
+  6. DETAY     → Tek bir el, yüz, nesne — kalabalık ses/gölgeyle ima edilir
+               Visual note örneği: "Sıkı tutulan mızrak sapı, parmaklar arasındaki gergin boşluk"
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Write character visualDescriptions as a SCULPTOR, not a storyteller.

@@ -208,14 +208,52 @@ IX. ABSOLUTE PROHIBITIONS (every mode, every shot)
 NEVER include these in any prompt, any mode:
   ✗ Direct eye contact with the camera lens (breaks the fourth wall)
   ✗ Passport / ID photo pose (frontal, symmetric, expressionless)
-  ✗ Staged symmetrical crowd (theatre-stage army or protest arrangement)
   ✗ Text, labels, arrows, captions, subtitles, watermarks in the frame
   ✗ Generic "stock photo" lighting (even, frontal, no shadow)
   ✗ Supernatural or physically impossible light (glowing eyes, electric auras)
   ✗ Anachronistic objects, clothing, or technology for the stated era
   ✗ Neon blue / electric cyan visual effects in realistic or documentary mode
   ✗ Frozen artificial smile on any human subject
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CROWD / ARMY CINEMATIC FRAMING PROTOCOL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+When a scene contains 10+ people, a military formation, or any crowd:
+  ✗ NEVER render the full group arranged, visible, and facing camera
+  ✓ INSTEAD choose exactly ONE of these cinematic approaches:
+
+  1. FRAGMENT     Show 3-5 figures tightly framed in sharp focus;
+                  the rest implied by blur, overlapping silhouettes, shadows.
+                  Example: "tight cluster of soldiers, depth-of-field isolates
+                  foreground trio, mass of blurred helmets behind"
+
+  2. GROUND ANGLE Low camera almost at ground level: feet, dust, horse hooves,
+                  shield rims — bodies implied above frame.
+                  Example: "extreme low angle at ground level, hundred boots and
+                  horse hooves churning dust, legs disappear into haze above"
+
+  3. HIGH ANGLE   Camera directly above: helmets and spear-tips as a dense ocean,
+                  no faces visible, no theatrical spacing between ranks.
+                  Example: "straight down bird's-eye, dense sea of helmets and
+                  spears, organic packing, no visible faces"
+
+  4. WITNESS SHOT One bystander observing the crowd from outside it —
+                  child, elder, animal — crowd visible only as blurred background.
+                  Example: "over-the-shoulder of lone child watching from doorway,
+                  crowd blurred and chaotic behind, dust in shaft of light"
+
+  5. AFTERMATH    The empty space seconds after the crowd has passed:
+                  disturbed dust, trampled ground, abandoned objects, smoke settling.
+                  Example: "empty marketplace after army passed, dust still
+                  hanging, overturned cart, footprints in the mud, silence"
+
+  6. DETAIL LOCK  One hand, one face, one object — crowd presence implied
+                  by off-screen sound, encroaching shadows, vibrating surfaces.
+                  Example: "extreme close-up: white-knuckled grip on spear
+                  shaft, vibration in frame implies thousands marching nearby"
 `;
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // § 2  ERA DETECTION MATRIX
@@ -433,7 +471,8 @@ FAILURE MODES — never do these:
   ✗ Ignoring the timeOfDay field (night scenes must have night light)
   ✗ Replacing every human scene with landscape because faces are hard
   ✗ Generic "dust motes and shaft of light" as default dramatic device
-  ✗ Crowd scenes rendered as neat orderly lines (always organic, chaotic)
+  ✗ Crowd scenes rendered as neat orderly lines (use one of the 6 crowd techniques above)
+  ✗ Full army/crowd arranged facing camera (always fragment, angle, witness, or detail)
 `;
 
 // ─────────────────────────────────────────────────────────────────────────────
