@@ -806,8 +806,9 @@ class AIProviderManager {
         const startedAt = nowMs();
         let phase: 'preparing' | 'sending' | 'received' = 'preparing';
 
+        const DEEPINFRA_TIMEOUT_MS = 120000;
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s timeout
+        const timeoutId = setTimeout(() => controller.abort(), DEEPINFRA_TIMEOUT_MS); // 2 min timeout
 
         try {
           const body: Record<string, unknown> = {
@@ -852,13 +853,13 @@ class AIProviderManager {
             signal: controller.signal,
             body: payload,
           });
-          phase = 'received';
 
           clearTimeout(timeoutId);
           const elapsedMs = Math.round(nowMs() - startedAt);
           console.log(`📥 [DeepInfra] Response received - Status: ${diResponse.status}, Time: ${elapsedMs}ms`);
 
           if (!diResponse.ok) {
+            phase = 'received';
             const errorText = await diResponse.text();
             console.error(`❌ DeepInfra Error - Phase: ${phase}, Status: ${diResponse.status}, Time: ${elapsedMs}ms, Body:`, errorText);
             const diErr = new Error(`DeepInfra API error: ${diResponse.status}`) as Error & { status: number; retryAfterMs?: number };
@@ -867,6 +868,7 @@ class AIProviderManager {
             if (retryAfter) diErr.retryAfterMs = parseInt(retryAfter, 10) * 1000;
             throw diErr;
           }
+          phase = 'received';
 
           const diData = await diResponse.json();
           const diText = diData.choices?.[0]?.message?.content || '';
@@ -879,7 +881,7 @@ class AIProviderManager {
           const err = error as Error;
           if (err.name === 'AbortError') {
             console.error(`❌ DeepInfra Timed Out - Phase: ${phase}, Time: ${elapsedMs}ms`);
-            throw new Error('DeepInfra request timed out after 120 seconds');
+            throw new Error(`DeepInfra request timed out after ${DEEPINFRA_TIMEOUT_MS / 1000} seconds`);
           }
           throw error;
         }
