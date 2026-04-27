@@ -798,12 +798,12 @@ class AIProviderManager {
           messages.push({ role: 'user', content: userPrompt });
         }
 
-        const nowMs = () => (
+        const getElapsedMarker = () => (
           typeof performance !== 'undefined' && typeof performance.now === 'function'
             ? performance.now()
             : Date.now()
         );
-        const startedAt = nowMs();
+        const startedAt = getElapsedMarker();
         let phase: 'preparing' | 'sending' | 'received' = 'preparing';
 
         const DEEPINFRA_TIMEOUT_MS = 120000;
@@ -815,7 +815,7 @@ class AIProviderManager {
             model: this.deepinfraModel,
             messages,
             temperature: 0.7,
-            max_tokens: 4096,
+            max_tokens: 4096, // Smaller output cap helps faster first-byte latency on DeepInfra
           };
 
           if (responseMimeType === 'application/json') {
@@ -840,7 +840,7 @@ class AIProviderManager {
           const payload = JSON.stringify(body);
           const payloadBytes = typeof TextEncoder !== 'undefined'
             ? new TextEncoder().encode(payload).length
-            : payload.length;
+            : payload.length; // Fallback is char count when TextEncoder is unavailable
           phase = 'sending';
           console.log(`📡 [DeepInfra] Sending... Model: ${this.deepinfraModel}, Vision: ${!!(images && images.length > 0)}, Size: ${payloadBytes} bytes`);
 
@@ -855,7 +855,7 @@ class AIProviderManager {
           });
 
           clearTimeout(timeoutId);
-          const elapsedMs = Math.round(nowMs() - startedAt);
+          const elapsedMs = Math.round(getElapsedMarker() - startedAt);
           console.log(`📥 [DeepInfra] Response received - Status: ${diResponse.status}, Time: ${elapsedMs}ms`);
 
           if (!diResponse.ok) {
@@ -877,7 +877,7 @@ class AIProviderManager {
           return { text: diText, promptTokens: diPromptTokens, completionTokens: diCompletionTokens, modelUsed: this.deepinfraModel };
         } catch (error: unknown) {
           clearTimeout(timeoutId);
-          const elapsedMs = Math.round(nowMs() - startedAt);
+          const elapsedMs = Math.round(getElapsedMarker() - startedAt);
           const err = error as Error;
           if (err.name === 'AbortError') {
             console.error(`❌ DeepInfra Timed Out - Phase: ${phase}, Time: ${elapsedMs}ms`);
