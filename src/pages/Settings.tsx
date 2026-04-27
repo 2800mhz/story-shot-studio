@@ -68,6 +68,9 @@ const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   'claude-3-haiku-20240307': { input: 0.25, output: 1.25 },
   'claude-3-opus-20240229': { input: 15.00, output: 75.00 },
   'claude-3-5-sonnet-20241022': { input: 3.00, output: 15.00 },
+  // DeepInfra
+  'deepseek-ai/DeepSeek-V3': { input: 0.14, output: 0.28 },
+  'deepseek-ai/DeepSeek-V4-Flash': { input: 0.05, output: 0.10 },
 };
 
 const DEFAULT_PRICING = { input: 0.10, output: 0.40 }; // fallback
@@ -438,7 +441,7 @@ export default function Settings() {
     groq: '⚡ Groq',
     openai: '🧠 OpenAI',
     anthropic: '🔮 Anthropic Claude',
-    deepinfra: '🌙 DeepInfra (Kimi-K2.6)',
+    deepinfra: '🌙 DeepInfra (DeepSeek)',
   };
 
   // ─── JSX ─────────────────────────────────────────────────────────────────
@@ -501,7 +504,7 @@ export default function Settings() {
                   <option value="groq">⚡ Groq (compound-beta / llama)</option>
                   <option value="openai">OpenAI</option>
                   <option value="anthropic">Anthropic Claude</option>
-                  <option value="deepinfra">🌙 DeepInfra (Kimi-K2.6)</option>
+                  <option value="deepinfra">🌙 DeepInfra (DeepSeek)</option>
                 </select>
               </div>
               <div>
@@ -540,7 +543,7 @@ export default function Settings() {
                   <option value="groq">⚡ Groq (compound-beta / llama)</option>
                   <option value="openai">OpenAI</option>
                   <option value="anthropic">Anthropic Claude</option>
-                  <option value="deepinfra">🌙 DeepInfra (Kimi-K2.6)</option>
+                  <option value="deepinfra">🌙 DeepInfra (DeepSeek)</option>
                 </select>
               </div>
               <div>
