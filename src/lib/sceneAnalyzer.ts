@@ -80,29 +80,42 @@ VISUAL NOTE STANDARD
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 The visualNote describes EXACTLY what the camera sees — physical and concrete.
-Maximum 10 words. In the SAME LANGUAGE as the source text, or in English.
+Maximum 12 words. ALWAYS in TURKISH regardless of source text language.
 
-CORRECT:   "Elder's hands holding an open manuscript in morning light"
-CORRECT:   "Young man digging through desert sand at dusk"
-CORRECT:   "timelapse: stone citadel silhouette across seasons"
-INCORRECT: "The preservation of tradition" (abstract — rejected)
-INCORRECT: "Spiritual atmosphere" (abstract — rejected)
+CINEMATIC VANTAGE POINT — always specify the camera position/angle:
+  • Omuz üstü, siluet, alt açı, yüksek açı, ayrıntıya odak, yansıma, pencerenin ardı
+  • "Adam yürüyor" DEĞİL → "Omuz üstü: adamın gölgesi çamur zeminde uzayıp gidiyor"
+
+WITNESSING QUALITY — frame as if spying on a living moment, not staging it:
+  • "Ateşin üstünde kaynayan tencere, kenarda uyuklayan köpek"
+  • Compositions should feel discovered, not composed
+  • Imply off-screen presence: sounds, light sources, shadows, reflections
+
+DOGRU:   "Omuz üstü: yaşlı ellerin açık el yazması tutması, sabah ışığı"
+DOGRU:   "Alt açı: çölü kesen deve kervanı silueti, turuncu gün batımı"
+DOGRU:   "timelapse: kaleye karşı gün ışığının sürüklenmesi, mevsim geçişi"
+YANLIS:  "Geleneğin yaşatılması" (soyut — reddedilir)
+YANLIS:  "Manevi atmosfer" (soyut — reddedilir)
+YANLIS:  "Adam yürüyor" (düz kurgu — reddedilir; açı/derinlik/yansıma ekle)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ANIMATION-COMPATIBLE COMPOSITION RULES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Every scene will be animated. The visualNote must support motion:
-  • ONE clear focal point (not a list of objects)
-  • Implied depth: foreground / midground / background readable
+Every scene will be animated. The visualNote must actively support motion:
+  • ONE clear focal point — not a list of objects
+  • Implied depth: foreground / midground / background always readable
   • "Frozen peak" principle: the most dramatic frame before or just after action
-    (e.g., "water about to pour" not "water pouring" — the tension moment)
+    ("su fışkırmak üzere" not "su fışkırıyor" — capture the tension moment)
   • WIDE scenes: horizontal composition for parallax pan
-  • CLOSE scenes: single detail for Ken Burns zoom
-  • FORBIDDEN: perfectly symmetrical compositions
-  • FORBIDDEN: subjects facing camera directly (passport-pose)
-  • FORBIDDEN: neatly arranged armies or crowds (always organic, never theatrical)
-  • PREFERRED: over-the-shoulder, silhouette, detail-within-chaos
+  • CLOSE scenes: single isolated detail for Ken Burns zoom
+  • REFLECTIONS welcome: water surface, glass, armour, wet stone
+  • SILHOUETTES welcome: figure against fire, window, dawn sky
+  • FORBIDDEN: perfectly symmetrical, static, flat compositions
+  • FORBIDDEN: subjects posing or facing camera (passport pose)
+  • FORBIDDEN: armies/crowds neatly arranged like a theatre stage
+  • FORBIDDEN: single-colour uniform backgrounds with no depth
+  • PREFERRED: over-the-shoulder, through-a-gap, low-angle-with-sky, dust/smoke
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CHARACTER DESCRIPTION STANDARD
@@ -110,6 +123,14 @@ CHARACTER DESCRIPTION STANDARD
 
 Write character visualDescriptions as a SCULPTOR, not a storyteller.
 Every detail must be measurable, architectural, reproducible.
+
+ANTI-HALLUCINATION RULE:
+  If a character's physical appearance, ethnicity, clothing, or period details
+  are NOT stated or strongly implied in the source text, you MUST write:
+  "[Inferred from era/region — not stated in source]"
+  at the end of the relevant field. Do NOT invent specific details with false confidence.
+  It is better to say "standard nomadic steppe attire of the period" than to fabricate
+  a specific garment colour that was not mentioned.
 
 MANDATORY FIELDS (all must be present and non-empty):
 

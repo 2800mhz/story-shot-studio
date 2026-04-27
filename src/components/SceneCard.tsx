@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -256,6 +256,13 @@ export function SceneCard({
 }: SceneCardProps) {
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [editedNote, setEditedNote] = useState(scene.visualNote);
+
+  // Sync local state when the scene prop is updated externally (e.g., after save)
+  useEffect(() => {
+    if (!isEditingNote) {
+      setEditedNote(scene.visualNote);
+    }
+  }, [scene.visualNote, isEditingNote]);
   const [addingCharacter, setAddingCharacter] = useState(false);
   const [addingLocation, setAddingLocation] = useState(false);
   const [showTimeContextPicker, setShowTimeContextPicker] = useState(false);
