@@ -799,11 +799,7 @@ class AIProviderManager {
           messages.push({ role: 'user', content: userPrompt });
         }
 
-        const getElapsedMarker = () => (
-          typeof performance !== 'undefined' && typeof performance.now === 'function'
-            ? performance.now()
-            : Date.now()
-        );
+        const getElapsedMarker = () => Date.now();
         const startedAt = getElapsedMarker();
         let phase: 'preparing' | 'sending' | 'received' = 'preparing';
 
@@ -816,7 +812,7 @@ class AIProviderManager {
             model: this.deepinfraModel,
             messages,
             temperature: 0.7,
-            max_tokens: 4096, // Reduced from 8192 to improve first-byte latency on DeepInfra
+            max_tokens: 4096, // Reduced from 8192 to limit long generations and improve overall response time
           };
 
           if (responseMimeType === 'application/json') {
@@ -841,7 +837,7 @@ class AIProviderManager {
           const payload = JSON.stringify(body);
           const payloadBytes = typeof TextEncoder !== 'undefined'
             ? new TextEncoder().encode(payload).length
-            : payload.length; // Fallback is char count when TextEncoder is unavailable
+            : payload.length; // Fallback is char count and may underestimate UTF-8 byte size for non-ASCII text
           phase = 'sending';
           console.log(`📡 [DeepInfra] Sending... Model: ${this.deepinfraModel}, Vision: ${!!(images && images.length > 0)}, Size: ${payloadBytes} bytes`);
 
