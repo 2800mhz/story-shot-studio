@@ -770,16 +770,47 @@ class AIProviderManager {
       }
 
       case 'deepinfra': {
-        const messages: Array<{ role: string; content: string }> = [];
+        const messages: any[] = [];
         if (systemInstruction) {
           messages.push({ role: 'system', content: systemInstruction });
         }
-        messages.push({ role: 'user', content: prompt });
+
+        if (images && images.length > 0) {
+          const content: any[] = [{ type: 'text', text: prompt }];
+          images.forEach(img => {
+            content.push({
+              type: 'image_url',
+              image_url: {
+                url: `data:${img.inlineData.mimeType};base64,${img.inlineData.data}`
+              }
+            });
+          });
+          messages.push({ role: 'user', content });
+        } else {
+          messages.push({ role: 'user', content: prompt });
+        }
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 min timeout for heavy reasoning
 
         try {
+          const body: any = {
+            model: this.deepinfraModel,
+            messages,
+            temperature: 0.7,
+            max_tokens: 8192,
+          };
+
+          if (responseMimeType === 'application/json') {
+            body.response_format = { type: 'json_object' };
+            // Ensure prompt mentions JSON to be safe with some models
+            if (!prompt.toLowerCase().includes('json')) {
+              messages[messages.length - 1].content += "\n\nRespond in valid JSON format.";
+            }
+          }
+
+          console.log(`🚀 DeepInfra Request [${this.deepinfraModel}] - Timeout: 180s`);
+
           const diResponse = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
             method: 'POST',
             headers: {
@@ -787,17 +818,14 @@ class AIProviderManager {
               'Authorization': `Bearer ${decryptedKey}`,
             },
             signal: controller.signal,
-            body: JSON.stringify({
-              model: this.deepinfraModel,
-              messages,
-              temperature: 0.7,
-              max_tokens: 8192,
-            }),
+            body: JSON.stringify(body),
           });
 
           clearTimeout(timeoutId);
 
           if (!diResponse.ok) {
+            const errorText = await diResponse.text();
+            console.error(`❌ DeepInfra Error Body:`, errorText);
             const diErr = new Error(`DeepInfra API error: ${diResponse.status}`) as Error & { status: number; retryAfterMs?: number };
             diErr.status = diResponse.status;
             const retryAfter = diResponse.headers.get('Retry-After');
@@ -813,7 +841,8 @@ class AIProviderManager {
         } catch (error: any) {
           clearTimeout(timeoutId);
           if (error.name === 'AbortError') {
-            throw new Error('DeepInfra request timed out after 60 seconds');
+            console.error('❌ DeepInfra Timed Out (180s)');
+            throw new Error('DeepInfra request timed out after 180 seconds');
           }
           throw error;
         }
