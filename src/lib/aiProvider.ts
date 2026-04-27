@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+useAppStateimport { supabase } from './supabase';
 import { decryptKey } from './encryption';
 
 export type AIProvider = 'gemini' | 'openai' | 'anthropic' | 'groq';
@@ -181,7 +181,7 @@ class AIProviderManager {
     }
 
     let currentKey = this.getCurrentKey();
-    
+
     // Eğer şu anki provider'da key yoksa, diğer provider'ları kontrol et
     if (!currentKey) {
       let found = false;
@@ -193,7 +193,7 @@ class AIProviderManager {
           break;
         }
       }
-      
+
       if (!found) {
         // Tüm keyler rate-limited veya inactive — bekle
         console.warn(`⏳ All keys across all providers exhausted, waiting 15s before retry (attempt ${retryCount + 1}/${maxRetries})...`);
@@ -359,7 +359,7 @@ class AIProviderManager {
     }
 
     let currentKey = this.getCurrentKey();
-    
+
     // Eğer şu anki provider'da key yoksa, diğer provider'ları kontrol et
     if (!currentKey) {
       let found = false;
@@ -371,7 +371,7 @@ class AIProviderManager {
           break;
         }
       }
-      
+
       if (!found) {
         console.warn(`⏳ All keys across all providers exhausted [STREAM], waiting 15s before retry (attempt ${retryCount + 1}/${maxRetries})...`);
         await new Promise(resolve => setTimeout(resolve, 15_000));

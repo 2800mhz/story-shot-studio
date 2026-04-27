@@ -78,10 +78,10 @@ export function ScriptUploader({ onComplete, onProgress, onClose }: ScriptUpload
 
       addLog('🎨 Bölüm stili üretiliyor...');
       try {
-        const { generateEpisodePrompt, generateEpisodePromptTurkishExplanation } = await import('@/lib/sceneAnalyzer');
+        const { generateEpisodePrompt, generateEpisodePromptExplanation } = await import('@/lib/sceneAnalyzer');
         const sampleText = chunks.slice(0, 3).flatMap(c => c.scenes).map(s => s.voContext).filter(Boolean).join('\n').substring(0, 1500);
         const episodePrompt = await generateEpisodePrompt(sampleText, result.characters, result.locations);
-        const episodePromptTr = await generateEpisodePromptTurkishExplanation(episodePrompt);
+        const episodePromptTr = await generateEpisodePromptExplanation(episodePrompt);
         addLog(`✅ Analiz tamamlandı! ${result.sceneCards.length} sahne, ${result.characters.length} karakter, ${result.locations.length} mekan`);
         onComplete({ ...result, episodePrompt, episodePromptTr });
       } catch (e) {

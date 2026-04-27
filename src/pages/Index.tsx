@@ -19,7 +19,7 @@ import { useAppState } from '@/hooks/useAppState';
 import { parseDocument } from '@/lib/documentParser';
 import { parseEpisodes } from '@/lib/episodeParser';
 import { generatePrompts, loadSystemPrompt } from '@/lib/geminiApi';
-import { analyzeTextIntoScenes, generateEpisodePrompt, generateEpisodePromptTurkishExplanation, reviseEpisodePrompt } from '@/lib/sceneAnalyzer';
+import { analyzeTextIntoScenes, generateEpisodePrompt, generateEpisodePromptExplanation, reviseEpisodePrompt } from '@/lib/sceneAnalyzer';
 import { analyzeReferenceImage } from '@/lib/referenceAnalyzer';
 import { generatePromptsForScene, revisePrompt, autoSelectBestPrompt } from '@/lib/promptGenerator';
 import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetchAllPromptsForScenes, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts, setPinnedPrompt, fetchReferences, updateReferenceAssignments, fetchUserModel, saveUserModel } from '@/lib/supabaseQueries';
@@ -456,7 +456,7 @@ const Index = () => {
     try {
       const revised = await reviseEpisodePrompt(state.episodePrompt, instruction);
       dispatch({ type: 'SET_EPISODE_PROMPT', payload: revised });
-      const tr = await generateEpisodePromptTurkishExplanation(revised);
+      const tr = await generateEpisodePromptExplanation(revised);
       dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: tr });
       toast({ title: '✨ Bölüm stili oluşturuldu', description: 'Türkçe özet de yenilendi.' });
     } catch (err) {
@@ -1096,7 +1096,7 @@ const Index = () => {
           dispatch({ type: 'SET_EPISODE_PROMPT', payload: episodePrompt });
           
           setAnalysisLog(prev => [...prev, '🇹🇷 Bölüm stili Türkçe özeti yazılıyor...']);
-          const turkishExplanation = await generateEpisodePromptTurkishExplanation(episodePrompt);
+          const turkishExplanation = await generateEpisodePromptExplanation(episodePrompt);
           if (turkishExplanation) {
             dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: turkishExplanation });
           }
