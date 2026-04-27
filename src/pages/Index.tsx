@@ -395,6 +395,18 @@ const Index = () => {
     episodeId, loadingData, episode, doSave
   ]);
 
+  // Ensure we save if the user closes the tab before debounce fires
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // If there's a pending save or state is fresh, try to save synchronously or warn user
+      // Browsers don't allow async operations in beforeunload reliable, but fetch with keepalive or navigator.sendBeacon works.
+      // For now, we just force a save attempt.
+      doSave();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [doSave]);
+
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [infoOpen, setInfoOpen] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
@@ -1192,7 +1204,7 @@ const Index = () => {
   const handleGenerateAllPrompts = useCallback(async () => {
     if (isBulkGeneratingPrompts) return;
 
-    const scenesWithoutPrompts = state.sceneCards.filter(
+    const scenesWithoutPrompts = saveStateRef.current.sceneCards.filter(
       s => s.prompts.length === 0 && s.status !== 'generating'
     );
     if (scenesWithoutPrompts.length === 0) return;

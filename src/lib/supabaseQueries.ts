@@ -547,6 +547,26 @@ export async function fetchReferences(episodeId: string) {
 
   if (error) throw error;
 
+  if (data && data.length > 0) {
+    const filePaths = data.map(r => r.file_path).filter(Boolean);
+    if (filePaths.length > 0) {
+      const { data: signedUrls, error: signError } = await supabase.storage
+        .from('references')
+        .createSignedUrls(filePaths, 60 * 60 * 24 * 7); // 7 days expiry
+
+      if (!signError && signedUrls) {
+        data.forEach(row => {
+          if (row.file_path) {
+            const signed = signedUrls.find(s => s.path === row.file_path);
+            if (signed && signed.signedUrl) {
+              row.file_url = signed.signedUrl;
+            }
+          }
+        });
+      }
+    }
+  }
+
   // Convert snake_case back to camelCase mapping for the UI
   return (data || []).map(row => ({
     id: row.id,

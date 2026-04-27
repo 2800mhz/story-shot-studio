@@ -106,9 +106,12 @@ export function ReferencePanel({ episodeId, references, dispatch }: ReferencePan
 
         if (storageError) throw storageError;
 
-        const { data: { publicUrl } } = supabase.storage
+        const { data: signedData, error: signedError } = await supabase.storage
           .from('references')
-          .getPublicUrl(filePath);
+          .createSignedUrl(filePath, 60 * 60 * 24 * 7); // 7 days
+
+        if (signedError) throw signedError;
+        const publicUrl = signedData.signedUrl;
 
         const aiAnalysis = '';
         const assignedSceneIds: string[] = [];

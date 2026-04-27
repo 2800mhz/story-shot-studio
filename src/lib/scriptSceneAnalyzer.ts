@@ -301,32 +301,39 @@ export async function analyzeFullScript(
   const timeContextMap = new Map<string, TimeContext>();
 
   const WORKER_COUNT = 2;
-  const queue = [...chunks];
-  let globalSceneNumber = 0;
+  const queue = chunks.map((chunk, index) => ({ chunk, index }));
+  const results = new Array(chunks.length);
 
   const worker = async () => {
     while (queue.length > 0) {
-      const chunk = queue.shift();
-      if (!chunk) break;
+      const item = queue.shift();
+      if (!item) break;
 
-      const result = await analyzeScriptChunk(chunk, onProgress);
-
-      result.sceneCards.forEach(sc => {
-        globalSceneNumber++;
-        sc.sceneNumber = globalSceneNumber;
-        allSceneCards.push(sc);
-      });
-
-      result.characters.forEach(c => { if (!characterMap.has(c.id)) characterMap.set(c.id, c); });
-      result.locations.forEach(l => { if (!locationMap.has(l.id)) locationMap.set(l.id, l); });
-      result.suggestedTimeContexts.forEach(tc => { if (!timeContextMap.has(tc.label)) timeContextMap.set(tc.label, tc); });
-
-      onProgress?.(`✅ ${allSceneCards.length} sahne kartı oluşturuldu`);
+      const result = await analyzeScriptChunk(item.chunk, onProgress);
+      results[item.index] = result;
       await new Promise(r => setTimeout(r, 300));
     }
   };
 
   await Promise.all(Array.from({ length: WORKER_COUNT }, () => worker()));
+
+  // Assemble results sequentially to preserve scene ordering
+  let globalSceneNumber = 0;
+  for (const result of results) {
+    if (!result) continue;
+    
+    result.sceneCards.forEach((sc: SceneCard) => {
+      globalSceneNumber++;
+      sc.sceneNumber = globalSceneNumber;
+      allSceneCards.push(sc);
+    });
+
+    result.characters.forEach((c: Character) => { if (!characterMap.has(c.id)) characterMap.set(c.id, c); });
+    result.locations.forEach((l: Location) => { if (!locationMap.has(l.id)) locationMap.set(l.id, l); });
+    result.suggestedTimeContexts.forEach((tc: TimeContext) => { if (!timeContextMap.has(tc.label)) timeContextMap.set(tc.label, tc); });
+  }
+
+  onProgress?.(`✅ Toplam ${allSceneCards.length} sahne kartı oluşturuldu`);
 
   return {
     sceneCards: allSceneCards,

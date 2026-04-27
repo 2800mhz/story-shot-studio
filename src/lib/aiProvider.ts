@@ -37,7 +37,6 @@ class AIProviderManager {
   private groqModel = 'llama-3.3-70b-versatile';
 
   // 503 backoff + model fallback tracking
-  private consecutiveServerErrors = 0;
   private lastServerErrorAt = 0;
   private readonly MAX_BACKOFF_MS = 30_000;
   private activeFallbackModelIndex = -1; // -1 = user model, 0+ = fallback zinciri
@@ -137,7 +136,8 @@ class AIProviderManager {
       options?.operationType,
       options?.images,
       options?.responseMimeType,
-      options?.responseSchema
+      options?.responseSchema,
+      { consecutiveServerErrors: 0 }
     );
   }
 
@@ -149,7 +149,7 @@ class AIProviderManager {
       onChunk?: (text: string) => void;
     }
   ): Promise<string> {
-    return this._generateWithRetryStream(prompt, systemInstruction, 0, options?.operationType, options?.onChunk);
+    return this._generateWithRetryStream(prompt, systemInstruction, 0, options?.operationType, options?.onChunk, { consecutiveServerErrors: 0 });
   }
 
   /**
@@ -170,7 +170,8 @@ class AIProviderManager {
     operationType: string = 'api_request',
     images?: Array<{ inlineData: { data: string, mimeType: string } }>,
     responseMimeType?: 'application/json',
-    responseSchema?: Record<string, unknown>
+    responseSchema?: Record<string, unknown>,
+    context: { consecutiveServerErrors: number } = { consecutiveServerErrors: 0 }
   ): Promise<string> {
     // maxRetries: tüm key sayısı * birkaç bulk-wait turu
     const maxRetries = 60;
@@ -213,7 +214,7 @@ class AIProviderManager {
         responseSchema
       );
       // Başarılı istek — 503 sayacını ve fallback'i sıfırla
-      this.consecutiveServerErrors = 0;
+      context.consecutiveServerErrors = 0;
       this._tempModel = null;
       this.activeFallbackModelIndex = -1;
       await this.updateKeyUsage(currentKey.id, result.promptTokens, result.completionTokens, operationType, result.modelUsed);
@@ -233,7 +234,7 @@ class AIProviderManager {
         this.rotateKey();
         await new Promise(resolve => setTimeout(resolve, 500));
       } else if (err.status === 503 || err.status === 500) {
-        this.consecutiveServerErrors++;
+        context.consecutiveServerErrors++;
         this.lastServerErrorAt = Date.now();
         this.rotateKey();
 
@@ -241,7 +242,7 @@ class AIProviderManager {
         const providerKeys = this.keys.get(this.currentProvider) || [];
         const totalKeys = providerKeys.length;
 
-        if (this.consecutiveServerErrors >= totalKeys) {
+        if (context.consecutiveServerErrors >= totalKeys) {
           // Tüm keyler denendi, hepsi 503 — fallback modele geç
           const nextFallbackIdx = this.activeFallbackModelIndex + 1;
           const userModel = this.model;
@@ -258,7 +259,7 @@ class AIProviderManager {
             // Geçici olarak fallback modeli kullan
             this._tempModel = fallbackModel;
             this.currentKeyIndex = 0;
-            this.consecutiveServerErrors = 0;
+            context.consecutiveServerErrors = 0;
             await new Promise(resolve => setTimeout(resolve, 2000));
           } else {
             // Tüm fallback modeller de denendi — uzun bekleme
@@ -270,7 +271,7 @@ class AIProviderManager {
             this._tempModel = null;
             this.activeFallbackModelIndex = -1;
             this.currentKeyIndex = 0;
-            this.consecutiveServerErrors = 0;
+            context.consecutiveServerErrors = 0;
             const bulkWait = retryAfterMs > 0 ? retryAfterMs : 30_000;
             await new Promise(resolve => setTimeout(resolve, bulkWait));
           }
@@ -278,9 +279,9 @@ class AIProviderManager {
           // Henüz tüm keyler denenmedi — kısa backoff ile sonraki key'e geç
           const backoffMs = retryAfterMs > 0
             ? retryAfterMs
-            : this.getBackoffMs(Math.min(this.consecutiveServerErrors, 4));
+            : this.getBackoffMs(Math.min(context.consecutiveServerErrors, 4));
           console.warn(
-            `⚠️ Server error ${err.status} — key ${this.consecutiveServerErrors}/${totalKeys} denendi, ` +
+            `⚠️ Server error ${err.status} — key ${context.consecutiveServerErrors}/${totalKeys} denendi, ` +
             `${(backoffMs / 1000).toFixed(1)}s bekleniyor...`
           );
           await new Promise(resolve => setTimeout(resolve, backoffMs));
@@ -298,7 +299,8 @@ class AIProviderManager {
         operationType,
         images,
         responseMimeType,
-        responseSchema
+        responseSchema,
+        context
       );
     }
   }
@@ -347,7 +349,8 @@ class AIProviderManager {
     systemInstruction: string | undefined,
     retryCount: number,
     operationType: string = 'api_request',
-    onChunk?: (text: string) => void
+    onChunk?: (text: string) => void,
+    context: { consecutiveServerErrors: number } = { consecutiveServerErrors: 0 }
   ): Promise<string> {
     const maxRetries = 60;
 
@@ -380,7 +383,7 @@ class AIProviderManager {
       const providerKeys = this.keys.get(this.currentProvider) || [];
       console.log(` Trying ${currentKey.provider} (key ${this.currentKeyIndex + 1}/${providerKeys.length}) [STREAMING]`);
       const result = await this.callProviderStream(currentKey, prompt, systemInstruction, onChunk);
-      this.consecutiveServerErrors = 0;
+      context.consecutiveServerErrors = 0;
       this._tempModel = null;
       this.activeFallbackModelIndex = -1;
       await this.updateKeyUsage(currentKey.id, result.promptTokens, result.completionTokens, operationType, result.modelUsed);
@@ -400,7 +403,7 @@ class AIProviderManager {
         this.rotateKey();
         await new Promise(resolve => setTimeout(resolve, 500));
       } else if (err.status === 503 || err.status === 500) {
-        this.consecutiveServerErrors++;
+        context.consecutiveServerErrors++;
         this.lastServerErrorAt = Date.now();
         this.rotateKey();
 
@@ -408,7 +411,7 @@ class AIProviderManager {
         const providerKeys = this.keys.get(this.currentProvider) || [];
         const totalKeys = providerKeys.length;
 
-        if (this.consecutiveServerErrors >= totalKeys) {
+        if (context.consecutiveServerErrors >= totalKeys) {
           // Tüm keyler denendi, hepsi 503 — fallback modele geç
           const nextFallbackIdx = this.activeFallbackModelIndex + 1;
           const userModel = this.model;
@@ -423,7 +426,7 @@ class AIProviderManager {
             );
             this._tempModel = fallbackModel;
             this.currentKeyIndex = 0;
-            this.consecutiveServerErrors = 0;
+            context.consecutiveServerErrors = 0;
             await new Promise(resolve => setTimeout(resolve, 2000));
           } else {
             console.warn(
@@ -432,16 +435,16 @@ class AIProviderManager {
             this._tempModel = null;
             this.activeFallbackModelIndex = -1;
             this.currentKeyIndex = 0;
-            this.consecutiveServerErrors = 0;
+            context.consecutiveServerErrors = 0;
             const bulkWait = retryAfterMs > 0 ? retryAfterMs : 30_000;
             await new Promise(resolve => setTimeout(resolve, bulkWait));
           }
         } else {
           const backoffMs = retryAfterMs > 0
             ? retryAfterMs
-            : this.getBackoffMs(Math.min(this.consecutiveServerErrors, 4));
+            : this.getBackoffMs(Math.min(context.consecutiveServerErrors, 4));
           console.warn(
-            `⚠️ [STREAM] Server error ${err.status} — key ${this.consecutiveServerErrors}/${totalKeys} denendi, ` +
+            `⚠️ [STREAM] Server error ${err.status} — key ${context.consecutiveServerErrors}/${totalKeys} denendi, ` +
             `${(backoffMs / 1000).toFixed(1)}s bekleniyor...`
           );
           await new Promise(resolve => setTimeout(resolve, backoffMs));
@@ -451,7 +454,7 @@ class AIProviderManager {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      return this._generateWithRetryStream(prompt, systemInstruction, retryCount + 1, operationType, onChunk);
+      return this._generateWithRetryStream(prompt, systemInstruction, retryCount + 1, operationType, onChunk, context);
     }
   }
 

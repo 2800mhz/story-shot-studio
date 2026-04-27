@@ -144,6 +144,11 @@ export function RightPanel({
   const dragIndexRef = useRef<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
+  // Performance optimizations for entity lookups (Fixes Bug #7)
+  const charMap = React.useMemo(() => new Map(characters.map(c => [c.id, c])), [characters]);
+  const locMap = React.useMemo(() => new Map(locations.map(l => [l.id, l])), [locations]);
+  const timeMap = React.useMemo(() => new Map(timeContexts.map(tc => [tc.id, tc])), [timeContexts]);
+
   // Drag-and-drop state for sceneCards
   const dragSceneCardIndexRef = useRef<number | null>(null);
   const [dragOverSceneCardIndex, setDragOverSceneCardIndex] = useState<number | null>(null);
@@ -173,10 +178,10 @@ export function RightPanel({
     
     reordered.splice(dropIndex, 0, moved);
 
-    // Re-index all scenes continuously
-    reordered.forEach((s, idx) => {
-      s.number = idx + 1;
-    });
+    // Use float averaging to avoid integer collisions and unique constraint errors in DB
+    const prevNumber = dropIndex > 0 ? reordered[dropIndex - 1].number : 0;
+    const nextNumber = dropIndex < reordered.length - 1 ? reordered[dropIndex + 1].number : prevNumber + 2;
+    moved.number = (prevNumber + nextNumber) / 2;
 
     onReorderScenes?.(reordered);
     setDragOverIndex(null);
@@ -213,10 +218,10 @@ export function RightPanel({
 
     reordered.splice(dropIndex, 0, moved);
 
-    // Re-index all scene cards continuously
-    reordered.forEach((sc, idx) => {
-      sc.sceneNumber = idx + 1;
-    });
+    // Use float averaging to avoid integer collisions and unique constraint errors in DB
+    const prevNumber = dropIndex > 0 ? reordered[dropIndex - 1].sceneNumber : 0;
+    const nextNumber = dropIndex < reordered.length - 1 ? reordered[dropIndex + 1].sceneNumber : prevNumber + 2;
+    moved.sceneNumber = (prevNumber + nextNumber) / 2;
 
     onReorderSceneCards?.(reordered);
     setDragOverSceneCardIndex(null);
@@ -431,10 +436,9 @@ export function RightPanel({
             })}
 
             {sceneCards.map((sc, i) => {
-              const sceneChars = characters.filter(c => sc.characterIds.includes(c.id));
-              const sceneLocs = locations.filter(l => sc.locationIds.includes(l.id));
-              // Pass only the scene's own time contexts for label display.
-              const sceneTimeContexts = timeContexts.filter(tc => (sc.timeContextIds ?? []).includes(tc.id));
+              const sceneChars = sc.characterIds.map(id => charMap.get(id)).filter(Boolean) as Character[];
+              const sceneLocs = sc.locationIds.map(id => locMap.get(id)).filter(Boolean) as Location[];
+              const sceneTimeContexts = (sc.timeContextIds ?? []).map(id => timeMap.get(id)).filter(Boolean) as import('@/types').TimeContext[];
               return (
                 <div
                   key={sc.id}

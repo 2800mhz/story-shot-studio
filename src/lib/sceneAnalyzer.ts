@@ -622,6 +622,14 @@ export async function analyzeTextIntoScenes(
     }
 
     const scenes = parsed.scenes ?? [];
+    
+    // Fix Bug #5: Reset lastIndex to the start of the current chunk so fuzzyFindText
+    // doesn't jump globally and corrupt subsequent scene indices.
+    const chunkStartIdx = text.indexOf(chunks[i]);
+    if (chunkStartIdx !== -1) {
+      searchState.lastIndex = chunkStartIdx;
+    }
+
     const cards = buildResultFromScenes(scenes, sceneNumberOffset, characterMap, locationMap, timeContextLabelMap, text, searchState);
     allSceneCards.push(...cards);
     sceneNumberOffset += scenes.length;

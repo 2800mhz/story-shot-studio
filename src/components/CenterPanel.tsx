@@ -30,7 +30,7 @@ export function CenterPanel({
   onAnalyzeText, isAnalyzing, isLoading, analysisLog,
 }: CenterPanelProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const activeSceneRef = useRef<HTMLDivElement>(null);
+  const activeSceneRef = useRef<HTMLElement>(null);
   const [toolbar, setToolbar] = useState<{
     position: { top: number; left: number };
     selectedText: string;
@@ -225,9 +225,8 @@ export function CenterPanel({
                   <span
                     key={`scene-${scene.id}`}
                     ref={isSelected ? (el) => {
-                      // Note: We cast to any because we use HTMLDivElement ref above, but this is a span.
-                      // The scrolling logic just calls getBoundingClientRect, which exists on Element.
-                      if (activeSceneRef) (activeSceneRef as any).current = el;
+                      // Note: We use HTMLElement ref above to match the span element.
+                      if (activeSceneRef) activeSceneRef.current = el;
                     } : undefined}
                     onClick={() => onSetActiveScene(scene.id)}
                     className={`relative cursor-pointer transition-colors duration-200 rounded px-1 -mx-1 ${isSelected
