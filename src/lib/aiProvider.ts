@@ -777,8 +777,9 @@ class AIProviderManager {
           content: string | Array<DeepInfraTextPart | DeepInfraImagePart>;
         };
 
-        const systemRules = systemInstruction?.trim()
-          ? `SYSTEM RULES:\n${systemInstruction.trim()}\n\n---\n\n`
+        const normalizedSystemInstruction = systemInstruction?.trim();
+        const systemRules = normalizedSystemInstruction
+          ? `SYSTEM RULES:\n${normalizedSystemInstruction}\n\n---\n\n`
           : '';
         const userPrompt = `${systemRules}${prompt}`;
 
@@ -815,7 +816,7 @@ class AIProviderManager {
             model: this.deepinfraModel,
             messages,
             temperature: 0.7,
-            max_tokens: 4096, // Smaller output cap helps faster first-byte latency on DeepInfra
+            max_tokens: 4096, // Reduced from 8192 to improve first-byte latency on DeepInfra
           };
 
           if (responseMimeType === 'application/json') {
