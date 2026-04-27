@@ -1,4 +1,4 @@
-useAppStateimport { supabase } from './supabase';
+import { supabase } from './supabase';
 import { decryptKey } from './encryption';
 
 export type AIProvider = 'gemini' | 'openai' | 'anthropic' | 'groq';
