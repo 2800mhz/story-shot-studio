@@ -25,7 +25,7 @@ import { Activity } from 'lucide-react';
 
 interface APIKeyRecord {
   id: string;
-  provider: 'gemini' | 'openai' | 'anthropic' | 'groq';
+  provider: 'gemini' | 'openai' | 'anthropic' | 'groq' | 'deepinfra';
   api_key: string;
   label: string | null;
   is_active: boolean;
@@ -98,12 +98,12 @@ export default function Settings() {
   const [trueTotalRequests, setTrueTotalRequests] = useState<number>(0);
 
   // ── API Key Form State ──
-  const [newProvider, setNewProvider] = useState<'gemini' | 'openai' | 'anthropic' | 'groq'>('gemini');
+  const [newProvider, setNewProvider] = useState<'gemini' | 'openai' | 'anthropic' | 'groq' | 'deepinfra'>('gemini');
   const [newKey, setNewKey] = useState('');
   const [newLabel, setNewLabel] = useState('');
   const [adding, setAdding] = useState(false);
   const [bulkText, setBulkText] = useState('');
-  const [bulkProvider, setBulkProvider] = useState<'gemini' | 'openai' | 'anthropic' | 'groq'>('gemini');
+  const [bulkProvider, setBulkProvider] = useState<'gemini' | 'openai' | 'anthropic' | 'groq' | 'deepinfra'>('gemini');
   const [bulkAdding, setBulkAdding] = useState(false);
 
   // ── Billing Filters ──
@@ -438,6 +438,7 @@ export default function Settings() {
     groq: '⚡ Groq',
     openai: '🧠 OpenAI',
     anthropic: '🔮 Anthropic Claude',
+    deepinfra: '🌙 DeepInfra (Kimi-K2.6)',
   };
 
   // ─── JSX ─────────────────────────────────────────────────────────────────
@@ -500,6 +501,7 @@ export default function Settings() {
                   <option value="groq">⚡ Groq (compound-beta / llama)</option>
                   <option value="openai">OpenAI</option>
                   <option value="anthropic">Anthropic Claude</option>
+                  <option value="deepinfra">🌙 DeepInfra (Kimi-K2.6)</option>
                 </select>
               </div>
               <div>
@@ -538,6 +540,7 @@ export default function Settings() {
                   <option value="groq">⚡ Groq (compound-beta / llama)</option>
                   <option value="openai">OpenAI</option>
                   <option value="anthropic">Anthropic Claude</option>
+                  <option value="deepinfra">🌙 DeepInfra (Kimi-K2.6)</option>
                 </select>
               </div>
               <div>
@@ -578,7 +581,7 @@ export default function Settings() {
               </Card>
             ) : (
               <>
-                {(['gemini', 'groq', 'openai', 'anthropic'] as const).map(provider => {
+                {(['gemini', 'groq', 'openai', 'anthropic', 'deepinfra'] as const).map(provider => {
                   const providerKeys = keys.filter(k => k.provider === provider);
                   if (providerKeys.length === 0) return null;
                   const activeCount = providerKeys.filter(k => k.is_active).length;

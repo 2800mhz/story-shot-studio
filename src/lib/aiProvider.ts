@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { decryptKey } from './encryption';
 
-export type AIProvider = 'gemini' | 'openai' | 'anthropic' | 'groq';
+export type AIProvider = 'gemini' | 'openai' | 'anthropic' | 'groq' | 'deepinfra';
 
 interface APIKey {
   id: string;
@@ -29,12 +29,13 @@ const GROQ_MODELS = [
 ];
 
 class AIProviderManager {
-  private currentProvider: AIProvider = 'gemini';
+  private currentProvider: AIProvider = 'deepinfra';
   private currentKeyIndex = 0;
   private keys: Map<AIProvider, APIKey[]> = new Map();
   private initialized = false;
   private model = 'gemini-2.5-flash';
   private groqModel = 'llama-3.3-70b-versatile';
+  private deepinfraModel = 'moonshotai/Kimi-K2.6';
 
   // 503 backoff + model fallback tracking
   private lastServerErrorAt = 0;
@@ -82,7 +83,7 @@ class AIProviderManager {
 
     // Only reset rotation index on first-time initialization, not on re-init
     if (!this.initialized) {
-      this.currentProvider = 'gemini';
+      this.currentProvider = 'deepinfra'; // DeepInfra öncelikli başlar
       this.currentKeyIndex = 0;
     }
     this.initialized = true;
@@ -91,7 +92,8 @@ class AIProviderManager {
       gemini: this.keys.get('gemini')?.length || 0,
       groq: this.keys.get('groq')?.length || 0,
       openai: this.keys.get('openai')?.length || 0,
-      anthropic: this.keys.get('anthropic')?.length || 0
+      anthropic: this.keys.get('anthropic')?.length || 0,
+      deepinfra: this.keys.get('deepinfra')?.length || 0,
     });
   }
 
@@ -117,6 +119,14 @@ class AIProviderManager {
 
   getGroqModelOptions(): string[] {
     return [...GROQ_MODELS];
+  }
+
+  setDeepinfraModel(model: string) {
+    if (model && model.trim()) this.deepinfraModel = model.trim();
+  }
+
+  getDeepinfraModel(): string {
+    return this.deepinfraModel;
   }
 
   async generateContent(
@@ -338,7 +348,8 @@ class AIProviderManager {
   private forceRotateProvider() {
     console.log(`🔄 Switching provider from ${this.currentProvider}`);
     this.currentKeyIndex = 0;
-    const providers: AIProvider[] = ['gemini', 'groq', 'openai', 'anthropic'];
+    // DeepInfra önce — rate-limit olunca Gemini'ye, sonra Groq'a geçer
+    const providers: AIProvider[] = ['deepinfra', 'gemini', 'groq', 'openai', 'anthropic'];
     const currentIndex = providers.indexOf(this.currentProvider);
     const nextIndex = (currentIndex + 1) % providers.length;
     this.currentProvider = providers[nextIndex];
@@ -756,6 +767,42 @@ class AIProviderManager {
         const groqPromptTokens = groqData.usage?.prompt_tokens || 0;
         const groqCompletionTokens = groqData.usage?.completion_tokens || 0;
         return { text: groqText, promptTokens: groqPromptTokens, completionTokens: groqCompletionTokens, modelUsed: this.groqModel };
+      }
+
+      case 'deepinfra': {
+        const messages: Array<{ role: string; content: string }> = [];
+        if (systemInstruction) {
+          messages.push({ role: 'system', content: systemInstruction });
+        }
+        messages.push({ role: 'user', content: prompt });
+
+        const diResponse = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${decryptedKey}`,
+          },
+          body: JSON.stringify({
+            model: this.deepinfraModel,
+            messages,
+            temperature: 0.7,
+            max_tokens: 8192,
+          }),
+        });
+
+        if (!diResponse.ok) {
+          const diErr = new Error(`DeepInfra API error: ${diResponse.status}`) as Error & { status: number; retryAfterMs?: number };
+          diErr.status = diResponse.status;
+          const retryAfter = diResponse.headers.get('Retry-After');
+          if (retryAfter) diErr.retryAfterMs = parseInt(retryAfter, 10) * 1000;
+          throw diErr;
+        }
+
+        const diData = await diResponse.json();
+        const diText = diData.choices?.[0]?.message?.content || '';
+        const diPromptTokens = diData.usage?.prompt_tokens || 0;
+        const diCompletionTokens = diData.usage?.completion_tokens || 0;
+        return { text: diText, promptTokens: diPromptTokens, completionTokens: diCompletionTokens, modelUsed: this.deepinfraModel };
       }
 
       default:
