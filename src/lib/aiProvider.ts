@@ -776,33 +776,47 @@ class AIProviderManager {
         }
         messages.push({ role: 'user', content: prompt });
 
-        const diResponse = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${decryptedKey}`,
-          },
-          body: JSON.stringify({
-            model: this.deepinfraModel,
-            messages,
-            temperature: 0.7,
-            max_tokens: 8192,
-          }),
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
-        if (!diResponse.ok) {
-          const diErr = new Error(`DeepInfra API error: ${diResponse.status}`) as Error & { status: number; retryAfterMs?: number };
-          diErr.status = diResponse.status;
-          const retryAfter = diResponse.headers.get('Retry-After');
-          if (retryAfter) diErr.retryAfterMs = parseInt(retryAfter, 10) * 1000;
-          throw diErr;
+        try {
+          const diResponse = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${decryptedKey}`,
+            },
+            signal: controller.signal,
+            body: JSON.stringify({
+              model: this.deepinfraModel,
+              messages,
+              temperature: 0.7,
+              max_tokens: 8192,
+            }),
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!diResponse.ok) {
+            const diErr = new Error(`DeepInfra API error: ${diResponse.status}`) as Error & { status: number; retryAfterMs?: number };
+            diErr.status = diResponse.status;
+            const retryAfter = diResponse.headers.get('Retry-After');
+            if (retryAfter) diErr.retryAfterMs = parseInt(retryAfter, 10) * 1000;
+            throw diErr;
+          }
+
+          const diData = await diResponse.json();
+          const diText = diData.choices?.[0]?.message?.content || '';
+          const diPromptTokens = diData.usage?.prompt_tokens || 0;
+          const diCompletionTokens = diData.usage?.completion_tokens || 0;
+          return { text: diText, promptTokens: diPromptTokens, completionTokens: diCompletionTokens, modelUsed: this.deepinfraModel };
+        } catch (error: any) {
+          clearTimeout(timeoutId);
+          if (error.name === 'AbortError') {
+            throw new Error('DeepInfra request timed out after 60 seconds');
+          }
+          throw error;
         }
-
-        const diData = await diResponse.json();
-        const diText = diData.choices?.[0]?.message?.content || '';
-        const diPromptTokens = diData.usage?.prompt_tokens || 0;
-        const diCompletionTokens = diData.usage?.completion_tokens || 0;
-        return { text: diText, promptTokens: diPromptTokens, completionTokens: diCompletionTokens, modelUsed: this.deepinfraModel };
       }
 
       default:
