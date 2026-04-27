@@ -770,13 +770,22 @@ class AIProviderManager {
       }
 
       case 'deepinfra': {
-        const messages: any[] = [];
-        if (systemInstruction) {
-          messages.push({ role: 'system', content: systemInstruction });
-        }
+        type DeepInfraTextPart = { type: 'text'; text: string };
+        type DeepInfraImagePart = { type: 'image_url'; image_url: { url: string } };
+        type DeepInfraMessage = {
+          role: 'user' | 'assistant' | 'system';
+          content: string | Array<DeepInfraTextPart | DeepInfraImagePart>;
+        };
 
+        const normalizedSystemInstruction = systemInstruction?.trim();
+        const systemRules = normalizedSystemInstruction
+          ? `SYSTEM RULES:\n${normalizedSystemInstruction}\n\n---\n\n`
+          : '';
+        const userPrompt = `${systemRules}${prompt}`;
+
+        const messages: DeepInfraMessage[] = [];
         if (images && images.length > 0) {
-          const content: any[] = [{ type: 'text', text: prompt }];
+          const content: Array<DeepInfraTextPart | DeepInfraImagePart> = [{ type: 'text', text: userPrompt }];
           images.forEach(img => {
             content.push({
               type: 'image_url',
@@ -787,33 +796,36 @@ class AIProviderManager {
           });
           messages.push({ role: 'user', content });
         } else {
-          messages.push({ role: 'user', content: prompt });
+          messages.push({ role: 'user', content: userPrompt });
         }
 
+        const getElapsedMarker = () => Date.now();
+        const startedAt = getElapsedMarker();
+        let phase: 'preparing' | 'sending' | 'received' = 'preparing';
+
+        const DEEPINFRA_TIMEOUT_MS = 120000;
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 min timeout for heavy reasoning
+        const timeoutId = setTimeout(() => controller.abort(), DEEPINFRA_TIMEOUT_MS); // 2 min timeout
 
         try {
-          const body: any = {
+          const body: Record<string, unknown> = {
             model: this.deepinfraModel,
             messages,
             temperature: 0.7,
-            max_tokens: 8192,
+            max_tokens: 4096, // Reduced from 8192 to limit long generations and improve overall response time
           };
 
           if (responseMimeType === 'application/json') {
             body.response_format = { type: 'json_object' };
-            
             const lastMsg = messages[messages.length - 1];
             const jsonInstruction = "\n\nIMPORTANT: Respond ONLY with a valid JSON object.";
-            
+
             if (typeof lastMsg.content === 'string') {
               if (!lastMsg.content.toLowerCase().includes('json')) {
                 lastMsg.content += jsonInstruction;
               }
             } else if (Array.isArray(lastMsg.content)) {
-              // Vision mode (array of content parts)
-              const hasJsonInstr = lastMsg.content.some((part: any) => 
+              const hasJsonInstr = lastMsg.content.some((part) =>
                 part.type === 'text' && part.text.toLowerCase().includes('json')
               );
               if (!hasJsonInstr) {
@@ -822,7 +834,12 @@ class AIProviderManager {
             }
           }
 
-          console.log(`🚀 DeepInfra Request [${this.deepinfraModel}] - Vision: ${!!(images && images.length > 0)}`);
+          const payload = JSON.stringify(body);
+          const payloadBytes = typeof TextEncoder !== 'undefined'
+            ? new TextEncoder().encode(payload).length
+            : payload.length; // Fallback is char count and may underestimate UTF-8 byte size for non-ASCII text
+          phase = 'sending';
+          console.log(`📡 [DeepInfra] Sending... Model: ${this.deepinfraModel}, Vision: ${!!(images && images.length > 0)}, Size: ${payloadBytes} bytes`);
 
           const diResponse = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
             method: 'POST',
@@ -831,31 +848,37 @@ class AIProviderManager {
               'Authorization': `Bearer ${decryptedKey}`,
             },
             signal: controller.signal,
-            body: JSON.stringify(body),
+            body: payload,
           });
 
           clearTimeout(timeoutId);
+          const elapsedMs = Math.round(getElapsedMarker() - startedAt);
+          console.log(`📥 [DeepInfra] Response received - Status: ${diResponse.status}, Time: ${elapsedMs}ms`);
 
           if (!diResponse.ok) {
+            phase = 'received';
             const errorText = await diResponse.text();
-            console.error(`❌ DeepInfra Error Body:`, errorText);
+            console.error(`❌ DeepInfra Error - Phase: ${phase}, Status: ${diResponse.status}, Time: ${elapsedMs}ms, Body:`, errorText);
             const diErr = new Error(`DeepInfra API error: ${diResponse.status}`) as Error & { status: number; retryAfterMs?: number };
             diErr.status = diResponse.status;
             const retryAfter = diResponse.headers.get('Retry-After');
             if (retryAfter) diErr.retryAfterMs = parseInt(retryAfter, 10) * 1000;
             throw diErr;
           }
+          phase = 'received';
 
           const diData = await diResponse.json();
           const diText = diData.choices?.[0]?.message?.content || '';
           const diPromptTokens = diData.usage?.prompt_tokens || 0;
           const diCompletionTokens = diData.usage?.completion_tokens || 0;
           return { text: diText, promptTokens: diPromptTokens, completionTokens: diCompletionTokens, modelUsed: this.deepinfraModel };
-        } catch (error: any) {
+        } catch (error: unknown) {
           clearTimeout(timeoutId);
-          if (error.name === 'AbortError') {
-            console.error('❌ DeepInfra Timed Out (180s)');
-            throw new Error('DeepInfra request timed out after 180 seconds');
+          const elapsedMs = Math.round(getElapsedMarker() - startedAt);
+          const err = error as Error;
+          if (err.name === 'AbortError') {
+            console.error(`❌ DeepInfra Timed Out - Phase: ${phase}, Time: ${elapsedMs}ms`);
+            throw new Error(`DeepInfra request timed out after ${DEEPINFRA_TIMEOUT_MS / 1000} seconds`);
           }
           throw error;
         }
