@@ -803,13 +803,26 @@ class AIProviderManager {
 
           if (responseMimeType === 'application/json') {
             body.response_format = { type: 'json_object' };
-            // Ensure prompt mentions JSON to be safe with some models
-            if (!prompt.toLowerCase().includes('json')) {
-              messages[messages.length - 1].content += "\n\nRespond in valid JSON format.";
+            
+            const lastMsg = messages[messages.length - 1];
+            const jsonInstruction = "\n\nIMPORTANT: Respond ONLY with a valid JSON object.";
+            
+            if (typeof lastMsg.content === 'string') {
+              if (!lastMsg.content.toLowerCase().includes('json')) {
+                lastMsg.content += jsonInstruction;
+              }
+            } else if (Array.isArray(lastMsg.content)) {
+              // Vision mode (array of content parts)
+              const hasJsonInstr = lastMsg.content.some((part: any) => 
+                part.type === 'text' && part.text.toLowerCase().includes('json')
+              );
+              if (!hasJsonInstr) {
+                lastMsg.content.push({ type: 'text', text: jsonInstruction });
+              }
             }
           }
 
-          console.log(`🚀 DeepInfra Request [${this.deepinfraModel}] - Timeout: 180s`);
+          console.log(`🚀 DeepInfra Request [${this.deepinfraModel}] - Vision: ${!!(images && images.length > 0)}`);
 
           const diResponse = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
             method: 'POST',
