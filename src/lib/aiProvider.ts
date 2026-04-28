@@ -35,7 +35,7 @@ class AIProviderManager {
   private initialized = false;
   private model = 'gemini-2.5-flash';
   private groqModel = 'llama-3.3-70b-versatile';
-  private deepinfraModel = 'deepseek-ai/DeepSeek-V3'; // Default to V3 for stability, can be V4-Flash if available
+  private deepinfraModel = 'deepseek-ai/DeepSeek-V4-Flash'; // Default to V4-Flash for faster DeepInfra responses
 
   // 503 backoff + model fallback tracking
   private lastServerErrorAt = 0;
