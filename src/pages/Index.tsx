@@ -1524,7 +1524,7 @@ const Index = () => {
               {agent.session.open && (
                 <>
                   <PanelResizeHandle className="h-1 bg-border/40 hover:bg-primary/50 cursor-row-resize transition-colors" />
-                  <Panel defaultSize={30} minSize={15}>
+                  <Panel defaultSize={41} minSize={15}>
                     <div className="h-full overflow-hidden border-t bg-card">
                       <AgentDrawer
                         open={agent.session.open}

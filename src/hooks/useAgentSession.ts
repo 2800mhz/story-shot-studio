@@ -3,7 +3,7 @@ import type { AgentAttachment, AgentMessage, AgentOperationSet } from '@/lib/age
 
 export function useAgentSession() {
   const [open, setOpen] = useState(false);
-  const [heightPercent, setHeightPercent] = useState(28);
+  const [heightPercent, setHeightPercent] = useState(41);
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [attachments, setAttachments] = useState<AgentAttachment[]>([]);
   const [isBusy, setIsBusy] = useState(false);
