@@ -902,95 +902,128 @@ class AIProviderManager {
           messages.push({ role: 'user', content: userPrompt });
         }
 
-        const getElapsedMarker = () => Date.now();
-        const startedAt = getElapsedMarker();
-        let phase: 'preparing' | 'sending' | 'received' = 'preparing';
+        const startedAt = Date.now();
 
-        const DEEPINFRA_TIMEOUT_MS = 120000;
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), DEEPINFRA_TIMEOUT_MS); // 2 min timeout
+        const body: Record<string, unknown> = {
+          model: this.deepinfraModel,
+          messages,
+          temperature: 0.7,
+          max_tokens: 4096,
+          // Dahili olarak stream kullanıyoruz — bağlantı hiç sessiz kalmaz,
+          // AbortController ve ağ proxy'leri isteği asla erkenden kapatmaz.
+          stream: true,
+        };
 
-        try {
-          const body: Record<string, unknown> = {
-            model: this.deepinfraModel,
-            messages,
-            temperature: 0.7,
-            max_tokens: 4096, // Reduced from 8192 to limit long generations and improve overall response time
-          };
+        if (responseMimeType === 'application/json') {
+          body.response_format = { type: 'json_object' };
+          const lastMsg = messages[messages.length - 1];
+          const jsonInstruction = "\n\nIMPORTANT: Respond ONLY with a valid JSON object.";
 
-          if (responseMimeType === 'application/json') {
-            body.response_format = { type: 'json_object' };
-            const lastMsg = messages[messages.length - 1];
-            const jsonInstruction = "\n\nIMPORTANT: Respond ONLY with a valid JSON object.";
-
-            if (typeof lastMsg.content === 'string') {
-              if (!lastMsg.content.toLowerCase().includes('json')) {
-                lastMsg.content += jsonInstruction;
-              }
-            } else if (Array.isArray(lastMsg.content)) {
-              const hasJsonInstr = lastMsg.content.some((part) =>
-                part.type === 'text' && part.text.toLowerCase().includes('json')
-              );
-              if (!hasJsonInstr) {
-                lastMsg.content.push({ type: 'text', text: jsonInstruction });
-              }
+          if (typeof lastMsg.content === 'string') {
+            if (!lastMsg.content.toLowerCase().includes('json')) {
+              lastMsg.content += jsonInstruction;
+            }
+          } else if (Array.isArray(lastMsg.content)) {
+            const hasJsonInstr = lastMsg.content.some((part) =>
+              part.type === 'text' && part.text.toLowerCase().includes('json')
+            );
+            if (!hasJsonInstr) {
+              lastMsg.content.push({ type: 'text', text: jsonInstruction });
             }
           }
-
-          const payload = JSON.stringify(body);
-          const payloadBytes = typeof TextEncoder !== 'undefined'
-            ? new TextEncoder().encode(payload).length
-            : payload.length; // Fallback is char count and may underestimate UTF-8 byte size for non-ASCII text
-          phase = 'sending';
-          console.log(`📡 [DeepInfra] Sending... Model: ${this.deepinfraModel}, Vision: ${!!(images && images.length > 0)}, Size: ${payloadBytes} bytes`);
-
-          const diResponse = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${decryptedKey}`,
-            },
-            signal: controller.signal,
-            body: payload,
-          });
-
-          clearTimeout(timeoutId);
-          const elapsedMs = Math.round(getElapsedMarker() - startedAt);
-          console.log(`📥 [DeepInfra] Response received - Status: ${diResponse.status}, Time: ${elapsedMs}ms`);
-
-          if (!diResponse.ok) {
-            phase = 'received';
-            const errorText = await diResponse.text();
-            console.error(`❌ DeepInfra Error - Phase: ${phase}, Status: ${diResponse.status}, Time: ${elapsedMs}ms, Body:`, errorText);
-            const diErr = new Error(`DeepInfra API error: ${diResponse.status}`) as Error & { status: number; retryAfterMs?: number };
-            diErr.status = diResponse.status;
-            const retryAfter = diResponse.headers.get('Retry-After');
-            if (retryAfter) diErr.retryAfterMs = parseInt(retryAfter, 10) * 1000;
-            throw diErr;
-          }
-          phase = 'received';
-
-          const diData = await diResponse.json();
-          const diText = diData.choices?.[0]?.message?.content || '';
-          const diPromptTokens = diData.usage?.prompt_tokens || 0;
-          const diCompletionTokens = diData.usage?.completion_tokens || 0;
-          return { text: diText, promptTokens: diPromptTokens, completionTokens: diCompletionTokens, modelUsed: this.deepinfraModel };
-        } catch (error: unknown) {
-          clearTimeout(timeoutId);
-          const elapsedMs = Math.round(getElapsedMarker() - startedAt);
-          const err = error as Error;
-          if (err.name === 'AbortError') {
-            console.error(`❌ DeepInfra Timed Out - Phase: ${phase}, Time: ${elapsedMs}ms`);
-            throw new Error(`DeepInfra request timed out after ${DEEPINFRA_TIMEOUT_MS / 1000} seconds`);
-          }
-          throw error;
         }
+
+        const payload = JSON.stringify(body);
+        const payloadBytes = typeof TextEncoder !== 'undefined'
+          ? new TextEncoder().encode(payload).length
+          : payload.length;
+
+        console.log(`📡 [DeepInfra] Sending (stream-backed)... Model: ${this.deepinfraModel}, Vision: ${!!(images && images.length > 0)}, Size: ${payloadBytes} bytes`);
+
+        const diResponse = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${decryptedKey}`,
+            'Accept': 'text/event-stream',
+          },
+          body: payload,
+        });
+
+        const elapsedHeader = Math.round(Date.now() - startedAt);
+        console.log(`📥 [DeepInfra] Header alındı — HTTP ${diResponse.status} (${elapsedHeader}ms)`);
+
+        if (!diResponse.ok) {
+          const errorText = await diResponse.text().catch(() => '');
+          console.error(`❌ [DeepInfra] Hata — Status: ${diResponse.status}, Body:`, errorText);
+          const diErr = new Error(`DeepInfra API error: ${diResponse.status}`) as Error & { status: number; retryAfterMs?: number };
+          diErr.status = diResponse.status;
+          const retryAfter = diResponse.headers.get('Retry-After');
+          if (retryAfter) diErr.retryAfterMs = parseInt(retryAfter, 10) * 1000;
+          throw diErr;
+        }
+
+        // SSE stream'i okuyup tam metni biriktiriyoruz
+        const diReader = diResponse.body?.getReader();
+        if (!diReader) throw new Error('DeepInfra response body is not readable');
+
+        const diDecoder = new TextDecoder();
+        let diText = '';
+        let diBuffer = '';
+        let diPromptTokens = 0;
+        let diCompletionTokens = 0;
+
+        console.log(`🌊 [DeepInfra] Veri akışı başlıyor...`);
+
+        while (true) {
+          const { done, value } = await diReader.read();
+          if (done) break;
+
+          diBuffer += diDecoder.decode(value, { stream: true });
+          const parts = diBuffer.split('\n');
+          diBuffer = parts.pop() || '';
+
+          for (const line of parts) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed === 'data: [DONE]') continue;
+            if (!trimmed.startsWith('data: ')) continue;
+
+            try {
+              const jsonStr = trimmed.replace('data: ', '').trim();
+              if (!jsonStr) continue;
+
+              const json = JSON.parse(jsonStr);
+              const chunk = json.choices?.[0]?.delta?.content || '';
+              if (chunk) diText += chunk;
+
+              if (json.usage) {
+                diPromptTokens = json.usage.prompt_tokens || diPromptTokens;
+                diCompletionTokens = json.usage.completion_tokens || diCompletionTokens;
+              }
+            } catch (_e) {
+              // Bozuk SSE satırlarını sessizce atla
+            }
+          }
+        }
+
+        const totalMs = Math.round(Date.now() - startedAt);
+        console.log(`✅ [DeepInfra] Tamamlandı — ${diText.length} karakter, ${totalMs}ms`);
+
+        if (!diText) {
+          console.error(`❌ [DeepInfra] Boş yanıt — ${totalMs}ms sonra içerik gelmedi.`);
+          const emptyErr = new Error('DeepInfra empty response') as Error & { status: number };
+          emptyErr.status = 503;
+          throw emptyErr;
+        }
+
+        return { text: diText, promptTokens: diPromptTokens, completionTokens: diCompletionTokens, modelUsed: this.deepinfraModel };
       }
 
       default:
         throw new Error(`Unknown provider: ${key.provider}`);
     }
   }
+
 
   private async updateKeyUsage(keyId: string, promptTokens: number, completionTokens: number, operationType: string, modelUsed: string) {
     await supabase.rpc('increment_api_key_usage', {
