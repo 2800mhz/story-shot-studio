@@ -18,6 +18,10 @@ import { AgentDrawer } from '@/components/agent/AgentDrawer';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useAppState } from '@/hooks/useAppState';
 import { useAgentSession } from '@/hooks/useAgentSession';
+import { useEpisodeWorkspace } from '@/hooks/useEpisodeWorkspace';
+import { useAutosave } from '@/hooks/useAutosave';
+import { useAgentActions } from '@/hooks/useAgentActions';
+
 import { parseDocument } from '@/lib/documentParser';
 import { parseEpisodes } from '@/lib/episodeParser';
 import { generatePrompts, loadSystemPrompt } from '@/lib/geminiApi';
@@ -46,13 +50,23 @@ const Index = () => {
   const { state, dispatch, undo, redo } = useAppState();
   const { toast } = useToast();
   const { user } = useAuth();
-  const [loadingData, setLoadingData] = useState(false);
-  const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [analysisLog, setAnalysisLog] = useState<string[]>([]);
-  const [project, setProject] = useState<{ title: string; master_prompt?: string; project_type?: ProjectType } | null>(null);
-  const [episode, setEpisode] = useState<{ title: string; document_text?: string } | null>(null);
   const [noKeysWarning, setNoKeysWarning] = useState(false);
+
+  const { loadingData, project, episode, loadEpisodeData } = useEpisodeWorkspace({
+    projectId,
+    episodeId,
+    dispatch,
+    toast
+  });
+
+  const { savingStatus, lastSavedAt, doSave } = useAutosave({
+    episodeId,
+    state,
+    loadingData,
+    episode,
+    toast
+  });
   useEffect(() => {
     if (user?.id) {
       aiProvider.initialize(user.id)
@@ -94,333 +108,7 @@ const Index = () => {
     if (projectId && episodeId) {
       loadEpisodeData();
     }
-  }, [projectId, episodeId]);
-
-  async function loadEpisodeData() {
-    setLoadingData(true);
-    try {
-      console.log('📥 Loading episode data:', episodeId);
-
-      const [projectData, episodeData, scenesData, globalChars, globalLocs, referencesData] = await Promise.all([
-        fetchProject(projectId!),
-        fetchEpisode(episodeId!),
-        fetchScenes(episodeId!),
-        fetchGlobalCharacters(projectId!),
-        fetchGlobalLocations(projectId!),
-        fetchReferences(episodeId!)
-      ]);
-
-      console.log('✅ Loaded:', {
-        project: projectData.title,
-        episode: episodeData.title,
-        scenes: scenesData.length
-      });
-
-      setProject(projectData);
-      dispatch({ type: 'SET_PROJECT_TYPE', payload: (projectData.project_type as ProjectType) || 'documentary' });
-      setEpisode(episodeData);
-
-      console.log('📎 References from DB:', referencesData?.length, referencesData);
-      // Add references to state
-      dispatch({ type: 'SET_REFERENCES', payload: referencesData || [] });
-      console.log('📎 SET_REFERENCES dispatched');
-
-      // Load master prompt from project
-      if (projectData.master_prompt) {
-        dispatch({ type: 'SET_MASTER_PROMPT', payload: projectData.master_prompt });
-      }
-
-      // Load document text — sync both mainText and documentText
-      if (episodeData.document_text) {
-        dispatch({ type: 'SET_DOCUMENT_TEXT', payload: episodeData.document_text });
-        // Re-derive episodes from the stored HTML by stripping tags first,
-        // so the navigator (LeftPanel) is populated correctly after a page refresh.
-        const plainText = episodeData.document_text.replace(/<[^>]+>/g, '');
-        const derivedEpisodes = parseEpisodes(plainText);
-        dispatch({ type: 'SET_EPISODES', payload: derivedEpisodes });
-      }
-
-      // Load episode-level style prompt (overrides/extends master prompt for this episode)
-      if (episodeData.episode_prompt) {
-        dispatch({ type: 'SET_EPISODE_PROMPT', payload: episodeData.episode_prompt });
-      } else {
-        dispatch({ type: 'SET_EPISODE_PROMPT', payload: '' });
-      }
-
-      // Load Turkish translation of the episode prompt
-      if (episodeData.episode_prompt_tr) {
-        dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: episodeData.episode_prompt_tr });
-      } else {
-        dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: '' });
-      }
-
-      // Load episode style history
-      if (Array.isArray(episodeData.episode_style_history) && episodeData.episode_style_history.length > 0) {
-        dispatch({ type: 'SET_EPISODE_STYLE_HISTORY', payload: episodeData.episode_style_history as EpisodeStyleVersion[] });
-      } else {
-        dispatch({ type: 'SET_EPISODE_STYLE_HISTORY', payload: [] });
-      }
-
-      // Load characters: prefer episode-specific character_data (preserves exact IDs
-      // used by scene cards) over global_characters table.
-      if (episodeData.character_data) {
-        try {
-          dispatch({ type: 'SET_CHARACTERS', payload: JSON.parse(episodeData.character_data) });
-        } catch (e) {
-          console.warn('Failed to parse character_data, falling back to global characters:', e);
-          if (globalChars.length > 0) {
-            dispatch({
-              type: 'SET_CHARACTERS',
-              payload: globalChars.map((c: { id: string; name: string; role?: string | null; is_crowd?: boolean | null; visual_description?: string | null }) => ({
-                id: c.id,
-                name: c.name,
-                role: c.role || undefined,
-                isCrowd: c.is_crowd ?? false,
-                visualDescription: c.visual_description || undefined,
-              }))
-            });
-          }
-        }
-      } else if (globalChars.length > 0) {
-        dispatch({
-          type: 'SET_CHARACTERS',
-          payload: globalChars.map((c: { id: string; name: string; role?: string | null; is_crowd?: boolean | null; visual_description?: string | null }) => ({
-            id: c.id,
-            name: c.name,
-            role: c.role || undefined,
-            isCrowd: c.is_crowd ?? false,
-            visualDescription: c.visual_description || undefined,
-          }))
-        });
-      }
-
-      // Load locations: prefer episode-specific location_data over global_locations table.
-      if (episodeData.location_data) {
-        try {
-          dispatch({ type: 'SET_LOCATIONS', payload: JSON.parse(episodeData.location_data) });
-        } catch (e) {
-          console.warn('Failed to parse location_data, falling back to global locations:', e);
-          if (globalLocs.length > 0) {
-            dispatch({
-              type: 'SET_LOCATIONS',
-              payload: globalLocs.map((l: { id: string; name: string; visual_description?: string | null }) => ({
-                id: l.id,
-                name: l.name,
-                visualDescription: l.visual_description || undefined,
-              }))
-            });
-          }
-        }
-      } else if (globalLocs.length > 0) {
-        dispatch({
-          type: 'SET_LOCATIONS',
-          payload: globalLocs.map((l: { id: string; name: string; visual_description?: string | null }) => ({
-            id: l.id,
-            name: l.name,
-            visualDescription: l.visual_description || undefined,
-          }))
-        });
-      }
-
-      // Load scenes into state
-      if (scenesData.length > 0) {
-        const mappedScenes = scenesData.map((scene: any) => ({
-          id: scene.id,
-          sceneNumber: scene.scene_number,
-          text: scene.text,
-          visualNote: scene.visual_note || '',
-          characterIds: scene.character_ids || [],
-          locationIds: scene.location_ids || [],
-          timeContextIds: scene.time_context_ids || [],
-          startIndex: scene.start_index ?? undefined,
-          endIndex: scene.end_index ?? undefined,
-          prompts: [],
-          status: 'ready' as const,
-          noteEditable: false,
-          analysis: scene.analysis,
-          optimizations: scene.optimizations || []
-        }));
-
-        dispatch({ type: 'SET_SCENES', payload: mappedScenes });
-
-        // Load ALL prompts in a SINGLE batch request
-        const promptsByScene = await fetchAllPromptsForScenes(scenesData.map(s => s.id));
-        const allMappedPrompts: Record<string, any[]> = {};
-        
-        promptsByScene.forEach((prompts, sceneId) => {
-          if (prompts.length > 0) {
-            allMappedPrompts[sceneId] = prompts.map((p: any) => ({
-              id: p.id,
-              type: p.type,
-              label: p.label,
-              shotType: p.shot_type,
-              summary: p.summary,
-              explanation: p.explanation,
-              promptText: p.prompt_text,
-              aspectRatio: p.aspect_ratio,
-              versions: [p.prompt_text],
-              isPinned: p.is_pinned ?? false,
-              isPinnedByAI: false,
-            }));
-          }
-        });
-
-        if (Object.keys(allMappedPrompts).length > 0) {
-          dispatch({ type: 'SET_ALL_PROMPTS', payload: allMappedPrompts });
-        }
-      }
-
-      // Load time contexts from Supabase (backward compatible: if column missing treat as [])
-      const storedTimeContexts = Array.isArray(episodeData.time_contexts) && episodeData.time_contexts.length > 0
-        ? episodeData.time_contexts
-        : null;
-      if (storedTimeContexts) {
-        dispatch({ type: 'SET_TIME_CONTEXTS', payload: storedTimeContexts });
-      }
-    } catch (error) {
-      console.error('❌ Error loading episode data:', error);
-      toast({
-        title: "Error loading episode",
-        description: error instanceof Error ? error.message : "Failed to load episode data",
-        variant: "destructive"
-      });
-    } finally {
-      setLoadingData(false);
-    }
-  }
-
-  // Auto-save scenes + episode-level data to Supabase whenever relevant state changes.
-  // Merging both saves into doSave to avoid duplicate Supabase writes.
-  const isSavingRef = useRef(false);
-  const pendingSaveRef = useRef(false);
-
-  // Keep a ref to latest state values so doSave always reads fresh data
-  // without needing to be recreated on every state change.
-  const saveStateRef = useRef({
-    sceneCards: state.sceneCards,
-    timeContexts: state.timeContexts,
-    episodePrompt: state.episodePrompt,
-    episodePromptTr: state.episodePromptTr,
-    episodeStyleHistory: state.episodeStyleHistory,
-    documentText: state.documentText,
-    characters: state.characters,
-    locations: state.locations,
-  });
-  saveStateRef.current = {
-    sceneCards: state.sceneCards,
-    timeContexts: state.timeContexts,
-    episodePrompt: state.episodePrompt,
-    episodePromptTr: state.episodePromptTr,
-    episodeStyleHistory: state.episodeStyleHistory,
-    documentText: state.documentText,
-    characters: state.characters,
-    locations: state.locations,
-  };
-
-  const doSave = useCallback(async () => {
-    if (!episodeId) return;
-    const snap = saveStateRef.current;
-    if (snap.sceneCards.length === 0) return;
-    if (isSavingRef.current) {
-      pendingSaveRef.current = true;
-      console.log('⏳ Save already in progress, queuing…');
-      return;
-    }
-
-    isSavingRef.current = true;
-    pendingSaveRef.current = false;
-
-    try {
-      setSavingStatus('saving');
-      console.log('💾 Auto-saving scenes + episode data...');
-
-      // Save scenes
-      await saveScenes(episodeId, snap.sceneCards);
-
-      // Save all episode-level data in a SINGLE call (no duplicate writes)
-      await updateEpisode(episodeId, {
-        time_contexts: snap.timeContexts,
-        episode_prompt: snap.episodePrompt || undefined,
-        episode_prompt_tr: snap.episodePromptTr || undefined,
-        episode_style_history: snap.episodeStyleHistory,
-        document_text: snap.documentText || undefined,
-        character_data: JSON.stringify(snap.characters),
-        location_data: JSON.stringify(snap.locations),
-      });
-
-      // Save prompts in parallel batches (5 at a time) with error isolation
-      const PROMPT_BATCH = 5;
-      const scenesWithPrompts = snap.sceneCards.filter(scene => scene.prompts.length > 0);
-
-      let failedCount = 0;
-      for (let i = 0; i < scenesWithPrompts.length; i += PROMPT_BATCH) {
-        const batch = scenesWithPrompts.slice(i, i + PROMPT_BATCH);
-        const results = await Promise.allSettled(
-          batch.map(scene => savePrompts(scene.id, scene.prompts))
-        );
-        results.forEach((r, idx) => {
-          if (r.status === 'rejected') {
-            failedCount++;
-            console.error(`❌ Failed to save prompts for scene ${batch[idx].id}:`, r.reason);
-          }
-        });
-      }
-
-      if (failedCount > 0) {
-        console.warn(`⚠️ ${failedCount}/${scenesWithPrompts.length} prompt saves failed`);
-        setSavingStatus('error');
-        toast({
-          title: "Kısmi kaydetme hatası",
-          description: `${scenesWithPrompts.length - failedCount}/${scenesWithPrompts.length} sahne kaydedildi. ${failedCount} sahne başarısız.`,
-          variant: "destructive"
-        });
-      } else {
-        setSavingStatus('saved');
-        setLastSavedAt(new Date());
-        console.log('✅ Auto-save complete');
-      }
-
-      // Reset to idle after 2 seconds
-      setTimeout(() => setSavingStatus('idle'), 2000);
-    } catch (error) {
-      console.error('❌ Error saving scenes:', error);
-      setSavingStatus('error');
-      toast({
-        title: "Save failed",
-        description: error instanceof Error ? error.message : "Failed to save changes",
-        variant: "destructive"
-      });
-    } finally {
-      isSavingRef.current = false;
-      if (pendingSaveRef.current) {
-        pendingSaveRef.current = false;
-        doSave();
-      }
-    }
-  }, [episodeId, toast]);
-
-  useEffect(() => {
-    if (!loadingData && episode && episodeId) {
-      const timeoutId = setTimeout(doSave, AUTO_SAVE_DEBOUNCE_MS);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [
-    state.sceneCards, state.timeContexts, state.episodePrompt, state.episodePromptTr,
-    state.episodeStyleHistory, state.documentText, state.characters, state.locations,
-    episodeId, loadingData, episode, doSave
-  ]);
-
-  // Ensure we save if the user closes the tab before debounce fires
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      // If there's a pending save or state is fresh, try to save synchronously or warn user
-      // Browsers don't allow async operations in beforeunload reliable, but fetch with keepalive or navigator.sendBeacon works.
-      // For now, we just force a save attempt.
-      doSave();
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [doSave]);
+  }, [projectId, episodeId, loadEpisodeData]);
 
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [infoOpen, setInfoOpen] = React.useState(false);
@@ -437,18 +125,17 @@ const Index = () => {
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
   const isAgentLocked = agent.isBusy || agent.session.pendingOperationSet !== null;
 
-  const fileToBase64 = useCallback((file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        const [, base64 = ''] = result.split(',');
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }, []);
+  const { handleAddAgentAttachment, handleSubmitAgentCommand, handleApplyAgentChanges } = useAgentActions({
+    agent,
+    state,
+    dispatch,
+    toast,
+    selectedEntityId,
+    agentCommand,
+    setAgentCommand,
+    setNoKeysWarning,
+    episodeId,
+  });
 
   const handleScriptComplete = useCallback((result: {
     sceneCards: import('@/types').SceneCard[];
@@ -473,203 +160,6 @@ const Index = () => {
       aiProvider.startWarmup(90_000);
     }
   }, [agent.session.open]);
-
-  const handleAddAgentAttachment = useCallback(async (file: File) => {
-    try {
-      const base64 = await fileToBase64(file);
-      let analysis = '';
-      if (aiProvider.isInitialized() && aiProvider.hasKeys()) {
-        try {
-          const attachmentSummary = await aiProvider.generateContent(
-            'Describe this image for an editing agent. Focus on subject identity, clothing, accessories, color palette, and shape language. Return a short plain-text description.',
-            'You are a visual reference analyst for a film editing tool. Respond in one short paragraph only.',
-            {
-              operationType: 'agent_attachment_analysis',
-              images: [{ inlineData: { data: base64, mimeType: file.type || 'image/png' } }],
-            }
-          );
-          analysis = attachmentSummary.trim();
-        } catch (attachmentError) {
-          console.warn('Attachment analysis skipped:', attachmentError);
-        }
-      }
-      agent.setAttachments(prev => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          type: 'image',
-          name: file.name,
-          mimeType: file.type || 'image/png',
-          base64,
-          analysis,
-        },
-      ]);
-    } catch (error) {
-      console.error('Failed to attach image:', error);
-      toast({ title: 'Görsel eklenemedi', description: 'Dosya okunurken bir hata oluştu.', variant: 'destructive' });
-    }
-  }, [agent, fileToBase64, toast]);
-
-  const handleSubmitAgentCommand = useCallback(async () => {
-    const command = agentCommand.trim();
-    if (!command) return;
-    if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
-      setNoKeysWarning(true);
-      return;
-    }
-    if (agent.session.scope === 'selected-entity' && !selectedEntityId) {
-      toast({
-        title: 'Entity secilmedi',
-        description: 'Entity scope icin once Varliklar panelinden bir karakter sec.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    agent.setOpen(true);
-    agent.setIsBusy(true);
-    agent.setIsStreaming(true);
-    agent.clearPendingOperationSet();
-
-    agent.addMessage({
-      role: 'user',
-      content: command,
-      attachments: agent.attachments,
-    });
-    const assistantMessageId = agent.addMessage({
-      role: 'assistant',
-      content: '',
-      streaming: true,
-    });
-    setAgentCommand('');
-
-    try {
-      const context = buildAgentContext({
-        scope: agent.session.scope,
-        activeSceneId: state.activeSceneId,
-        selectedEntityId,
-        sceneCards: state.sceneCards,
-        characters: state.characters,
-        locations: state.locations,
-        timeContexts: state.timeContexts,
-        references: state.references,
-        episodePrompt: state.episodePrompt,
-        masterPrompt: state.masterPrompt,
-      });
-
-      const prompt = buildAgentUserPrompt({
-        command,
-        context,
-        attachments: agent.attachments,
-      });
-
-      const images = agent.attachments
-        .filter((attachment) => attachment.base64)
-        .map((attachment) => ({
-          inlineData: {
-            data: attachment.base64!,
-            mimeType: attachment.mimeType,
-          },
-        }));
-
-      let streamed = '';
-      const response = images.length > 0
-        ? await aiProvider.generateContent(prompt, AGENT_SYSTEM_PROMPT, {
-            operationType: 'agent_edit',
-            images,
-          })
-        : await aiProvider.generateContentStream(prompt, AGENT_SYSTEM_PROMPT, {
-            operationType: 'agent_edit_stream',
-            onChunk: (text) => {
-              streamed = text;
-              agent.updateMessage(assistantMessageId, {
-                content: stripAgentResultBlock(text) || 'Düşünüyorum...',
-              });
-            },
-          });
-
-      const finalText = images.length > 0 ? response : streamed || response;
-      agent.updateMessage(assistantMessageId, {
-        content: stripAgentResultBlock(finalText) || 'Değişiklik hazır.',
-        streaming: false,
-      });
-      const operationSet = parseAgentOperationSet(finalText);
-      agent.setPendingOperationSet(operationSet);
-      agent.clearAttachments();
-    } catch (error) {
-      console.error('Agent command failed:', error);
-      agent.updateMessage(assistantMessageId, {
-        content: error instanceof Error ? error.message : 'Agent komutu işlenemedi.',
-        streaming: false,
-        status: 'error',
-      });
-      toast({
-        title: 'Agent komutu başarısız',
-        description: error instanceof Error ? error.message : 'Beklenmeyen bir hata oluştu.',
-        variant: 'destructive',
-      });
-    } finally {
-      agent.setIsBusy(false);
-      agent.setIsStreaming(false);
-    }
-  }, [
-    agent,
-    agent.attachments,
-    agent.session.scope,
-    agentCommand,
-    selectedEntityId,
-    state.activeSceneId,
-    state.characters,
-    state.locations,
-    state.masterPrompt,
-    state.episodePrompt,
-    state.references,
-    state.sceneCards,
-    state.timeContexts,
-    toast,
-  ]);
-
-  const handleApplyAgentChanges = useCallback(() => {
-    const operationSet = agent.pendingOperationSet;
-    if (!operationSet) return;
-
-    const nextState = applyAgentOperations({
-      sceneCards: state.sceneCards,
-      characters: state.characters,
-      locations: state.locations,
-      timeContexts: state.timeContexts,
-      references: state.references,
-    }, operationSet);
-
-    const referencesWithEpisode = nextState.references.map((reference): SceneReference => ({
-      ...reference,
-      episodeId: reference.episodeId || episodeId || '',
-    }));
-
-    dispatch({ type: 'SET_SCENES', payload: nextState.sceneCards });
-    dispatch({ type: 'SET_CHARACTERS', payload: nextState.characters });
-    dispatch({ type: 'SET_LOCATIONS', payload: nextState.locations });
-    dispatch({ type: 'SET_TIME_CONTEXTS', payload: nextState.timeContexts });
-    dispatch({ type: 'SET_REFERENCES', payload: referencesWithEpisode });
-
-    agent.addMessage({
-      role: 'status',
-      content: `Uygulandı: ${operationSet.summary}`,
-      status: 'done',
-    });
-    agent.clearPendingOperationSet();
-    toast({ title: 'Agent değişiklikleri uygulandı', description: operationSet.summary });
-  }, [
-    agent,
-    dispatch,
-    episodeId,
-    state.characters,
-    state.locations,
-    state.references,
-    state.sceneCards,
-    state.timeContexts,
-    toast,
-  ]);
 
   const handleReviseEpisodeStyle = useCallback(async (instruction: string) => {
     if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
