@@ -1331,6 +1331,14 @@ const Index = () => {
       <div className="flex items-center gap-2 px-4 py-1 border-b border-border bg-card/50">
         <Button
           size="sm"
+          variant={agent.session.open ? 'default' : 'outline'}
+          className="h-7 text-xs"
+          onClick={() => agent.setOpen(!agent.session.open)}
+        >
+          🤖 AI Editör
+        </Button>
+        <Button
+          size="sm"
           variant={showEntityPanel ? 'default' : 'outline'}
           className="h-7 text-xs"
           onClick={() => setShowEntityPanel(v => !v)}
