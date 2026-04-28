@@ -1346,11 +1346,33 @@ const Index = () => {
           size="sm"
           variant="outline"
           className="h-7 w-7 p-0"
-          onClick={() => aiProvider.warmup()}
+          onClick={async () => {
+            const success = await aiProvider.warmup();
+            if (success) {
+              toast({
+                title: "🔥 Sistem Isındı",
+                description: `DeepInfra (${aiProvider.getActiveModelName().split('/').pop()}) aktif ve hazır.`,
+              });
+            } else {
+              toast({
+                title: "⚠️ Isınma Başarısız",
+                description: "DeepInfra'ya ulaşılamadı, otomatik rotasyon devrede.",
+                variant: "destructive"
+              });
+            }
+          }}
           title={isWarmed ? "DeepInfra Sıcak (Hazır)" : "DeepInfra Soğuk (Isıtmak için tıkla)"}
         >
           <Flame className={`h-3.5 w-3.5 ${isWarmed ? 'text-orange-500 fill-orange-500/20' : 'text-muted-foreground'}`} />
         </Button>
+        <div className="ml-auto flex items-center gap-2 text-[10px] text-muted-foreground bg-zinc-900/50 px-2 py-0.5 rounded border border-white/5">
+          <span className="opacity-50">ENGINE:</span>
+          <span className={`font-mono ${isWarmed ? 'text-green-400' : 'text-zinc-400'}`}>
+            {aiProvider.getProviderName().toUpperCase()} 
+            <span className="mx-1 opacity-30">/</span>
+            {aiProvider.getActiveModelName().split('/').pop()}
+          </span>
+        </div>
         <Button
           size="sm"
           variant={showEntityPanel ? 'default' : 'outline'}

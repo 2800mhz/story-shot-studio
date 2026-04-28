@@ -132,6 +132,16 @@ class AIProviderManager {
     return this.model;
   }
 
+  getProviderName(): string {
+    return this.currentProvider;
+  }
+
+  getActiveModelName(): string {
+    if (this.currentProvider === 'deepinfra') return this.deepinfraModel;
+    if (this.currentProvider === 'groq') return this.groqModel;
+    return this.getActiveModel();
+  }
+
   setGroqModel(model: string) {
     if (model && model.trim()) {
       this.groqModel = model.trim();
@@ -1249,6 +1259,8 @@ class AIProviderManager {
           this.warmedUp = true;
           this.lastPingAt = Date.now();
           this.onStatusChange?.(true);
+          // Ping başarılıysa DeepInfra'ya geri dön (eğer başka sağlayıcıya rotate olduysa)
+          this.currentProvider = 'deepinfra';
         } else {
           this.warmedUp = false;
           this.onStatusChange?.(false);
