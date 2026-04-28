@@ -566,29 +566,44 @@ class AIProviderManager {
       }
 
       case 'deepinfra': {
+        // System instruction'ı user prompt'una gömüyoruz — bazı açık kaynak modeller
+        // system rolünü aldığında takılabilir, bu yöntem daha güvenilir sonuç verir.
+        const normalizedSystemInstruction = systemInstruction?.trim();
+        const systemRules = normalizedSystemInstruction
+          ? `SYSTEM RULES:\n${normalizedSystemInstruction}\n\n---\n\n`
+          : '';
+        const userPrompt = `${systemRules}${prompt}`;
+
         const body: Record<string, unknown> = {
           model: this.deepinfraModel,
-          messages: [
-            ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
-            { role: 'user', content: prompt }
-          ],
+          messages: [{ role: 'user', content: userPrompt }],
           temperature: 0.7,
           max_tokens: 4096,
-          stream: true, // Stream'i aktif ettik
+          stream: true,
         };
+
+        const startTime = Date.now();
+        console.log(`📡 [DeepInfra Stream] İstek gönderiliyor... Model: ${this.deepinfraModel}`);
 
         const response = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${decryptedKey}`
+            'Authorization': `Bearer ${decryptedKey}`,
+            'Accept': 'text/event-stream', // Ağ katmanlarına SSE olduğunu belirtiyoruz
           },
           body: JSON.stringify(body),
         });
 
+        console.log(`📥 [DeepInfra Stream] Header alındı — HTTP ${response.status} (${Date.now() - startTime}ms)`);
+
         if (!response.ok) {
+          const errorText = await response.text().catch(() => '');
+          console.error(`❌ [DeepInfra Stream] Hata — Status: ${response.status}, Body:`, errorText);
           const err = new Error(`DeepInfra API error: ${response.status}`) as Error & { status: number; retryAfterMs?: number };
           err.status = response.status;
+          const retryAfter = response.headers.get('Retry-After');
+          if (retryAfter) err.retryAfterMs = parseInt(retryAfter, 10) * 1000;
           throw err;
         }
 
@@ -600,6 +615,9 @@ class AIProviderManager {
         let buffer = '';
         let inputTokens = 0;
         let outputTokens = 0;
+        let chunkCount = 0;
+
+        console.log(`🌊 [DeepInfra Stream] Veri akışı başlıyor...`);
 
         while (true) {
           const { done, value } = await reader.read();
@@ -623,21 +641,25 @@ class AIProviderManager {
 
               if (textChunk) {
                 fullText += textChunk;
-                onChunk?.(fullText); // Gelen parçayı UI'a gönder
+                chunkCount++;
+                onChunk?.(fullText);
               }
-              
-              // OpenAI tarzı stream'lerde token kullanımı bazen son chunk'ta 'usage' objesi olarak gelir
+
               if (json.usage) {
                 inputTokens = json.usage.prompt_tokens || inputTokens;
                 outputTokens = json.usage.completion_tokens || outputTokens;
               }
             } catch (e) {
-              console.warn('Failed to parse SSE line (DeepInfra):', e);
+              // Bozuk SSE satırlarını sessizce atla
             }
           }
         }
 
+        const totalMs = Date.now() - startTime;
+        console.log(`✅ [DeepInfra Stream] Tamamlandı — ${chunkCount} chunk, ${fullText.length} karakter, ${totalMs}ms`);
+
         if (!fullText) {
+          console.error(`❌ [DeepInfra Stream] Boş yanıt — ${totalMs}ms sonra hiç içerik gelmedi.`);
           const emptyStreamErr = new Error('DeepInfra stream empty response') as Error & { status: number };
           emptyStreamErr.status = 503;
           throw emptyStreamErr;
