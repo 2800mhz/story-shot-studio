@@ -633,6 +633,15 @@ const Index = () => {
     const operationSet = agent.pendingOperationSet;
     if (!operationSet) return;
 
+    // Save snapshot for undo before applying
+    agent.setUndoSnapshot({
+      sceneCards: state.sceneCards,
+      characters: state.characters,
+      locations: state.locations,
+      timeContexts: state.timeContexts,
+      references: state.references,
+    });
+
     const nextState = applyAgentOperations({
       sceneCards: state.sceneCards,
       characters: state.characters,
@@ -670,6 +679,30 @@ const Index = () => {
     state.timeContexts,
     toast,
   ]);
+
+  const handleUndoAgentChanges = useCallback(() => {
+    const snapshot = agent.undoSnapshot;
+    if (!snapshot) return;
+
+    const referencesWithEpisode = snapshot.references.map((reference): SceneReference => ({
+      ...reference,
+      episodeId: reference.episodeId || episodeId || '',
+    }));
+
+    dispatch({ type: 'SET_SCENES', payload: snapshot.sceneCards });
+    dispatch({ type: 'SET_CHARACTERS', payload: snapshot.characters });
+    dispatch({ type: 'SET_LOCATIONS', payload: snapshot.locations });
+    dispatch({ type: 'SET_TIME_CONTEXTS', payload: snapshot.timeContexts });
+    dispatch({ type: 'SET_REFERENCES', payload: referencesWithEpisode });
+
+    agent.clearUndoSnapshot();
+    agent.addMessage({
+      role: 'status',
+      content: 'Agent değişiklikleri geri alındı.',
+      status: 'done',
+    });
+    toast({ title: 'Geri alındı', description: 'Agent değişiklikleri önceki haline döndürüldü.' });
+  }, [agent, dispatch, episodeId, toast]);
 
   const handleReviseEpisodeStyle = useCallback(async (instruction: string) => {
     if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
@@ -2094,6 +2127,8 @@ const Index = () => {
         onRemoveAttachment={agent.removeAttachment}
         onApply={handleApplyAgentChanges}
         onDismissChanges={agent.clearPendingOperationSet}
+        canUndo={agent.undoSnapshot !== null}
+        onUndo={handleUndoAgentChanges}
       />
 
       <SettingsModal

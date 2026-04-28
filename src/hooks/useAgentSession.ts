@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { AgentAttachment, AgentMessage, AgentOperationSet, AgentScope } from '@/lib/agentSchema';
+import type { AgentApplyState } from '@/lib/agentOperations';
 
 export function useAgentSession() {
   const [open, setOpen] = useState(false);
@@ -10,6 +11,7 @@ export function useAgentSession() {
   const [isBusy, setIsBusy] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [pendingOperationSet, setPendingOperationSet] = useState<AgentOperationSet | null>(null);
+  const [undoSnapshot, setUndoSnapshot] = useState<AgentApplyState | null>(null);
 
   const addMessage = (message: Omit<AgentMessage, 'id' | 'createdAt'>) => {
     const next: AgentMessage = {
@@ -33,6 +35,7 @@ export function useAgentSession() {
 
   const clearAttachments = () => setAttachments([]);
   const clearPendingOperationSet = () => setPendingOperationSet(null);
+  const clearUndoSnapshot = () => setUndoSnapshot(null);
 
   const session = useMemo(() => ({
     open,
@@ -64,5 +67,8 @@ export function useAgentSession() {
     pendingOperationSet,
     setPendingOperationSet,
     clearPendingOperationSet,
+    undoSnapshot,
+    setUndoSnapshot,
+    clearUndoSnapshot,
   };
 }

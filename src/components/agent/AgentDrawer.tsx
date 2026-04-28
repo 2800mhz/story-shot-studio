@@ -1,8 +1,8 @@
 import React, { useRef } from 'react';
-import { Bot, ChevronDown, ChevronUp, ImagePlus, Loader2, Paperclip, Send, Sparkles, Trash2 } from 'lucide-react';
+import { Bot, ChevronDown, ChevronUp, ImagePlus, Loader2, Paperclip, Send, Sparkles, Trash2, Undo2, UserRound, MapPin, Link2, Unlink, FileText, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { AgentAttachment, AgentMessage, AgentOperationSet, AgentScope } from '@/lib/agentSchema';
+import type { AgentAttachment, AgentMessage, AgentOperation, AgentOperationSet, AgentScope } from '@/lib/agentSchema';
 
 interface AgentDrawerProps {
   open: boolean;
@@ -23,6 +23,8 @@ interface AgentDrawerProps {
   onRemoveAttachment: (id: string) => void;
   onApply: () => void;
   onDismissChanges: () => void;
+  canUndo?: boolean;
+  onUndo?: () => void;
 }
 
 function scopeLabel(scope: AgentScope) {
@@ -33,6 +35,44 @@ function scopeLabel(scope: AgentScope) {
       return 'Seçili Entity';
     default:
       return 'Tüm Episode';
+  }
+}
+
+/** Returns a human-readable one-line description for an agent operation. */
+function describeOperation(op: AgentOperation): { icon: React.ReactNode; text: string; color: string } {
+  switch (op.type) {
+    case 'update_scene_note':
+      return { icon: <FileText className="h-3 w-3" />, text: 'Sahne notu güncellendi', color: 'text-blue-500' };
+    case 'update_scene_visual_note':
+      return { icon: <FileText className="h-3 w-3" />, text: 'Görsel açıklama güncellendi', color: 'text-blue-500' };
+    case 'update_prompt_text':
+      return { icon: <Zap className="h-3 w-3" />, text: 'Prompt metni değiştirildi', color: 'text-violet-500' };
+    case 'mark_prompt_stale':
+      return { icon: <Zap className="h-3 w-3" />, text: op.reason ? `Prompt stale: ${op.reason}` : 'Prompt yeniden üretim için işaretlendi', color: 'text-amber-500' };
+    case 'update_character': {
+      const keys = Object.keys(op.changes).join(', ');
+      return { icon: <UserRound className="h-3 w-3" />, text: `Karakter güncellendi (${keys})`, color: 'text-amber-400' };
+    }
+    case 'add_character':
+      return { icon: <UserRound className="h-3 w-3" />, text: `Yeni karakter eklendi: ${op.character.name}`, color: 'text-green-500' };
+    case 'remove_character':
+      return { icon: <UserRound className="h-3 w-3" />, text: 'Karakter silindi', color: 'text-red-500' };
+    case 'update_location': {
+      const keys = Object.keys(op.changes).join(', ');
+      return { icon: <MapPin className="h-3 w-3" />, text: `Mekan güncellendi (${keys})`, color: 'text-teal-400' };
+    }
+    case 'attach_character_to_scene':
+      return { icon: <Link2 className="h-3 w-3" />, text: 'Karakter sahneye eklendi', color: 'text-green-400' };
+    case 'detach_character_from_scene':
+      return { icon: <Unlink className="h-3 w-3" />, text: 'Karakter sahneden çıkarıldı', color: 'text-red-400' };
+    case 'add_reference_to_scene':
+      return { icon: <Link2 className="h-3 w-3" />, text: 'Referans sahneye bağlandı', color: 'text-blue-400' };
+    case 'remove_reference_from_scene':
+      return { icon: <Unlink className="h-3 w-3" />, text: 'Referans sahneden kaldırıldı', color: 'text-red-400' };
+    case 'add_scene_reference':
+      return { icon: <Link2 className="h-3 w-3" />, text: `Yeni referans oluşturuldu: ${op.reference.description || op.reference.referenceType}`, color: 'text-green-400' };
+    default:
+      return { icon: <Sparkles className="h-3 w-3" />, text: (op as AgentOperation).type, color: 'text-muted-foreground' };
   }
 }
 
@@ -56,6 +96,8 @@ export function AgentDrawer(props: AgentDrawerProps) {
     onRemoveAttachment,
     onApply,
     onDismissChanges,
+    canUndo = false,
+    onUndo,
   } = props;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -82,6 +124,18 @@ export function AgentDrawer(props: AgentDrawerProps) {
               <Loader2 className="h-3 w-3 animate-spin" />
               {isStreaming ? 'Streaming' : 'İşleniyor'}
             </span>
+          )}
+          {canUndo && !isBusy && !pendingOperationSet && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+              onClick={onUndo}
+            >
+              <Undo2 className="h-3 w-3" />
+              Geri Al
+            </Button>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -117,7 +171,7 @@ export function AgentDrawer(props: AgentDrawerProps) {
                 <div className="space-y-3">
                   {messages.length === 0 ? (
                     <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                      Buradan episode state’iyle konuşabilirsin. Karakter, sahne, referans ve prompt değişikliklerini doğal dille iste.
+                      Buradan episode state'iyle konuşabilirsin. Karakter, sahne, referans ve prompt değişikliklerini doğal dille iste.
                     </div>
                   ) : messages.map((message) => (
                     <div
@@ -224,32 +278,40 @@ export function AgentDrawer(props: AgentDrawerProps) {
                       )}
                     </div>
 
-                    <div>
-                      <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Etkilenen Sahneler</div>
-                      <div className="flex flex-wrap gap-1">
-                        {pendingOperationSet.affectedSceneIds.map((sceneId) => (
-                          <span key={sceneId} className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">{sceneId}</span>
-                        ))}
+                    {pendingOperationSet.affectedSceneIds.length > 0 && (
+                      <div>
+                        <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Etkilenen Sahneler</div>
+                        <div className="flex flex-wrap gap-1">
+                          {pendingOperationSet.affectedSceneIds.map((sceneId) => (
+                            <span key={sceneId} className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">{sceneId}</span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     <div>
-                      <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">İşlemler</div>
-                      <div className="space-y-2">
-                        {pendingOperationSet.operations.map((operation, index) => (
-                          <div key={`${operation.type}-${index}`} className="rounded-lg border bg-background px-3 py-2 text-xs">
-                            <div className="font-medium text-foreground">{operation.type}</div>
-                            <pre className="mt-1 whitespace-pre-wrap text-[11px] text-muted-foreground">
-                              {JSON.stringify(operation, null, 2)}
-                            </pre>
-                          </div>
-                        ))}
+                      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Yapılacak Değişiklikler ({pendingOperationSet.operations.length})
+                      </div>
+                      <div className="space-y-1.5">
+                        {pendingOperationSet.operations.map((operation, index) => {
+                          const { icon, text, color } = describeOperation(operation);
+                          return (
+                            <div
+                              key={`${operation.type}-${index}`}
+                              className="flex items-start gap-2 rounded-md border bg-background px-2.5 py-2 text-xs"
+                            >
+                              <span className={`mt-0.5 shrink-0 ${color}`}>{icon}</span>
+                              <span className="leading-relaxed text-foreground/80">{text}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
 
                     {pendingOperationSet.stalePromptSceneIds.length > 0 && (
                       <div>
-                        <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Yeniden Üretim Gerekenler</div>
+                        <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">⚡ Yeniden Üretim Önerilen</div>
                         <div className="flex flex-wrap gap-1">
                           {pendingOperationSet.stalePromptSceneIds.map((sceneId) => (
                             <span key={sceneId} className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-600">{sceneId}</span>

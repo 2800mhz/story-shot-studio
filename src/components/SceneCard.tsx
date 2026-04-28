@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Sparkles, Edit2, Trash2, Check, X, Copy, RefreshCw, Plus, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, Clock, Pin, ImageIcon } from 'lucide-react';
+import { Sparkles, Edit2, Trash2, Check, X, Copy, RefreshCw, Plus, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, Clock, Pin, ImageIcon, Zap } from 'lucide-react';
 import type { SceneCard as SceneCardType, Character, Location, TimeContext, PromptCard } from '@/types';
 import { PromptHistoryModal, type HistoryEntry } from './PromptHistoryModal';
 import { useClipboardState } from '@/hooks/useClipboardState';
@@ -104,6 +104,14 @@ function InlinePromptCard({
           {prompt.hasSubjectReference && (
             <span className="inline-flex items-center ml-2 border border-blue-500/30 bg-blue-500/10 text-blue-400 text-[10px] px-1.5 py-0.5 rounded gap-1" title="Referans Görsel Uygulandı">
               <ImageIcon className="h-3 w-3" /> ref
+            </span>
+          )}
+          {prompt.isStale && (
+            <span
+              className="inline-flex items-center gap-1 ml-1 border border-amber-500/50 bg-amber-500/10 text-amber-500 text-[10px] px-1.5 py-0.5 rounded font-semibold animate-pulse"
+              title={prompt.staleReason ?? 'Bu prompt yeniden üretilmeli'}
+            >
+              <Zap className="h-2.5 w-2.5" /> stale
             </span>
           )}
         </div>
@@ -295,6 +303,14 @@ export function SceneCard({
                 {scene.status === 'generating' && '⏳ Prompt Üretiliyor...'}
                 {scene.status === 'ready' && '✅ Hazır'}
               </span>
+              {scene.promptsNeedRefresh && (
+                <span
+                  className="inline-flex items-center gap-1 border border-amber-500/60 bg-amber-500/10 text-amber-500 text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                  title={scene.staleReasons?.join(' · ') ?? 'Agent değişiklik yaptı — yeniden üretim öneriliyor'}
+                >
+                  <Zap className="h-2.5 w-2.5" /> Yeniden Üret
+                </span>
+              )}
             </div>
 
             {isEditingNote ? (
