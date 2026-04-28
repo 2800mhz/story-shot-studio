@@ -1,0 +1,95 @@
+import type { AgentOperation } from '@/lib/agentSchema';
+import type { Character, SceneCard } from '@/types';
+
+function getSceneLabel(scene: SceneCard | undefined): string {
+  if (!scene) return 'Sahne';
+  const n = scene.sceneNumber ?? '?';
+  const t = (scene.text || '').trim();
+  const short = t.length > 48 ? `${t.slice(0, 48)}…` : t;
+  return short ? `Sahne ${n}: ${short}` : `Sahne ${n}`;
+}
+
+function getCharacterLabel(character: Character | undefined): string {
+  return character?.name?.trim() ? character.name.trim() : 'Karakter';
+}
+
+export function summarizeAgentOperation(args: {
+  operation: AgentOperation;
+  scenesById?: Map<string, SceneCard>;
+  charactersById?: Map<string, Character>;
+}): { title: string; lines: string[] } {
+  const { operation, scenesById, charactersById } = args;
+
+  switch (operation.type) {
+    case 'update_character': {
+      const character = charactersById?.get(operation.characterId);
+      const keys = Object.keys(operation.changes || {});
+      const prettyKeys = keys.length > 0 ? keys.join(', ') : 'alanlar';
+      return {
+        title: `${getCharacterLabel(character)} güncellendi`,
+        lines: [`Değişen alanlar: ${prettyKeys}`],
+      };
+    }
+    case 'update_location': {
+      const keys = Object.keys(operation.changes || {});
+      return {
+        title: 'Mekan güncellendi',
+        lines: keys.length ? [`Değişen alanlar: ${keys.join(', ')}`] : [],
+      };
+    }
+    case 'update_scene_note': {
+      const scene = scenesById?.get(operation.sceneId);
+      return { title: `${getSceneLabel(scene)} notu güncellendi`, lines: [] };
+    }
+    case 'update_scene_visual_note': {
+      const scene = scenesById?.get(operation.sceneId);
+      return { title: `${getSceneLabel(scene)} görsel notu güncellendi`, lines: [] };
+    }
+    case 'update_prompt_text': {
+      const scene = scenesById?.get(operation.sceneId);
+      return { title: `${getSceneLabel(scene)} prompt’u güncellendi`, lines: [] };
+    }
+    case 'mark_prompt_stale': {
+      const scene = scenesById?.get(operation.sceneId);
+      return {
+        title: `${getSceneLabel(scene)} yeniden üretim için işaretlendi`,
+        lines: operation.reason ? [operation.reason] : [],
+      };
+    }
+    case 'attach_character_to_scene': {
+      const scene = scenesById?.get(operation.sceneId);
+      const character = charactersById?.get(operation.characterId);
+      return {
+        title: `${getCharacterLabel(character)} → ${getSceneLabel(scene)}`,
+        lines: ['Sahneye eklendi'],
+      };
+    }
+    case 'detach_character_from_scene': {
+      const scene = scenesById?.get(operation.sceneId);
+      const character = charactersById?.get(operation.characterId);
+      return {
+        title: `${getCharacterLabel(character)} → ${getSceneLabel(scene)}`,
+        lines: ['Sahneden çıkarıldı'],
+      };
+    }
+    case 'add_reference_to_scene': {
+      const scene = scenesById?.get(operation.sceneId);
+      return { title: `${getSceneLabel(scene)} referans eklendi`, lines: [] };
+    }
+    case 'remove_reference_from_scene': {
+      const scene = scenesById?.get(operation.sceneId);
+      return { title: `${getSceneLabel(scene)} referans kaldırıldı`, lines: [] };
+    }
+    case 'add_scene_reference':
+      return { title: 'Yeni referans eklendi', lines: [] };
+    case 'add_character':
+      return { title: 'Yeni karakter eklendi', lines: [operation.character.name] };
+    case 'remove_character':
+      return { title: 'Karakter silindi', lines: [operation.characterId] };
+    default: {
+      // Exhaustive safety: show the type as title.
+      return { title: operation.type, lines: [] };
+    }
+  }
+}
+

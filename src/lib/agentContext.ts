@@ -39,6 +39,7 @@ export function buildAgentContext(input: AgentContextInput) {
     locationIds: scene.locationIds,
     timeContextIds: scene.timeContextIds,
     pinnedPrompt: scene.prompts.find((prompt) => prompt.isPinned)?.promptText ?? null,
+    pinnedPromptId: scene.prompts.find((prompt) => prompt.isPinned)?.id ?? null,
     promptSummaries: scene.prompts.map((prompt) => ({
       id: prompt.id,
       label: prompt.label,
@@ -46,6 +47,9 @@ export function buildAgentContext(input: AgentContextInput) {
       summary: prompt.summary,
       isPinned: !!prompt.isPinned,
       isStale: !!prompt.isStale,
+      // Provide the full prompt text so the agent can update non-pinned prompts too.
+      // (Versions are tracked in app state; agent only needs the latest text.)
+      promptText: prompt.promptText,
     })),
   }));
 

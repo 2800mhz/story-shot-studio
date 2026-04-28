@@ -1038,6 +1038,12 @@ light angle, foreground element, screen direction, figure/ground strategy.`;
 
   parts.push(shotInstruction);
   parts.push(``);
+  parts.push(`OUTPUT FORMAT — ADVANCED CINEMATIC BLOCK TEMPLATE (MANDATORY):`);
+  parts.push(`Write EACH prompt as a single English paragraph that still follows this block order (use short labels):`);
+  parts.push(`SHOT INTENT: ... | SUBJECT: ... | ACTION: ... | ENVIRONMENT: ... | STYLE: ... | LIGHT: ... | CAMERA/COMP: ... | CONTINUITY LOCK: ... | MOTION HINT: ... | NEGATIVES: ...`);
+  parts.push(`Rules: keep STYLE and CONTENT separated; use concrete physical/material language; avoid empty adjectives (beautiful, cinematic, dramatic).`);
+  parts.push(`If something is unknown, omit it — do not invent new entities or anachronistic props.`);
+  parts.push(``);
   parts.push(`Append to EVERY prompt: ${arSuffix}`);
   parts.push(``);
   parts.push(`⚠️ FINAL REMINDER: All subjects caught in natural action.`);

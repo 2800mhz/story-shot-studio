@@ -1575,6 +1575,8 @@ const Index = () => {
                         command={agentCommand}
                         onCommandChange={setAgentCommand}
                         onSubmit={handleSubmitAgentCommand}
+                        sceneCards={state.sceneCards}
+                        characters={state.characters}
                         onAddAttachment={handleAddAgentAttachment}
                         onRemoveAttachment={agent.removeAttachment}
                         onApply={handleApplyAgentChanges}

@@ -3,12 +3,24 @@ import { Bot, ChevronDown, ChevronUp, ImagePlus, Loader2, Paperclip, Send, Spark
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { AgentAttachment, AgentMessage, AgentOperationSet, AgentScope } from '@/lib/agentSchema';
+import { summarizeAgentOperation } from '@/lib/agentPreview';
+import type { Character, SceneCard } from '@/types';
 
 interface AgentDrawerProps {
   open: boolean;
   heightPercent: number;
   onToggleOpen: () => void;
   onHeightChange: (next: number) => void;
+  messages: AgentMessage[];
+  attachments: AgentAttachment[];
+  isBusy: boolean;
+  isStreaming: boolean;
+  pendingOperationSet: AgentOperationSet | null;
+  command: string;
+  onCommandChange: (next: string) => void;
+  onSubmit: () => void;
+  sceneCards?: SceneCard[];
+  characters?: Character[];
   onAddAttachment: (file: File) => void;
   onRemoveAttachment: (id: string) => void;
   onApply: () => void;
@@ -30,6 +42,8 @@ export function AgentDrawer(props: AgentDrawerProps) {
     command,
     onCommandChange,
     onSubmit,
+    sceneCards,
+    characters,
     onAddAttachment,
     onRemoveAttachment,
     onApply,
@@ -38,6 +52,8 @@ export function AgentDrawer(props: AgentDrawerProps) {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canSend = command.trim().length > 0 && !isBusy;
+  const scenesById = new Map((sceneCards ?? []).map((s) => [s.id, s]));
+  const charactersById = new Map((characters ?? []).map((c) => [c.id, c]));
 
   return (
     <div className="flex h-full flex-col bg-card/95 backdrop-blur-sm">
@@ -189,23 +205,29 @@ export function AgentDrawer(props: AgentDrawerProps) {
                     </div>
 
                     <div>
-                      <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Etkilenen Sahneler</div>
-                      <div className="flex flex-wrap gap-1">
-                        {pendingOperationSet.affectedSceneIds.map((sceneId) => (
-                          <span key={sceneId} className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">{sceneId}</span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
                       <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">İşlemler</div>
                       <div className="space-y-2">
                         {pendingOperationSet.operations.map((operation, index) => (
                           <div key={`${operation.type}-${index}`} className="rounded-lg border bg-background px-3 py-2 text-xs">
-                            <div className="font-medium text-foreground">{operation.type}</div>
-                            <pre className="mt-1 whitespace-pre-wrap text-[11px] text-muted-foreground">
-                              {JSON.stringify(operation, null, 2)}
-                            </pre>
+                            {(() => {
+                              const summary = summarizeAgentOperation({
+                                operation,
+                                scenesById,
+                                charactersById,
+                              });
+                              return (
+                                <>
+                                  <div className="font-medium text-foreground">{summary.title}</div>
+                                  {summary.lines.length > 0 && (
+                                    <div className="mt-1 space-y-1 text-[11px] text-muted-foreground">
+                                      {summary.lines.map((line, i) => (
+                                        <div key={`${index}-line-${i}`}>{line}</div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                         ))}
                       </div>
@@ -216,7 +238,12 @@ export function AgentDrawer(props: AgentDrawerProps) {
                         <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Yeniden Üretim Gerekenler</div>
                         <div className="flex flex-wrap gap-1">
                           {pendingOperationSet.stalePromptSceneIds.map((sceneId) => (
-                            <span key={sceneId} className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-600">{sceneId}</span>
+                            <span
+                              key={sceneId}
+                              className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-600"
+                            >
+                              {scenesById.get(sceneId)?.sceneNumber ? `Sahne ${scenesById.get(sceneId)!.sceneNumber}` : sceneId}
+                            </span>
                           ))}
                         </div>
                       </div>
