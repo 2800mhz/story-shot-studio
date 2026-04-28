@@ -1393,6 +1393,7 @@ const Index = () => {
 
       <div className="flex flex-1 overflow-hidden">
         <PanelGroup direction="horizontal" autoSaveId="story-shot-layout">
+          {/* 1. Left Panel (Episode Navigator) */}
           <Panel defaultSize={20} minSize={15}>
             <LeftPanel
               episodes={state.episodes}
@@ -1411,102 +1412,142 @@ const Index = () => {
 
           <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/50 cursor-col-resize transition-colors" />
 
-          <Panel defaultSize={40} minSize={20}>
-            <CenterPanel
-              mainText={state.mainText}
-              scenes={state.scenes}
-              activeSceneId={state.activeSceneId}
-              scrollToIndex={scrollToIndex}
-              onScrollComplete={() => setScrollToIndex(null)}
-              onSetActiveScene={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
-              onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
-              onAnalyzeText={handleAnalyzeText}
-              isAnalyzing={state.isAnalyzing}
-              isLoading={loadingData}
-              analysisLog={analysisLog}
-            />
+          {/* 2. Middle Section (CenterPanel + Optional Panels + AgentDrawer) */}
+          <Panel defaultSize={55} minSize={30}>
+            <PanelGroup direction="vertical">
+              {/* Top part: Content and Tools */}
+              <Panel defaultSize={agent.session.open ? 70 : 100} minSize={20}>
+                <PanelGroup direction="horizontal">
+                  <Panel defaultSize={50} minSize={20}>
+                    <CenterPanel
+                      mainText={state.mainText}
+                      scenes={state.scenes}
+                      activeSceneId={state.activeSceneId}
+                      scrollToIndex={scrollToIndex}
+                      onScrollComplete={() => setScrollToIndex(null)}
+                      onSetActiveScene={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
+                      onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
+                      onAnalyzeText={handleAnalyzeText}
+                      isAnalyzing={state.isAnalyzing}
+                      isLoading={loadingData}
+                      analysisLog={analysisLog}
+                    />
+                  </Panel>
+
+                  {showEpisodeStylePanel && (
+                    <>
+                      <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/50 cursor-col-resize transition-colors" />
+                      <Panel defaultSize={25} minSize={15}>
+                        <div className={`h-full ${isAgentLocked ? 'pointer-events-none opacity-60' : ''}`}>
+                          <EpisodeStylePanel
+                            episodePrompt={state.episodePrompt}
+                            episodePromptTr={state.episodePromptTr}
+                            onSetEpisodePrompt={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT', payload: prompt })}
+                            onSetEpisodePromptTr={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: prompt })}
+                            onReviseEpisodePrompt={handleReviseEpisodeStyle}
+                            isRevising={isRevisingEpisodeStyle}
+                            onShowHistory={() => setShowStyleHistory(true)}
+                            historyCount={state.episodeStyleHistory.length}
+                            onRegenerateAll={handleRegenerateAllScenes}
+                            isGeneratingAll={isGeneratingAll}
+                            sceneCount={state.scenes.length}
+                            onClose={() => setShowEpisodeStylePanel(false)}
+                          />
+                        </div>
+                      </Panel>
+                    </>
+                  )}
+
+                  {showEntityPanel && (
+                    <>
+                      <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/50 cursor-col-resize transition-colors" />
+                      <Panel defaultSize={25} minSize={15}>
+                        <div className="flex h-full flex-col border-l border-border bg-card">
+                          <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                            <span className="text-sm font-medium">🎭 Varlıklar</span>
+                            <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={() => setShowEntityPanel(false)}>✕</Button>
+                          </div>
+                          <div className={`flex-1 overflow-y-auto scrollbar-thin ${isAgentLocked ? 'pointer-events-none opacity-60' : ''}`}>
+                            <EntityCardPanel
+                              characters={state.characters}
+                              locations={state.locations}
+                              timeContexts={state.timeContexts}
+                              selectedEntityId={selectedEntityId}
+                              onSelectEntity={setSelectedEntityId}
+                              onUpsertCharacter={(c) => dispatch({ type: 'UPSERT_CHARACTER', payload: c })}
+                              onDeleteCharacter={(id) => dispatch({ type: 'DELETE_CHARACTER', payload: id })}
+                              onUpsertLocation={(l) => dispatch({ type: 'UPSERT_LOCATION', payload: l })}
+                              onDeleteLocation={(id) => dispatch({ type: 'DELETE_LOCATION', payload: id })}
+                              onAddTimeContext={(t) => dispatch({ type: 'ADD_TIME_CONTEXT', payload: t })}
+                              onUpdateTimeContext={(t) => dispatch({ type: 'UPDATE_TIME_CONTEXT', payload: t })}
+                              onDeleteTimeContext={(id) => dispatch({ type: 'DELETE_TIME_CONTEXT', payload: id })}
+                            />
+                          </div>
+                        </div>
+                      </Panel>
+                    </>
+                  )}
+
+                  {showReferencePanel && (
+                    <>
+                      <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/50 cursor-col-resize transition-colors" />
+                      <Panel defaultSize={25} minSize={15}>
+                        <div className="flex h-full flex-col border-l border-border bg-card">
+                          <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                            <span className="text-sm font-medium">🖼️ Referanslar</span>
+                            <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={() => setShowReferencePanel(false)}>✕</Button>
+                          </div>
+                          <div className="flex-1 overflow-hidden min-h-0">
+                            <ReferencePanel
+                              episodeId={episodeId ?? null}
+                              references={state.references}
+                              dispatch={dispatch}
+                              disabled={isAgentLocked}
+                            />
+                          </div>
+                        </div>
+                      </Panel>
+                    </>
+                  )}
+                </PanelGroup>
+              </Panel>
+
+              {/* Bottom part: Agent Drawer (if open) */}
+              {agent.session.open && (
+                <>
+                  <PanelResizeHandle className="h-1 bg-border/40 hover:bg-primary/50 cursor-row-resize transition-colors" />
+                  <Panel defaultSize={30} minSize={15}>
+                    <div className="h-full overflow-hidden border-t bg-card">
+                      <AgentDrawer
+                        open={agent.session.open}
+                        heightPercent={agent.session.heightPercent}
+                        onToggleOpen={() => agent.setOpen(!agent.session.open)}
+                        onHeightChange={agent.setHeightPercent}
+                        messages={agent.session.messages}
+                        attachments={agent.session.attachments}
+                        isBusy={agent.isBusy}
+                        isStreaming={agent.isStreaming}
+                        pendingOperationSet={agent.pendingOperationSet}
+                        command={agentCommand}
+                        onCommandChange={setAgentCommand}
+                        onSubmit={handleSubmitAgentCommand}
+                        onAddAttachment={handleAddAgentAttachment}
+                        onRemoveAttachment={agent.removeAttachment}
+                        onApply={handleApplyAgentChanges}
+                        onDismissChanges={agent.clearPendingOperationSet}
+                      />
+                    </div>
+                  </Panel>
+                </>
+              )}
+            </PanelGroup>
           </Panel>
-
-          {showEpisodeStylePanel && (
-            <>
-              <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/50 cursor-col-resize transition-colors" />
-              <Panel defaultSize={15} minSize={10}>
-                <div className={isAgentLocked ? 'pointer-events-none opacity-60' : ''}>
-                  <EpisodeStylePanel
-                    episodePrompt={state.episodePrompt}
-                    episodePromptTr={state.episodePromptTr}
-                    onSetEpisodePrompt={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT', payload: prompt })}
-                    onSetEpisodePromptTr={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: prompt })}
-                    onReviseEpisodePrompt={handleReviseEpisodeStyle}
-                    isRevising={isRevisingEpisodeStyle}
-                    onShowHistory={() => setShowStyleHistory(true)}
-                    historyCount={state.episodeStyleHistory.length}
-                    onRegenerateAll={handleRegenerateAllScenes}
-                    isGeneratingAll={isGeneratingAll}
-                    sceneCount={state.scenes.length}
-                    onClose={() => setShowEpisodeStylePanel(false)}
-                  />
-                </div>
-              </Panel>
-            </>
-          )}
-
-          {showEntityPanel && (
-            <>
-              <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/50 cursor-col-resize transition-colors" />
-              <Panel defaultSize={20} minSize={15}>
-                <div className="flex h-full flex-col border-l border-border bg-card">
-                  <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-                    <span className="text-sm font-medium">🎭 Varlıklar</span>
-                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={() => setShowEntityPanel(false)}>✕</Button>
-                  </div>
-                  <div className={`flex-1 overflow-y-auto scrollbar-thin ${isAgentLocked ? 'pointer-events-none opacity-60' : ''}`}>
-                    <EntityCardPanel
-                      characters={state.characters}
-                      locations={state.locations}
-                      timeContexts={state.timeContexts}
-                      selectedEntityId={selectedEntityId}
-                      onSelectEntity={setSelectedEntityId}
-                      onUpsertCharacter={(c) => dispatch({ type: 'UPSERT_CHARACTER', payload: c })}
-                      onDeleteCharacter={(id) => dispatch({ type: 'DELETE_CHARACTER', payload: id })}
-                      onUpsertLocation={(l) => dispatch({ type: 'UPSERT_LOCATION', payload: l })}
-                      onDeleteLocation={(id) => dispatch({ type: 'DELETE_LOCATION', payload: id })}
-                      onAddTimeContext={(t) => dispatch({ type: 'ADD_TIME_CONTEXT', payload: t })}
-                      onUpdateTimeContext={(t) => dispatch({ type: 'UPDATE_TIME_CONTEXT', payload: t })}
-                      onDeleteTimeContext={(id) => dispatch({ type: 'DELETE_TIME_CONTEXT', payload: id })}
-                    />
-                  </div>
-                </div>
-              </Panel>
-            </>
-          )}
-
-          {showReferencePanel && (
-            <>
-              <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/50 cursor-col-resize transition-colors" />
-              <Panel defaultSize={20} minSize={15}>
-                <div className="flex h-full flex-col border-l border-border bg-card">
-                  <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-                    <span className="text-sm font-medium">🖼️ Referanslar</span>
-                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={() => setShowReferencePanel(false)}>✕</Button>
-                  </div>
-                  <div className="flex-1 overflow-hidden min-h-0">
-                    <ReferencePanel
-                      episodeId={episodeId ?? null}
-                      references={state.references}
-                      dispatch={dispatch}
-                      disabled={isAgentLocked}
-                    />
-                  </div>
-                </div>
-              </Panel>
-            </>
-          )}
 
           <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/50 cursor-col-resize transition-colors" />
 
+          {/* 3. Right Panel (Workspace) - Always full height! */}
           <Panel defaultSize={25} minSize={15}>
-            <div className={isAgentLocked ? 'pointer-events-none opacity-60' : ''}>
+            <div className={`h-full overflow-hidden ${isAgentLocked ? 'pointer-events-none opacity-60' : ''}`}>
               <RightPanel
                 scenes={state.scenes}
                 consistencyGroups={state.consistencyGroups}
@@ -1565,26 +1606,7 @@ const Index = () => {
         </PanelGroup>
       </div>
 
-      <AgentDrawer
-        open={agent.session.open}
-        heightPercent={agent.session.heightPercent}
-        onToggleOpen={() => agent.setOpen(!agent.session.open)}
-        onHeightChange={agent.setHeightPercent}
-        scope={agent.session.scope}
-        onScopeChange={agent.setScope}
-        messages={agent.session.messages}
-        attachments={agent.session.attachments}
-        isBusy={agent.isBusy}
-        isStreaming={agent.isStreaming}
-        pendingOperationSet={agent.pendingOperationSet}
-        command={agentCommand}
-        onCommandChange={setAgentCommand}
-        onSubmit={handleSubmitAgentCommand}
-        onAddAttachment={handleAddAgentAttachment}
-        onRemoveAttachment={agent.removeAttachment}
-        onApply={handleApplyAgentChanges}
-        onDismissChanges={agent.clearPendingOperationSet}
-      />
+      
 
       <SettingsModal
         open={settingsOpen}

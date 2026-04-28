@@ -9,32 +9,12 @@ interface AgentDrawerProps {
   heightPercent: number;
   onToggleOpen: () => void;
   onHeightChange: (next: number) => void;
-  scope: AgentScope;
-  onScopeChange: (scope: AgentScope) => void;
-  messages: AgentMessage[];
-  attachments: AgentAttachment[];
-  isBusy: boolean;
-  isStreaming: boolean;
-  pendingOperationSet: AgentOperationSet | null;
-  command: string;
-  onCommandChange: (value: string) => void;
-  onSubmit: () => void;
   onAddAttachment: (file: File) => void;
   onRemoveAttachment: (id: string) => void;
   onApply: () => void;
   onDismissChanges: () => void;
 }
 
-function scopeLabel(scope: AgentScope) {
-  switch (scope) {
-    case 'active-scene':
-      return 'Aktif Sahne';
-    case 'selected-entity':
-      return 'Seçili Entity';
-    default:
-      return 'Tüm Episode';
-  }
-}
 
 export function AgentDrawer(props: AgentDrawerProps) {
   const {
@@ -42,8 +22,6 @@ export function AgentDrawer(props: AgentDrawerProps) {
     heightPercent,
     onToggleOpen,
     onHeightChange,
-    scope,
-    onScopeChange,
     messages,
     attachments,
     isBusy,
@@ -62,7 +40,7 @@ export function AgentDrawer(props: AgentDrawerProps) {
   const canSend = command.trim().length > 0 && !isBusy;
 
   return (
-    <div className="border-t bg-card/95 backdrop-blur-sm">
+    <div className="flex h-full flex-col bg-card/95 backdrop-blur-sm">
       <div className="flex items-center justify-between border-b px-4 py-2">
         <div className="flex items-center gap-2">
           <button
@@ -72,11 +50,7 @@ export function AgentDrawer(props: AgentDrawerProps) {
           >
             <Bot className="h-4 w-4 text-primary" />
             AI Editör
-            {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
           </button>
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
-            {scopeLabel(scope)}
-          </span>
           {isBusy && (
             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -85,16 +59,6 @@ export function AgentDrawer(props: AgentDrawerProps) {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <select
-            value={scope}
-            onChange={(event) => onScopeChange(event.target.value as AgentScope)}
-            className="h-8 rounded-md border bg-background px-2 text-xs"
-            disabled={isBusy}
-          >
-            <option value="episode">Tüm Episode</option>
-            <option value="active-scene">Aktif Sahne</option>
-            <option value="selected-entity">Seçili Entity</option>
-          </select>
           {open && (
             <input
               type="range"
@@ -110,7 +74,7 @@ export function AgentDrawer(props: AgentDrawerProps) {
       </div>
 
       {open && (
-        <div style={{ height: `${heightPercent}vh` }} className="flex min-h-[220px] flex-col">
+        <div className="flex flex-1 flex-col overflow-hidden">
           <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_320px]">
             <div className="flex min-h-0 flex-col border-r">
               <ScrollArea className="flex-1 px-4 py-3">

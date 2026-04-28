@@ -83,15 +83,6 @@ export function useAgentActions({
       setNoKeysWarning(true);
       return;
     }
-    if (agent.session.scope === 'selected-entity' && !selectedEntityId) {
-      toast({
-        title: 'Entity secilmedi',
-        description: 'Entity scope icin once Varliklar panelinden bir karakter sec.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     agent.setOpen(true);
     agent.setIsBusy(true);
     agent.setIsStreaming(true);
@@ -111,7 +102,6 @@ export function useAgentActions({
 
     try {
       const context = buildAgentContext({
-        scope: agent.session.scope,
         activeSceneId: state.activeSceneId,
         selectedEntityId,
         sceneCards: state.sceneCards,

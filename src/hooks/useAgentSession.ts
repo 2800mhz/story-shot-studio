@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
-import type { AgentAttachment, AgentMessage, AgentOperationSet, AgentScope } from '@/lib/agentSchema';
+import type { AgentAttachment, AgentMessage, AgentOperationSet } from '@/lib/agentSchema';
 
 export function useAgentSession() {
   const [open, setOpen] = useState(false);
   const [heightPercent, setHeightPercent] = useState(28);
-  const [scope, setScope] = useState<AgentScope>('episode');
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [attachments, setAttachments] = useState<AgentAttachment[]>([]);
   const [isBusy, setIsBusy] = useState(false);
@@ -37,19 +36,17 @@ export function useAgentSession() {
   const session = useMemo(() => ({
     open,
     heightPercent,
-    scope,
     messages,
     attachments,
     isBusy,
     isStreaming,
     pendingOperationSet,
-  }), [open, heightPercent, scope, messages, attachments, isBusy, isStreaming, pendingOperationSet]);
+  }), [open, heightPercent, messages, attachments, isBusy, isStreaming, pendingOperationSet]);
 
   return {
     session,
     setOpen,
     setHeightPercent,
-    setScope,
     setMessages,
     addMessage,
     updateMessage,

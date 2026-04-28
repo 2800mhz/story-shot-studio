@@ -2,7 +2,6 @@ import type { Character, Location, SceneCard, SceneReference, TimeContext } from
 import type { AgentAttachment, AgentScope } from './agentSchema';
 
 interface AgentContextInput {
-  scope: AgentScope;
   activeSceneId: string | null;
   selectedEntityId?: string | null;
   sceneCards: SceneCard[];
@@ -16,7 +15,6 @@ interface AgentContextInput {
 
 export function buildAgentContext(input: AgentContextInput) {
   const {
-    scope,
     activeSceneId,
     selectedEntityId,
     sceneCards,
@@ -51,31 +49,17 @@ export function buildAgentContext(input: AgentContextInput) {
     })),
   }));
 
-  const sceneIdsForSelectedCharacter = selectedEntityId
-    ? normalizedScenes
-        .filter((scene) => scene.characterIds.includes(selectedEntityId))
-        .map((scene) => scene.id)
-    : [];
-
   const selectedCharacter = selectedEntityId
     ? characters.find((character) => character.id === selectedEntityId) ?? null
     : null;
 
-  let scopedScenes = normalizedScenes;
-  if (scope === 'active-scene' && activeScene) {
-    scopedScenes = normalizedScenes.filter((scene) => scene.id === activeScene.id);
-  } else if (scope === 'selected-entity' && selectedCharacter) {
-    scopedScenes = normalizedScenes.filter((scene) => sceneIdsForSelectedCharacter.includes(scene.id));
-  }
-
   return {
-    scope,
     activeSceneId,
     selectedEntityId,
     projectState: {
       masterPrompt: masterPrompt || '',
       episodePrompt: episodePrompt || '',
-      scenes: scopedScenes,
+      scenes: normalizedScenes,
       characters,
       locations,
       timeContexts,
@@ -87,9 +71,11 @@ export function buildAgentContext(input: AgentContextInput) {
         assignedSceneIds: reference.assignedSceneIds,
       })),
     },
-    scopeHints: {
-      activeScene,
-      selectedCharacter,
+    focusHints: {
+      activeSceneId,
+      activeSceneSummary: activeScene ? `Scene ${activeScene.sceneNumber}: ${activeScene.text.substring(0, 50)}...` : 'None',
+      selectedEntityId,
+      selectedCharacterName: selectedCharacter ? selectedCharacter.name : 'None',
     },
   };
 }
@@ -113,12 +99,8 @@ export function buildAgentUserPrompt(args: {
   return [
     `USER COMMAND: ${command}`,
     '',
-    'CURRENT SCOPE:',
-    JSON.stringify({
-      scope: context.scope,
-      activeSceneId: context.activeSceneId,
-      selectedEntityId: context.selectedEntityId,
-    }, null, 2),
+    'FOCUS HINTS:',
+    JSON.stringify(context.focusHints, null, 2),
     '',
     'ATTACHMENTS:',
     attachmentText,
