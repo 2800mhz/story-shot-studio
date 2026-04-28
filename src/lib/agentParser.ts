@@ -23,6 +23,21 @@ export function parseAgentOperationSet(text: string): AgentOperationSet {
     .replace(/```\s*/g, '')
     .trim();
 
-  const parsed = JSON.parse(cleaned);
-  return agentOperationSetSchema.parse(parsed);
+  try {
+    const parsed = JSON.parse(cleaned);
+    const result = agentOperationSetSchema.safeParse(parsed);
+    
+    if (!result.success) {
+      console.error('Agent JSON validation failed:', result.error.format());
+      // Throwing a cleaner error message for the UI
+      throw new Error(`JSON yapısı geçersiz: ${result.error.issues.map(i => i.message).join(', ')}`);
+    }
+    
+    return result.data;
+  } catch (e) {
+    if (e instanceof SyntaxError) {
+      throw new Error('Yapay zeka geçersiz bir JSON formatı üretti. Lütfen tekrar deneyin.');
+    }
+    throw e;
+  }
 }

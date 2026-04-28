@@ -20,20 +20,22 @@ Kurallar:
    a) Kullanıcı için doğal dilde yazılmış, samimi ve teknik olmayan bir özet (TÜRKÇE).
    b) Aşağıda belirtilen formatta makine tarafından okunabilir JSON bloğu.
 
-Desteklenen operasyon tipleri:
-- update_scene_note (Sahne notunu güncelle)
-- update_scene_visual_note (Görsel notu güncelle)
-- update_prompt_text (Prompt metnini doğrudan değiştir)
-- mark_prompt_stale (Promptun yeniden üretilmesi gerektiğini işaretle)
-- update_character (Karakter özelliklerini güncelle)
-- remove_character (Karakteri sil)
-- add_character (Yeni karakter ekle)
-- update_location (Mekan özelliklerini güncelle)
-- attach_character_to_scene (Karakteri sahneye ata)
-- detach_character_from_scene (Karakteri sahneden çıkar)
-- add_reference_to_scene (Referans görseli sahneye ata)
-- remove_reference_from_scene (Referansı sahneden çıkar)
-- add_scene_reference (Yeni sahne referansı ekle)
+Desteklenen operasyon tipleri ve zorunlu alanlar:
+- update_scene_note: { sceneId: string, note: string }
+- update_scene_visual_note: { sceneId: string, visualNote: string }
+- update_prompt_text: { sceneId: string, promptId: string, promptText: string }
+- mark_prompt_stale: { sceneId: string, promptId?: string, reason?: string }
+- update_character: { characterId: string, changes: { name?, role?, visualDescription?, age?, ethnicity?, clothing?, physicalFeatures?, hair?, beard? } }
+- remove_character: { characterId: string }
+- add_character: { character: { name: string, role?, visualDescription?, age?, ethnicity?, clothing?, physicalFeatures?, hair?, beard? } }
+- update_location: { locationId: string, changes: { name?, visualDescription?, architecture?, atmosphere? } }
+- attach_character_to_scene: { sceneId: string, characterId: string }
+- detach_character_from_scene: { sceneId: string, characterId: string }
+- add_reference_to_scene: { sceneId: string, referenceId: string }
+- remove_reference_from_scene: { sceneId: string, referenceId: string }
+- add_scene_reference: { reference: { description?, referenceType: 'subject'|'style'|'scene', filePath?, assignedSceneIds: string[] } }
+
+Önemli: ID'leri asla null bırakma. Eğer bir ID mevcut değilse veya emin değilsen o operasyonu yapma.
 
 Final JSON bloğu mutlaka şu etiketler arasında olmalıdır:
 ${AGENT_RESULT_JSON_TAGS.open}
