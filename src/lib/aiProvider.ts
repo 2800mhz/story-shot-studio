@@ -565,6 +565,87 @@ class AIProviderManager {
         return { text: fullText, promptTokens: inputTokens, completionTokens: outputTokens, modelUsed: this.getActiveModel() };
       }
 
+      case 'deepinfra': {
+        const body: Record<string, unknown> = {
+          model: this.deepinfraModel,
+          messages: [
+            ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 4096,
+          stream: true, // Stream'i aktif ettik
+        };
+
+        const response = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${decryptedKey}`
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+          const err = new Error(`DeepInfra API error: ${response.status}`) as Error & { status: number; retryAfterMs?: number };
+          err.status = response.status;
+          throw err;
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error('Response body is not readable');
+
+        const decoder = new TextDecoder();
+        let fullText = '';
+        let buffer = '';
+        let inputTokens = 0;
+        let outputTokens = 0;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split('\n');
+          buffer = parts.pop() || '';
+
+          for (const line of parts) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed === 'data: [DONE]') continue;
+            if (!trimmed.startsWith('data: ')) continue;
+
+            try {
+              const jsonStr = trimmed.replace('data: ', '').trim();
+              if (!jsonStr) continue;
+
+              const json = JSON.parse(jsonStr);
+              const textChunk = json.choices?.[0]?.delta?.content || '';
+
+              if (textChunk) {
+                fullText += textChunk;
+                onChunk?.(fullText); // Gelen parçayı UI'a gönder
+              }
+              
+              // OpenAI tarzı stream'lerde token kullanımı bazen son chunk'ta 'usage' objesi olarak gelir
+              if (json.usage) {
+                inputTokens = json.usage.prompt_tokens || inputTokens;
+                outputTokens = json.usage.completion_tokens || outputTokens;
+              }
+            } catch (e) {
+              console.warn('Failed to parse SSE line (DeepInfra):', e);
+            }
+          }
+        }
+
+        if (!fullText) {
+          const emptyStreamErr = new Error('DeepInfra stream empty response') as Error & { status: number };
+          emptyStreamErr.status = 503;
+          throw emptyStreamErr;
+        }
+
+        return { text: fullText, promptTokens: inputTokens, completionTokens: outputTokens, modelUsed: this.deepinfraModel };
+      }
+
       // For Groq, OpenAI and Anthropic, fallback to non-streaming but simulate onChunk
       case 'groq':
       case 'openai':
