@@ -60,14 +60,23 @@ const Index = () => {
           }
           aiProvider.setModel(modelToUse);
           setNoKeysWarning(!aiProvider.hasKeys());
+
+          // DeepInfra warmup: modeli GPU'da sıcak tut → cold start önle
+          // Prefix caching de aktif — sistem promptu cache'leniyor ($0.028 vs $0.14/1M)
+          aiProvider.startWarmup();
         })
         .catch(err => {
           console.error('Failed to initialize AI provider:', err);
         });
     }
+    return () => {
+      // Sayfa kapanınca warmup interval'i temizle
+      aiProvider.stopWarmup();
+    };
   // Only re-initialize when the user ID actually changes, not on every user object re-render
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
 
   // Sync model to aiProvider whenever settings change
   useEffect(() => {

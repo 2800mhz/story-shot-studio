@@ -48,6 +48,9 @@ class AIProviderManager {
   // Qwen2.5-72B: hız/kalite dengesi — DeepSeek-V4-Flash'tan ~10x hızlı
   private deepinfraModel = 'Qwen/Qwen2.5-72B-Instruct';
 
+  // Warmup: modeli GPU'da sıcak tutar, cold start önler
+  private warmupInterval: ReturnType<typeof setInterval> | null = null;
+
   // 503 backoff + model fallback tracking
   private lastServerErrorAt = 0;
   private readonly MAX_BACKOFF_MS = 30_000;
@@ -363,8 +366,8 @@ class AIProviderManager {
   private forceRotateProvider() {
     console.log(`🔄 Switching provider from ${this.currentProvider}`);
     this.currentKeyIndex = 0;
-    // DeepInfra önce — rate-limit olunca Gemini'ye, sonra Groq'a geçer
-    const providers: AIProvider[] = ['deepinfra', 'gemini', 'groq', 'openai', 'anthropic'];
+    // DeepInfra önce — rate-limit olunca Groq, Gemini, OpenAI, Anthropic
+    const providers: AIProvider[] = ['deepinfra', 'groq', 'gemini', 'openai', 'anthropic'];
     const currentIndex = providers.indexOf(this.currentProvider);
     const nextIndex = (currentIndex + 1) % providers.length;
     this.currentProvider = providers[nextIndex];
@@ -581,17 +584,20 @@ class AIProviderManager {
       }
 
       case 'deepinfra': {
-        // System instruction'ı user prompt'una gömüyoruz — bazı açık kaynak modeller
-        // system rolünü aldığında takılabilir, bu yöntem daha güvenilir sonuç verir.
-        const normalizedSystemInstruction = systemInstruction?.trim();
-        const systemRules = normalizedSystemInstruction
-          ? `SYSTEM RULES:\n${normalizedSystemInstruction}\n\n---\n\n`
-          : '';
-        const userPrompt = `${systemRules}${prompt}`;
+        // Sistem mesajını ayrı role olarak gönderiyoruz.
+        // Bu DeepInfra'nın otomatik prefix caching'ini aktifleştirir:
+        //   - Sistem prompt her sahnede aynı → cache hit → $0.028/1M (vs $0.14/1M)
+        //   - Cache'li tokenlar prefill atlıyor → çok daha hızlı
+        // Not: Qwen2.5-72B / Llama sistem rolünü tam destekler.
+        const diStreamMessages: Array<{ role: string; content: string }> = [];
+        if (systemInstruction?.trim()) {
+          diStreamMessages.push({ role: 'system', content: systemInstruction.trim() });
+        }
+        diStreamMessages.push({ role: 'user', content: prompt });
 
         const body: Record<string, unknown> = {
           model: this.deepinfraModel,
-          messages: [{ role: 'user', content: userPrompt }],
+          messages: diStreamMessages,
           temperature: 0.7,
           max_tokens: 4096,
           stream: true,
@@ -683,14 +689,111 @@ class AIProviderManager {
         return { text: fullText, promptTokens: inputTokens, completionTokens: outputTokens, modelUsed: this.deepinfraModel };
       }
 
-      // For Groq, OpenAI and Anthropic, fallback to non-streaming but simulate onChunk
-      case 'groq':
+      case 'groq': {
+        const groqMessages: Array<{ role: string; content: string }> = [];
+        if (systemInstruction) {
+          groqMessages.push({ role: 'system', content: systemInstruction });
+        }
+        groqMessages.push({ role: 'user', content: prompt });
+
+        const groqStreamBody = {
+          model: this.groqModel,
+          messages: groqMessages,
+          temperature: 0.7,
+          max_completion_tokens: 4096,
+          stream: true,
+        };
+
+        const groqStartTime = Date.now();
+        console.log(`📡 [Groq Stream] İstek gönderiliyor... Model: ${this.groqModel}`);
+
+        const groqStreamRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${decryptedKey}`,
+            'Accept': 'text/event-stream',
+          },
+          body: JSON.stringify(groqStreamBody),
+        });
+
+        console.log(`📥 [Groq Stream] Header alındı — HTTP ${groqStreamRes.status} (${Date.now() - groqStartTime}ms)`);
+
+        if (!groqStreamRes.ok) {
+          const errorText = await groqStreamRes.text().catch(() => '');
+          console.error(`❌ [Groq Stream] Hata — Status: ${groqStreamRes.status}, Body:`, errorText);
+          const groqErr = new Error(`Groq API error: ${groqStreamRes.status}`) as Error & { status: number; retryAfterMs?: number };
+          groqErr.status = groqStreamRes.status;
+          const retryAfterSec = groqStreamRes.headers.get('Retry-After') || groqStreamRes.headers.get('X-RateLimit-Reset');
+          if (retryAfterSec) groqErr.retryAfterMs = parseInt(retryAfterSec, 10) * 1000;
+          throw groqErr;
+        }
+
+        const groqReader = groqStreamRes.body?.getReader();
+        if (!groqReader) throw new Error('Groq response body is not readable');
+
+        const groqDecoder = new TextDecoder();
+        let groqFullText = '';
+        let groqBuffer = '';
+        let groqInputTokens = 0;
+        let groqOutputTokens = 0;
+        let groqChunkCount = 0;
+
+        console.log(`🌊 [Groq Stream] Veri akışı başlıyor...`);
+
+        while (true) {
+          const { done, value } = await groqReader.read();
+          if (done) break;
+
+          groqBuffer += groqDecoder.decode(value, { stream: true });
+          const parts = groqBuffer.split('\n');
+          groqBuffer = parts.pop() || '';
+
+          for (const line of parts) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed === 'data: [DONE]') continue;
+            if (!trimmed.startsWith('data: ')) continue;
+
+            try {
+              const jsonStr = trimmed.replace('data: ', '').trim();
+              if (!jsonStr) continue;
+              const json = JSON.parse(jsonStr);
+              const chunk = json.choices?.[0]?.delta?.content || '';
+              if (chunk) {
+                groqFullText += chunk;
+                groqChunkCount++;
+                onChunk?.(groqFullText);
+              }
+              if (json.x_groq?.usage) {
+                groqInputTokens = json.x_groq.usage.prompt_tokens || groqInputTokens;
+                groqOutputTokens = json.x_groq.usage.completion_tokens || groqOutputTokens;
+              }
+            } catch (_e) {
+              // Bozuk SSE satırlarını atla
+            }
+          }
+        }
+
+        const groqTotalMs = Date.now() - groqStartTime;
+        console.log(`✅ [Groq Stream] Tamamlandı — ${groqChunkCount} chunk, ${groqFullText.length} karakter, ${groqTotalMs}ms`);
+
+        if (!groqFullText) {
+          const groqEmptyErr = new Error('Groq stream empty response') as Error & { status: number };
+          groqEmptyErr.status = 503;
+          throw groqEmptyErr;
+        }
+
+        return { text: groqFullText, promptTokens: groqInputTokens, completionTokens: groqOutputTokens, modelUsed: this.groqModel };
+      }
+
+      // OpenAI ve Anthropic için non-streaming fallback (stream endpoint'leri farklı format)
       case 'openai':
       case 'anthropic': {
         const result = await this.callProvider(key, prompt, systemInstruction);
         onChunk?.(result.text);
         return result;
       }
+
 
       default:
         throw new Error(`Unknown provider: ${key.provider}`);
@@ -895,15 +998,14 @@ class AIProviderManager {
           content: string | Array<DeepInfraTextPart | DeepInfraImagePart>;
         };
 
-        const normalizedSystemInstruction = systemInstruction?.trim();
-        const systemRules = normalizedSystemInstruction
-          ? `SYSTEM RULES:\n${normalizedSystemInstruction}\n\n---\n\n`
-          : '';
-        const userPrompt = `${systemRules}${prompt}`;
-
+        // Sistem mesajını ayrı role olarak gönder → prefix caching aktif
         const messages: DeepInfraMessage[] = [];
+        if (systemInstruction?.trim()) {
+          messages.push({ role: 'system', content: systemInstruction.trim() });
+        }
+
         if (images && images.length > 0) {
-          const content: Array<DeepInfraTextPart | DeepInfraImagePart> = [{ type: 'text', text: userPrompt }];
+          const content: Array<DeepInfraTextPart | DeepInfraImagePart> = [{ type: 'text', text: prompt }];
           images.forEach(img => {
             content.push({
               type: 'image_url',
@@ -914,7 +1016,7 @@ class AIProviderManager {
           });
           messages.push({ role: 'user', content });
         } else {
-          messages.push({ role: 'user', content: userPrompt });
+          messages.push({ role: 'user', content: prompt });
         }
 
         const startedAt = Date.now();
@@ -1086,7 +1188,72 @@ class AIProviderManager {
     }
     return false;
   }
+
+  /**
+   * Warmup Sistemi — Cold Start Önleme
+   *
+   * DeepInfra'da model GPU'ya yüklendikten sonra sıcak kalır.
+   * Ama belirli süre (genellikle 5-10dk) istek gelmezse GPU'dan boşaltılır
+   * ve bir sonraki istek 30-60sn cold start bekler.
+   *
+   * Bu metod her `intervalMs` (default: 3dk) bir tiny ping gönderir:
+   *   - max_tokens: 1  → neredeyse sıfır maliyet
+   *   - "ping" prompt → model hemen cevap verir
+   *   - stream: false  → en hafif istek formatı
+   *
+   * Sonuç: Cold start 30-60sn → 0sn
+   */
+  startWarmup(intervalMs = 180_000) {
+    if (this.warmupInterval) return; // Zaten çalışıyor
+
+    const sendPing = async () => {
+      const diKeys = this.keys.get('deepinfra') || [];
+      const activeKey = diKeys.find(k =>
+        k.is_active &&
+        (!k.rate_limited_until || new Date(k.rate_limited_until) <= new Date())
+      );
+      if (!activeKey) return; // Aktif anahtar yok, ping atma
+
+      const decryptedKey = decryptKey(activeKey.api_key);
+      try {
+        const res = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${decryptedKey}`,
+          },
+          body: JSON.stringify({
+            model: this.deepinfraModel,
+            messages: [{ role: 'user', content: 'ping' }],
+            max_tokens: 1,
+            stream: false,
+          }),
+        });
+        if (res.ok) {
+          console.log(`🔥 [DeepInfra] Warmup ping — model sıcak tutuldu (${this.deepinfraModel})`);
+        }
+      } catch (_e) {
+        // Ping başarısız → sessizce geç, ana akışı bozma
+      }
+    };
+
+    // İlk ping hemen — sayfa açılır açılmaz modeli ısıt
+    sendPing();
+
+    // Sonraki pingler interval'de
+    this.warmupInterval = setInterval(sendPing, intervalMs);
+    console.log(`✅ [DeepInfra] Warmup başlatıldı — her ${intervalMs / 1000}sn ping`);
+  }
+
+  stopWarmup() {
+    if (this.warmupInterval) {
+      clearInterval(this.warmupInterval);
+      this.warmupInterval = null;
+      console.log('🛑 [DeepInfra] Warmup durduruldu');
+    }
+  }
 }
+
 
 // Singleton instance
 export const aiProvider = new AIProviderManager();
