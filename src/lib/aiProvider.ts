@@ -56,6 +56,9 @@ class AIProviderManager {
   private readonly MAX_BACKOFF_MS = 30_000;
   private activeFallbackModelIndex = -1; // -1 = user model, 0+ = fallback zinciri
   private _tempModel: string | null = null; // 503 sırasında geçici model
+  private warmedUp = false;
+  private lastPingAt: number | null = null;
+  private onStatusChange: ((status: boolean) => void) | null = null;
 
   /** Aktif olarak kullanılan modeli döndürür (temp varsa onu, yoksa user model) */
   private getActiveModel(): string {
@@ -115,6 +118,14 @@ class AIProviderManager {
     if (model && model.trim()) {
       this.model = model.trim();
     }
+  }
+
+  isWarmedUp(): boolean {
+    return this.warmedUp;
+  }
+
+  setNotifyStatusChange(callback: (status: boolean) => void) {
+    this.onStatusChange = callback;
   }
 
   getModel(): string {
@@ -1212,7 +1223,11 @@ class AIProviderManager {
         k.is_active &&
         (!k.rate_limited_until || new Date(k.rate_limited_until) <= new Date())
       );
-      if (!activeKey) return; // Aktif anahtar yok, ping atma
+      if (!activeKey) {
+        this.warmedUp = false;
+        this.onStatusChange?.(false);
+        return;
+      }
 
       const decryptedKey = decryptKey(activeKey.api_key);
       try {
@@ -1231,6 +1246,12 @@ class AIProviderManager {
         });
         if (res.ok) {
           console.log(`🔥 [DeepInfra] Warmup ping — model sıcak tutuldu (${this.deepinfraModel})`);
+          this.warmedUp = true;
+          this.lastPingAt = Date.now();
+          this.onStatusChange?.(true);
+        } else {
+          this.warmedUp = false;
+          this.onStatusChange?.(false);
         }
       } catch (_e) {
         // Ping başarısız → sessizce geç, ana akışı bozma
@@ -1238,7 +1259,7 @@ class AIProviderManager {
     };
 
     // İlk ping hemen — sayfa açılır açılmaz modeli ısıt
-    sendPing();
+    this.warmup();
 
     // Sonraki pingler interval'de
     this.warmupInterval = setInterval(sendPing, intervalMs);
@@ -1251,6 +1272,44 @@ class AIProviderManager {
       this.warmupInterval = null;
       console.log('🛑 [DeepInfra] Warmup durduruldu');
     }
+  }
+
+  async warmup() {
+    // startWarmup'taki sendPing logic'ini manuel tetikler
+    const diKeys = this.keys.get('deepinfra') || [];
+    const activeKey = diKeys.find(k =>
+      k.is_active &&
+      (!k.rate_limited_until || new Date(k.rate_limited_until) <= new Date())
+    );
+    if (!activeKey) return false;
+
+    const decryptedKey = decryptKey(activeKey.api_key);
+    try {
+      const res = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${decryptedKey}`,
+        },
+        body: JSON.stringify({
+          model: this.deepinfraModel,
+          messages: [{ role: 'user', content: 'ping' }],
+          max_tokens: 1,
+          stream: false,
+        }),
+      });
+      if (res.ok) {
+        this.warmedUp = true;
+        this.lastPingAt = Date.now();
+        this.onStatusChange?.(true);
+        this.currentProvider = 'deepinfra';
+        this.currentKeyIndex = 0;
+        return true;
+      }
+    } catch (_e) {}
+    this.warmedUp = false;
+    this.onStatusChange?.(false);
+    return false;
   }
 }
 

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/Header';
 import { LeftPanel } from '@/components/LeftPanel';
@@ -52,6 +52,7 @@ const Index = () => {
   const { user } = useAuth();
   const [analysisLog, setAnalysisLog] = useState<string[]>([]);
   const [noKeysWarning, setNoKeysWarning] = useState(false);
+  const [isWarmed, setIsWarmed] = useState(false);
 
   const { loadingData, project, episode, loadEpisodeData } = useEpisodeWorkspace({
     projectId,
@@ -81,8 +82,11 @@ const Index = () => {
           aiProvider.setModel(modelToUse);
           setNoKeysWarning(!aiProvider.hasKeys());
 
+          // DeepInfra warmup sync
+          aiProvider.setNotifyStatusChange((status) => setIsWarmed(status));
+          setIsWarmed(aiProvider.isWarmedUp());
+
           // DeepInfra warmup: modeli GPU'da sıcak tut → cold start önle
-          // Prefix caching de aktif — sistem promptu cache'leniyor ($0.028 vs $0.14/1M)
           aiProvider.startWarmup();
         })
         .catch(err => {
@@ -1332,10 +1336,20 @@ const Index = () => {
         <Button
           size="sm"
           variant={agent.session.open ? 'default' : 'outline'}
-          className="h-7 text-xs"
+          className="h-7 text-xs flex items-center gap-2"
           onClick={() => agent.setOpen(!agent.session.open)}
         >
+          <div className={`w-2 h-2 rounded-full ${isWarmed ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-zinc-600'}`} />
           🤖 AI Editör
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 w-7 p-0"
+          onClick={() => aiProvider.warmup()}
+          title={isWarmed ? "DeepInfra Sıcak (Hazır)" : "DeepInfra Soğuk (Isıtmak için tıkla)"}
+        >
+          <Flame className={`h-3.5 w-3.5 ${isWarmed ? 'text-orange-500 fill-orange-500/20' : 'text-muted-foreground'}`} />
         </Button>
         <Button
           size="sm"
