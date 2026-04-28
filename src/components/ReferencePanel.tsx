@@ -167,8 +167,8 @@ export function ReferencePanel({ episodeId, references, dispatch, disabled = fal
   };
 
   return (
-    <div className="flex flex-col h-full bg-zinc-950/50 backdrop-blur-sm border-r border-zinc-800/80">
-      <div className="p-4 border-b border-zinc-800/50 flex flex-col gap-2">
+    <div className="flex flex-col h-full bg-card border-r border-border">
+      <div className="p-4 border-b border-border flex flex-col gap-2">
         <h2 className="text-lg font-semibold flex items-center gap-2 text-zinc-100">
           <ImageIcon className="w-5 h-5 text-indigo-400" />
           Referanslar
@@ -178,7 +178,7 @@ export function ReferencePanel({ episodeId, references, dispatch, disabled = fal
         </p>
       </div>
 
-      <div className="p-4 border-b border-zinc-800/50 flex flex-col gap-4">
+      <div className="p-4 border-b border-border flex flex-col gap-4">
         {uploadItems.length === 0 ? (
           <div 
             {...getRootProps()} 

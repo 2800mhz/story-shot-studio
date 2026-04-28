@@ -155,7 +155,7 @@ export function ScriptUploader({ onComplete, onProgress, onClose }: ScriptUpload
 
           {/* Progress Log */}
           {logs.length > 0 && (
-            <div className="rounded-lg border bg-muted/30 p-3 max-h-40 overflow-y-auto space-y-1">
+            <div className="rounded-lg border bg-muted/30 p-3 max-h-40 overflow-y-auto scrollbar-thin space-y-1">
               {logs.slice(-8).map((log, i) => (
                 <p key={i} className={`text-xs font-mono ${i === logs.slice(-8).length - 1 ? 'text-foreground' : 'text-muted-foreground'}`}>
                   {log}

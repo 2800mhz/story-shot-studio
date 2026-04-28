@@ -174,7 +174,7 @@ export function AgentDrawer(props: AgentDrawerProps) {
                   Uygulama Önizlemesi
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto p-4">
+              <div className="flex-1 overflow-y-auto scrollbar-thin p-4">
                 {!pendingOperationSet ? (
                   <p className="text-sm text-muted-foreground">
                     Agent bir değişiklik önerdiğinde özet ve etkilenen sahneler burada görünecek.

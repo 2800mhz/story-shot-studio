@@ -46,7 +46,7 @@ class AIProviderManager {
   private model = 'gemini-2.5-flash';
   private groqModel = 'llama-3.3-70b-versatile';
   // Qwen2.5-72B: hız/kalite dengesi — DeepSeek-V4-Flash'tan ~10x hızlı
-  private deepinfraModel = 'Qwen/Qwen2.5-72B-Instruct';
+  private deepinfraModel = 'deepseek-ai/DeepSeek-V4-Flash';
 
   // Warmup: modeli GPU'da sıcak tutar, cold start önler
   private warmupInterval: ReturnType<typeof setInterval> | null = null;

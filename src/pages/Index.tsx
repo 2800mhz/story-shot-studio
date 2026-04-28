@@ -1328,7 +1328,7 @@ const Index = () => {
         mainFileName={state.mainFileName}
         disabledActions={isAgentLocked}
       />
-      <div className="flex items-center gap-2 px-4 py-1 border-b border-border bg-card/50">
+      <div className="flex items-center gap-2 px-4 py-1 border-b border-border bg-card">
         <Button
           size="sm"
           variant={agent.session.open ? 'default' : 'outline'}

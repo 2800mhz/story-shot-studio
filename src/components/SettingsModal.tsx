@@ -70,7 +70,7 @@ export function SettingsModal({ open, onClose, apiKeys, imageApiKeys, settings, 
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-card border-border sm:max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="bg-card border-border sm:max-w-lg max-h-[85vh] overflow-y-auto scrollbar-thin">
         <DialogHeader>
           <DialogTitle className="text-foreground">Ayarlar</DialogTitle>
         </DialogHeader>
