@@ -1199,7 +1199,8 @@ const Index = () => {
     }
   }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, state.projectType, dispatch, aspectRatio]);
 
-  const WORKER_COUNT = 2;
+  const WORKER_COUNT = 4; // Qwen/Llama gibi hızlı modellerde 4 paralel stream verimli
+
 
   const handleGenerateAllPrompts = useCallback(async () => {
     if (isBulkGeneratingPrompts) return;

@@ -28,6 +28,16 @@ const GROQ_MODELS = [
   'llama-3.1-8b-instant',      // Ultra-hızlı fallback
 ];
 
+// DeepInfra model seçenekleri — hız sırasına göre
+const DEEPINFRA_MODELS = [
+  'meta-llama/Meta-Llama-3.1-8B-Instruct',     // ⚡ En hızlı — ~1-2sn, prompt gen için yeterli
+  'meta-llama/Meta-Llama-3.1-70B-Instruct',    // ⚡ Hızlı — ~3-5sn, kaliteli
+  'Qwen/Qwen2.5-72B-Instruct',                 // 🚀 Hız/kalite dengesi — ~5-8sn
+  'Qwen/Qwen3-235B-A22B',                      // 🔥 Güçlü ama yavaş — ~20-40sn
+  'deepseek-ai/DeepSeek-V3-0324',              // 🐢 Orta hız — ~30-60sn
+  'deepseek-ai/DeepSeek-V4-Flash',             // 🐢 Adı "Flash" ama yavaş — ~60-120sn
+];
+
 class AIProviderManager {
   private currentProvider: AIProvider = 'deepinfra';
   private currentKeyIndex = 0;
@@ -35,7 +45,8 @@ class AIProviderManager {
   private initialized = false;
   private model = 'gemini-2.5-flash';
   private groqModel = 'llama-3.3-70b-versatile';
-  private deepinfraModel = 'deepseek-ai/DeepSeek-V4-Flash'; // Default to V4-Flash for faster DeepInfra responses
+  // Qwen2.5-72B: hız/kalite dengesi — DeepSeek-V4-Flash'tan ~10x hızlı
+  private deepinfraModel = 'Qwen/Qwen2.5-72B-Instruct';
 
   // 503 backoff + model fallback tracking
   private lastServerErrorAt = 0;
@@ -127,6 +138,10 @@ class AIProviderManager {
 
   getDeepinfraModel(): string {
     return this.deepinfraModel;
+  }
+
+  getDeepinfraModelOptions(): string[] {
+    return [...DEEPINFRA_MODELS];
   }
 
   async generateContent(
