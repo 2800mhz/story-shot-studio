@@ -454,6 +454,11 @@ export function RightPanel({
                       <GripVertical className="h-4 w-4" />
                     </div>
                     <div className="flex-1 min-w-0">
+                {sc.promptsNeedRefresh && (
+                  <div className="mb-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] font-medium text-amber-600">
+                    Agent degisikligi uygulandi. Bu sahnedeki promptlar yeniden uretilmeli.
+                  </div>
+                )}
                 <SceneCard
                   scene={sc}
                   characters={sceneChars}

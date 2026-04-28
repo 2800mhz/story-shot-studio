@@ -14,11 +14,17 @@ import { EpisodeStylePanel } from '@/components/EpisodeStylePanel';
 import { EpisodeStyleHistoryModal } from '@/components/EpisodeStyleHistoryModal';
 import { ReferencePanel } from '@/components/ReferencePanel';
 import { ScriptUploader } from '@/components/ScriptUploader';
+import { AgentDrawer } from '@/components/agent/AgentDrawer';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useAppState } from '@/hooks/useAppState';
+import { useAgentSession } from '@/hooks/useAgentSession';
 import { parseDocument } from '@/lib/documentParser';
 import { parseEpisodes } from '@/lib/episodeParser';
 import { generatePrompts, loadSystemPrompt } from '@/lib/geminiApi';
+import { buildAgentContext, buildAgentUserPrompt } from '@/lib/agentContext';
+import { applyAgentOperations } from '@/lib/agentOperations';
+import { parseAgentOperationSet, stripAgentResultBlock } from '@/lib/agentParser';
+import { AGENT_SYSTEM_PROMPT } from '@/lib/agentPrompts';
 import { analyzeTextIntoScenes, generateEpisodePrompt, generateEpisodePromptExplanation, reviseEpisodePrompt } from '@/lib/sceneAnalyzer';
 import { analyzeReferenceImage } from '@/lib/referenceAnalyzer';
 import { generatePromptsForScene, revisePrompt, autoSelectBestPrompt } from '@/lib/promptGenerator';
@@ -26,7 +32,7 @@ import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetc
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
-import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis, PromptCard, EpisodeStyleVersion, ProjectType } from '@/types';
+import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis, PromptCard, EpisodeStyleVersion, ProjectType, SceneReference } from '@/types';
 
 
 const GROUP_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
@@ -426,6 +432,23 @@ const Index = () => {
   const [isRevisingEpisodeStyle, setIsRevisingEpisodeStyle] = useState(false);
   const [showStyleHistory, setShowStyleHistory] = useState(false);
   const [scrollToIndex, setScrollToIndex] = useState<number | null>(null);
+  const [agentCommand, setAgentCommand] = useState('');
+  const agent = useAgentSession();
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+  const isAgentLocked = agent.isBusy || agent.session.pendingOperationSet !== null;
+
+  const fileToBase64 = useCallback((file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const [, base64 = ''] = result.split(',');
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }, []);
 
   const handleScriptComplete = useCallback((result: {
     sceneCards: import('@/types').SceneCard[];
@@ -444,6 +467,209 @@ const Index = () => {
     }
     setShowScriptUploader(false);
   }, [dispatch]);
+
+  useEffect(() => {
+    if (agent.session.open) {
+      aiProvider.startWarmup(90_000);
+    }
+  }, [agent.session.open]);
+
+  const handleAddAgentAttachment = useCallback(async (file: File) => {
+    try {
+      const base64 = await fileToBase64(file);
+      let analysis = '';
+      if (aiProvider.isInitialized() && aiProvider.hasKeys()) {
+        try {
+          const attachmentSummary = await aiProvider.generateContent(
+            'Describe this image for an editing agent. Focus on subject identity, clothing, accessories, color palette, and shape language. Return a short plain-text description.',
+            'You are a visual reference analyst for a film editing tool. Respond in one short paragraph only.',
+            {
+              operationType: 'agent_attachment_analysis',
+              images: [{ inlineData: { data: base64, mimeType: file.type || 'image/png' } }],
+            }
+          );
+          analysis = attachmentSummary.trim();
+        } catch (attachmentError) {
+          console.warn('Attachment analysis skipped:', attachmentError);
+        }
+      }
+      agent.setAttachments(prev => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          type: 'image',
+          name: file.name,
+          mimeType: file.type || 'image/png',
+          base64,
+          analysis,
+        },
+      ]);
+    } catch (error) {
+      console.error('Failed to attach image:', error);
+      toast({ title: 'Görsel eklenemedi', description: 'Dosya okunurken bir hata oluştu.', variant: 'destructive' });
+    }
+  }, [agent, fileToBase64, toast]);
+
+  const handleSubmitAgentCommand = useCallback(async () => {
+    const command = agentCommand.trim();
+    if (!command) return;
+    if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
+      setNoKeysWarning(true);
+      return;
+    }
+    if (agent.session.scope === 'selected-entity' && !selectedEntityId) {
+      toast({
+        title: 'Entity secilmedi',
+        description: 'Entity scope icin once Varliklar panelinden bir karakter sec.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    agent.setOpen(true);
+    agent.setIsBusy(true);
+    agent.setIsStreaming(true);
+    agent.clearPendingOperationSet();
+
+    agent.addMessage({
+      role: 'user',
+      content: command,
+      attachments: agent.attachments,
+    });
+    const assistantMessageId = agent.addMessage({
+      role: 'assistant',
+      content: '',
+      streaming: true,
+    });
+    setAgentCommand('');
+
+    try {
+      const context = buildAgentContext({
+        scope: agent.session.scope,
+        activeSceneId: state.activeSceneId,
+        selectedEntityId,
+        sceneCards: state.sceneCards,
+        characters: state.characters,
+        locations: state.locations,
+        timeContexts: state.timeContexts,
+        references: state.references,
+        episodePrompt: state.episodePrompt,
+        masterPrompt: state.masterPrompt,
+      });
+
+      const prompt = buildAgentUserPrompt({
+        command,
+        context,
+        attachments: agent.attachments,
+      });
+
+      const images = agent.attachments
+        .filter((attachment) => attachment.base64)
+        .map((attachment) => ({
+          inlineData: {
+            data: attachment.base64!,
+            mimeType: attachment.mimeType,
+          },
+        }));
+
+      let streamed = '';
+      const response = images.length > 0
+        ? await aiProvider.generateContent(prompt, AGENT_SYSTEM_PROMPT, {
+            operationType: 'agent_edit',
+            images,
+          })
+        : await aiProvider.generateContentStream(prompt, AGENT_SYSTEM_PROMPT, {
+            operationType: 'agent_edit_stream',
+            onChunk: (text) => {
+              streamed = text;
+              agent.updateMessage(assistantMessageId, {
+                content: stripAgentResultBlock(text) || 'Düşünüyorum...',
+              });
+            },
+          });
+
+      const finalText = images.length > 0 ? response : streamed || response;
+      agent.updateMessage(assistantMessageId, {
+        content: stripAgentResultBlock(finalText) || 'Değişiklik hazır.',
+        streaming: false,
+      });
+      const operationSet = parseAgentOperationSet(finalText);
+      agent.setPendingOperationSet(operationSet);
+      agent.clearAttachments();
+    } catch (error) {
+      console.error('Agent command failed:', error);
+      agent.updateMessage(assistantMessageId, {
+        content: error instanceof Error ? error.message : 'Agent komutu işlenemedi.',
+        streaming: false,
+        status: 'error',
+      });
+      toast({
+        title: 'Agent komutu başarısız',
+        description: error instanceof Error ? error.message : 'Beklenmeyen bir hata oluştu.',
+        variant: 'destructive',
+      });
+    } finally {
+      agent.setIsBusy(false);
+      agent.setIsStreaming(false);
+    }
+  }, [
+    agent,
+    agent.attachments,
+    agent.session.scope,
+    agentCommand,
+    selectedEntityId,
+    state.activeSceneId,
+    state.characters,
+    state.locations,
+    state.masterPrompt,
+    state.episodePrompt,
+    state.references,
+    state.sceneCards,
+    state.timeContexts,
+    toast,
+  ]);
+
+  const handleApplyAgentChanges = useCallback(() => {
+    const operationSet = agent.pendingOperationSet;
+    if (!operationSet) return;
+
+    const nextState = applyAgentOperations({
+      sceneCards: state.sceneCards,
+      characters: state.characters,
+      locations: state.locations,
+      timeContexts: state.timeContexts,
+      references: state.references,
+    }, operationSet);
+
+    const referencesWithEpisode = nextState.references.map((reference): SceneReference => ({
+      ...reference,
+      episodeId: reference.episodeId || episodeId || '',
+    }));
+
+    dispatch({ type: 'SET_SCENES', payload: nextState.sceneCards });
+    dispatch({ type: 'SET_CHARACTERS', payload: nextState.characters });
+    dispatch({ type: 'SET_LOCATIONS', payload: nextState.locations });
+    dispatch({ type: 'SET_TIME_CONTEXTS', payload: nextState.timeContexts });
+    dispatch({ type: 'SET_REFERENCES', payload: referencesWithEpisode });
+
+    agent.addMessage({
+      role: 'status',
+      content: `Uygulandı: ${operationSet.summary}`,
+      status: 'done',
+    });
+    agent.clearPendingOperationSet();
+    toast({ title: 'Agent değişiklikleri uygulandı', description: operationSet.summary });
+  }, [
+    agent,
+    dispatch,
+    episodeId,
+    state.characters,
+    state.locations,
+    state.references,
+    state.sceneCards,
+    state.timeContexts,
+    toast,
+  ]);
 
   const handleReviseEpisodeStyle = useCallback(async (instruction: string) => {
     if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
@@ -1610,6 +1836,7 @@ const Index = () => {
         onSettings={() => setSettingsOpen(true)}
         onInfo={() => setInfoOpen(true)}
         mainFileName={state.mainFileName}
+        disabledActions={isAgentLocked}
       />
       <div className="flex items-center gap-2 px-4 py-1 border-b border-border bg-card/50">
         <Button
@@ -1714,20 +1941,22 @@ const Index = () => {
             <>
               <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/50 cursor-col-resize transition-colors" />
               <Panel defaultSize={15} minSize={10}>
-                <EpisodeStylePanel
-                  episodePrompt={state.episodePrompt}
-                  episodePromptTr={state.episodePromptTr}
-                  onSetEpisodePrompt={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT', payload: prompt })}
-                  onSetEpisodePromptTr={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: prompt })}
-                  onReviseEpisodePrompt={handleReviseEpisodeStyle}
-                  isRevising={isRevisingEpisodeStyle}
-                  onShowHistory={() => setShowStyleHistory(true)}
-                  historyCount={state.episodeStyleHistory.length}
-                  onRegenerateAll={handleRegenerateAllScenes}
-                  isGeneratingAll={isGeneratingAll}
-                  sceneCount={state.scenes.length}
-                  onClose={() => setShowEpisodeStylePanel(false)}
-                />
+                <div className={isAgentLocked ? 'pointer-events-none opacity-60' : ''}>
+                  <EpisodeStylePanel
+                    episodePrompt={state.episodePrompt}
+                    episodePromptTr={state.episodePromptTr}
+                    onSetEpisodePrompt={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT', payload: prompt })}
+                    onSetEpisodePromptTr={(prompt) => dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: prompt })}
+                    onReviseEpisodePrompt={handleReviseEpisodeStyle}
+                    isRevising={isRevisingEpisodeStyle}
+                    onShowHistory={() => setShowStyleHistory(true)}
+                    historyCount={state.episodeStyleHistory.length}
+                    onRegenerateAll={handleRegenerateAllScenes}
+                    isGeneratingAll={isGeneratingAll}
+                    sceneCount={state.scenes.length}
+                    onClose={() => setShowEpisodeStylePanel(false)}
+                  />
+                </div>
               </Panel>
             </>
           )}
@@ -1741,11 +1970,13 @@ const Index = () => {
                     <span className="text-sm font-medium">🎭 Varlıklar</span>
                     <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground" onClick={() => setShowEntityPanel(false)}>✕</Button>
                   </div>
-                  <div className="flex-1 overflow-y-auto scrollbar-thin">
+                  <div className={`flex-1 overflow-y-auto scrollbar-thin ${isAgentLocked ? 'pointer-events-none opacity-60' : ''}`}>
                     <EntityCardPanel
                       characters={state.characters}
                       locations={state.locations}
                       timeContexts={state.timeContexts}
+                      selectedEntityId={selectedEntityId}
+                      onSelectEntity={setSelectedEntityId}
                       onUpsertCharacter={(c) => dispatch({ type: 'UPSERT_CHARACTER', payload: c })}
                       onDeleteCharacter={(id) => dispatch({ type: 'DELETE_CHARACTER', payload: id })}
                       onUpsertLocation={(l) => dispatch({ type: 'UPSERT_LOCATION', payload: l })}
@@ -1774,6 +2005,7 @@ const Index = () => {
                       episodeId={episodeId ?? null}
                       references={state.references}
                       dispatch={dispatch}
+                      disabled={isAgentLocked}
                     />
                   </div>
                 </div>
@@ -1784,62 +2016,85 @@ const Index = () => {
           <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/50 cursor-col-resize transition-colors" />
 
           <Panel defaultSize={25} minSize={15}>
-            <RightPanel
-              scenes={state.scenes}
-              consistencyGroups={state.consistencyGroups}
-              activeSceneId={state.activeSceneId}
-              extractedEntities={state.extractedEntities}
-              sceneAnalyses={state.sceneAnalyses}
-              onGenerate={handleGenerate}
-              onCancel={handleCancel}
-              onCancelAll={handleCancelAll}
-              onGenerateAll={handleGenerateAll}
-              isGeneratingAll={isGeneratingAll}
-              onGenerateAllPrompts={handleGenerateAllPrompts}
-              isBulkGeneratingPrompts={isBulkGeneratingPrompts}
-              bulkPromptsProgress={bulkPromptsProgress}
-              onCancelBulkPrompts={handleCancelBulkPrompts}
-              sceneCards={state.sceneCards}
-              characters={state.characters}
-              locations={state.locations}
-              timeContexts={state.timeContexts}
-              onGeneratePrompts={handleGeneratePromptsForScene}
-              onUpdateSceneCardNote={handleSetSceneNote}
-              onAddVariation={handleAddVariation}
-              onRegenerateAllPrompts_={handleRegenerateAllPrompts}
-              onRevisePrompt={handleRevisePrompt_}
-              onDeletePrompt={handleDeletePrompt_}
-              onRestorePreviousPrompt_={handleRestoreSceneCardPrompt}
-              onSetPinnedPrompt={handleSetPinnedPrompt}
-              onAddCharacterToSceneCard={handleAddNewCharacterToSceneCard}
-              onAddLocationToSceneCard={handleAddNewLocationToSceneCard}
-              onDeleteSceneCard={id => dispatch({ type: 'DELETE_SCENE_CARD', payload: id })}
-              onRevise={handleRevise}
-              onRefreshAll={handleRefreshAll}
-              isLoading={loadingData}
-              onSetActiveScene={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
-              onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
-              onAddSceneToGroup={handleAddSceneToGroup}
-              onRemoveSceneFromGroup={handleRemoveSceneFromGroup}
-              onAttachEntity={handleAttachEntity}
-              onDetachEntity={handleDetachEntity}
-              onSetSceneNote={handleSetSceneNote}
-              onSetGroupNote={handleSetGroupNote}
-              onAddSubScene={handleAddSubScene}
-              onRemoveSubScene={handleRemoveSubScene}
-              onGenerateSubScene={handleGenerateSubScene}
-              onReviseSubScene={handleReviseSubScene}
-              onRefreshSubScene={(sceneId, subSceneId) => handleGenerateSubScene(sceneId, subSceneId)}
-              onDeleteSubScenePrompt={handleDeleteSubScenePrompt}
-              onSetSubSceneNote={handleSetSubSceneNote}
-              onAddSubSceneToGroup={handleAddSubSceneToGroup}
-              onRemoveSubSceneFromGroup={handleRemoveSubSceneFromGroup}
-              onReorderScenes={(reordered) => dispatch({ type: 'REORDER_SCENES', payload: reordered })}
-              onReorderSceneCards={(reordered) => dispatch({ type: 'REORDER_SCENE_CARDS', payload: reordered })}
-            />
+            <div className={isAgentLocked ? 'pointer-events-none opacity-60' : ''}>
+              <RightPanel
+                scenes={state.scenes}
+                consistencyGroups={state.consistencyGroups}
+                activeSceneId={state.activeSceneId}
+                extractedEntities={state.extractedEntities}
+                sceneAnalyses={state.sceneAnalyses}
+                onGenerate={handleGenerate}
+                onCancel={handleCancel}
+                onCancelAll={handleCancelAll}
+                onGenerateAll={handleGenerateAll}
+                isGeneratingAll={isGeneratingAll}
+                onGenerateAllPrompts={handleGenerateAllPrompts}
+                isBulkGeneratingPrompts={isBulkGeneratingPrompts}
+                bulkPromptsProgress={bulkPromptsProgress}
+                onCancelBulkPrompts={handleCancelBulkPrompts}
+                sceneCards={state.sceneCards}
+                characters={state.characters}
+                locations={state.locations}
+                timeContexts={state.timeContexts}
+                onGeneratePrompts={handleGeneratePromptsForScene}
+                onUpdateSceneCardNote={handleSetSceneNote}
+                onAddVariation={handleAddVariation}
+                onRegenerateAllPrompts_={handleRegenerateAllPrompts}
+                onRevisePrompt={handleRevisePrompt_}
+                onDeletePrompt={handleDeletePrompt_}
+                onRestorePreviousPrompt_={handleRestoreSceneCardPrompt}
+                onSetPinnedPrompt={handleSetPinnedPrompt}
+                onAddCharacterToSceneCard={handleAddNewCharacterToSceneCard}
+                onAddLocationToSceneCard={handleAddNewLocationToSceneCard}
+                onDeleteSceneCard={id => dispatch({ type: 'DELETE_SCENE_CARD', payload: id })}
+                onRevise={handleRevise}
+                onRefreshAll={handleRefreshAll}
+                isLoading={loadingData}
+                onSetActiveScene={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
+                onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
+                onAddSceneToGroup={handleAddSceneToGroup}
+                onRemoveSceneFromGroup={handleRemoveSceneFromGroup}
+                onAttachEntity={handleAttachEntity}
+                onDetachEntity={handleDetachEntity}
+                onSetSceneNote={handleSetSceneNote}
+                onSetGroupNote={handleSetGroupNote}
+                onAddSubScene={handleAddSubScene}
+                onRemoveSubScene={handleRemoveSubScene}
+                onGenerateSubScene={handleGenerateSubScene}
+                onReviseSubScene={handleReviseSubScene}
+                onRefreshSubScene={(sceneId, subSceneId) => handleGenerateSubScene(sceneId, subSceneId)}
+                onDeleteSubScenePrompt={handleDeleteSubScenePrompt}
+                onSetSubSceneNote={handleSetSubSceneNote}
+                onAddSubSceneToGroup={handleAddSubSceneToGroup}
+                onRemoveSubSceneFromGroup={handleRemoveSubSceneFromGroup}
+                onReorderScenes={(reordered) => dispatch({ type: 'REORDER_SCENES', payload: reordered })}
+                onReorderSceneCards={(reordered) => dispatch({ type: 'REORDER_SCENE_CARDS', payload: reordered })}
+              />
+            </div>
           </Panel>
         </PanelGroup>
       </div>
+
+      <AgentDrawer
+        open={agent.session.open}
+        heightPercent={agent.session.heightPercent}
+        onToggleOpen={() => agent.setOpen(!agent.session.open)}
+        onHeightChange={agent.setHeightPercent}
+        scope={agent.session.scope}
+        onScopeChange={agent.setScope}
+        messages={agent.session.messages}
+        attachments={agent.session.attachments}
+        isBusy={agent.isBusy}
+        isStreaming={agent.isStreaming}
+        pendingOperationSet={agent.pendingOperationSet}
+        command={agentCommand}
+        onCommandChange={setAgentCommand}
+        onSubmit={handleSubmitAgentCommand}
+        onAddAttachment={handleAddAgentAttachment}
+        onRemoveAttachment={agent.removeAttachment}
+        onApply={handleApplyAgentChanges}
+        onDismissChanges={agent.clearPendingOperationSet}
+      />
 
       <SettingsModal
         open={settingsOpen}

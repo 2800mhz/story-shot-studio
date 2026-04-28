@@ -57,6 +57,8 @@ interface EntityCardPanelProps {
   onAddTimeContext: (t: TimeContext) => void;
   onUpdateTimeContext: (t: TimeContext) => void;
   onDeleteTimeContext: (id: string) => void;
+  selectedEntityId?: string | null;
+  onSelectEntity?: (entityId: string | null) => void;
 }
 
 // ── Character Editor ─────────────────────────────────────────────────────────
@@ -370,6 +372,8 @@ export function EntityCardPanel({
   onAddTimeContext,
   onUpdateTimeContext,
   onDeleteTimeContext,
+  selectedEntityId = null,
+  onSelectEntity,
 }: EntityCardPanelProps) {
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['characters', 'locations', 'timeContexts']));
   const [editingCharId, setEditingCharId] = useState<string | null>(null);
@@ -440,7 +444,7 @@ export function EntityCardPanel({
                       onCancel={() => setEditingCharId(null)}
                     />
                   ) : (
-                    <div className={`group flex items-start justify-between gap-2 p-2 rounded-lg border transition-colors ${duplicateCharIds.has(char.id) ? 'border-yellow-600/50 bg-yellow-950/20 hover:border-yellow-500/60' : 'border-amber-800/30 bg-amber-950/20 hover:border-amber-700/50'}`}>
+                    <div className={`group flex items-start justify-between gap-2 p-2 rounded-lg border transition-colors ${selectedEntityId === char.id ? 'ring-1 ring-primary border-primary/40' : ''} ${duplicateCharIds.has(char.id) ? 'border-yellow-600/50 bg-yellow-950/20 hover:border-yellow-500/60' : 'border-amber-800/30 bg-amber-950/20 hover:border-amber-700/50'}`}>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-xs font-medium text-amber-200">{char.name}</span>
@@ -471,6 +475,16 @@ export function EntityCardPanel({
                         )}
                       </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        {onSelectEntity && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-[10px]"
+                            onClick={() => onSelectEntity(selectedEntityId === char.id ? null : char.id)}
+                          >
+                            {selectedEntityId === char.id ? 'Secili' : 'Agent'}
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="ghost"

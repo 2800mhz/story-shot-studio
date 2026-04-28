@@ -17,9 +17,10 @@ interface HeaderProps {
   onSettings: () => void;
   onInfo: () => void;
   mainFileName: string;
+  disabledActions?: boolean;
 }
 
-export function Header({ onUploadMain, onUploadScript, onExport, onImport, onSettings, onInfo, mainFileName }: HeaderProps) {
+export function Header({ onUploadMain, onUploadScript, onExport, onImport, onSettings, onInfo, mainFileName, disabledActions = false }: HeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,34 +56,34 @@ export function Header({ onUploadMain, onUploadScript, onExport, onImport, onSet
           onChange={handleFileChange} 
         />
         
-        <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+        <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={disabledActions}>
           <FolderUp className="mr-1.5 h-3.5 w-3.5" />
           İçe Aktar
         </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="max-w-[200px]">
+            <Button variant="outline" size="sm" className="max-w-[200px]" disabled={disabledActions}>
               <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{mainFileName || 'Metin Yükle'}</span>
               <ChevronDown className="ml-1 h-3 w-3 shrink-0 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onUploadMain}>
+            <DropdownMenuItem onClick={onUploadMain} disabled={disabledActions}>
               📄 Seslendirme Metni
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onUploadScript}>
+            <DropdownMenuItem onClick={onUploadScript} disabled={disabledActions}>
               🎬 Senaryo (.docx)
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button variant="outline" size="sm" onClick={onExport}>
+        <Button variant="outline" size="sm" onClick={onExport} disabled={disabledActions}>
           <Download className="mr-1.5 h-3.5 w-3.5" />
           Dışa Aktar
         </Button>
         <Link to="/motion-prompt">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" disabled={disabledActions}>
             <Video className="mr-1.5 h-3.5 w-3.5" />
             Motion
           </Button>

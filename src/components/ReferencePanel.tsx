@@ -21,16 +21,17 @@ interface ReferencePanelProps {
   episodeId: string | null;
   references: SceneReference[];
   dispatch: React.Dispatch<AppAction>;
+  disabled?: boolean;
 }
 
-export function ReferencePanel({ episodeId, references, dispatch }: ReferencePanelProps) {
+export function ReferencePanel({ episodeId, references, dispatch, disabled = false }: ReferencePanelProps) {
   const { toast } = useToast();
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadItems, setUploadItems] = useState<UploadItem[]>([]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length === 0) return;
+    if (disabled || acceptedFiles.length === 0) return;
     
     const newItems = acceptedFiles.filter(f => f.type.startsWith('image/')).map(file => {
       const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
@@ -52,7 +53,8 @@ export function ReferencePanel({ episodeId, references, dispatch }: ReferencePan
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'image/*': [] }
+    accept: { 'image/*': [] },
+    disabled,
   });
 
   const handleRemoveItem = (id: string) => {
@@ -203,7 +205,7 @@ export function ReferencePanel({ episodeId, references, dispatch }: ReferencePan
                     </div>
                     <button 
                       onClick={() => handleRemoveItem(item.id)}
-                      disabled={isUploading}
+                      disabled={isUploading || disabled}
                       className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
                       title="Listeden Çıkar"
                     >
@@ -217,13 +219,13 @@ export function ReferencePanel({ episodeId, references, dispatch }: ReferencePan
                       onChange={e => handleUpdateItem(item.id, { description: e.target.value })}
                       placeholder="Kısa açıklama (hedef)"
                       className="h-8 flex-1 bg-zinc-950 border-zinc-800 text-xs"
-                      disabled={isUploading}
+                      disabled={isUploading || disabled}
                     />
                     <select 
                       value={item.referenceType}
                       onChange={e => handleUpdateItem(item.id, { referenceType: e.target.value as 'subject' | 'style' | 'scene' })}
                       className="h-8 rounded-md border border-zinc-800 bg-zinc-950 px-2 text-xs text-zinc-300 w-full sm:w-24 flex-shrink-0 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      disabled={isUploading}
+                      disabled={isUploading || disabled}
                     >
                       <option value="subject">Subject</option>
                       <option value="style">Style</option>
@@ -240,7 +242,7 @@ export function ReferencePanel({ episodeId, references, dispatch }: ReferencePan
                   uploadItems.forEach(i => URL.revokeObjectURL(i.previewUrl));
                   setUploadItems([]);
                 }}
-                disabled={isUploading}
+                disabled={isUploading || disabled}
                 variant="outline"
                 className="w-1/3 border-zinc-800 text-zinc-400 hover:bg-zinc-800"
                 size="sm"
@@ -249,7 +251,7 @@ export function ReferencePanel({ episodeId, references, dispatch }: ReferencePan
               </Button>
               <Button 
                 onClick={handleCreateReferences}
-                disabled={isUploading}
+                disabled={isUploading || disabled}
                 className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white"
                 size="sm"
               >
@@ -298,7 +300,7 @@ export function ReferencePanel({ episodeId, references, dispatch }: ReferencePan
                 </div>
 
                 <button
-                  onClick={() => handleDelete(ref.id, ref.filePath)}
+                  onClick={() => !disabled && handleDelete(ref.id, ref.filePath)}
                   className="absolute top-2 right-2 p-1.5 rounded-md text-zinc-500 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
                 >
                   <Trash2 className="w-4 h-4" />

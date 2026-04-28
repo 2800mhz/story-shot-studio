@@ -162,6 +162,8 @@ export interface PromptCard {
   isPinned?: boolean; // Raptiye: AI or user marks the best prompt per card
   isPinnedByAI?: boolean; // true if AI auto-selected this prompt
   hasSubjectReference?: boolean;
+  isStale?: boolean;
+  staleReason?: string;
 }
 
 export interface PromptAnalysis {
@@ -198,6 +200,8 @@ export interface SceneCard {
   noteEditable: boolean;
   analysis?: PromptAnalysis;
   optimizations?: string[];
+  promptsNeedRefresh?: boolean;
+  staleReasons?: string[];
 }
 
 export interface AppState {

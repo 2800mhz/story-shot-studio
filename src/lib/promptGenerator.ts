@@ -1180,7 +1180,6 @@ export async function generatePromptsForScene(
 
       if (!raw?.trim()) {
         console.warn(`[promptEngine] Attempt ${attempt + 1}: empty response`);
-        onRetry?.();
         await delay(2000);
         continue;
       }
@@ -1205,6 +1204,9 @@ export async function generatePromptsForScene(
   }
 
   if (!parsed?.prompts || !Array.isArray(parsed.prompts)) {
+    if (lastError instanceof Error && /JSON|No JSON object found/i.test(lastError.message)) {
+      throw new Error('Invalid JSON after 4 attempts');
+    }
     throw new Error(`Prompt generation failed after 4 attempts. Last error: ${lastError}`);
   }
 
