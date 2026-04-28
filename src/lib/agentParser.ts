@@ -25,7 +25,23 @@ export function parseAgentOperationSet(text: string): AgentOperationSet {
 
   try {
     const parsed = JSON.parse(cleaned);
-    const result = agentOperationSetSchema.safeParse(parsed);
+
+    // Some models wrap operation fields into a nested `payload` object.
+    // Normalize that shape so the UI/apply engine can still work.
+    const normalized = (() => {
+      if (!parsed || typeof parsed !== 'object') return parsed;
+      const ops = Array.isArray((parsed as any).operations) ? (parsed as any).operations : [];
+      const normalizedOps = ops.map((op: any) => {
+        if (!op || typeof op !== 'object') return op;
+        if (op.payload && typeof op.payload === 'object' && !Array.isArray(op.payload)) {
+          return { type: op.type, ...op.payload };
+        }
+        return op;
+      });
+      return { ...(parsed as any), operations: normalizedOps };
+    })();
+
+    const result = agentOperationSetSchema.safeParse(normalized);
     
     if (!result.success) {
       console.error('Agent JSON validation failed:', result.error.format());
