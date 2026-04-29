@@ -35,16 +35,24 @@ const DEEPINFRA_MODELS = [
   'Qwen/Qwen2.5-72B-Instruct',                 // 🚀 Hız/kalite dengesi — ~5-8sn
   'Qwen/Qwen3-235B-A22B',                      // 🔥 Güçlü ama yavaş — ~20-40sn
   'deepseek-ai/DeepSeek-V3-0324',              // 🐢 Orta hız — ~30-60sn
-  'deepseek-ai/DeepSeek-V4-Pro',
+  'deepseek-ai/DeepSeek-V4-Pro',               // 🚀 ENTERESAN DERECEDE HIZLI VE İYİ ??
   'deepseek-ai/DeepSeek-V4-Flash',             // 🐢 Adı "Flash" ama yavaş — ~60-120sn
 ];
 
+//********************************************************************************************
+//DEEPSEEK PRO MODELİ İLE İLGİLİ
+//https://platform.deepinfra.com/models/deepseek-ai%2FDeepSeek-V4-Pro
+//aşırı derecede hızlıymış 
+//normalden biraz daha pahaı ilk ısındırma maliyeti milyon başına 1.4 dolar ama cachedi dee aşırı ucuz
+//kimi k2.6 yerine şimdilik bunu kullanalım gibi vision falan da vardır muhtemelen 
+//29 nisan 2026 güncellemesi
+//************************************************************************************************ */
 class AIProviderManager {
   private currentProvider: AIProvider = 'deepinfra';
   private currentKeyIndex = 0;
   private keys: Map<AIProvider, APIKey[]> = new Map();
   private initialized = false;
-  private model = 'gemini-2.5-flash';
+  private model = 'gemini-2.0-flash';
   private groqModel = 'llama-3.3-70b-versatile';
   // Qwen2.5-72B: hız/kalite dengesi — DeepSeek-V4-Flash'tan ~10x hızlı
   private deepinfraModel = 'deepseek-ai/DeepSeek-V4-Pro';
@@ -621,7 +629,7 @@ class AIProviderManager {
           model: this.deepinfraModel,
           messages: diStreamMessages,
           temperature: 0.7,
-          max_tokens: 4096,
+          max_tokens: 16384,
           stream: true,
         };
 
@@ -722,7 +730,7 @@ class AIProviderManager {
           model: this.groqModel,
           messages: groqMessages,
           temperature: 0.7,
-          max_completion_tokens: 4096,
+          max_completion_tokens: 16384,
           stream: true,
         };
 
@@ -983,7 +991,7 @@ class AIProviderManager {
           model: this.groqModel,
           messages,
           temperature: 0.7,
-          max_completion_tokens: 4096,
+          max_completion_tokens: 16384,
         };
 
         const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -1047,7 +1055,7 @@ class AIProviderManager {
           model: this.deepinfraModel,
           messages,
           temperature: 0.7,
-          max_tokens: 4096,
+          max_tokens: 16384,
           // Dahili olarak stream kullanıyoruz — bağlantı hiç sessiz kalmaz,
           // AbortController ve ağ proxy'leri isteği asla erkenden kapatmaz.
           stream: true,

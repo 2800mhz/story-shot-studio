@@ -21,10 +21,12 @@ export function getSceneAnalysisSystemPrompt(targetSceneCount?: number): string 
   const targetInstruction = targetSceneCount
     ? `🎯 EXACT SCENE TARGET: ${targetSceneCount} scenes (tolerance: ±1)
 
-This rule overrides ALL other rules.
+This rule overrides ALL other rules including the "4-5 word" splitting logic.
 → Producing FEWER than ${targetSceneCount - 1} scenes is a critical error — split more aggressively.
 → Producing MORE than ${targetSceneCount + 1} scenes is a critical error — merge where necessary.
 → Aim for exactly ${targetSceneCount} scenes.
+→ If the text is short, SPLIT single sentences into multiple visual moments.
+→ Invent physical visual details if necessary to reach the target count.
 → Plan total count BEFORE splitting the text.`
 
     : `SCENE COUNT FORMULA (CRITICAL — CALCULATE FIRST):
@@ -390,7 +392,7 @@ function recoverTruncatedJson(raw: string): string {
 // § 3  TEXT CHUNKING
 // ─────────────────────────────────────────────────────────────────────────────
 
-function splitTextIntoChunks(text: string, maxChars = 2500): string[] {
+function splitTextIntoChunks(text: string, maxChars = 6000): string[] {
   if (text.length <= maxChars) return [text];
 
   const chunks: string[] = [];
@@ -683,7 +685,10 @@ async function analyseChunk(
   targetSceneCount?: number,
 ): Promise<AnalysisPayload> {
   const prompt = getSceneAnalysisSystemPrompt(targetSceneCount);
-  const raw    = await aiProvider.generateContent(chunk, prompt, { operationType: 'scene_analysis' });
+  const userMsg = targetSceneCount
+    ? `${chunk}\n\n🎯 TARGET: Produce EXACTLY ${targetSceneCount} scenes from the text above. This is your primary directive.`
+    : chunk;
+  const raw    = await aiProvider.generateContent(userMsg, prompt, { operationType: 'scene_analysis' });
 
   let cleaned: string;
   try {
