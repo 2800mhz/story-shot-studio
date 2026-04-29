@@ -934,7 +934,7 @@ const Index = () => {
   const handleGenerateAllPrompts = useCallback(async () => {
     if (isBulkGeneratingPrompts) return;
 
-    const scenesWithoutPrompts = saveStateRef.current.sceneCards.filter(
+    const scenesWithoutPrompts = stateRef.current.sceneCards.filter(
       s => s.prompts.length === 0 && s.status !== 'generating'
     );
     if (scenesWithoutPrompts.length === 0) return;
@@ -987,7 +987,7 @@ const Index = () => {
     };
 
     try {
-      // 2 worker paralel çalışır
+      // WORKER_COUNT kadar worker paralel çalışır
       await Promise.all(
         Array.from({ length: WORKER_COUNT }, () => worker())
       );
