@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { AgentAttachment, AgentMessage, AgentOperationSet } from '@/lib/agentSchema';
+import type { AgentActivityItem, AgentAttachment, AgentMessage, AgentOperationSet } from '@/lib/agentSchema';
 
 export function useAgentSession() {
   const [open, setOpen] = useState(false);
@@ -10,6 +10,7 @@ export function useAgentSession() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [pendingOperationSet, setPendingOperationSet] = useState<AgentOperationSet | null>(null);
   const [lastOperationSet, setLastOperationSet] = useState<AgentOperationSet | null>(null);
+  const [activities, setActivities] = useState<AgentActivityItem[]>([]);
 
   const addMessage = (message: Omit<AgentMessage, 'id' | 'createdAt'>) => {
     const next: AgentMessage = {
@@ -33,6 +34,23 @@ export function useAgentSession() {
 
   const clearAttachments = () => setAttachments([]);
   const clearPendingOperationSet = () => setPendingOperationSet(null);
+  const startActivity = (label: string, details?: string[]) => {
+    const next: AgentActivityItem = {
+      id: crypto.randomUUID(),
+      label,
+      startedAt: new Date().toISOString(),
+      details,
+    };
+    setActivities((prev) => [next, ...prev].slice(0, 12));
+    return next.id;
+  };
+  const finishActivity = (id: string, updates?: Partial<AgentActivityItem>) => {
+    setActivities((prev) => prev.map((item) => (
+      item.id === id
+        ? { ...item, finishedAt: new Date().toISOString(), ...updates }
+        : item
+    )));
+  };
 
   const session = useMemo(() => ({
     open,
@@ -43,7 +61,8 @@ export function useAgentSession() {
     isStreaming,
     pendingOperationSet,
     lastOperationSet,
-  }), [open, heightPercent, messages, attachments, isBusy, isStreaming, pendingOperationSet, lastOperationSet]);
+    activities,
+  }), [open, heightPercent, messages, attachments, isBusy, isStreaming, pendingOperationSet, lastOperationSet, activities]);
 
   return {
     session,
@@ -65,5 +84,8 @@ export function useAgentSession() {
     clearPendingOperationSet,
     lastOperationSet,
     setLastOperationSet,
+    activities,
+    startActivity,
+    finishActivity,
   };
 }

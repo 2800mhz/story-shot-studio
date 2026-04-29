@@ -26,8 +26,6 @@ export function parseAgentOperationSet(text: string): AgentOperationSet {
   try {
     const parsed = JSON.parse(cleaned);
 
-    // Some models wrap operation fields into a nested `payload` object.
-    // Normalize that shape so the UI/apply engine can still work.
     const normalized = (() => {
       if (!parsed || typeof parsed !== 'object') return parsed;
       const ops = Array.isArray((parsed as any).operations) ? (parsed as any).operations : [];
@@ -42,13 +40,11 @@ export function parseAgentOperationSet(text: string): AgentOperationSet {
     })();
 
     const result = agentOperationSetSchema.safeParse(normalized);
-    
     if (!result.success) {
       console.error('Agent JSON validation failed:', result.error.format());
-      // Throwing a cleaner error message for the UI
-      throw new Error(`JSON yapısı geçersiz: ${result.error.issues.map(i => i.message).join(', ')}`);
+      throw new Error(`JSON yapısı geçersiz: ${result.error.issues.map((i) => i.message).join(', ')}`);
     }
-    
+
     return result.data;
   } catch (e) {
     if (e instanceof SyntaxError) {

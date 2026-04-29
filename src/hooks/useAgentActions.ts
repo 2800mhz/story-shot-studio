@@ -5,6 +5,7 @@ import { applyAgentOperations } from '@/lib/agentOperations';
 import { parseAgentOperationSet, stripAgentResultBlock } from '@/lib/agentParser';
 import { AGENT_SYSTEM_PROMPT } from '@/lib/agentPrompts';
 import { tryBuildLocalAgentOperationSet } from '@/lib/agentLocalActions';
+import { resolveLocalAgentQuery } from '@/lib/agentLocalQueries';
 import { SceneReference } from '@/types';
 
 export function useAgentActions({
@@ -118,7 +119,11 @@ export function useAgentActions({
       ]);
     } catch (error) {
       console.error('Failed to attach image:', error);
-      toast({ title: 'Görsel eklenemedi', description: 'Dosya okunurken bir hata oluştu.', variant: 'destructive' });
+      toast({
+        title: 'Görsel eklenemedi',
+        description: 'Dosya okunurken bir hata oluştu.',
+        variant: 'destructive',
+      });
     }
   }, [agent, fileToBase64, toast]);
 
@@ -129,6 +134,7 @@ export function useAgentActions({
       setNoKeysWarning(true);
       return;
     }
+
     agent.setOpen(true);
     agent.setIsBusy(true);
     agent.setIsStreaming(true);
@@ -139,14 +145,35 @@ export function useAgentActions({
       content: command,
       attachments: agent.attachments,
     });
+
     const assistantMessageId = agent.addMessage({
       role: 'assistant',
       content: '',
       streaming: true,
     });
+
     setAgentCommand('');
+    const activityId = agent.startActivity('thinking', ['Komut alındı', 'Bağlam hazırlanıyor']);
 
     try {
+      const localQuery = resolveLocalAgentQuery({
+        command,
+        episodePrompt: state.episodePrompt,
+        masterPrompt: state.masterPrompt,
+      });
+
+      if (localQuery) {
+        agent.updateMessage(assistantMessageId, {
+          content: localQuery.message,
+          streaming: false,
+        });
+        agent.finishActivity(activityId, {
+          label: 'answered_locally',
+          details: localQuery.details,
+        });
+        return;
+      }
+
       const localOperationSet = tryBuildLocalAgentOperationSet({
         command,
         state: {
@@ -161,6 +188,14 @@ export function useAgentActions({
           streaming: false,
         });
         applyOperationSet(localOperationSet, 'auto');
+        agent.finishActivity(activityId, {
+          label: 'applied_local_edit',
+          details: [
+            'Karakter-sahne ilişkileri yerel olarak çözüldü',
+            `${localOperationSet.operations.length} operasyon üretildi`,
+            'LLM çağrısı yapılmadı',
+          ],
+        });
         agent.clearAttachments();
         return;
       }
@@ -213,6 +248,7 @@ export function useAgentActions({
         content: stripAgentResultBlock(finalText) || 'Değişiklik hazır.',
         streaming: false,
       });
+
       const operationSet = parseAgentOperationSet(finalText);
       if (operationSet.operations.length > 0 || operationSet.stalePromptSceneIds.length > 0) {
         applyOperationSet(operationSet, 'auto');
@@ -220,6 +256,18 @@ export function useAgentActions({
         agent.setPendingOperationSet(operationSet);
         agent.setLastOperationSet(operationSet);
       }
+
+      agent.finishActivity(activityId, {
+        label: images.length > 0 ? 'worked_with_image_context' : 'worked_with_scene_context',
+        details: [
+          images.length > 0
+            ? `${images.length} görsel kullanıldı`
+            : 'Metin tabanlı düzenleme akışı kullanıldı',
+          `${operationSet.operations.length} operasyon üretildi`,
+          `${operationSet.stalePromptSceneIds.length} stale sahne`,
+        ],
+      });
+
       agent.clearAttachments();
     } catch (error) {
       console.error('Agent command failed:', error);
@@ -227,6 +275,10 @@ export function useAgentActions({
         content: error instanceof Error ? error.message : 'Agent komutu işlenemedi.',
         streaming: false,
         status: 'error',
+      });
+      agent.finishActivity(activityId, {
+        label: 'failed',
+        details: [error instanceof Error ? error.message : 'Beklenmeyen bir hata oluştu.'],
       });
       toast({
         title: 'Agent komutu başarısız',
@@ -240,7 +292,10 @@ export function useAgentActions({
   }, [
     agent,
     agentCommand,
+    applyOperationSet,
     selectedEntityId,
+    setAgentCommand,
+    setNoKeysWarning,
     state.activeSceneId,
     state.characters,
     state.locations,
@@ -250,8 +305,6 @@ export function useAgentActions({
     state.sceneCards,
     state.timeContexts,
     toast,
-    setAgentCommand,
-    setNoKeysWarning,
   ]);
 
   const handleApplyAgentChanges = useCallback(() => {

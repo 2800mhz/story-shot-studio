@@ -1533,6 +1533,7 @@ const Index = () => {
                         isStreaming={agent.isStreaming}
                         pendingOperationSet={agent.pendingOperationSet}
                         lastOperationSet={agent.lastOperationSet}
+                        activities={agent.activities}
                         command={agentCommand}
                         onCommandChange={setAgentCommand}
                         onSubmit={handleSubmitAgentCommand}

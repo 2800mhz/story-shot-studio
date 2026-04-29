@@ -1,8 +1,8 @@
 import React, { useRef } from 'react';
-import { Bot, ImagePlus, Loader2, Paperclip, Send, Sparkles, Trash2 } from 'lucide-react';
+import { Bot, ChevronDown, ImagePlus, Loader2, Paperclip, Send, Sparkles, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { AgentAttachment, AgentMessage, AgentOperationSet } from '@/lib/agentSchema';
+import type { AgentActivityItem, AgentAttachment, AgentMessage, AgentOperationSet } from '@/lib/agentSchema';
 import { summarizeAgentOperation, summarizeAgentOperationSet } from '@/lib/agentPreview';
 import type { Character, SceneCard } from '@/types';
 
@@ -17,6 +17,7 @@ interface AgentDrawerProps {
   isStreaming: boolean;
   pendingOperationSet: AgentOperationSet | null;
   lastOperationSet: AgentOperationSet | null;
+  activities: AgentActivityItem[];
   command: string;
   onCommandChange: (next: string) => void;
   onSubmit: () => void;
@@ -26,6 +27,25 @@ interface AgentDrawerProps {
   onRemoveAttachment: (id: string) => void;
   onApply: () => void;
   onDismissChanges: () => void;
+}
+
+function getActivityLabel(label: string) {
+  switch (label) {
+    case 'thinking':
+      return 'Düşündü';
+    case 'answered_locally':
+      return 'Yerelden yanıtladı';
+    case 'applied_local_edit':
+      return 'Yerelde düzenledi';
+    case 'worked_with_image_context':
+      return 'Görsel bağlamında çalıştı';
+    case 'worked_with_scene_context':
+      return 'Sahne bağlamında çalıştı';
+    case 'failed':
+      return 'İşlem başarısız oldu';
+    default:
+      return label;
+  }
 }
 
 export function AgentDrawer(props: AgentDrawerProps) {
@@ -40,6 +60,7 @@ export function AgentDrawer(props: AgentDrawerProps) {
     isStreaming,
     pendingOperationSet,
     lastOperationSet,
+    activities,
     command,
     onCommandChange,
     onSubmit,
@@ -57,6 +78,13 @@ export function AgentDrawer(props: AgentDrawerProps) {
   const charactersById = new Map((characters ?? []).map((c) => [c.id, c]));
   const operationSetToShow = pendingOperationSet ?? lastOperationSet;
 
+  const formatActivityDuration = (activity: AgentActivityItem) => {
+    const start = new Date(activity.startedAt).getTime();
+    const end = activity.finishedAt ? new Date(activity.finishedAt).getTime() : Date.now();
+    const seconds = Math.max(1, Math.round((end - start) / 1000));
+    return `${seconds} sn`;
+  };
+
   return (
     <div className="flex h-full flex-col bg-card/95 backdrop-blur-sm">
       <div className="flex items-center justify-between border-b px-4 py-2">
@@ -72,7 +100,7 @@ export function AgentDrawer(props: AgentDrawerProps) {
           {isBusy && (
             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
-              {isStreaming ? 'Streaming' : 'İşleniyor'}
+              {isStreaming ? 'Yanıt akıyor' : 'İşleniyor'}
             </span>
           )}
         </div>
@@ -97,7 +125,9 @@ export function AgentDrawer(props: AgentDrawerProps) {
                 <div className="space-y-3">
                   {messages.length === 0 ? (
                     <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                      Buradan workspace state&apos;ini doğrudan düzenleyebilirsin. Örn: &quot;Sahne 47&apos;nin pinned promptunu daha hareketli yap&quot; ya da &quot;3. sahnedeki karakterin kaftan rengini koyulaştır&quot;.
+                      Buradan workspace state&apos;ini doğrudan düzenleyebilirsin. Örn:
+                      &nbsp;&quot;Sahne 47&apos;nin pinned prompt&apos;unu daha hareketli yap&quot; ya da
+                      &nbsp;&quot;3. sahnedeki karakterin kaftan rengini koyulaştır&quot;.
                     </div>
                   ) : messages.map((message) => (
                     <div
@@ -191,6 +221,29 @@ export function AgentDrawer(props: AgentDrawerProps) {
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto scrollbar-thin p-4">
+                {activities.length > 0 && (
+                  <div className="mb-4 space-y-2">
+                    {activities.slice(0, 4).map((activity) => (
+                      <details key={activity.id} className="group rounded-lg border bg-background px-3 py-2">
+                        <summary className="flex cursor-pointer list-none items-center justify-between text-xs text-muted-foreground">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-foreground">{getActivityLabel(activity.label)}</span>
+                            <span>{formatActivityDuration(activity)}</span>
+                          </div>
+                          <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+                        </summary>
+                        {activity.details && activity.details.length > 0 && (
+                          <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
+                            {activity.details.map((detail) => (
+                              <div key={detail}>{detail}</div>
+                            ))}
+                          </div>
+                        )}
+                      </details>
+                    ))}
+                  </div>
+                )}
+
                 {!operationSetToShow ? (
                   <p className="text-sm text-muted-foreground">
                     Agent bir düzenleme yaptığında özet ve etkilenen sahneler burada görünecek.
@@ -245,7 +298,9 @@ export function AgentDrawer(props: AgentDrawerProps) {
 
                     {operationSetToShow.stalePromptSceneIds.length > 0 && (
                       <div>
-                        <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Yeniden Üretim Gerekenler</div>
+                        <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          Yeniden Üretim Gerekenler
+                        </div>
                         <div className="flex flex-wrap gap-1">
                           {operationSetToShow.stalePromptSceneIds.map((sceneId) => (
                             <span

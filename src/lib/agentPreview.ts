@@ -5,7 +5,7 @@ function getSceneLabel(scene: SceneCard | undefined): string {
   if (!scene) return 'Sahne';
   const n = scene.sceneNumber ?? '?';
   const t = (scene.text || '').trim();
-  const short = t.length > 48 ? `${t.slice(0, 48)}…` : t;
+  const short = t.length > 48 ? `${t.slice(0, 48)}...` : t;
   return short ? `Sahne ${n}: ${short}` : `Sahne ${n}`;
 }
 
@@ -47,7 +47,7 @@ export function summarizeAgentOperation(args: {
     }
     case 'update_prompt_text': {
       const scene = scenesById?.get(operation.sceneId);
-      return { title: `${getSceneLabel(scene)} prompt’u güncellendi`, lines: [] };
+      return { title: `${getSceneLabel(scene)} prompt'u güncellendi`, lines: [] };
     }
     case 'mark_prompt_stale': {
       const scene = scenesById?.get(operation.sceneId);
@@ -60,7 +60,7 @@ export function summarizeAgentOperation(args: {
       const scene = scenesById?.get(operation.sceneId);
       const character = charactersById?.get(operation.characterId);
       return {
-        title: `${getCharacterLabel(character)} → ${getSceneLabel(scene)}`,
+        title: `${getCharacterLabel(character)} -> ${getSceneLabel(scene)}`,
         lines: ['Sahneye eklendi'],
       };
     }
@@ -68,7 +68,7 @@ export function summarizeAgentOperation(args: {
       const scene = scenesById?.get(operation.sceneId);
       const character = charactersById?.get(operation.characterId);
       return {
-        title: `${getCharacterLabel(character)} → ${getSceneLabel(scene)}`,
+        title: `${getCharacterLabel(character)} -> ${getSceneLabel(scene)}`,
         lines: ['Sahneden çıkarıldı'],
       };
     }
@@ -86,10 +86,8 @@ export function summarizeAgentOperation(args: {
       return { title: 'Yeni karakter eklendi', lines: [operation.character.name] };
     case 'remove_character':
       return { title: 'Karakter silindi', lines: [operation.characterId] };
-    default: {
-      // Exhaustive safety: show the type as title.
+    default:
       return { title: operation.type, lines: [] };
-    }
   }
 }
 
@@ -139,4 +137,3 @@ export function summarizeAgentOperationSet(operationSet: {
 
   return pills;
 }
-

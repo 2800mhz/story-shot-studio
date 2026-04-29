@@ -7,10 +7,6 @@ function normalizeText(value: string): string {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function replaceBeardLanguage(text: string): string {
   return text
     .replace(/\bfull white beard extending 8-10cm below jaw\b/gi, 'clean-shaven face')
@@ -40,8 +36,8 @@ export function tryBuildLocalAgentOperationSet(args: {
   const normalizedCommand = normalizeText(command);
 
   const beardRemovalIntent =
-    /sakal(ı|i)?\s+(olmasin|olmasın|kaldir|kaldır|kaldiralim|kaldıralım|sil|yok et)/.test(normalizedCommand) ||
-    /sakalsiz|sakalsız|clean-shaven/.test(normalizedCommand);
+    /sakali?\s+(olmasin|kaldir|kaldiralim|sil|yok et)/.test(normalizedCommand) ||
+    /sakalsiz|clean-shaven/.test(normalizedCommand);
 
   if (!beardRemovalIntent) return null;
 
@@ -100,7 +96,7 @@ export function tryBuildLocalAgentOperationSet(args: {
 
   return {
     summary: `${matchedCharacter.name} artık sakalsız. ${affectedScenes.length} sahnedeki bağlı promptlar güncellendi${stalePromptSceneIds.length > 0 ? `, ${stalePromptSceneIds.length} sahne de yeniden üretim için işaretlendi` : ''}.`,
-    reasoning: 'Karakter-scene ilişkileri doğrudan state üzerinden çözüldü; ilgili promptlarda sakal dili yerel olarak güncellendi.',
+    reasoning: 'Karakter-sahne ilişkileri doğrudan state üzerinden çözüldü; ilgili promptlarda sakal dili yerel olarak güncellendi.',
     affectedSceneIds: affectedScenes.map((scene) => scene.id),
     stalePromptSceneIds,
     operations,

@@ -163,3 +163,11 @@ export interface AgentMessage {
   status?: 'idle' | 'warming' | 'thinking' | 'applying' | 'error' | 'done';
   attachments?: AgentAttachment[];
 }
+
+export interface AgentActivityItem {
+  id: string;
+  label: string;
+  startedAt: string;
+  finishedAt?: string;
+  details?: string[];
+}
