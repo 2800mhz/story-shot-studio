@@ -35,6 +35,7 @@ const DEEPINFRA_MODELS = [
   'Qwen/Qwen2.5-72B-Instruct',                 // 🚀 Hız/kalite dengesi — ~5-8sn
   'Qwen/Qwen3-235B-A22B',                      // 🔥 Güçlü ama yavaş — ~20-40sn
   'deepseek-ai/DeepSeek-V3-0324',              // 🐢 Orta hız — ~30-60sn
+  'deepseek-ai/DeepSeek-V4-Pro',
   'deepseek-ai/DeepSeek-V4-Flash',             // 🐢 Adı "Flash" ama yavaş — ~60-120sn
 ];
 
@@ -46,7 +47,7 @@ class AIProviderManager {
   private model = 'gemini-2.5-flash';
   private groqModel = 'llama-3.3-70b-versatile';
   // Qwen2.5-72B: hız/kalite dengesi — DeepSeek-V4-Flash'tan ~10x hızlı
-  private deepinfraModel = 'meta-llama/Meta-Llama-3.1-8B-Instruct';
+  private deepinfraModel = 'deepseek-ai/DeepSeek-V4-Pro';
 
   // Warmup: modeli GPU'da sıcak tutar, cold start önler
   private warmupInterval: ReturnType<typeof setInterval> | null = null;
