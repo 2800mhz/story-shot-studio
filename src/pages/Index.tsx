@@ -390,6 +390,7 @@ const Index = () => {
 
   const handleSetSceneNote = useCallback((sceneId: string, note: string) => {
     dispatch({ type: 'SET_SCENE_NOTE', payload: { sceneId, note } });
+    dispatch({ type: 'UPDATE_SCENE_CARD_NOTE', payload: { sceneId, note } });
   }, [dispatch]);
 
   const handleSetGroupNote = useCallback((groupId: string, note: string) => {
@@ -766,6 +767,14 @@ const Index = () => {
 
   // ─── Two-stage AI workflow handlers ─────────────────────────────
   const handleAnalyzeText = useCallback(async (selectedText: string, targetSceneCount?: number) => {
+    console.log('--- ANALYSIS START ---');
+    console.log('Target Scene Count (from UI):', targetSceneCount);
+    
+    if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
+      setNoKeysWarning(true);
+      return;
+    }
+
     dispatch({ type: 'START_ANALYSIS' });
     setAnalysisLog([]);
 
@@ -779,6 +788,8 @@ const Index = () => {
         },
         targetSceneCount
       );
+      
+      console.log('Analysis Result:', result.sceneCards.length, 'scenes produced.');
       dispatch({ type: 'FINISH_ANALYSIS', payload: result });
 
       // Mevcut referansları yeni sahnelere ata
