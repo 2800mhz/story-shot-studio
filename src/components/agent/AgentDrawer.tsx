@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { Bot, ChevronDown, ImagePlus, Loader2, Paperclip, Send, Sparkles, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { aiProvider } from '@/lib/aiProvider';
 import type { AgentActivityItem, AgentAttachment, AgentMessage, AgentOperationSet } from '@/lib/agentSchema';
 import { summarizeAgentOperation, summarizeAgentOperationSet } from '@/lib/agentPreview';
 import type { Character, SceneCard } from '@/types';
@@ -77,6 +78,8 @@ export function AgentDrawer(props: AgentDrawerProps) {
   const scenesById = new Map((sceneCards ?? []).map((s) => [s.id, s]));
   const charactersById = new Map((characters ?? []).map((c) => [c.id, c]));
   const operationSetToShow = pendingOperationSet ?? lastOperationSet;
+  const modelName = aiProvider.getActiveModelName();
+  const reasoningLabel = aiProvider.getReasoningStatusLabel();
 
   const formatActivityDuration = (activity: AgentActivityItem) => {
     const start = new Date(activity.startedAt).getTime();
@@ -103,6 +106,11 @@ export function AgentDrawer(props: AgentDrawerProps) {
               {isStreaming ? 'Yanıt akıyor' : 'İşleniyor'}
             </span>
           )}
+          <span className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-0.5 text-[10px] text-muted-foreground">
+            <span className="font-medium text-foreground">{modelName}</span>
+            <span>·</span>
+            <span>{reasoningLabel}</span>
+          </span>
         </div>
         {open && (
           <input

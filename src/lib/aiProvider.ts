@@ -152,6 +152,15 @@ class AIProviderManager {
     return this.getActiveModel();
   }
 
+  isReasoningExplicitlyDisabled(): boolean {
+    return this.currentProvider === 'deepinfra';
+  }
+
+  getReasoningStatusLabel(): string {
+    if (this.currentProvider === 'deepinfra') return 'Reasoning kapalı';
+    return 'Reasoning durumu belirsiz';
+  }
+
   setGroqModel(model: string) {
     if (model && model.trim()) {
       this.groqModel = model.trim();
@@ -632,6 +641,9 @@ class AIProviderManager {
           temperature: 0.7,
           max_tokens: 16384,
           stream: true,
+          reasoning_effort: 'none',
+          reasoning: { enabled: false },
+          thinking: { type: 'disabled' },
         };
 
         const startTime = Date.now();
@@ -1060,6 +1072,9 @@ class AIProviderManager {
           // Dahili olarak stream kullanıyoruz — bağlantı hiç sessiz kalmaz,
           // AbortController ve ağ proxy'leri isteği asla erkenden kapatmaz.
           stream: true,
+          reasoning_effort: 'none',
+          reasoning: { enabled: false },
+          thinking: { type: 'disabled' },
         };
 
         if (responseMimeType === 'application/json') {

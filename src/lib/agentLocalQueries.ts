@@ -20,6 +20,13 @@ export function resolveLocalAgentQuery(args: {
 }) {
   const normalizedCommand = normalizeText(args.command);
 
+  if (/^(merhaba|selam|hey|yo|naber|nasilsin|nasılsın|kimsin|sen kimsin|ne yapiyorsun|ne yapıyorsun)[.!? ]*$/.test(normalizedCommand)) {
+    return {
+      message: 'Buradayım. Sahne, prompt, karakter ya da görsel stil tarafında neyi değiştirmemi istersen direkt söyleyebilirsin.',
+      details: ['Kısa karşılama yerelden üretildi', 'LLM çağrısı yapılmadı'],
+    };
+  }
+
   if (/neler yapabili(rsin|yon)|ne yapabili(rsin|yon)|yardim|help/.test(normalizedCommand)) {
     return {
       message: [
