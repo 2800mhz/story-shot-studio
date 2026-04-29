@@ -9,6 +9,7 @@ export function useAgentSession() {
   const [isBusy, setIsBusy] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [pendingOperationSet, setPendingOperationSet] = useState<AgentOperationSet | null>(null);
+  const [lastOperationSet, setLastOperationSet] = useState<AgentOperationSet | null>(null);
 
   const addMessage = (message: Omit<AgentMessage, 'id' | 'createdAt'>) => {
     const next: AgentMessage = {
@@ -41,7 +42,8 @@ export function useAgentSession() {
     isBusy,
     isStreaming,
     pendingOperationSet,
-  }), [open, heightPercent, messages, attachments, isBusy, isStreaming, pendingOperationSet]);
+    lastOperationSet,
+  }), [open, heightPercent, messages, attachments, isBusy, isStreaming, pendingOperationSet, lastOperationSet]);
 
   return {
     session,
@@ -61,5 +63,7 @@ export function useAgentSession() {
     pendingOperationSet,
     setPendingOperationSet,
     clearPendingOperationSet,
+    lastOperationSet,
+    setLastOperationSet,
   };
 }

@@ -27,6 +27,51 @@ export function useAgentActions({
   setNoKeysWarning: (val: boolean) => void;
   episodeId?: string;
 }) {
+  const applyOperationSet = useCallback((operationSet: any, mode: 'auto' | 'manual' = 'manual') => {
+    const nextState = applyAgentOperations({
+      sceneCards: state.sceneCards,
+      characters: state.characters,
+      locations: state.locations,
+      timeContexts: state.timeContexts,
+      references: state.references,
+    }, operationSet);
+
+    const referencesWithEpisode = nextState.references.map((reference: any): SceneReference => ({
+      ...reference,
+      episodeId: reference.episodeId || episodeId || '',
+    }));
+
+    dispatch({ type: 'SET_SCENES', payload: nextState.sceneCards });
+    dispatch({ type: 'SET_CHARACTERS', payload: nextState.characters });
+    dispatch({ type: 'SET_LOCATIONS', payload: nextState.locations });
+    dispatch({ type: 'SET_TIME_CONTEXTS', payload: nextState.timeContexts });
+    dispatch({ type: 'SET_REFERENCES', payload: referencesWithEpisode });
+
+    agent.setLastOperationSet(operationSet);
+    agent.clearPendingOperationSet();
+    agent.addMessage({
+      role: 'status',
+      content: mode === 'auto'
+        ? `Uygulandı: ${operationSet.summary}`
+        : `Manuel uygulandı: ${operationSet.summary}`,
+      status: 'done',
+    });
+    toast({
+      title: mode === 'auto' ? 'Agent değişikliği uygulandı' : 'Agent değişiklikleri uygulandı',
+      description: operationSet.summary,
+    });
+  }, [
+    agent,
+    dispatch,
+    episodeId,
+    state.characters,
+    state.locations,
+    state.references,
+    state.sceneCards,
+    state.timeContexts,
+    toast,
+  ]);
+
   const fileToBase64 = useCallback((file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -150,7 +195,12 @@ export function useAgentActions({
         streaming: false,
       });
       const operationSet = parseAgentOperationSet(finalText);
-      agent.setPendingOperationSet(operationSet);
+      if (operationSet.operations.length > 0 || operationSet.stalePromptSceneIds.length > 0) {
+        applyOperationSet(operationSet, 'auto');
+      } else {
+        agent.setPendingOperationSet(operationSet);
+        agent.setLastOperationSet(operationSet);
+      }
       agent.clearAttachments();
     } catch (error) {
       console.error('Agent command failed:', error);
@@ -188,44 +238,8 @@ export function useAgentActions({
   const handleApplyAgentChanges = useCallback(() => {
     const operationSet = agent.pendingOperationSet;
     if (!operationSet) return;
-
-    const nextState = applyAgentOperations({
-      sceneCards: state.sceneCards,
-      characters: state.characters,
-      locations: state.locations,
-      timeContexts: state.timeContexts,
-      references: state.references,
-    }, operationSet);
-
-    const referencesWithEpisode = nextState.references.map((reference: any): SceneReference => ({
-      ...reference,
-      episodeId: reference.episodeId || episodeId || '',
-    }));
-
-    dispatch({ type: 'SET_SCENES', payload: nextState.sceneCards });
-    dispatch({ type: 'SET_CHARACTERS', payload: nextState.characters });
-    dispatch({ type: 'SET_LOCATIONS', payload: nextState.locations });
-    dispatch({ type: 'SET_TIME_CONTEXTS', payload: nextState.timeContexts });
-    dispatch({ type: 'SET_REFERENCES', payload: referencesWithEpisode });
-
-    agent.addMessage({
-      role: 'status',
-      content: `Uygulandı: ${operationSet.summary}`,
-      status: 'done',
-    });
-    agent.clearPendingOperationSet();
-    toast({ title: 'Agent değişiklikleri uygulandı', description: operationSet.summary });
-  }, [
-    agent,
-    dispatch,
-    episodeId,
-    state.characters,
-    state.locations,
-    state.references,
-    state.sceneCards,
-    state.timeContexts,
-    toast,
-  ]);
+    applyOperationSet(operationSet, 'manual');
+  }, [agent.pendingOperationSet, applyOperationSet]);
 
   return {
     handleAddAgentAttachment,

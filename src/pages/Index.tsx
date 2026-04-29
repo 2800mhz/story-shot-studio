@@ -13,7 +13,6 @@ import { EntityCardPanel } from '@/components/EntityCardPanel';
 import { EpisodeStylePanel } from '@/components/EpisodeStylePanel';
 import { EpisodeStyleHistoryModal } from '@/components/EpisodeStyleHistoryModal';
 import { ReferencePanel } from '@/components/ReferencePanel';
-import { ScriptUploader } from '@/components/ScriptUploader';
 import { AgentDrawer } from '@/components/agent/AgentDrawer';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useAppState } from '@/hooks/useAppState';
@@ -120,14 +119,13 @@ const Index = () => {
   const [showEntityPanel, setShowEntityPanel] = useState(false);
   const [showEpisodeStylePanel, setShowEpisodeStylePanel] = useState(false);
   const [showReferencePanel, setShowReferencePanel] = useState(false);
-  const [showScriptUploader, setShowScriptUploader] = useState(false);
   const [isRevisingEpisodeStyle, setIsRevisingEpisodeStyle] = useState(false);
   const [showStyleHistory, setShowStyleHistory] = useState(false);
   const [scrollToIndex, setScrollToIndex] = useState<number | null>(null);
   const [agentCommand, setAgentCommand] = useState('');
   const agent = useAgentSession();
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
-  const isAgentLocked = agent.isBusy || agent.session.pendingOperationSet !== null;
+  const isAgentLocked = agent.isBusy;
 
   const { handleAddAgentAttachment, handleSubmitAgentCommand, handleApplyAgentChanges } = useAgentActions({
     agent,
@@ -140,24 +138,6 @@ const Index = () => {
     setNoKeysWarning,
     episodeId,
   });
-
-  const handleScriptComplete = useCallback((result: {
-    sceneCards: import('@/types').SceneCard[];
-    characters: import('@/types').Character[];
-    locations: import('@/types').Location[];
-    suggestedTimeContexts?: import('@/types').TimeContext[];
-    episodePrompt?: string;
-    episodePromptTr?: string;
-  }) => {
-    dispatch({ type: 'FINISH_ANALYSIS', payload: result });
-    if (result.episodePrompt) {
-      dispatch({ type: 'SET_EPISODE_PROMPT', payload: result.episodePrompt });
-    }
-    if (result.episodePromptTr) {
-      dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: result.episodePromptTr });
-    }
-    setShowScriptUploader(false);
-  }, [dispatch]);
 
   useEffect(() => {
     if (agent.session.open) {
@@ -1313,7 +1293,6 @@ const Index = () => {
       )}
       <Header
         onUploadMain={() => mainFileRef.current?.click()}
-        onUploadScript={() => setShowScriptUploader(true)}
         onExport={() => setExportOpen(true)}
         onImport={handleImportJson}
         onSettings={() => setSettingsOpen(true)}
@@ -1415,14 +1394,6 @@ const Index = () => {
 
       <input ref={mainFileRef} type="file" accept=".docx,.txt" className="hidden"
         onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
-
-      {showScriptUploader && (
-        <ScriptUploader
-          onComplete={handleScriptComplete}
-          onProgress={(msg) => setAnalysisLog(prev => [...prev, msg])}
-          onClose={() => setShowScriptUploader(false)}
-        />
-      )}
 
       <div className="flex flex-1 overflow-hidden">
         <PanelGroup direction="horizontal" autoSaveId="story-shot-layout">
@@ -1561,6 +1532,7 @@ const Index = () => {
                         isBusy={agent.isBusy}
                         isStreaming={agent.isStreaming}
                         pendingOperationSet={agent.pendingOperationSet}
+                        lastOperationSet={agent.lastOperationSet}
                         command={agentCommand}
                         onCommandChange={setAgentCommand}
                         onSubmit={handleSubmitAgentCommand}

@@ -1,8 +1,8 @@
 import React, { useRef } from 'react';
-import { Bot, ChevronDown, ChevronUp, ImagePlus, Loader2, Paperclip, Send, Sparkles, Trash2 } from 'lucide-react';
+import { Bot, ImagePlus, Loader2, Paperclip, Send, Sparkles, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { AgentAttachment, AgentMessage, AgentOperationSet, AgentScope } from '@/lib/agentSchema';
+import type { AgentAttachment, AgentMessage, AgentOperationSet } from '@/lib/agentSchema';
 import { summarizeAgentOperation } from '@/lib/agentPreview';
 import type { Character, SceneCard } from '@/types';
 
@@ -16,6 +16,7 @@ interface AgentDrawerProps {
   isBusy: boolean;
   isStreaming: boolean;
   pendingOperationSet: AgentOperationSet | null;
+  lastOperationSet: AgentOperationSet | null;
   command: string;
   onCommandChange: (next: string) => void;
   onSubmit: () => void;
@@ -26,7 +27,6 @@ interface AgentDrawerProps {
   onApply: () => void;
   onDismissChanges: () => void;
 }
-
 
 export function AgentDrawer(props: AgentDrawerProps) {
   const {
@@ -39,6 +39,7 @@ export function AgentDrawer(props: AgentDrawerProps) {
     isBusy,
     isStreaming,
     pendingOperationSet,
+    lastOperationSet,
     command,
     onCommandChange,
     onSubmit,
@@ -54,6 +55,7 @@ export function AgentDrawer(props: AgentDrawerProps) {
   const canSend = command.trim().length > 0 && !isBusy;
   const scenesById = new Map((sceneCards ?? []).map((s) => [s.id, s]));
   const charactersById = new Map((characters ?? []).map((c) => [c.id, c]));
+  const operationSetToShow = pendingOperationSet ?? lastOperationSet;
 
   return (
     <div className="flex h-full flex-col bg-card/95 backdrop-blur-sm">
@@ -74,19 +76,17 @@ export function AgentDrawer(props: AgentDrawerProps) {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {open && (
-            <input
-              type="range"
-              min={18}
-              max={40}
-              step={1}
-              value={heightPercent}
-              onChange={(event) => onHeightChange(Number(event.target.value))}
-              className="w-24"
-            />
-          )}
-        </div>
+        {open && (
+          <input
+            type="range"
+            min={18}
+            max={40}
+            step={1}
+            value={heightPercent}
+            onChange={(event) => onHeightChange(Number(event.target.value))}
+            className="w-24"
+          />
+        )}
       </div>
 
       {open && (
@@ -97,7 +97,7 @@ export function AgentDrawer(props: AgentDrawerProps) {
                 <div className="space-y-3">
                   {messages.length === 0 ? (
                     <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                      Buradan episode state’iyle konuşabilirsin. Karakter, sahne, referans ve prompt değişikliklerini doğal dille iste.
+                      Buradan workspace state&apos;ini doğrudan düzenleyebilirsin. Örn: &quot;Sahne 47&apos;nin pinned promptunu daha hareketli yap&quot; ya da &quot;3. sahnedeki karakterin kaftan rengini koyulaştır&quot;.
                     </div>
                   ) : messages.map((message) => (
                     <div
@@ -139,7 +139,7 @@ export function AgentDrawer(props: AgentDrawerProps) {
                   <textarea
                     value={command}
                     onChange={(event) => onCommandChange(event.target.value)}
-                    placeholder="Örn: Sahne 45'teki adamın başındaki fes yerine mavi fötr şapka kullan."
+                    placeholder="Örn: Sahne 45'teki yakın planı daha doğal yap ve adamın el hareketini koru."
                     className="min-h-[68px] w-full resize-none border-0 bg-transparent px-2 py-1 text-sm outline-none"
                     disabled={isBusy}
                   />
@@ -187,57 +187,53 @@ export function AgentDrawer(props: AgentDrawerProps) {
               <div className="border-b px-4 py-3">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <Sparkles className="h-4 w-4 text-primary" />
-                  Uygulama Önizlemesi
+                  Son Agent İşlemi
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto scrollbar-thin p-4">
-                {!pendingOperationSet ? (
+                {!operationSetToShow ? (
                   <p className="text-sm text-muted-foreground">
-                    Agent bir değişiklik önerdiğinde özet ve etkilenen sahneler burada görünecek.
+                    Agent bir düzenleme yaptığında özet ve etkilenen sahneler burada görünecek.
                   </p>
                 ) : (
                   <div className="space-y-4 text-sm">
                     <div>
-                      <div className="font-medium text-foreground">{pendingOperationSet.summary}</div>
-                      {pendingOperationSet.reasoning && (
-                        <p className="mt-1 text-muted-foreground">{pendingOperationSet.reasoning}</p>
+                      <div className="font-medium text-foreground">{operationSetToShow.summary}</div>
+                      {operationSetToShow.reasoning && (
+                        <p className="mt-1 text-muted-foreground">{operationSetToShow.reasoning}</p>
                       )}
                     </div>
 
                     <div>
                       <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">İşlemler</div>
                       <div className="space-y-2">
-                        {pendingOperationSet.operations.map((operation, index) => (
-                          <div key={`${operation.type}-${index}`} className="rounded-lg border bg-background px-3 py-2 text-xs">
-                            {(() => {
-                              const summary = summarizeAgentOperation({
-                                operation,
-                                scenesById,
-                                charactersById,
-                              });
-                              return (
-                                <>
-                                  <div className="font-medium text-foreground">{summary.title}</div>
-                                  {summary.lines.length > 0 && (
-                                    <div className="mt-1 space-y-1 text-[11px] text-muted-foreground">
-                                      {summary.lines.map((line, i) => (
-                                        <div key={`${index}-line-${i}`}>{line}</div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </>
-                              );
-                            })()}
-                          </div>
-                        ))}
+                        {operationSetToShow.operations.map((operation, index) => {
+                          const summary = summarizeAgentOperation({
+                            operation,
+                            scenesById,
+                            charactersById,
+                          });
+                          return (
+                            <div key={`${operation.type}-${index}`} className="rounded-lg border bg-background px-3 py-2 text-xs">
+                              <div className="font-medium text-foreground">{summary.title}</div>
+                              {summary.lines.length > 0 && (
+                                <div className="mt-1 space-y-1 text-[11px] text-muted-foreground">
+                                  {summary.lines.map((line, i) => (
+                                    <div key={`${index}-line-${i}`}>{line}</div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
 
-                    {pendingOperationSet.stalePromptSceneIds.length > 0 && (
+                    {operationSetToShow.stalePromptSceneIds.length > 0 && (
                       <div>
                         <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Yeniden Üretim Gerekenler</div>
                         <div className="flex flex-wrap gap-1">
-                          {pendingOperationSet.stalePromptSceneIds.map((sceneId) => (
+                          {operationSetToShow.stalePromptSceneIds.map((sceneId) => (
                             <span
                               key={sceneId}
                               className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-600"
@@ -254,10 +250,10 @@ export function AgentDrawer(props: AgentDrawerProps) {
               <div className="border-t p-3">
                 <div className="flex gap-2">
                   <Button className="flex-1" onClick={onApply} disabled={!pendingOperationSet || isBusy}>
-                    Değişiklikleri Uygula
+                    Bekleyen Değişikliği Uygula
                   </Button>
                   <Button variant="outline" className="flex-1" onClick={onDismissChanges} disabled={!pendingOperationSet || isBusy}>
-                    Temizle
+                    Bekleyeni Temizle
                   </Button>
                 </div>
               </div>

@@ -1,17 +1,10 @@
 import React, { useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Settings, Download, Film, Upload, Info, Video, ChevronDown, FolderUp } from 'lucide-react';
+import { Settings, Download, Film, Upload, Info, Video, FolderUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 interface HeaderProps {
   onUploadMain: () => void;
-  onUploadScript: () => void;
   onExport: () => void;
   onImport: (fileContent: string) => void;
   onSettings: () => void;
@@ -20,7 +13,15 @@ interface HeaderProps {
   disabledActions?: boolean;
 }
 
-export function Header({ onUploadMain, onUploadScript, onExport, onImport, onSettings, onInfo, mainFileName, disabledActions = false }: HeaderProps) {
+export function Header({
+  onUploadMain,
+  onExport,
+  onImport,
+  onSettings,
+  onInfo,
+  mainFileName,
+  disabledActions = false,
+}: HeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,36 +49,24 @@ export function Header({ onUploadMain, onUploadScript, onExport, onImport, onSet
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <input 
-          type="file" 
-          accept=".json" 
-          ref={fileInputRef} 
-          style={{ display: 'none' }} 
-          onChange={handleFileChange} 
+        <input
+          type="file"
+          accept=".json"
+          ref={fileInputRef}
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
         />
-        
+
         <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={disabledActions}>
           <FolderUp className="mr-1.5 h-3.5 w-3.5" />
           İçe Aktar
         </Button>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="max-w-[200px]" disabled={disabledActions}>
-              <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{mainFileName || 'Metin Yükle'}</span>
-              <ChevronDown className="ml-1 h-3 w-3 shrink-0 text-muted-foreground" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onUploadMain} disabled={disabledActions}>
-              📄 Seslendirme Metni
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onUploadScript} disabled={disabledActions}>
-              🎬 Senaryo (.docx)
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button variant="outline" size="sm" className="max-w-[240px]" disabled={disabledActions} onClick={onUploadMain}>
+          <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{mainFileName || 'Seslendirme Metni Yükle'}</span>
+        </Button>
+
         <Button variant="outline" size="sm" onClick={onExport} disabled={disabledActions}>
           <Download className="mr-1.5 h-3.5 w-3.5" />
           Dışa Aktar

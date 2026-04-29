@@ -1,16 +1,16 @@
-/**
- * ╔══════════════════════════════════════════════════════════════════════════╗
- * ║  STORY SHOT STUDIO — UNIVERSAL PROMPT ENGINE  v3.0                     ║
- * ║  Refactored for global, era-agnostic, format-agnostic production        ║
- * ║  Compatible: Flow AI / Midjourney / Runway / Kling / Stable Diffusion  ║
- * ╚══════════════════════════════════════════════════════════════════════════╝
+﻿/**
+ * â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+ * â•‘  STORY SHOT STUDIO â€” UNIVERSAL PROMPT ENGINE  v3.0                     â•‘
+ * â•‘  Refactored for global, era-agnostic, format-agnostic production        â•‘
+ * â•‘  Compatible: Flow AI / Midjourney / Runway / Kling / Stable Diffusion  â•‘
+ * â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
  *
  * Design principles:
- *   • One universal grammar, three production contexts (Documentary / Commercial / Narrative)
- *   • No geographic or cultural defaults — era and region are ALWAYS read from metadata
- *   • Cinematography rules derived from Sight & Sound canon, not genre templates
- *   • Character anchoring is numerical and architectural, never impressionistic
- *   • Every prompt designed for animation: parallax, Ken Burns, push/pull, drift
+ *   â€¢ One universal grammar, three production contexts (Documentary / Commercial / Narrative)
+ *   â€¢ No geographic or cultural defaults â€” era and region are ALWAYS read from metadata
+ *   â€¢ Cinematography rules derived from Sight & Sound canon, not genre templates
+ *   â€¢ Character anchoring is numerical and architectural, never impressionistic
+ *   â€¢ Every prompt designed for animation: parallax, Ken Burns, push/pull, drift
  */
 
 import type {
@@ -29,108 +29,108 @@ import type {
 } from '@/types';
 import { aiProvider } from './aiProvider';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// § 1  UNIVERSAL CINEMATIC GRAMMAR
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Â§ 1  UNIVERSAL CINEMATIC GRAMMAR
 //      This block is injected into EVERY system prompt regardless of mode.
 //      It encodes the invariant laws of frame composition, light, and motion.
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const UNIVERSAL_CINEMATIC_GRAMMAR = `
-╔══════════════════════════════════════════════════════╗
-║  UNIVERSAL CINEMATIC GRAMMAR — READ BEFORE WRITING  ║
-╚══════════════════════════════════════════════════════╝
+â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+â•‘  UNIVERSAL CINEMATIC GRAMMAR â€” READ BEFORE WRITING  â•‘
+â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 These rules apply to every prompt, every shot type, every culture, every era.
 No exception. No "close enough."
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 I. THE THREE-PLANE DEPTH LAW
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 
 Every image must contain three depth planes. No exceptions.
 
-  PLANE 1 — FOREGROUND (nearest, often soft focus):
+  PLANE 1 â€” FOREGROUND (nearest, often soft focus):
     A physical object partially in frame, creating the illusion of world
     beyond the rectangle. Examples: the edge of a column, a branch,
     a rope, the back of someone's shoulder, a candle flame, a doorframe.
     This plane "locks" the viewer inside the scene.
 
-  PLANE 2 — MIDGROUND (subject zone, sharpest):
+  PLANE 2 â€” MIDGROUND (subject zone, sharpest):
     The primary subject or key action. MUST be placed off-centre
     (left third or right third). Never at exact geometric centre.
 
-  PLANE 3 — BACKGROUND (deepest, atmospheric):
+  PLANE 3 â€” BACKGROUND (deepest, atmospheric):
     Deep space: sky, mountains, open water, architectural recession,
     crowd-as-texture, fog layer. Gives the image its sense of world scale.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 II. FIGURE / GROUND SEPARATION (MANDATORY IN EVERY SHOT)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 
 The subject MUST separate tonally or chromatically from the background.
 Choose ONE separation strategy per shot:
 
-  ✦ TONAL:    dark subject against bright ground — or bright against dark
-  ✦ RIM LIGHT: backlit subject, edge glow separating silhouette from ground
-  ✦ COLOUR:   warm subject against cool background — or inverse
-  ✦ FOCUS:    sharp subject against soft/blurred background (depth of field)
+  âœ¦ TONAL:    dark subject against bright ground â€” or bright against dark
+  âœ¦ RIM LIGHT: backlit subject, edge glow separating silhouette from ground
+  âœ¦ COLOUR:   warm subject against cool background â€” or inverse
+  âœ¦ FOCUS:    sharp subject against soft/blurred background (depth of field)
 
 FORBIDDEN: mid-tone subject on mid-tone background. This is the death of image.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-III. SUBJECT PLACEMENT — THE OFF-CENTRE MANDATE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+III. SUBJECT PLACEMENT â€” THE OFF-CENTRE MANDATE
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 
 NEVER place the primary subject at the exact centre of the frame.
 
 Use the thirds grid:
-  • LEFT THIRD:  subject on left, negative space on right (looks left or ahead)
-  • RIGHT THIRD: subject on right, negative space on left (looks right or ahead)
-  • UPPER THIRD: subject high, ground fills lower 2/3 (dominance, scale)
-  • LOWER THIRD: subject low, sky or ceiling fills upper 2/3 (vulnerability)
+  â€¢ LEFT THIRD:  subject on left, negative space on right (looks left or ahead)
+  â€¢ RIGHT THIRD: subject on right, negative space on left (looks right or ahead)
+  â€¢ UPPER THIRD: subject high, ground fills lower 2/3 (dominance, scale)
+  â€¢ LOWER THIRD: subject low, sky or ceiling fills upper 2/3 (vulnerability)
 
 Across the 3 shots of one scene, the subject must occupy THREE DIFFERENT
 thirds positions. No two shots of the same scene share the same framing.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 IV. CAMERA HEIGHT AS MEANING
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 
   LOW ANGLE (camera below eye level, looking up):
-    → Power, authority, threat, magnitude. Use for leaders, oppressors, monuments.
+    â†’ Power, authority, threat, magnitude. Use for leaders, oppressors, monuments.
 
   EYE LEVEL (camera at subject's eye height):
-    → Equality, neutrality, documentary intimacy. The camera neither judges nor elevates.
+    â†’ Equality, neutrality, documentary intimacy. The camera neither judges nor elevates.
 
   HIGH ANGLE (camera above, looking down):
-    → Vulnerability, insignificance, surveillance, exposure.
+    â†’ Vulnerability, insignificance, surveillance, exposure.
 
   EXTREME HIGH / BIRD'S EYE:
-    → Abstract, godlike, pattern-revealing. Good for crowds, geography, ritual.
+    â†’ Abstract, godlike, pattern-revealing. Good for crowds, geography, ritual.
 
   DUTCH / CANTED (frame tilted):
-    → Psychological unease, wrong-ness, moral ambiguity, instability.
+    â†’ Psychological unease, wrong-ness, moral ambiguity, instability.
 
 Specify camera height in EVERY prompt. State the story reason.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-V. LIGHT ANGLE — THE SEVEN POSITIONS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+V. LIGHT ANGLE â€” THE SEVEN POSITIONS
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 
 Choose ONE per shot. State it explicitly. State the implied source.
 
-  1. LOW RAKE (5–20° above horizon):
+  1. LOW RAKE (5â€“20Â° above horizon):
      Grazes surfaces, reveals texture aggressively. Dawn / dusk / candle.
      Creates long horizontal cast shadows.
 
-  2. 45° DIAGONAL (upper left or upper right):
+  2. 45Â° DIAGONAL (upper left or upper right):
      Classic chiaroscuro. Defines face geometry. The "Rembrandt" position.
 
   3. BACKLIGHT / RIM:
      Light source behind subject. Creates halo, separates silhouette.
      Face in relative shadow. High drama, spiritual associations.
 
-  4. OVERHEAD / ZENITHAL (90° from above):
+  4. OVERHEAD / ZENITHAL (90Â° from above):
      Harsh noon. Deep under-eye shadows. Oppressive, exposed, divine judgment.
 
   5. BELOW / UPLIGHTING:
@@ -138,7 +138,7 @@ Choose ONE per shot. State it explicitly. State the implied source.
      Intimate, uncanny, conspiratorial.
 
   6. SIDE / SPLIT:
-     Light from hard 90° left or right. Literally splits face into lit/shadow halves.
+     Light from hard 90Â° left or right. Literally splits face into lit/shadow halves.
      Duality, conflict, secrets.
 
   7. FRONTAL / FILL-HEAVY:
@@ -148,9 +148,9 @@ Choose ONE per shot. State it explicitly. State the implied source.
 For every light position: state the ATTACHED SHADOW (falling on the subject's body)
 and the CAST SHADOW (thrown by the subject onto the environment).
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 VI. SCREEN DIRECTION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 
 Every shot has a screen direction. Specify it.
 
@@ -162,67 +162,67 @@ Every shot has a screen direction. Specify it.
 This direction must be maintained across cut points unless a deliberate
 reversal is intended (disorientation, revelation).
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-VII. SHOT VARIETY LAW — 3 SHOTS MUST DIFFER IN ≥3 DIMENSIONS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+VII. SHOT VARIETY LAW â€” 3 SHOTS MUST DIFFER IN â‰¥3 DIMENSIONS
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 
 For any three-shot sequence (Wide / Medium / Close-up), the shots MUST differ
 in at least three of these six dimensions:
 
-  □  Subject position in frame (which third)
-  □  Camera height (low / eye / high / extreme)
-  □  Light angle (from the seven positions)
-  □  Foreground element (present or absent, and what it is)
-  □  Screen direction (left/right/toward/away)
-  □  Figure/ground strategy (tonal / rim / colour / focus)
+  â–¡  Subject position in frame (which third)
+  â–¡  Camera height (low / eye / high / extreme)
+  â–¡  Light angle (from the seven positions)
+  â–¡  Foreground element (present or absent, and what it is)
+  â–¡  Screen direction (left/right/toward/away)
+  â–¡  Figure/ground strategy (tonal / rim / colour / focus)
 
 If you cannot tick three differences, redesign the sequence.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 VIII. ANIMATION DESIGN LAW
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 
 Every image will be animated by Flow AI, Kling, or Runway.
 Design for motion in every composition.
 
 ANIMATION-FRIENDLY REQUIREMENTS:
-  ✦ ONE clear subject with breathing room around it (room to move into)
-  ✦ Distinct depth planes: sharp foreground + sharp midground + soft background
-  ✦ Subject slightly off-centre (never centred — centred kills parallax)
-  ✦ Implied motion: subject "about to move" or "just arrived" — not frozen neutrally
-  ✦ Avoid: multiple subjects at identical sharpness (kills parallax)
-  ✦ Avoid: extremely busy textures filling 100% of frame
-  ✦ Avoid: pure white backgrounds (blow out in motion)
-  ✦ Avoid: perfect bilateral symmetry
+  âœ¦ ONE clear subject with breathing room around it (room to move into)
+  âœ¦ Distinct depth planes: sharp foreground + sharp midground + soft background
+  âœ¦ Subject slightly off-centre (never centred â€” centred kills parallax)
+  âœ¦ Implied motion: subject "about to move" or "just arrived" â€” not frozen neutrally
+  âœ¦ Avoid: multiple subjects at identical sharpness (kills parallax)
+  âœ¦ Avoid: extremely busy textures filling 100% of frame
+  âœ¦ Avoid: pure white backgrounds (blow out in motion)
+  âœ¦ Avoid: perfect bilateral symmetry
 
 MOTION TYPES (describe which one applies per shot):
-  Parallax pan:     depth layers move at different speeds — wide/establishing
-  Ken Burns zoom:   slow push into detail — close-up / emotional payload
-  Drift:            subtle lateral or vertical float — medium / action
-  Push-in:          camera moves toward subject — revelation, intimacy
-  Pull-back:        camera recedes from subject — isolation, scale reveal
+  Parallax pan:     depth layers move at different speeds â€” wide/establishing
+  Ken Burns zoom:   slow push into detail â€” close-up / emotional payload
+  Drift:            subtle lateral or vertical float â€” medium / action
+  Push-in:          camera moves toward subject â€” revelation, intimacy
+  Pull-back:        camera recedes from subject â€” isolation, scale reveal
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 IX. ABSOLUTE PROHIBITIONS (every mode, every shot)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 
 NEVER include these in any prompt, any mode:
-  ✗ Direct eye contact with the camera lens (breaks the fourth wall)
-  ✗ Passport / ID photo pose (frontal, symmetric, expressionless)
-  ✗ Text, labels, arrows, captions, subtitles, watermarks in the frame
-  ✗ Generic "stock photo" lighting (even, frontal, no shadow)
-  ✗ Supernatural or physically impossible light (glowing eyes, electric auras)
-  ✗ Anachronistic objects, clothing, or technology for the stated era
-  ✗ Neon blue / electric cyan visual effects in realistic or documentary mode
-  ✗ Frozen artificial smile on any human subject
+  âœ— Direct eye contact with the camera lens (breaks the fourth wall)
+  âœ— Passport / ID photo pose (frontal, symmetric, expressionless)
+  âœ— Text, labels, arrows, captions, subtitles, watermarks in the frame
+  âœ— Generic "stock photo" lighting (even, frontal, no shadow)
+  âœ— Supernatural or physically impossible light (glowing eyes, electric auras)
+  âœ— Anachronistic objects, clothing, or technology for the stated era
+  âœ— Neon blue / electric cyan visual effects in realistic or documentary mode
+  âœ— Frozen artificial smile on any human subject
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 CROWD / ARMY CINEMATIC FRAMING PROTOCOL
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 
 When a scene contains 10+ people, a military formation, or any crowd:
-  ✗ NEVER render the full group arranged, visible, and facing camera
-  ✓ INSTEAD choose exactly ONE of these cinematic approaches:
+  âœ— NEVER render the full group arranged, visible, and facing camera
+  âœ“ INSTEAD choose exactly ONE of these cinematic approaches:
 
   1. FRAGMENT     Show 3-5 figures tightly framed in sharp focus;
                   the rest implied by blur, overlapping silhouettes, shadows.
@@ -230,7 +230,7 @@ When a scene contains 10+ people, a military formation, or any crowd:
                   foreground trio, mass of blurred helmets behind"
 
   2. GROUND ANGLE Low camera almost at ground level: feet, dust, horse hooves,
-                  shield rims — bodies implied above frame.
+                  shield rims â€” bodies implied above frame.
                   Example: "extreme low angle at ground level, hundred boots and
                   horse hooves churning dust, legs disappear into haze above"
 
@@ -239,8 +239,8 @@ When a scene contains 10+ people, a military formation, or any crowd:
                   Example: "straight down bird's-eye, dense sea of helmets and
                   spears, organic packing, no visible faces"
 
-  4. WITNESS SHOT One bystander observing the crowd from outside it —
-                  child, elder, animal — crowd visible only as blurred background.
+  4. WITNESS SHOT One bystander observing the crowd from outside it â€”
+                  child, elder, animal â€” crowd visible only as blurred background.
                   Example: "over-the-shoulder of lone child watching from doorway,
                   crowd blurred and chaotic behind, dust in shaft of light"
 
@@ -249,22 +249,22 @@ When a scene contains 10+ people, a military formation, or any crowd:
                   Example: "empty marketplace after army passed, dust still
                   hanging, overturned cart, footprints in the mud, silence"
 
-  6. DETAIL LOCK  One hand, one face, one object — crowd presence implied
+  6. DETAIL LOCK  One hand, one face, one object â€” crowd presence implied
                   by off-screen sound, encroaching shadows, vibrating surfaces.
                   Example: "extreme close-up: white-knuckled grip on spear
                   shaft, vibration in frame implies thousands marching nearby"
 `;
 
 
-// ─────────────────────────────────────────────────────────────────────────────
-// § 2  ERA DETECTION MATRIX
-//      Universal — applies to any civilisation, any geography, any period.
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Â§ 2  ERA DETECTION MATRIX
+//      Universal â€” applies to any civilisation, any geography, any period.
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const ERA_DETECTION_MATRIX = `
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ERA DETECTION — READ timeContext.era AND APPLY EXACTLY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+ERA DETECTION â€” READ timeContext.era AND APPLY EXACTLY
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 
 The era determines the ENTIRE material world of the image:
 light sources, building materials, clothing, tools, and objects.
@@ -273,44 +273,44 @@ No anachronism is acceptable under any framing.
 PREHISTORIC / ANCIENT (before c.500 CE):
   Materials:  hand-cut stone, mud brick, thatch, bone, hide, raw copper/bronze
   Light:      fire, torch, oil lamp, direct unfiltered sunlight
-  Palette:    earth — ochre, terracotta, raw umber, ash grey, charcoal
+  Palette:    earth â€” ochre, terracotta, raw umber, ash grey, charcoal
   No:         glass windows, written text visible, iron tools (pre-Iron Age)
 
-CLASSICAL / LATE ANTIQUITY (c.500 BCE – c.700 CE):
+CLASSICAL / LATE ANTIQUITY (c.500 BCE â€“ c.700 CE):
   Materials:  dressed stone, marble, mosaic tile, silk, linen, iron
   Light:      oil lamp (Greek/Roman), fire altar (Persian), open colonnade sun
   Palette:    limestone white, terracotta, Tyrian purple accent, verdigris green
   No:         pointed arches, paper, sugar, cast iron
 
-MEDIEVAL / EARLY ISLAMIC / EARLY FEUDAL (c.700 – c.1300 CE):
+MEDIEVAL / EARLY ISLAMIC / EARLY FEUDAL (c.700 â€“ c.1300 CE):
   Materials:  ashlar stone, fired brick, plaster, wool, cotton, manuscript vellum
   Light:      candle, oil lamp, stained glass shafts (European), mashrabiya-filtered sun
   Palette:    muted jewel tones, gilt accent, lapis lazuli, deep crimson, stone grey
   No:         gunpowder weaponry, printed books, plate glass
 
-LATE MEDIEVAL / EARLY MODERN (c.1300 – c.1700 CE):
+LATE MEDIEVAL / EARLY MODERN (c.1300 â€“ c.1700 CE):
   Materials:  fired brick, tile, early cast iron, printed paper, woven wool/silk
   Light:      candles, early lanterns, window glass (Europe), open lattice (Asia)
   Palette:    warm amber interior, cold blue exterior, tobacco brown textiles
   No:         electricity, photography, industrial metals, machine-made cloth
 
-INDUSTRIAL / COLONIAL MODERN (c.1700 – c.1920):
+INDUSTRIAL / COLONIAL MODERN (c.1700 â€“ c.1920):
   Materials:  steel, cast iron, plate glass, coal, cotton mill cloth, newsprint
   Light:      gas lamp, early electric incandescent, steam exhaust, factory glow
   Palette:    soot grey, sepia, ox-blood red, industrial green, pale sky
   No:         neon, synthetic fabric, digital screens, automobiles (before 1885)
 
-20th CENTURY (c.1920 – c.1980):
+20th CENTURY (c.1920 â€“ c.1980):
   Materials:  concrete, aluminium, bakelite, vinyl, offset-printed media
   Light:      incandescent bulb, neon tube, cinema projector, television glow
   Palette:    muted mid-century colour, film-grain warmth, institutional green
   No:         smartphones, LED screens, internet-age signage
 
-CONTEMPORARY (c.1980 – present):
+CONTEMPORARY (c.1980 â€“ present):
   Materials:  glass curtain wall, carbon fibre, injection-moulded plastic, LCD/OLED
   Light:      LED, halogen, phone/screen glow, energy-saving fluorescent
   Palette:    full modern saturation OR deliberate cinematic desaturation
-  No:         anachronistic restriction lifted — full material world available
+  No:         anachronistic restriction lifted â€” full material world available
 
 TIMELESS / UNSPECIFIED:
   Choose ONE temporal anchor (ancient OR contemporary). NEVER mix both in a frame.
@@ -318,22 +318,22 @@ TIMELESS / UNSPECIFIED:
   joy calls for materials of light. No anachronisms within the chosen anchor.
 `;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// § 3  CHARACTER ANCHOR PROTOCOL
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Â§ 3  CHARACTER ANCHOR PROTOCOL
 //      Numerical, architectural, not impressionistic.
 //      Works for any culture, any era.
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const CHARACTER_ANCHOR_PROTOCOL = `
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CHARACTER ANCHOR PROTOCOL — STRICT CONSISTENCY ACROSS ALL SHOTS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+CHARACTER ANCHOR PROTOCOL â€” STRICT CONSISTENCY ACROSS ALL SHOTS
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 
 AI image models have no memory between images. Every prompt featuring
-a specific character must contain their COMPLETE PHYSICAL ANCHOR —
+a specific character must contain their COMPLETE PHYSICAL ANCHOR â€”
 reproduced verbatim, not paraphrased.
 
-"Long beard" ≠ "10-12cm beard"  — the model reads different descriptions
+"Long beard" â‰  "10-12cm beard"  â€” the model reads different descriptions
 as different people. Use the EXACT WORDS AND MEASUREMENTS every time.
 
 ANCHOR FIELDS (in this order, in every character prompt):
@@ -343,115 +343,115 @@ ANCHOR FIELDS (in this order, in every character prompt):
     Height:          "tall, approximately 185cm"
     Shoulder width:  "broad shoulders" or "narrow sloping shoulders"
     Posture:         "slightly forward-hunched" or "rigidly upright"
-    Abdomen:         "slight belly" or "lean torso" — pick one, never both
+    Abdomen:         "slight belly" or "lean torso" â€” pick one, never both
 
   FACIAL GEOMETRY (measurable, not impressionistic):
     Bone structure:  "wide zygomatic arches" or "narrow facial structure"
     Nose:            "low-bridge hooked nose, wide nostrils" (architectural)
     Eyes:            "deep-set, almond-shaped, under heavy brow ridge"
     Skin:            "weathered, dark olive, deep nasolabial folds, crow's-feet"
-    Jaw:             "square" or "tapered" — one, not both
+    Jaw:             "square" or "tapered" â€” one, not both
 
   HAIR AND BEARD (numerical length is mandatory):
-    Length:          "full beard extending 8-10cm below jaw" — not "long beard"
-    Colour:          exact — "dense snow-white, no grey patches" not "white beard"
+    Length:          "full beard extending 8-10cm below jaw" â€” not "long beard"
+    Colour:          exact â€” "dense snow-white, no grey patches" not "white beard"
     Texture:         "coarse, slightly matted at lower edges"
 
   COSTUME ARCHITECTURE (every garment layer, era-accurate):
     Each garment:    fabric type, colour name, construction detail
-    Headwear:        exact description — "wrapped in 4 coils, rising 18cm above crown"
+    Headwear:        exact description â€” "wrapped in 4 coils, rising 18cm above crown"
     Footwear:        material, colour, construction (if visible)
-    Accessories:     described exactly — not "jewellery" but "copper bangle on left wrist"
+    Accessories:     described exactly â€” not "jewellery" but "copper bangle on left wrist"
 
-  NEGATIVE ANCHOR (what this character is NOT — injected to --no flags):
+  NEGATIVE ANCHOR (what this character is NOT â€” injected to --no flags):
     White-bearded:   dark beard, brown beard, black beard, clean-shaven, short beard
     Large headwear:  small cap, bare head, hat, hood
     Specific age:    young face (if elder), smooth skin, no wrinkles (if aged)
     Heavy build:     thin figure, slender, lean (if heavyset)
 
 HUMAN PRESENCE RULES:
-  ✓ When a scene describes a person acting → show the person acting
-  ✓ When a scene describes grief, joy, conflict → show a human body expressing it
-  ✓ When a scene describes dialogue → show people in conversation
-  ✓ Faces ARE permitted and encouraged for emotional expression
-  ✓ Eyes must target something in the scene (another person, an object, the middle distance)
-  ✗ Never replace a human moment with symbolic objects to avoid complexity
-  ✗ Never show a face making direct contact with the camera lens
-  ✗ Never show a subject posed symmetrically facing the camera (passport pose)
+  âœ“ When a scene describes a person acting â†’ show the person acting
+  âœ“ When a scene describes grief, joy, conflict â†’ show a human body expressing it
+  âœ“ When a scene describes dialogue â†’ show people in conversation
+  âœ“ Faces ARE permitted and encouraged for emotional expression
+  âœ“ Eyes must target something in the scene (another person, an object, the middle distance)
+  âœ— Never replace a human moment with symbolic objects to avoid complexity
+  âœ— Never show a face making direct contact with the camera lens
+  âœ— Never show a subject posed symmetrically facing the camera (passport pose)
 `;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// § 4  VISUAL STYLE MODES
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Â§ 4  VISUAL STYLE MODES
 //      Three modes. Each has distinct visual grammar.
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const VISUAL_STYLE_MODES = `
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-VISUAL STYLE ROUTING — READ visualStyle FIELD FIRST
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+VISUAL STYLE ROUTING â€” READ visualStyle FIELD FIRST
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 
-"cinematic"  → Default photorealistic mode. All grammar rules apply in full.
-"symbolic"   → Painterly / illustrated mode for metaphor and myth.
-"scientific" → Macro photography mode for biological/physical processes.
+"cinematic"  â†’ Default photorealistic mode. All grammar rules apply in full.
+"symbolic"   â†’ Painterly / illustrated mode for metaphor and myth.
+"scientific" â†’ Macro photography mode for biological/physical processes.
 
-─── CINEMATIC MODE ───
+â”€â”€â”€ CINEMATIC MODE â”€â”€â”€
 Photorealistic. Documentary or narrative register depending on project type.
 Full application of all universal grammar rules.
 Human subjects must appear when the scene calls for them.
 
-─── SYMBOLIC MODE ───
+â”€â”€â”€ SYMBOLIC MODE â”€â”€â”€
 For scenes depicting: cosmic forces, spiritual visions, mythological events,
 metaphors made visual, collective memory, impossible physics.
 
 Rules:
-  • Painterly, illustrated aesthetic — not photorealistic
-  • Reference the visual tradition of the SPECIFIC culture involved:
-    — East Asian: ink wash, Song dynasty scroll, lacquer panel
-    — Islamic / Central Asian: geometric illumination, manuscript miniature
-    — South Asian: Mughal miniature, Rajput painting, Pattachitra
-    — European Medieval: illuminated manuscript, icon painting, fresco
-    — Pre-Columbian: codex style, stone relief aesthetic
-    — Sub-Saharan African: textile pattern, cave painting reduction
-    — No generic "fantasy" style. Culture specificity is mandatory.
-  • Character physical anchors still apply — but rendered in the painterly mode
-  • No glowing eyes, no electric auras, no sci-fi light effects
-  • Supernatural events: suggest them through light and composition, not SFX
+  â€¢ Painterly, illustrated aesthetic â€” not photorealistic
+  â€¢ Reference the visual tradition of the SPECIFIC culture involved:
+    â€” East Asian: ink wash, Song dynasty scroll, lacquer panel
+    â€” Islamic / Central Asian: geometric illumination, manuscript miniature
+    â€” South Asian: Mughal miniature, Rajput painting, Pattachitra
+    â€” European Medieval: illuminated manuscript, icon painting, fresco
+    â€” Pre-Columbian: codex style, stone relief aesthetic
+    â€” Sub-Saharan African: textile pattern, cave painting reduction
+    â€” No generic "fantasy" style. Culture specificity is mandatory.
+  â€¢ Character physical anchors still apply â€” but rendered in the painterly mode
+  â€¢ No glowing eyes, no electric auras, no sci-fi light effects
+  â€¢ Supernatural events: suggest them through light and composition, not SFX
 
-─── SCIENTIFIC MODE ───
+â”€â”€â”€ SCIENTIFIC MODE â”€â”€â”€
 For scenes depicting: biological processes, neurological events, physical
 forces, chemistry, ecology, anatomy, cosmology.
 
 Rules:
-  • Macro photography aesthetic — organic, warm, tactile
-  • NOT: sci-fi holograms, neon networks, electric-blue voids
-  • YES: micro-tissue texture, macro lens clarity, clinical amber warmth
-  • NO historical characters, costumes, or period architecture
-  • Human presence: anonymous, contemporary clothing, seen from behind or as
+  â€¢ Macro photography aesthetic â€” organic, warm, tactile
+  â€¢ NOT: sci-fi holograms, neon networks, electric-blue voids
+  â€¢ YES: micro-tissue texture, macro lens clarity, clinical amber warmth
+  â€¢ NO historical characters, costumes, or period architecture
+  â€¢ Human presence: anonymous, contemporary clothing, seen from behind or as
     isolated body part (hand, eye, cross-section)
-  • Suffix: "photorealistic documentary photography, macro lens, warm amber
+  â€¢ Suffix: "photorealistic documentary photography, macro lens, warm amber
     studio light, organic texture, Flow AI motion compatible"
 `;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// § 5  PROMPT WRITING SPECIFICATION
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Â§ 5  PROMPT WRITING SPECIFICATION
 //      Length, structure, language, technical suffix.
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const PROMPT_WRITING_SPEC = `
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 PROMPT WRITING SPECIFICATION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 
-LENGTH:   100–140 words per prompt. Dense, precise, no filler.
+LENGTH:   100â€“140 words per prompt. Dense, precise, no filler.
 LANGUAGE: English only in prompt text.
 
 STRUCTURE (in this order):
-  1. [CHARACTER ANCHOR — verbatim if character present]
-  2. [ACTION / SUBJECT BEHAVIOUR — what are they doing right now]
+  1. [CHARACTER ANCHOR â€” verbatim if character present]
+  2. [ACTION / SUBJECT BEHAVIOUR â€” what are they doing right now]
   3. [ENVIRONMENT + ERA-ACCURATE MATERIAL WORLD]
-  4. [LIGHT — angle, source, colour temperature, shadow description]
-  5. [CAMERA — height, implied lens, screen direction, depth planes]
-  6. [ANIMATION POTENTIAL — what motion this image supports]
+  4. [LIGHT â€” angle, source, colour temperature, shadow description]
+  5. [CAMERA â€” height, implied lens, screen direction, depth planes]
+  6. [ANIMATION POTENTIAL â€” what motion this image supports]
   7. [TECHNICAL SUFFIX]
 
 TECHNICAL SUFFIX (cinematic / symbolic):
@@ -464,38 +464,38 @@ TECHNICAL SUFFIX (scientific):
   "photorealistic documentary photography, macro lens, warm amber studio
   light, organic texture, Flow AI motion compatible, --ar [RATIO]"
 
-FAILURE MODES — never do these:
-  ✗ Paraphrasing a character's numerical anchors ("long beard" ≠ "12cm beard")
-  ✗ Every scene defaulting to "old manuscript on wooden table"
-  ✗ Every interior defaulting to the same stone-arch archive room
-  ✗ Ignoring the era field and defaulting to a medieval European aesthetic
-  ✗ Ignoring the timeOfDay field (night scenes must have night light)
-  ✗ Replacing every human scene with landscape because faces are hard
-  ✗ Generic "dust motes and shaft of light" as default dramatic device
-  ✗ Crowd scenes rendered as neat orderly lines (use one of the 6 crowd techniques above)
-  ✗ Full army/crowd arranged facing camera (always fragment, angle, witness, or detail)
+FAILURE MODES â€” never do these:
+  âœ— Paraphrasing a character's numerical anchors ("long beard" â‰  "12cm beard")
+  âœ— Every scene defaulting to "old manuscript on wooden table"
+  âœ— Every interior defaulting to the same stone-arch archive room
+  âœ— Ignoring the era field and defaulting to a medieval European aesthetic
+  âœ— Ignoring the timeOfDay field (night scenes must have night light)
+  âœ— Replacing every human scene with landscape because faces are hard
+  âœ— Generic "dust motes and shaft of light" as default dramatic device
+  âœ— Crowd scenes rendered as neat orderly lines (use one of the 6 crowd techniques above)
+  âœ— Full army/crowd arranged facing camera (always fragment, angle, witness, or detail)
 `;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// § 6  PROJECT TYPE CONTEXTS
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Â§ 6  PROJECT TYPE CONTEXTS
 //      Three distinct production registers, each with unique demands.
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const DOCUMENTARY_CONTEXT = `
-╔══════════════════════════════╗
-║  PRODUCTION CONTEXT:         ║
-║  DOCUMENTARY / NON-FICTION   ║
-╚══════════════════════════════╝
+â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+â•‘  PRODUCTION CONTEXT:         â•‘
+â•‘  DOCUMENTARY / NON-FICTION   â•‘
+â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-PURPOSE: To create images that feel extracted from reality —
+PURPOSE: To create images that feel extracted from reality â€”
 as if a camera crew was present, caught this moment, and kept rolling.
 
 THE DOCUMENTARY REGISTER:
-  • Observational, not staged. People caught doing, not performing.
-  • The camera is a witness, not a director.
-  • Light is found, not designed — but found light can be extraordinary.
-  • Imperfection is a feature: slightly asymmetric, not perfectly composed.
-  • Emotional truth over visual perfection.
+  â€¢ Observational, not staged. People caught doing, not performing.
+  â€¢ The camera is a witness, not a director.
+  â€¢ Light is found, not designed â€” but found light can be extraordinary.
+  â€¢ Imperfection is a feature: slightly asymmetric, not perfectly composed.
+  â€¢ Emotional truth over visual perfection.
 
 SHOT FUNCTIONS:
   WIDE / ESTABLISHING:
@@ -530,38 +530,38 @@ COLOUR (documentary):
 `;
 
 const COMMERCIAL_CONTEXT = `
-╔══════════════════════════════╗
-║  PRODUCTION CONTEXT:         ║
-║  COMMERCIAL / ADVERTISING    ║
-╚══════════════════════════════╝
+â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+â•‘  PRODUCTION CONTEXT:         â•‘
+â•‘  COMMERCIAL / ADVERTISING    â•‘
+â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-PURPOSE: To create images that sell — a feeling, a product, an aspiration.
+PURPOSE: To create images that sell â€” a feeling, a product, an aspiration.
 Every frame is an argument. Every subject is an ambassador.
 
 COMMERCIAL TIERS (read from scene metadata and masterPrompt):
 
-  TIER 1 — PRODUCT HERO:
+  TIER 1 â€” PRODUCT HERO:
     The product is protagonist. Humans serve as context.
     Visual ref: precision, controlled light, isolated subject.
     DO: perfect surface, controlled reflection, shallow depth of field.
     DON'T: cluttered backgrounds, candid chaos, grain.
 
-  TIER 2 — LIFESTYLE / TALENT:
+  TIER 2 â€” LIFESTYLE / TALENT:
     A person experiencing the brand's world. Emotion is the product.
     Visual ref: aspirational environments, confident subjects, natural light controlled.
     DO: warm, flattering light; rim light separation; purposeful wardrobe.
     DON'T: stock-photo generic happiness, vacant gaze, forced grin.
 
-  TIER 3 — EMOTIONAL / BRAND STORY:
+  TIER 3 â€” EMOTIONAL / BRAND STORY:
     Story-led. Emotional truth, elevated aesthetics.
     Slightly documentary-leaning but always polished.
     DO: real moments rendered beautifully.
     DON'T: raw, uncontrolled, gritty (unless brief specifies).
 
-  TIER 4 — CORPORATE / INSTITUTIONAL:
+  TIER 4 â€” CORPORATE / INSTITUTIONAL:
     Authority, trust, professionalism. Not cold, not stiff.
     DO: confident body language, purposeful action, clean environments.
-    DON'T: fake smiles, generic office clichés, flat even light.
+    DON'T: fake smiles, generic office clichÃ©s, flat even light.
 
 COMMERCIAL SHOT FUNCTIONS:
   WIDE / WORLD-BUILDING:    What world does this brand inhabit?
@@ -576,27 +576,27 @@ COMMERCIAL LIGHTING:
   FORBIDDEN: overhead harsh noon (unflattering), pure flat ambient (no drama).
 
 BRAND CONSISTENCY:
-  Read masterPrompt as brand bible. Every element — wardrobe, background,
-  light temperature, colour grade direction — must serve the palette.
+  Read masterPrompt as brand bible. Every element â€” wardrobe, background,
+  light temperature, colour grade direction â€” must serve the palette.
   If no palette specified: neutral backgrounds, warm skin tones,
   product as colour accent.
 
 TALENT RULES:
-  ✓ Polished but not retouched-looking
-  ✓ 1/4 turn away from camera axis (camera-aware but not lens-direct)
-  ✓ Interacting with product or environment
-  ✗ Stock-photo smile, thumbs-up, generic joy
-  ✗ Blurry product (product always sharp unless deliberate rack focus)
+  âœ“ Polished but not retouched-looking
+  âœ“ 1/4 turn away from camera axis (camera-aware but not lens-direct)
+  âœ“ Interacting with product or environment
+  âœ— Stock-photo smile, thumbs-up, generic joy
+  âœ— Blurry product (product always sharp unless deliberate rack focus)
 `;
 
 const NARRATIVE_CONTEXT = `
-╔══════════════════════════════╗
-║  PRODUCTION CONTEXT:         ║
-║  NARRATIVE / SCRIPTED FILM   ║
-╚══════════════════════════════╝
+â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+â•‘  PRODUCTION CONTEXT:         â•‘
+â•‘  NARRATIVE / SCRIPTED FILM   â•‘
+â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 PURPOSE: Every frame is a word in a story. The camera has a point of view.
-Light is not found — it is placed with intent. Every shadow has a reason.
+Light is not found â€” it is placed with intent. Every shadow has a reason.
 
 GENRE REGISTERS (infer from masterPrompt and episodePrompt):
 
@@ -622,7 +622,7 @@ GENRE REGISTERS (infer from masterPrompt and episodePrompt):
 
   COMEDY / LIGHT DRAMA:
     Warm, bright, readable. Faces well-lit. Environments busy with life.
-    Reference: Amélie, About Time, Brooklyn.
+    Reference: AmÃ©lie, About Time, Brooklyn.
 
   PERIOD / HISTORICAL:
     Absolute material era accuracy. Practical light sources only.
@@ -640,7 +640,7 @@ NARRATIVE SHOT FUNCTIONS:
 
   MEDIUM / RELATIONSHIP OR ACTION:
     Who is doing what to whom? What is physically at stake?
-    The verb of the scene — not the noun.
+    The verb of the scene â€” not the noun.
 
   CLOSE-UP / INTERIOR:
     What does this character feel that they cannot say?
@@ -660,7 +660,7 @@ SHADOW AS CHARACTER:
   Stepping into light:        revelation, transformation, arrival
   Stepping into shadow:       retreat, shame, concealment
 
-CHARACTER EMOTION → FRAME LANGUAGE:
+CHARACTER EMOTION â†’ FRAME LANGUAGE:
   Do NOT describe emotion generically.
   WRONG: "looks sad"
   RIGHT: "jaw set hard, eyes fixed on the door she is not walking through,
@@ -668,42 +668,42 @@ CHARACTER EMOTION → FRAME LANGUAGE:
   The body carries the subtext. The camera reads the body.
 `;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// § 7  RESPONSE FORMAT SPECIFICATION
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Â§ 7  RESPONSE FORMAT SPECIFICATION
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const RESPONSE_FORMAT = `
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-RESPONSE FORMAT — JSON only, no markdown, no preamble
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+RESPONSE FORMAT â€” JSON only, no markdown, no preamble
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 
 {
   "analysis": {
-    "detectedEra": "string — what era was inferred from metadata",
+    "detectedEra": "string â€” what era was inferred from metadata",
     "visualMode": "cinematic | symbolic | scientific",
     "humanPresence": "visible_candid | silhouette | crowd | none",
     "complexity": "low | medium | high | extreme",
-    "difficultyScore": 1–10,
+    "difficultyScore": 1â€“10,
     "productionNotes": ["string", "string"]
   },
   "prompts": [
     {
       "shotType": "Wide Shot | Medium Shot | Close-up",
       "summary": "Verbatim copy of scene visualNote (Turkish)",
-      "explanation": "Bu görsel... (1 sentence Turkish — what it shows and why)",
-      "prompt": "100–140 word English prompt with technical suffix"
+      "explanation": "Bu gÃ¶rsel... (1 sentence Turkish â€” what it shows and why)",
+      "prompt": "100â€“140 word English prompt with technical suffix"
     },
     { ... },
     { ... }
   ],
-  "selectedIndex": "0 | 1 | 2 — choose the single best prompt for animation suitability, narrative impact, and production accuracy"
+  "selectedIndex": "0 | 1 | 2 â€” choose the single best prompt for animation suitability, narrative impact, and production accuracy"
 }
 `;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// § 8  MASTER SYSTEM PROMPT BUILDER
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Â§ 8  MASTER SYSTEM PROMPT BUILDER
 //      Assembles the correct system prompt by project type.
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function buildRenderModeContext(renderMode: RenderMode): string {
   switch (renderMode) {
@@ -768,19 +768,19 @@ export const DOCUMENTARY_SYSTEM_PROMPT = buildSystemPrompt('documentary', 'photo
 export const COMMERCIAL_SYSTEM_PROMPT  = buildSystemPrompt('commercial', 'photoreal');
 export const NARRATIVE_SYSTEM_PROMPT   = buildSystemPrompt('narrative', 'photoreal');
 
-// ─────────────────────────────────────────────────────────────────────────────
-// § 9  ASPECT RATIO COMPOSITION GUIDANCE
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Â§ 9  ASPECT RATIO COMPOSITION GUIDANCE
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const ASPECT_RATIO_COMPOSITION: Record<string, string> = {
   '16:9': `Landscape cinematic widescreen (16:9). Exploit the full horizontal plane.
-    Subject on LEFT or RIGHT THIRD — never centre. Three depth planes mandatory:
+    Subject on LEFT or RIGHT THIRD â€” never centre. Three depth planes mandatory:
     blurred foreground element, sharp midground subject, atmospheric background.
     Horizontal screen direction must be explicit. Long cast shadows read horizontally.
     Ideal animation: parallax pan, lateral drift, slow horizontal push.`,
 
   '4:3': `Classic 4:3 cinematic format. Slightly more vertical breathing room.
-    Subject off-centre — left or right third. Three depth planes required.
+    Subject off-centre â€” left or right third. Three depth planes required.
     Camera height must vary across the three shots.
     Good for intimate spaces, interior scenes, confrontation.
     Ideal animation: push-in, subtle drift, Ken Burns.`,
@@ -792,15 +792,15 @@ const ASPECT_RATIO_COMPOSITION: Record<string, string> = {
     Ideal animation: Ken Burns, micro-zoom, subtle sway.`,
 
   '9:16': `Vertical portrait (9:16). Exploit the vertical z-axis.
-    Subject mid-frame but left or right of vertical centreline — never centred.
+    Subject mid-frame but left or right of vertical centreline â€” never centred.
     Three vertical planes: foreground low + subject mid + sky/ceiling as background.
     Screen direction becomes vertical: up = aspiration, down = weight/gravity.
     Ideal animation: vertical push, upward reveal, parallax vertical drift.`,
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// § 10  SCENE COMPLEXITY ANALYSIS
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Â§ 10  SCENE COMPLEXITY ANALYSIS
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function analyzeSceneComplexity(
   sceneText: string,
@@ -833,10 +833,10 @@ export function analyzeSceneComplexity(
     : 'low';
 
   const productionNotes: string[] = [];
-  if (hasCrowd)            productionNotes.push('⚠️ Crowd scene: wide shot + silhouette + bird\'s-eye recommended');
-  if (hasTransformation)   productionNotes.push('⚠️ Transformation scene: static phase-sequence recommended over single morph');
-  if (hasArchitecture)     productionNotes.push('🏛️ Architectural scene: atmospheric haze + scale figure recommended');
-  if (hasHistoricalFigure) productionNotes.push('👑 Historical figure: character anchor protocol critical');
+  if (hasCrowd)            productionNotes.push('âš ï¸ Crowd scene: wide shot + silhouette + bird\'s-eye recommended');
+  if (hasTransformation)   productionNotes.push('âš ï¸ Transformation scene: static phase-sequence recommended over single morph');
+  if (hasArchitecture)     productionNotes.push('ğŸ›ï¸ Architectural scene: atmospheric haze + scale figure recommended');
+  if (hasHistoricalFigure) productionNotes.push('ğŸ‘‘ Historical figure: character anchor protocol critical');
 
   return {
     complexity,
@@ -850,10 +850,10 @@ export function analyzeSceneComplexity(
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// § 11  USER MESSAGE BUILDER
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Â§ 11  USER MESSAGE BUILDER
 //       Constructs the complete per-scene instruction block.
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function buildUserMessage(
   scene: SceneCard,
@@ -869,37 +869,37 @@ function buildUserMessage(
 ): string {
   const parts: string[] = [];
 
-  // ── Scene Setting Block ────────────────────────────────────────────────────
+  // â”€â”€ Scene Setting Block â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (timeContexts && timeContexts.length > 0) {
-    parts.push(`╔══════════════════════════════════════╗`);
-    parts.push(`║  SCENE SETTING — READ THIS FIRST     ║`);
-    parts.push(`╚══════════════════════════════════════╝`);
-    parts.push(`⚠️ The following fields define the MATERIAL WORLD of this scene.`);
+    parts.push(`â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—`);
+    parts.push(`â•‘  SCENE SETTING â€” READ THIS FIRST     â•‘`);
+    parts.push(`â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•`);
+    parts.push(`âš ï¸ The following fields define the MATERIAL WORLD of this scene.`);
     parts.push(`Every object, light source, garment, and surface must belong to this world.`);
     parts.push(``);
 
     timeContexts.forEach(tc => {
       parts.push(`ERA / PERIOD:    ${tc.era ?? 'unspecified'}`);
       parts.push(`LABEL:          ${tc.label}`);
-      if (tc.timeOfDay)      parts.push(`TIME OF DAY:    ${tc.timeOfDay} — THIS IS THE MANDATORY LIGHTING CONDITION`);
+      if (tc.timeOfDay)      parts.push(`TIME OF DAY:    ${tc.timeOfDay} â€” THIS IS THE MANDATORY LIGHTING CONDITION`);
       if (tc.lighting)       parts.push(`LIGHTING NOTES: ${sanitizeLighting(tc.lighting)}`);
       if (tc.historicalNotes) parts.push(`HISTORICAL CONTEXT: ${tc.historicalNotes}`);
       if (tc.season)         parts.push(`SEASON:         ${tc.season}`);
       if (tc.weather)        parts.push(`WEATHER:        ${tc.weather}`);
     });
 
-    parts.push(`⚠️ DO NOT override the era, time of day, or historical context with any default.`);
+    parts.push(`âš ï¸ DO NOT override the era, time of day, or historical context with any default.`);
     parts.push(``);
   }
 
-  // ── Character Block ────────────────────────────────────────────────────────
+  // â”€â”€ Character Block â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const layer: NarrativeLayer = scene.narrativeLayer ?? 'historical';
   const isScientific = layer === 'scientific' || scene.visualStyle === 'scientific';
 
   if (isScientific) {
-    parts.push(`╔══════════════════════════════════════╗`);
-    parts.push(`║  SCIENTIFIC MODE OVERRIDE            ║`);
-    parts.push(`╚══════════════════════════════════════╝`);
+    parts.push(`â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—`);
+    parts.push(`â•‘  SCIENTIFIC MODE OVERRIDE            â•‘`);
+    parts.push(`â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•`);
     parts.push(`This scene depicts a biological, neurological, or physical process.`);
     parts.push(`DO NOT render historical characters, period costumes, or ancient architecture.`);
     parts.push(`RENDER INSTEAD: macro photography of organic matter, scientific laboratory`);
@@ -911,16 +911,16 @@ function buildUserMessage(
     const crowdChars = characters.filter(c => c.isCrowd);
 
     if (individualChars.length > 0) {
-      parts.push(`╔══════════════════════════════════════╗`);
-      parts.push(`║  CHARACTER ANCHORS — EMBED VERBATIM  ║`);
-      parts.push(`╚══════════════════════════════════════╝`);
-      parts.push(`⚠️ MANDATORY: Copy all numerical measurements EXACTLY.`);
-      parts.push(`"10-12cm beard" must appear as "10-12cm beard" — NOT "long beard".`);
+      parts.push(`â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—`);
+      parts.push(`â•‘  CHARACTER ANCHORS â€” EMBED VERBATIM  â•‘`);
+      parts.push(`â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•`);
+      parts.push(`âš ï¸ MANDATORY: Copy all numerical measurements EXACTLY.`);
+      parts.push(`"10-12cm beard" must appear as "10-12cm beard" â€” NOT "long beard".`);
       parts.push(``);
 
       individualChars.forEach((char, idx) => {
         const position = idx === 0 ? 'PRIMARY' : idx === 1 ? 'SECONDARY' : 'TERTIARY';
-        parts.push(`[${position} CHARACTER] ${char.name}${char.role ? ` — ${char.role}` : ''}`);
+        parts.push(`[${position} CHARACTER] ${char.name}${char.role ? ` â€” ${char.role}` : ''}`);
         if (char.age)             parts.push(`  Body age:        ${char.age}`);
         if (char.ethnicity)       parts.push(`  Phenotype:       ${char.ethnicity}`);
         if (char.physicalFeatures) parts.push(`  Face geometry:   ${char.physicalFeatures}`);
@@ -928,7 +928,7 @@ function buildUserMessage(
         if (char.beard)           parts.push(`  Beard:           ${char.beard}`);
         if (char.clothing)        parts.push(`  Costume:         ${char.clothing}`);
         if (char.visualDescription) parts.push(`  Full anchor:     ${char.visualDescription}`);
-        parts.push(`  ⚠️ Eyes must face OFF-LENS — at another person, an object, or the distance.`);
+        parts.push(`  âš ï¸ Eyes must face OFF-LENS â€” at another person, an object, or the distance.`);
         parts.push(``);
       });
     }
@@ -944,14 +944,14 @@ function buildUserMessage(
     }
   }
 
-  // ── Location Block ─────────────────────────────────────────────────────────
+  // â”€â”€ Location Block â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (locations.length > 0 && !isScientific) {
-    parts.push(`╔══════════════════════════════════════╗`);
-    parts.push(`║  LOCATION ARCHITECTURE — EMBED VERBATIM ║`);
-    parts.push(`╚══════════════════════════════════════╝`);
-    parts.push(`⚠️ These are the PERMANENT architectural features of each location.`);
+    parts.push(`â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—`);
+    parts.push(`â•‘  LOCATION ARCHITECTURE â€” EMBED VERBATIM â•‘`);
+    parts.push(`â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•`);
+    parts.push(`âš ï¸ These are the PERMANENT architectural features of each location.`);
     parts.push(`The CURRENT CONDITION (damage, siege, festive, desolate) comes from`);
-    parts.push(`the Scene Setting block above — use that for atmosphere.`);
+    parts.push(`the Scene Setting block above â€” use that for atmosphere.`);
     parts.push(``);
 
     locations.forEach((loc, idx) => {
@@ -962,20 +962,20 @@ function buildUserMessage(
     });
   }
 
-  // ── Scene Text & Visual Note ────────────────────────────────────────────────
-  parts.push(`╔══════════════════════════════════════╗`);
-  parts.push(`║  SCENE CONTENT                       ║`);
-  parts.push(`╚══════════════════════════════════════╝`);
+  // â”€â”€ Scene Text & Visual Note â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  parts.push(`â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—`);
+  parts.push(`â•‘  SCENE CONTENT                       â•‘`);
+  parts.push(`â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•`);
   parts.push(`SCENE TEXT:`);
   parts.push(scene.text);
   parts.push(``);
-  parts.push(`VISUAL NOTE (Turkish — preserve this spirit in all three shots):`);
+  parts.push(`VISUAL NOTE (Turkish â€” preserve this spirit in all three shots):`);
   parts.push(`"${scene.visualNote}"`);
   parts.push(``);
 
-  // ── Visual Style Routing ───────────────────────────────────────────────────
+  // â”€â”€ Visual Style Routing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (isScientific) {
-    parts.push(`VISUAL STYLE: scientific — macro photography mode`);
+    parts.push(`VISUAL STYLE: scientific â€” macro photography mode`);
   } else if (scene.visualStyle === 'symbolic') {
     const symbolicByMode: Record<RenderMode, string> = {
       photoreal: 'VISUAL STYLE: symbolic composition with photoreal cinematic rendering',
@@ -994,27 +994,27 @@ function buildUserMessage(
     parts.push(abstractByMode[renderMode]);
   } else {
     const defaultByMode: Record<RenderMode, string> = {
-      photoreal: 'VISUAL STYLE: cinematic — photorealistic rendering mode',
-      stylized: 'VISUAL STYLE: cinematic — stylized realism rendering mode',
-      illustration: 'VISUAL STYLE: cinematic — painterly illustration rendering mode',
-      animation: 'VISUAL STYLE: cinematic — animated feature rendering mode',
+      photoreal: 'VISUAL STYLE: cinematic â€” photorealistic rendering mode',
+      stylized: 'VISUAL STYLE: cinematic â€” stylized realism rendering mode',
+      illustration: 'VISUAL STYLE: cinematic â€” painterly illustration rendering mode',
+      animation: 'VISUAL STYLE: cinematic â€” animated feature rendering mode',
     };
     parts.push(defaultByMode[renderMode]);
   }
-  parts.push(`RENDER MODE: ${renderMode} — keep all prompts in this same medium and visual language.`);
+  parts.push(`RENDER MODE: ${renderMode} â€” keep all prompts in this same medium and visual language.`);
   parts.push(``);
 
-  // ── Timelapse Override ─────────────────────────────────────────────────────
+  // â”€â”€ Timelapse Override â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (sceneAnalysis?.narrativeType === 'timelapse') {
     const phaseCount = sceneAnalysis.temporalComplexity === 'complex' ? 5
       : sceneAnalysis.temporalComplexity === 'moderate' ? 4 : 3;
-    parts.push(`⚠️ TIMELAPSE SCENE: Produce ${phaseCount} temporal phases instead of Wide/Medium/Close-up.`);
+    parts.push(`âš ï¸ TIMELAPSE SCENE: Produce ${phaseCount} temporal phases instead of Wide/Medium/Close-up.`);
     parts.push(`Each prompt must show a DIFFERENT temporal state.`);
-    parts.push(`Phase 1 = initial state → Phase ${phaseCount} = final transformed state.`);
+    parts.push(`Phase 1 = initial state â†’ Phase ${phaseCount} = final transformed state.`);
     parts.push(``);
   }
 
-  // ── References ─────────────────────────────────────────────────────────────
+  // â”€â”€ References â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const subjectRefs = references?.filter(r => r.referenceType === 'subject') ?? [];
   const styleRefs   = references?.filter(r => r.referenceType === 'style')   ?? [];
 
@@ -1029,7 +1029,7 @@ function buildUserMessage(
     parts.push(``);
   }
 
-  // ── Master / Episode Prompt ────────────────────────────────────────────────
+  // â”€â”€ Master / Episode Prompt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const effectivePrompt = episodePrompt
     ? `${masterPrompt}\n\nEPISODE VISUAL STYLE OVERRIDE (applied on top of master):\n${episodePrompt}`
     : masterPrompt;
@@ -1040,13 +1040,32 @@ function buildUserMessage(
     parts.push(``);
   }
 
-  // ── Aspect Ratio Composition Guidance ─────────────────────────────────────
+  // â”€â”€ Aspect Ratio Composition Guidance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const compositionGuide = ASPECT_RATIO_COMPOSITION[aspectRatio] ?? ASPECT_RATIO_COMPOSITION['16:9'];
   parts.push(`ASPECT RATIO: ${aspectRatio}`);
   parts.push(`COMPOSITION GUIDANCE: ${compositionGuide.trim()}`);
   parts.push(``);
+  const hasHistoricalContext = (timeContexts ?? []).some((tc) => {
+    const blob = `${tc.era ?? ''} ${tc.historicalNotes ?? ''}`.toLowerCase();
+    return /\bcentury\b|\bhistorical\b|\bmedieval\b|\bancient\b|\bperiod\b|\bempire\b|\bdynasty\b|\bmigration\b/.test(blob);
+  });
+  const hasCrowdScene = sceneAnalysis?.hasCrowd || characters.some((character) => character.isCrowd) || characters.length >= 5;
+  parts.push(`HUMAN STAGING RULES (MANDATORY):`);
+  parts.push(`- Medium and close-up shots must feel observed mid-action, never posed for the camera.`);
+  parts.push(`- Use asymmetry, shifted weight, interrupted gesture, active hands, and off-axis shoulders.`);
+  parts.push(`- Avoid portrait logic unless the source line is explicitly a portrait or identification moment.`);
+  parts.push(`- In close-ups, prefer hands, profile, working face, or micro-action over static beauty framing.`);
+  parts.push(``);
+  if (hasCrowdScene) {
+    parts.push(`CROWD ERA ENFORCEMENT (MANDATORY):`);
+    parts.push(`- Crowd wardrobe must read as collective period clothing, not generic modern pedestrians.`);
+    parts.push(`- Use era-correct silhouettes, layered garments, fabric weight, headwear, belts, and footwear.`);
+    parts.push(`- Do not introduce hoodies, t-shirts, denim, sneakers, zip jackets, synthetic sportswear, or modern tailoring.`);
+    parts.push(`- Crowd figures should be fragmented, partially obscured, and caught in movement rather than posed in clear frontal rows.`);
+    parts.push(``);
+  }
 
-  // ── Negative Flag Construction ─────────────────────────────────────────────
+  // â”€â”€ Negative Flag Construction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const charNegatives: string[] = [];
   characters.filter(c => !c.isCrowd).forEach(char => {
     if (/white|snow|silver/.test((char.beard ?? '').toLowerCase())) {
@@ -1068,7 +1087,7 @@ function buildUserMessage(
 
   const baseNegatives = [
     'direct gaze', 'eye contact', 'looking at camera',
-    'passport portrait', 'id photo pose', 'vesikalık',
+    'passport portrait', 'id photo pose', 'vesikalÄ±k',
     'artificial smile', 'frozen smile', 'thumbs up',
     'symmetric composition', 'centered subject',
     'stage-arranged crowd', 'neat rows of soldiers',
@@ -1078,38 +1097,51 @@ function buildUserMessage(
     'glowing eyes', 'electric aura', 'neon blue light',
     'hologram', 'sci-fi effect', 'anachronistic objects',
   ];
+  if (hasHistoricalContext) {
+    baseNegatives.push(
+      'modern clothing', 'modern jacket', 'hoodie', 't-shirt', 'denim jeans',
+      'sneakers', 'rubber soles', 'zipper jacket', 'synthetic sportswear',
+      'contemporary tailoring', 'baseball cap', 'modern backpack'
+    );
+  }
+  if (hasCrowdScene) {
+    baseNegatives.push(
+      'crowd facing camera', 'posed crowd', 'uniform modern streetwear',
+      'clean coordinated modern outfits', 'fashion extras'
+    );
+  }
 
   const allNegatives = [...new Set([...baseNegatives, ...charNegatives])].join(', ');
   const arSuffix     = `--ar ${aspectRatio} --v 6 --no ${allNegatives}`;
 
-  // ── Final Instruction ──────────────────────────────────────────────────────
+  // â”€â”€ Final Instruction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const shotInstruction = sceneAnalysis?.narrativeType === 'timelapse'
-    ? `Generate temporal phase prompts as specified above. Each phase: 100–140 words English.`
+    ? `Generate temporal phase prompts as specified above. Each phase: 100â€“140 words English.`
     : `Generate 3 prompts: Wide Shot, Medium Shot, Close-up.
-Each prompt 100–140 words English.
+Each prompt 100â€“140 words English.
 The three shots MUST differ in at least 3 of: subject position, camera height,
 light angle, foreground element, screen direction, figure/ground strategy.`;
 
   parts.push(shotInstruction);
   parts.push(``);
-  parts.push(`OUTPUT FORMAT — ADVANCED CINEMATIC BLOCK TEMPLATE (MANDATORY):`);
+  parts.push(`OUTPUT FORMAT â€” ADVANCED CINEMATIC BLOCK TEMPLATE (MANDATORY):`);
   parts.push(`Write EACH prompt as a single English paragraph that still follows this block order (use short labels):`);
   parts.push(`SHOT INTENT: ... | SUBJECT: ... | ACTION: ... | ENVIRONMENT: ... | STYLE: ... | LIGHT: ... | CAMERA/COMP: ... | CONTINUITY LOCK: ... | MOTION HINT: ... | NEGATIVES: ...`);
   parts.push(`Rules: keep STYLE and CONTENT separated; use concrete physical/material language; avoid empty adjectives (beautiful, cinematic, dramatic).`);
-  parts.push(`If something is unknown, omit it — do not invent new entities or anachronistic props.`);
+  parts.push(`If something is unknown, omit it â€” do not invent new entities or anachronistic props.`);
   parts.push(``);
   parts.push(`Append to EVERY prompt: ${arSuffix}`);
   parts.push(``);
-  parts.push(`⚠️ FINAL REMINDER: All subjects caught in natural action.`);
+  parts.push(`âš ï¸ FINAL REMINDER: All subjects caught in natural action.`);
   parts.push(`No passport poses. No camera eye contact. No symmetric staging.`);
 
   return parts.join('\n');
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// § 12  LIGHTING SANITISER
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Â§ 12  LIGHTING SANITISER
 //       Strips physically impossible light descriptions from time context.
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function sanitizeLighting(raw: string): string {
   return raw
@@ -1130,9 +1162,9 @@ function sanitizeLighting(raw: string): string {
     .replace(/\bcosmic\b/gi,               'celestial');
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// § 13  JSON RESPONSE PARSER
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Â§ 13  JSON RESPONSE PARSER
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function tryParseJSON(raw: string): unknown {
   if (!raw?.trim()) throw new Error('Empty response');
@@ -1171,9 +1203,9 @@ function tryParseJSON(raw: string): unknown {
   return JSON.parse(cleaned);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// § 14  MAIN GENERATION FUNCTION
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Â§ 14  MAIN GENERATION FUNCTION
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const DEFAULT_ANALYSIS: PromptAnalysis = {
   complexity: 'medium',
@@ -1221,7 +1253,7 @@ export async function generatePromptsForScene(
 
   const arSuffix = `--ar ${aspectRatio} --v 6`;
 
-  // Retry loop — up to 4 attempts
+  // Retry loop â€” up to 4 attempts
   let parsed: {
     prompts?: Array<{ shotType?: string; summary?: string; explanation?: string; prompt?: string }>;
     analysis?: Partial<PromptAnalysis>;
@@ -1315,9 +1347,9 @@ export async function generatePromptsForScene(
   return { prompts, analysis };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// § 15  PROMPT REVISION
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Â§ 15  PROMPT REVISION
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const REVISION_SYSTEM_PROMPT = `You are an expert cinematographer and AI prompt engineer.
 Your task is to revise an existing English image generation prompt based on a user instruction
@@ -1329,7 +1361,7 @@ RULES:
   3. Return ONLY the final revised English prompt. No explanations, no markdown, no quotes.
   4. Keep all technical parameters (--ar, --v, --no flags) intact.
   5. If asked to remove something: remove it cleanly without breaking sentence structure.
-  6. Faces may be visible for natural interaction — never introduce direct eye contact with lens.
+  6. Faces may be visible for natural interaction â€” never introduce direct eye contact with lens.
   7. Do not change the shot type unless explicitly instructed.`;
 
 export async function revisePrompt(
@@ -1361,11 +1393,12 @@ export async function revisePrompt(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// § 16  AUTO-PIN (BEST PROMPT SELECTION)
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Â§ 16  AUTO-PIN (BEST PROMPT SELECTION)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function delay(ms: number): Promise<void> {
   return new Promise(r => setTimeout(r, ms));
 }
+
 
