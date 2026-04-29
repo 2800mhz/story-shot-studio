@@ -5,6 +5,7 @@ export type NarrativeLayer =
   | 'universal';   // Evrensel/zamansız — duygular, insan doğası, soyut kavramlar
 
 export type ProjectType = 'documentary' | 'commercial' | 'narrative';
+export type RenderMode = 'photoreal' | 'stylized' | 'illustration' | 'animation';
 
 export interface TextSegment {
   id: string;
@@ -205,6 +206,7 @@ export interface SceneCard {
 
 export interface AppState {
   projectType: ProjectType;
+  renderMode: RenderMode;
   mainText: string;
   documentText: string;
   episodes: Episode[];
@@ -241,6 +243,7 @@ export interface AppState {
 
 export type AppAction =
   | { type: 'SET_PROJECT_TYPE'; payload: ProjectType }
+  | { type: 'SET_RENDER_MODE'; payload: RenderMode }
   | { type: 'SET_MAIN_TEXT'; payload: { text: string; fileName: string } }
   | { type: 'SET_EXTRACTED_ENTITIES'; payload: ExtractedEntity[] }
   | { type: 'ADD_EXTRACTED_ENTITY'; payload: ExtractedEntity }

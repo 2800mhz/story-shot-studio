@@ -7,12 +7,15 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchProject, fetchEpisodes, createEpisode, deleteEpisode, updateEpisode, updateProject } from '@/lib/supabaseQueries';
+import { saveEpisodePreferences } from '@/lib/episodePreferences';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import type { ProjectType } from '@/types';
+import type { ProjectType, RenderMode } from '@/types';
 
 interface Episode {
   id: string;
@@ -50,6 +53,10 @@ export default function ProjectWorkspace() {
   const [sortBy, setSortBy] = useState<'number' | 'newest' | 'oldest' | 'alphabetical'>('number');
   const [dateFilter, setDateFilter] = useState<'all' | 'week' | 'month'>('all');
   const [projectType, setProjectType] = useState<ProjectType>('documentary');
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newEpisodeTitle, setNewEpisodeTitle] = useState('');
+  const [newEpisodeProjectType, setNewEpisodeProjectType] = useState<ProjectType>('documentary');
+  const [newEpisodeRenderMode, setNewEpisodeRenderMode] = useState<RenderMode>('photoreal');
 
   useEffect(() => {
     if (projectId) {
@@ -90,14 +97,27 @@ export default function ProjectWorkspace() {
     }
   }
 
+  function openCreateEpisodeDialog() {
+    setNewEpisodeTitle('');
+    setNewEpisodeProjectType(projectType);
+    setNewEpisodeRenderMode('photoreal');
+    setCreateDialogOpen(true);
+  }
+
   async function handleCreateEpisode() {
     if (!projectId) return;
     setCreating(true);
     try {
-      const episode = await createEpisode(projectId, '');
+      const episode = await createEpisode(projectId, newEpisodeTitle.trim());
+      saveEpisodePreferences(episode.id, {
+        projectType: newEpisodeProjectType,
+        renderMode: newEpisodeRenderMode,
+      });
+      setCreateDialogOpen(false);
       navigate(`/project/${projectId}/episode/${episode.id}`);
     } catch (error) {
       console.error('Error creating episode:', error);
+    } finally {
       setCreating(false);
     }
   }
@@ -221,7 +241,7 @@ export default function ProjectWorkspace() {
                 {activeAPI.label || activeAPI.provider.toUpperCase()} ACTIVE
               </Badge>
             )}
-            <Button onClick={handleCreateEpisode} disabled={creating} className="shadow-lg shadow-primary/20">
+            <Button onClick={openCreateEpisodeDialog} disabled={creating} className="shadow-lg shadow-primary/20">
               <Plus className="mr-2 h-4 w-4" />
               {creating ? 'Oluşturuluyor...' : 'Yeni Bölüm'}
             </Button>
@@ -294,7 +314,7 @@ export default function ProjectWorkspace() {
               {searchTerm ? `"${searchTerm}" araması için sonuç bulunamadı.` : 'Bu proje için henüz bir bölüm oluşturulmamış.'}
             </p>
             {!searchTerm && (
-              <Button onClick={handleCreateEpisode} disabled={creating} size="lg" className="shadow-lg shadow-primary/20">
+              <Button onClick={openCreateEpisodeDialog} disabled={creating} size="lg" className="shadow-lg shadow-primary/20">
                 <Plus className="mr-2 h-5 w-5" />
                 {creating ? 'Oluşturuluyor...' : 'P İlk Bölümü Oluştur'}
               </Button>
@@ -395,6 +415,79 @@ export default function ProjectWorkspace() {
           </div>
         )}
       </main>
+
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Yeni Bölüm Oluştur</DialogTitle>
+            <DialogDescription>
+              Bölüm daha açılmadan anlatım yönünü ve render modunu seçelim. Bu küçük akış, prompt üretimine daha temiz bir başlangıç veriyor.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="episode-title">Bölüm Adı</Label>
+              <Input
+                id="episode-title"
+                value={newEpisodeTitle}
+                onChange={(e) => setNewEpisodeTitle(e.target.value)}
+                placeholder="Boş bırakırsan otomatik Episode adı verilir"
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Narrative Mode</Label>
+                <Select value={newEpisodeProjectType} onValueChange={(value: ProjectType) => setNewEpisodeProjectType(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Narrative mode seç" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="documentary">Belgesel</SelectItem>
+                    <SelectItem value="commercial">Reklam / Ticari</SelectItem>
+                    <SelectItem value="narrative">Kurgu Film / Dizi</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Kamera tavrını, sahne yorumunu ve prompt tonunu belirler.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Render Mode</Label>
+                <Select value={newEpisodeRenderMode} onValueChange={(value: RenderMode) => setNewEpisodeRenderMode(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Render mode seç" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="photoreal">Photoreal</SelectItem>
+                    <SelectItem value="stylized">Stylized Realism</SelectItem>
+                    <SelectItem value="illustration">Illustration</SelectItem>
+                    <SelectItem value="animation">Animation</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Görüntünün hangi medium gibi davranacağını sabitler.
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-primary/10 bg-primary/5 p-3 text-xs text-muted-foreground">
+              Bu ayarlar episode açıldığında otomatik yüklenir. Sonradan akışı genişletip daha görünür hale getirebiliriz.
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)} disabled={creating}>
+              Vazgeç
+            </Button>
+            <Button onClick={handleCreateEpisode} disabled={creating}>
+              {creating ? 'Oluşturuluyor...' : 'Bölümü Aç'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

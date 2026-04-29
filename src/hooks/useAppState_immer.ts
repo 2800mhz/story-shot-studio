@@ -18,6 +18,7 @@ function loadJson<T>(key: string, fallback: T): T {
 
 const initialState: AppState = {
   projectType: 'documentary',
+  renderMode: 'photoreal',
   mainText: '',
   documentText: '',
   episodes: [],
@@ -102,6 +103,9 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
   switch (action.type) {
     case 'SET_PROJECT_TYPE':
       draft.projectType = action.payload;
+      break;
+    case 'SET_RENDER_MODE':
+      draft.renderMode = action.payload;
       break;
     case 'SET_MAIN_TEXT':
       Object.assign(draft, { mainText: action.payload.text, documentText: action.payload.text, mainFileName: action.payload.fileName });

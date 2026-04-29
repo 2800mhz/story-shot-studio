@@ -5,6 +5,7 @@ import {
   fetchGlobalCharacters, fetchGlobalLocations, fetchReferences 
 } from '@/lib/supabaseQueries';
 import { ProjectType, EpisodeStyleVersion } from '@/types';
+import { loadEpisodePreferences } from '@/lib/episodePreferences';
 
 export function useEpisodeWorkspace({ 
   projectId, 
@@ -44,7 +45,15 @@ export function useEpisodeWorkspace({
       });
 
       setProject(projectData);
-      dispatch({ type: 'SET_PROJECT_TYPE', payload: (projectData.project_type as ProjectType) || 'documentary' });
+      const episodePreferences = loadEpisodePreferences(episodeId);
+      dispatch({
+        type: 'SET_PROJECT_TYPE',
+        payload: episodePreferences?.projectType || (projectData.project_type as ProjectType) || 'documentary'
+      });
+      dispatch({
+        type: 'SET_RENDER_MODE',
+        payload: episodePreferences?.renderMode || 'photoreal'
+      });
       setEpisode(episodeData);
 
       console.log('📎 References from DB:', referencesData?.length, referencesData);

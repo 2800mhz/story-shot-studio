@@ -25,6 +25,7 @@ import type {
   SceneReference,
   NarrativeLayer,
   ProjectType,
+  RenderMode,
 } from '@/types';
 import { aiProvider } from './aiProvider';
 
@@ -704,7 +705,39 @@ RESPONSE FORMAT — JSON only, no markdown, no preamble
 //      Assembles the correct system prompt by project type.
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildSystemPrompt(projectType: ProjectType): string {
+function buildRenderModeContext(renderMode: RenderMode): string {
+  switch (renderMode) {
+    case 'stylized':
+      return `
+RENDER MODE LOCK: STYLIZED REALISM
+- Keep anatomy, lighting logic, and physical space believable.
+- Allow stylized texture simplification and stronger design language.
+- Do NOT drift into flat illustration, manuscript art, or cartoon abstraction unless explicitly requested in-scene.
+`;
+    case 'illustration':
+      return `
+RENDER MODE LOCK: PAINTERLY / ILLUSTRATIVE
+- The image may read as an illustration, painted frame, or concept-art style image.
+- Keep composition, continuity, and subject readability cinematic.
+- Avoid accidental switches back to raw photorealism or into flat vector iconography.
+`;
+    case 'animation':
+      return `
+RENDER MODE LOCK: ANIMATED FEATURE FRAME
+- The image should feel like a polished frame from a high-end animated film.
+- Preserve depth, lighting, and cinematic staging.
+- Avoid cheap flat cartoon treatment unless the scene explicitly asks for it.
+`;
+    default:
+      return `
+RENDER MODE LOCK: PHOTOREAL CINEMATIC
+- Keep the image grounded in physically plausible, camera-readable realism.
+- Poetic narration may shape emphasis, but must not cause a medium switch into painting, manuscript art, or illustration unless explicitly requested.
+`;
+  }
+}
+
+function buildSystemPrompt(projectType: ProjectType, renderMode: RenderMode): string {
   const contextBlock = (() => {
     switch (projectType) {
       case 'commercial': return COMMERCIAL_CONTEXT;
@@ -723,6 +756,7 @@ function buildSystemPrompt(projectType: ProjectType): string {
     ERA_DETECTION_MATRIX,
     CHARACTER_ANCHOR_PROTOCOL,
     VISUAL_STYLE_MODES,
+    buildRenderModeContext(renderMode),
     contextBlock,
     PROMPT_WRITING_SPEC,
     RESPONSE_FORMAT,
@@ -730,9 +764,9 @@ function buildSystemPrompt(projectType: ProjectType): string {
 }
 
 // Exported for direct access (scene analysis uses documentary prompt):
-export const DOCUMENTARY_SYSTEM_PROMPT = buildSystemPrompt('documentary');
-export const COMMERCIAL_SYSTEM_PROMPT  = buildSystemPrompt('commercial');
-export const NARRATIVE_SYSTEM_PROMPT   = buildSystemPrompt('narrative');
+export const DOCUMENTARY_SYSTEM_PROMPT = buildSystemPrompt('documentary', 'photoreal');
+export const COMMERCIAL_SYSTEM_PROMPT  = buildSystemPrompt('commercial', 'photoreal');
+export const NARRATIVE_SYSTEM_PROMPT   = buildSystemPrompt('narrative', 'photoreal');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // § 9  ASPECT RATIO COMPOSITION GUIDANCE
@@ -827,6 +861,7 @@ function buildUserMessage(
   locations: Location[],
   masterPrompt: string,
   aspectRatio: '16:9' | '4:3' | '1:1' | '9:16',
+  renderMode: RenderMode,
   timeContexts?: TimeContext[],
   episodePrompt?: string,
   references?: SceneReference[],
@@ -939,15 +974,34 @@ function buildUserMessage(
   parts.push(``);
 
   // ── Visual Style Routing ───────────────────────────────────────────────────
-  if (scene.visualStyle === 'symbolic') {
-    parts.push(`VISUAL STYLE: symbolic — painterly/illustrated mode (see VISUAL STYLE MODES)`);
-  } else if (isScientific) {
+  if (isScientific) {
     parts.push(`VISUAL STYLE: scientific — macro photography mode`);
+  } else if (scene.visualStyle === 'symbolic') {
+    const symbolicByMode: Record<RenderMode, string> = {
+      photoreal: 'VISUAL STYLE: symbolic composition with photoreal cinematic rendering',
+      stylized: 'VISUAL STYLE: symbolic composition with stylized realism rendering',
+      illustration: 'VISUAL STYLE: symbolic composition with painterly illustration rendering',
+      animation: 'VISUAL STYLE: symbolic composition with animated feature rendering',
+    };
+    parts.push(symbolicByMode[renderMode]);
   } else if (scene.visualStyle === 'abstract' || layer === 'universal') {
-    parts.push(`VISUAL STYLE: cinematic — timeless/universal anchor. Choose ONE era (ancient OR contemporary).`);
+    const abstractByMode: Record<RenderMode, string> = {
+      photoreal: 'VISUAL STYLE: timeless/universal anchor with photoreal cinematic rendering. Choose ONE era (ancient OR contemporary).',
+      stylized: 'VISUAL STYLE: timeless/universal anchor with stylized realism rendering. Choose ONE era (ancient OR contemporary).',
+      illustration: 'VISUAL STYLE: timeless/universal anchor with painterly illustrative rendering. Choose ONE era (ancient OR contemporary).',
+      animation: 'VISUAL STYLE: timeless/universal anchor with animated feature rendering. Choose ONE era (ancient OR contemporary).',
+    };
+    parts.push(abstractByMode[renderMode]);
   } else {
-    parts.push(`VISUAL STYLE: cinematic — photorealistic documentary mode`);
+    const defaultByMode: Record<RenderMode, string> = {
+      photoreal: 'VISUAL STYLE: cinematic — photorealistic rendering mode',
+      stylized: 'VISUAL STYLE: cinematic — stylized realism rendering mode',
+      illustration: 'VISUAL STYLE: cinematic — painterly illustration rendering mode',
+      animation: 'VISUAL STYLE: cinematic — animated feature rendering mode',
+    };
+    parts.push(defaultByMode[renderMode]);
   }
+  parts.push(`RENDER MODE: ${renderMode} — keep all prompts in this same medium and visual language.`);
   parts.push(``);
 
   // ── Timelapse Override ─────────────────────────────────────────────────────
@@ -1147,9 +1201,10 @@ export async function generatePromptsForScene(
   generationType: 'initial' | 'regenerate' = 'initial',
   onRetry?: () => void,
   projectType: ProjectType = 'documentary',
+  renderMode: RenderMode = 'photoreal',
 ): Promise<GenerationResult> {
 
-  const systemPrompt = buildSystemPrompt(projectType);
+  const systemPrompt = buildSystemPrompt(projectType, renderMode);
 
   const userMessage = buildUserMessage(
     scene,
@@ -1157,6 +1212,7 @@ export async function generatePromptsForScene(
     locations,
     masterPrompt,
     aspectRatio,
+    renderMode,
     timeContexts,
     episodePrompt,
     references,

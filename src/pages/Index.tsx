@@ -891,7 +891,8 @@ const Index = () => {
             description: 'Yapay zeka yanıtı bozuk geldi, otomatik onarım deneniyor...',
           });
         },
-        state.projectType
+        state.projectType,
+        state.renderMode
       );
       // Final dispatch with complete result
       dispatch({ 
@@ -913,7 +914,7 @@ const Index = () => {
       });
       return false;
     }
-  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, state.projectType, dispatch, aspectRatio]);
+  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, state.projectType, state.renderMode, dispatch, aspectRatio]);
 
   const WORKER_COUNT = 4; // Qwen/Llama gibi hızlı modellerde 4 paralel stream verimli
 
@@ -1093,7 +1094,8 @@ const Index = () => {
             description: 'Yapay zeka yanıtı bozuk geldi, otomatik onarım deneniyor...',
           });
         },
-        state.projectType
+        state.projectType,
+        state.renderMode
       );
       
       // Final complete update
@@ -1105,7 +1107,7 @@ const Index = () => {
       console.error('Variation generation error:', error);
       dispatch({ type: 'FINISH_PROMPT_GENERATION', payload: { sceneId, prompts: existingPrompts } });
     }
-  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, state.projectType, dispatch, aspectRatio]);
+  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, state.projectType, state.renderMode, dispatch, aspectRatio]);
 
   const handleRestoreSceneCardPrompt = useCallback((sceneId: string, entry: any) => {
     const scene = state.sceneCards.find(s => s.id === sceneId);
