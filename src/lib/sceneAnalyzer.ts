@@ -28,17 +28,7 @@ SCENE COUNT FORMULA (CRITICAL — CALCULATE FIRST):
 1. Estimate word count BEFORE processing.
 2. Formula: word_count ÷ 5 = target scene count (unless a specific target is provided in the user message).
 3. Aim for high density of scenes. 
-4. Hit the requested target exactly. Under-producing is acceptable. Over-producing is not.`;
-}
-
-export function getSceneAnalysisTargetInstruction(targetSceneCount: number): string {
-  return `🎯 TARGET: Produce EXACTLY ${targetSceneCount} scenes (tolerance: ±1).
-
-This target is CRITICAL and overrides all other density rules.
-- If the text is dense: merge secondary details to fit the count.
-- If the text is sparse: split single sentences into multiple visual moments or focus on background details.
-- Plan your ${targetSceneCount} beats before writing JSON.`;
-}
+4. Hit the requested target exactly. Under-producing is acceptable. Over-producing is not.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SPLITTING LOGIC
@@ -320,9 +310,16 @@ CRITICAL CONSTRAINTS:
   • If character details are not in the text, INFER from era, geography, and role
   • scenes[].text must be exact source words — do not paraphrase or summarise
   • Do not add scenes not implied by the source text
-
-TEXT TO ANALYSE:
 `;
+}
+
+export function getSceneAnalysisTargetInstruction(targetSceneCount: number): string {
+  return `🎯 TARGET: Produce EXACTLY ${targetSceneCount} scenes (tolerance: ±1).
+
+This target is CRITICAL and overrides all other density rules.
+- If the text is dense: merge secondary details to fit the count.
+- If the text is sparse: split single sentences into multiple visual moments or focus on background details.
+- Plan your ${targetSceneCount} beats before writing JSON.`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
