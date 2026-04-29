@@ -465,7 +465,6 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
             prompts: action.payload.prompts,
             status: 'ready',
             analysis: action.payload.analysis,
-            optimizations: action.payload.optimizations,
           } : sc
         ),
       };

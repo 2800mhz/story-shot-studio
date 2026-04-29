@@ -180,7 +180,6 @@ export interface PromptAnalysis {
 export interface GenerationResult {
   prompts: PromptCard[];
   analysis: PromptAnalysis;
-  optimizations: string[];
 }
 
 export interface SceneCard {
@@ -299,7 +298,6 @@ export type AppAction =
       sceneId: string;
       prompts: PromptCard[];
       analysis?: PromptAnalysis;
-      optimizations?: string[];
     }
   }
   | { type: 'DELETE_SCENE_CARD'; payload: string }

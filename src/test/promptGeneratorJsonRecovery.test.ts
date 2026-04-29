@@ -36,7 +36,7 @@ describe('promptGenerator JSON recovery', () => {
     "recommendedStyle": "cinematic",
     "productionNotes": ["kritik not"]
   },
-  "optimizations": ["Işık açısını güçlendir"]
+  "selectedIndex": 0
 }
 \`\`\``);
 
@@ -61,7 +61,8 @@ describe('promptGenerator JSON recovery', () => {
     expect(result.prompts[0].promptText).toContain('satır 1 "alıntı"\nsatır 2');
     expect(result.analysis.complexity).toBe('high');
     expect(result.analysis.hasCrowd).toBe(true);
-    expect(result.optimizations).toEqual(['Işık açısını güçlendir']);
+    expect(result.prompts[0].isPinned).toBe(true);
+    expect(result.prompts[0].isPinnedByAI).toBe(true);
   });
 
   it('retries after an empty response and succeeds with valid JSON', async () => {
@@ -125,3 +126,4 @@ describe('promptGenerator JSON recovery', () => {
     expect(onRetry).toHaveBeenCalledTimes(4);
   });
 });
+

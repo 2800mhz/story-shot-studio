@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Sparkles, Edit2, Trash2, Check, X, Copy, RefreshCw, Plus, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, Clock, Pin, ImageIcon } from 'lucide-react';
+import { Sparkles, Edit2, Trash2, Check, X, Copy, RefreshCw, Plus, ChevronDown, ChevronUp, AlertCircle, Clock, Pin, ImageIcon } from 'lucide-react';
 import type { SceneCard as SceneCardType, Character, Location, TimeContext, PromptCard } from '@/types';
 import { PromptHistoryModal, type HistoryEntry } from './PromptHistoryModal';
 import { useClipboardState } from '@/hooks/useClipboardState';
@@ -571,16 +571,6 @@ export function SceneCard({
               </AlertDescription>
             </Alert>
           )}
-
-          {/* Optimizations Applied */}
-          {scene.optimizations && scene.optimizations.length > 0 && (
-            <Alert className="py-2 bg-green-50 border-green-200">
-              <CheckCircle2 className="h-3 w-3 text-green-600" />
-              <AlertDescription className="text-xs text-green-800">
-                <strong>Uygulanan Optimizasyonlar:</strong> {scene.optimizations.join(' • ')}
-              </AlertDescription>
-            </Alert>
-          )}
         </div>
       )}
 
@@ -665,4 +655,5 @@ export function SceneCard({
     </div>
   );
 }
+
 

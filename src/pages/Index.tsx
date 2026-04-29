@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -31,7 +31,7 @@ import { parseAgentOperationSet, stripAgentResultBlock } from '@/lib/agentParser
 import { AGENT_SYSTEM_PROMPT } from '@/lib/agentPrompts';
 import { analyzeTextIntoScenes, generateEpisodePrompt, generateEpisodePromptExplanation, reviseEpisodePrompt } from '@/lib/sceneAnalyzer';
 import { analyzeReferenceImage } from '@/lib/referenceAnalyzer';
-import { generatePromptsForScene, revisePrompt, autoSelectBestPrompt } from '@/lib/promptGenerator';
+import { generatePromptsForScene, revisePrompt } from '@/lib/promptGenerator';
 import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetchAllPromptsForScenes, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts, setPinnedPrompt, fetchReferences, updateReferenceAssignments, fetchUserModel, saveUserModel } from '@/lib/supabaseQueries';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -900,32 +900,8 @@ const Index = () => {
           sceneId, 
           prompts: result.prompts,
           analysis: result.analysis,
-          optimizations: result.optimizations,
         } 
       });
-
-      // ── Auto-pin: AI selects the best prompt ──
-      if (result.prompts.length > 1) {
-        try {
-          const sceneForPin = state.sceneCards.find(s => s.id === sceneId);
-          const { selectedIndex, reason } = await autoSelectBestPrompt(
-            result.prompts,
-            sceneForPin?.text || '',
-            sceneForPin?.visualNote || ''
-          );
-          const bestPrompt = result.prompts[selectedIndex];
-          if (bestPrompt) {
-            console.log(`[autoPin] Scene ${sceneId}: selected prompt ${selectedIndex} — ${reason}`);
-            dispatch({ type: 'SET_PINNED_PROMPT', payload: { sceneId, promptId: bestPrompt.id, byAI: true } });
-            // Persist to DB (fire-and-forget)
-            setPinnedPrompt(sceneId, bestPrompt.id).catch(err =>
-              console.warn('[autoPin] DB save failed:', err)
-            );
-          }
-        } catch (pinErr) {
-          console.warn('[autoPin] Auto-selection failed, skipping:', pinErr);
-        }
-      }
 
       return true;
     } catch (error) {
