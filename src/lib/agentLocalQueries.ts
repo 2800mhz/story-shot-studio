@@ -20,9 +20,9 @@ export function resolveLocalAgentQuery(args: {
 }) {
   const normalizedCommand = normalizeText(args.command);
 
-  if (/^(merhaba|selam|hey|yo|naber|nasilsin|nasılsın|kimsin|sen kimsin|ne yapiyorsun|ne yapıyorsun)[.!? ]*$/.test(normalizedCommand)) {
+  if (/^(merhaba|selam|hey|yo|naber|nasilsin|nasılsın|kimsin|sen kimsin|sen nesin|nesin|ne yapiyorsun|ne yapıyorsun)[.!? ]*$/.test(normalizedCommand)) {
     return {
-      message: 'Buradayım. Sahne, prompt, karakter ya da görsel stil tarafında neyi değiştirmemi istersen direkt söyleyebilirsin.',
+      message: 'Ben bu workspace içinde sahne, prompt, karakter ve stil düzenlemeleri yapan ajanım. Ne değiştirmemi istiyorsan direkt söyleyebilirsin.',
       details: ['Kısa karşılama yerelden üretildi', 'LLM çağrısı yapılmadı'],
     };
   }
