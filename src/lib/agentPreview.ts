@@ -93,3 +93,50 @@ export function summarizeAgentOperation(args: {
   }
 }
 
+export function summarizeAgentOperationSet(operationSet: {
+  operations: AgentOperation[];
+  stalePromptSceneIds: string[];
+}) {
+  const counts = {
+    promptUpdates: 0,
+    staleMarks: 0,
+    characterUpdates: 0,
+    sceneNoteUpdates: 0,
+    visualNoteUpdates: 0,
+    other: 0,
+  };
+
+  for (const operation of operationSet.operations) {
+    switch (operation.type) {
+      case 'update_prompt_text':
+        counts.promptUpdates++;
+        break;
+      case 'mark_prompt_stale':
+        counts.staleMarks++;
+        break;
+      case 'update_character':
+        counts.characterUpdates++;
+        break;
+      case 'update_scene_note':
+        counts.sceneNoteUpdates++;
+        break;
+      case 'update_scene_visual_note':
+        counts.visualNoteUpdates++;
+        break;
+      default:
+        counts.other++;
+        break;
+    }
+  }
+
+  const pills: string[] = [];
+  if (counts.characterUpdates) pills.push(`${counts.characterUpdates} karakter`);
+  if (counts.promptUpdates) pills.push(`${counts.promptUpdates} prompt güncellemesi`);
+  if (counts.sceneNoteUpdates) pills.push(`${counts.sceneNoteUpdates} sahne notu`);
+  if (counts.visualNoteUpdates) pills.push(`${counts.visualNoteUpdates} görsel not`);
+  if (operationSet.stalePromptSceneIds.length) pills.push(`${operationSet.stalePromptSceneIds.length} stale sahne`);
+  if (counts.other) pills.push(`${counts.other} ek işlem`);
+
+  return pills;
+}
+

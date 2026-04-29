@@ -4,6 +4,7 @@ import { buildAgentContext, buildAgentUserPrompt } from '@/lib/agentContext';
 import { applyAgentOperations } from '@/lib/agentOperations';
 import { parseAgentOperationSet, stripAgentResultBlock } from '@/lib/agentParser';
 import { AGENT_SYSTEM_PROMPT } from '@/lib/agentPrompts';
+import { tryBuildLocalAgentOperationSet } from '@/lib/agentLocalActions';
 import { SceneReference } from '@/types';
 
 export function useAgentActions({
@@ -146,6 +147,24 @@ export function useAgentActions({
     setAgentCommand('');
 
     try {
+      const localOperationSet = tryBuildLocalAgentOperationSet({
+        command,
+        state: {
+          characters: state.characters,
+          sceneCards: state.sceneCards,
+        },
+      });
+
+      if (localOperationSet) {
+        agent.updateMessage(assistantMessageId, {
+          content: localOperationSet.summary,
+          streaming: false,
+        });
+        applyOperationSet(localOperationSet, 'auto');
+        agent.clearAttachments();
+        return;
+      }
+
       const context = buildAgentContext({
         activeSceneId: state.activeSceneId,
         selectedEntityId,

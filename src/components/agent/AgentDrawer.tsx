@@ -3,7 +3,7 @@ import { Bot, ImagePlus, Loader2, Paperclip, Send, Sparkles, Trash2 } from 'luci
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { AgentAttachment, AgentMessage, AgentOperationSet } from '@/lib/agentSchema';
-import { summarizeAgentOperation } from '@/lib/agentPreview';
+import { summarizeAgentOperation, summarizeAgentOperationSet } from '@/lib/agentPreview';
 import type { Character, SceneCard } from '@/types';
 
 interface AgentDrawerProps {
@@ -202,12 +202,21 @@ export function AgentDrawer(props: AgentDrawerProps) {
                       {operationSetToShow.reasoning && (
                         <p className="mt-1 text-muted-foreground">{operationSetToShow.reasoning}</p>
                       )}
+                      {summarizeAgentOperationSet(operationSetToShow).length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {summarizeAgentOperationSet(operationSetToShow).map((item) => (
+                            <span key={item} className="rounded-full border bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div>
                       <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">İşlemler</div>
                       <div className="space-y-2">
-                        {operationSetToShow.operations.map((operation, index) => {
+                        {operationSetToShow.operations.slice(0, 8).map((operation, index) => {
                           const summary = summarizeAgentOperation({
                             operation,
                             scenesById,
@@ -226,6 +235,11 @@ export function AgentDrawer(props: AgentDrawerProps) {
                             </div>
                           );
                         })}
+                        {operationSetToShow.operations.length > 8 && (
+                          <div className="rounded-lg border border-dashed bg-background px-3 py-2 text-xs text-muted-foreground">
+                            +{operationSetToShow.operations.length - 8} işlem daha
+                          </div>
+                        )}
                       </div>
                     </div>
 
