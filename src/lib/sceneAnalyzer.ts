@@ -19,11 +19,12 @@ import { aiProvider } from './aiProvider';
 export function getSceneAnalysisSystemPrompt(targetSceneCount?: number): string {
 
   const targetInstruction = targetSceneCount
-    ? `⛔ STRICT SCENE LIMIT: ${targetSceneCount} scenes (tolerance: ±2)
+    ? `🎯 EXACT SCENE TARGET: ${targetSceneCount} scenes (tolerance: ±1)
 
 This rule overrides ALL other rules.
-→ Producing MORE than ${targetSceneCount} scenes is a critical error.
-→ Merge scenes rather than exceed the limit.
+→ Producing FEWER than ${targetSceneCount - 1} scenes is a critical error — split more aggressively.
+→ Producing MORE than ${targetSceneCount + 1} scenes is a critical error — merge where necessary.
+→ Aim for exactly ${targetSceneCount} scenes.
 → Plan total count BEFORE splitting the text.`
 
     : `SCENE COUNT FORMULA (CRITICAL — CALCULATE FIRST):
@@ -36,7 +37,7 @@ Examples:
   300 words → ~60 scenes
   450 words → ~90 scenes
 
-Hit this target. Under-producing is acceptable. Over-producing is not.`;
+Hit this target exactly. Both under-producing and over-producing are errors.`;
 
   return `You are a world-class documentary film director and visual editor.
 The text you receive is a documentary voice-over narration or screenplay visual block.
