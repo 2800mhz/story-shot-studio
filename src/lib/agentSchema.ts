@@ -149,10 +149,60 @@ export const agentOperationSetSchema = z.object({
   operations: z.array(agentOperationSchema).default([]),
 });
 
+export const agentIntentSchema = z.object({
+  summary: z.string().optional(),
+  target: z.object({
+    type: z.enum(['character', 'scene', 'location', 'prompt', 'reference', 'episode', 'unknown']),
+    ref: z.string().optional(),
+    sceneNumber: z.number().int().optional(),
+    promptHint: z.enum(['pinned', 'all', 'first', 'unknown']).optional(),
+  }),
+  edit: z.object({
+    kind: z.enum([
+      'wardrobe',
+      'character_appearance',
+      'scene_note',
+      'visual_note',
+      'location_update',
+      'prompt_rewrite',
+      'reference_attach',
+      'general',
+    ]),
+    instruction: z.string(),
+  }),
+  scope: z.enum(['auto', 'single_scene', 'linked_scenes', 'episode']).default('auto'),
+  patch: z.object({
+    character: z.object({
+      clothing: z.string().optional(),
+      visualDescription: z.string().optional(),
+      hair: z.string().optional(),
+      beard: z.string().optional(),
+      physicalFeatures: z.string().optional(),
+      age: z.string().optional(),
+      ethnicity: z.string().optional(),
+    }).optional(),
+    scene: z.object({
+      note: z.string().optional(),
+      visualNote: z.string().optional(),
+    }).optional(),
+    location: z.object({
+      visualDescription: z.string().optional(),
+      architecture: z.string().optional(),
+      atmosphere: z.string().optional(),
+      period: z.string().optional(),
+      geography: z.string().optional(),
+    }).optional(),
+    prompt: z.object({
+      instruction: z.string().optional(),
+    }).optional(),
+  }).default({}),
+});
+
 export type AgentAttachment = z.infer<typeof agentAttachmentSchema>;
 export type AgentScope = z.infer<typeof agentScopeSchema>;
 export type AgentOperation = z.infer<typeof agentOperationSchema>;
 export type AgentOperationSet = z.infer<typeof agentOperationSetSchema>;
+export type AgentIntent = z.infer<typeof agentIntentSchema>;
 
 export interface AgentMessage {
   id: string;

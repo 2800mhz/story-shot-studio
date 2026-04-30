@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { aiProvider } from '@/lib/aiProvider';
 import { buildAgentContext, buildAgentUserPrompt } from '@/lib/agentContext';
+import { AGENT_INTENT_SYSTEM_PROMPT, buildAgentIntentPrompt, parseAgentIntent, planAgentIntent } from '@/lib/agentIntent';
 import { applyAgentOperations, expandDirectPromptUpdatesForOperationSet } from '@/lib/agentOperations';
 import { parseAgentOperationSet, stripAgentResultBlock } from '@/lib/agentParser';
 import { AGENT_SYSTEM_PROMPT } from '@/lib/agentPrompts';
@@ -72,6 +73,57 @@ function inferOperationSetTags(operationSet: any) {
   }
 
   return unique(tags).slice(0, 5);
+}
+
+function inferIntentTags(intent: any) {
+  const tags: string[] = [];
+
+  switch (intent?.target?.type) {
+    case 'character':
+      tags.push('Karakter');
+      break;
+    case 'scene':
+      tags.push('Sahne');
+      break;
+    case 'location':
+      tags.push('Mekan');
+      break;
+    case 'prompt':
+      tags.push('Prompt');
+      break;
+    case 'episode':
+      tags.push('Episode');
+      break;
+    default:
+      break;
+  }
+
+  switch (intent?.edit?.kind) {
+    case 'wardrobe':
+      tags.push('Kiyafet');
+      break;
+    case 'character_appearance':
+      tags.push('Gorunus');
+      break;
+    case 'visual_note':
+      tags.push('Gorsel not');
+      break;
+    case 'scene_note':
+      tags.push('Not');
+      break;
+    case 'location_update':
+      tags.push('Mekan');
+      break;
+    case 'prompt_rewrite':
+      tags.push('Prompt');
+      break;
+    default:
+      break;
+  }
+
+  if (intent?.target?.sceneNumber) tags.push(`Sahne ${intent.target.sceneNumber}`);
+
+  return unique(tags).slice(0, 4);
 }
 
 export function useAgentActions({
@@ -350,6 +402,85 @@ export function useAgentActions({
         return;
       }
 
+      const images = agent.attachments
+        .filter((attachment: any) => attachment.base64)
+        .map((attachment: any) => ({
+          inlineData: {
+            data: attachment.base64!,
+            mimeType: attachment.mimeType,
+          },
+        }));
+
+      if (images.length === 0) {
+        try {
+          const intentPrompt = buildAgentIntentPrompt({
+            command,
+            activeSceneId: state.activeSceneId,
+            selectedEntityId,
+            sceneCards: state.sceneCards,
+            characters: state.characters,
+            locations: state.locations,
+            timeContexts: state.timeContexts,
+            references: state.references,
+          });
+
+          const rawIntent = await aiProvider.generateContent(intentPrompt, AGENT_INTENT_SYSTEM_PROMPT, {
+            operationType: 'agent_intent',
+            responseMimeType: 'application/json',
+          });
+
+          const parsedIntent = parseAgentIntent(rawIntent);
+          const plannedOperationSet = planAgentIntent({
+            intent: parsedIntent,
+            sceneCards: state.sceneCards,
+            characters: state.characters,
+            locations: state.locations,
+            activeSceneId: state.activeSceneId,
+            selectedEntityId,
+          });
+
+          if (plannedOperationSet) {
+            const operationSet = expandDirectPromptUpdatesForOperationSet({
+              sceneCards: state.sceneCards,
+              characters: state.characters,
+              locations: state.locations,
+              timeContexts: state.timeContexts,
+              references: state.references,
+            }, plannedOperationSet);
+
+            agent.updateMessage(assistantMessageId, {
+              content: plannedOperationSet.summary,
+              streaming: false,
+              tags: inferOperationSetTags(operationSet).length > 0
+                ? inferOperationSetTags(operationSet)
+                : inferIntentTags(parsedIntent),
+            });
+
+            if (operationSet.operations.length > 0 || operationSet.stalePromptSceneIds.length > 0) {
+              await applyOperationSet(operationSet, 'auto');
+            } else {
+              agent.setPendingOperationSet(operationSet);
+              agent.setLastOperationSet(operationSet);
+            }
+
+            agent.finishActivity(activityId, {
+              label: 'resolved_intent',
+              details: [
+                `Hedef: ${parsedIntent.target.type}`,
+                `Duzenleme: ${parsedIntent.edit.kind}`,
+                `${operationSet.operations.length} operasyon planlandi`,
+                `${operationSet.stalePromptSceneIds.length} stale sahne`,
+              ],
+            });
+
+            agent.clearAttachments();
+            return;
+          }
+        } catch (intentError) {
+          console.warn('Intent-first agent flow failed, falling back to operation JSON:', intentError);
+        }
+      }
+
       const context = buildAgentContext({
         activeSceneId: state.activeSceneId,
         selectedEntityId,
@@ -367,15 +498,6 @@ export function useAgentActions({
         context,
         attachments: agent.attachments,
       });
-
-      const images = agent.attachments
-        .filter((attachment: any) => attachment.base64)
-        .map((attachment: any) => ({
-          inlineData: {
-            data: attachment.base64!,
-            mimeType: attachment.mimeType,
-          },
-        }));
 
       let streamed = '';
       const response = images.length > 0
