@@ -162,6 +162,7 @@ export interface AgentMessage {
   streaming?: boolean;
   status?: 'idle' | 'warming' | 'thinking' | 'applying' | 'error' | 'done';
   attachments?: AgentAttachment[];
+  tags?: string[];
 }
 
 export interface AgentActivityItem {

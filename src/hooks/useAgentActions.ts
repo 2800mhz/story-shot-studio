@@ -8,6 +8,71 @@ import { tryBuildLocalAgentOperationSet } from '@/lib/agentLocalActions';
 import { resolveLocalAgentQuery } from '@/lib/agentLocalQueries';
 import { SceneReference } from '@/types';
 
+function unique(items: string[]) {
+  return Array.from(new Set(items.filter(Boolean)));
+}
+
+function inferCommandTags(command: string) {
+  const lower = command.toLocaleLowerCase('tr-TR');
+  const tags: string[] = [];
+
+  const sceneMatch = lower.match(/sahne\s+(\d+)/);
+  if (sceneMatch?.[1]) tags.push(`Sahne ${sceneMatch[1]}`);
+
+  if (/prompt/.test(lower)) tags.push('Prompt');
+  if (/visual note|gorsel not|görsel not/.test(lower)) tags.push('Görsel not');
+  if (/\bnote\b|\bnot\b/.test(lower)) tags.push('Not');
+  if (/karakter|adam|kadin|kadın|goc(ebe)?|göçebe/.test(lower)) tags.push('Karakter');
+  if (/mekan|mekân|lokasyon|yer/.test(lower)) tags.push('Mekan');
+  if (/referans|gorsel|görsel/.test(lower)) tags.push('Referans');
+  if (/pinned/.test(lower)) tags.push('Pinned');
+  if (/stil|style|render/.test(lower)) tags.push('Stil');
+
+  return unique(tags).slice(0, 4);
+}
+
+function inferOperationSetTags(operationSet: any) {
+  const tags: string[] = [];
+  if (operationSet.affectedSceneIds?.length) tags.push(`${operationSet.affectedSceneIds.length} sahne`);
+  if (operationSet.stalePromptSceneIds?.length) tags.push(`${operationSet.stalePromptSceneIds.length} stale`);
+
+  for (const operation of operationSet.operations || []) {
+    switch (operation.type) {
+      case 'update_prompt_text':
+        tags.push('Prompt');
+        break;
+      case 'update_character':
+      case 'add_character':
+      case 'remove_character':
+      case 'attach_character_to_scene':
+      case 'detach_character_from_scene':
+        tags.push('Karakter');
+        break;
+      case 'update_scene_visual_note':
+        tags.push('Görsel not');
+        break;
+      case 'update_scene_note':
+        tags.push('Not');
+        break;
+      case 'update_location':
+        tags.push('Mekan');
+        break;
+      case 'add_reference_to_scene':
+      case 'remove_reference_from_scene':
+      case 'add_scene_reference':
+        tags.push('Referans');
+        break;
+      case 'mark_prompt_stale':
+        tags.push('Stale');
+        break;
+      default:
+        break;
+    }
+  }
+
+  return unique(tags).slice(0, 5);
+}
+
 export function useAgentActions({
   agent,
   state,
@@ -53,10 +118,12 @@ export function useAgentActions({
     agent.clearPendingOperationSet();
     agent.addMessage({
       role: 'status',
-      content: mode === 'auto'
-        ? `Uygulandı: ${operationSet.summary}`
-        : `Manuel uygulandı: ${operationSet.summary}`,
+      content:
+        mode === 'auto'
+          ? `Uygulandı: ${operationSet.summary}`
+          : `Manuel uygulandı: ${operationSet.summary}`,
       status: 'done',
+      tags: inferOperationSetTags(operationSet),
     });
     toast({
       title: mode === 'auto' ? 'Agent değişikliği uygulandı' : 'Agent değişiklikleri uygulandı',
@@ -91,6 +158,7 @@ export function useAgentActions({
     try {
       const base64 = await fileToBase64(file);
       let analysis = '';
+
       if (aiProvider.isInitialized() && aiProvider.hasKeys()) {
         try {
           const attachmentSummary = await aiProvider.generateContent(
@@ -99,13 +167,14 @@ export function useAgentActions({
             {
               operationType: 'agent_attachment_analysis',
               images: [{ inlineData: { data: base64, mimeType: file.type || 'image/png' } }],
-            }
+            },
           );
           analysis = attachmentSummary.trim();
         } catch (attachmentError) {
           console.warn('Attachment analysis skipped:', attachmentError);
         }
       }
+
       agent.setAttachments((prev: any) => [
         ...prev,
         {
@@ -130,6 +199,7 @@ export function useAgentActions({
   const handleSubmitAgentCommand = useCallback(async () => {
     const command = agentCommand.trim();
     if (!command) return;
+
     if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
       setNoKeysWarning(true);
       return;
@@ -144,6 +214,7 @@ export function useAgentActions({
       role: 'user',
       content: command,
       attachments: agent.attachments,
+      tags: inferCommandTags(command),
     });
 
     const assistantMessageId = agent.addMessage({
@@ -166,6 +237,7 @@ export function useAgentActions({
         agent.updateMessage(assistantMessageId, {
           content: localQuery.message,
           streaming: false,
+          tags: inferCommandTags(command),
         });
         agent.finishActivity(activityId, {
           label: 'answered_locally',
@@ -186,6 +258,7 @@ export function useAgentActions({
         agent.updateMessage(assistantMessageId, {
           content: localOperationSet.summary,
           streaming: false,
+          tags: inferOperationSetTags(localOperationSet),
         });
         applyOperationSet(localOperationSet, 'auto');
         agent.finishActivity(activityId, {
@@ -239,17 +312,22 @@ export function useAgentActions({
               streamed = text;
               agent.updateMessage(assistantMessageId, {
                 content: stripAgentResultBlock(text) || 'Düşünüyorum...',
+                tags: inferCommandTags(command),
               });
             },
           });
 
       const finalText = images.length > 0 ? response : streamed || response;
+      const operationSet = parseAgentOperationSet(finalText);
+
       agent.updateMessage(assistantMessageId, {
         content: stripAgentResultBlock(finalText) || 'Değişiklik hazır.',
         streaming: false,
+        tags: inferOperationSetTags(operationSet).length > 0
+          ? inferOperationSetTags(operationSet)
+          : inferCommandTags(command),
       });
 
-      const operationSet = parseAgentOperationSet(finalText);
       if (operationSet.operations.length > 0 || operationSet.stalePromptSceneIds.length > 0) {
         applyOperationSet(operationSet, 'auto');
       } else {
@@ -275,6 +353,7 @@ export function useAgentActions({
         content: error instanceof Error ? error.message : 'Agent komutu işlenemedi.',
         streaming: false,
         status: 'error',
+        tags: ['Hata'],
       });
       agent.finishActivity(activityId, {
         label: 'failed',
