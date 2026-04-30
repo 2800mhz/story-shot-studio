@@ -209,22 +209,8 @@ export function AgentDrawer(props: AgentDrawerProps) {
         </div>
 
         {open ? (
-          <div className="mt-3 flex items-center justify-between gap-4">
-            <div className="text-[11px] text-muted-foreground">
-              Enter gonderir, Shift+Enter yeni satir acar.
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="hidden text-[11px] text-muted-foreground md:block">Panel yuksekligi</div>
-              <input
-                type="range"
-                min={18}
-                max={40}
-                step={1}
-                value={heightPercent}
-                onChange={(event) => onHeightChange(Number(event.target.value))}
-                className="w-24"
-              />
-            </div>
+          <div className="mt-3 text-[11px] text-muted-foreground">
+            Enter gonderir, Shift+Enter yeni satir acar.
           </div>
         ) : null}
       </div>

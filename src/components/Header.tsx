@@ -49,7 +49,7 @@ export function Header({
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <input
           type="file"
           accept=".json"
@@ -58,20 +58,22 @@ export function Header({
           onChange={handleFileChange}
         />
 
-        <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={disabledActions}>
-          <FolderUp className="mr-1.5 h-3.5 w-3.5" />
-          Iceri aktar
-        </Button>
+        <div className="flex items-center gap-2 rounded-2xl border border-border/70 bg-background px-2 py-2">
+          <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} disabled={disabledActions}>
+            <FolderUp className="mr-1.5 h-3.5 w-3.5" />
+            Ice aktar
+          </Button>
 
-        <Button variant="outline" size="sm" className="max-w-[260px]" disabled={disabledActions} onClick={onUploadMain}>
-          <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{mainFileName || 'Seslendirme metni yukle'}</span>
-        </Button>
+          <Button variant="ghost" size="sm" className="max-w-[240px]" disabled={disabledActions} onClick={onUploadMain}>
+            <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{mainFileName || 'Metin yukle'}</span>
+          </Button>
 
-        <Button variant="outline" size="sm" onClick={onExport} disabled={disabledActions}>
-          <Download className="mr-1.5 h-3.5 w-3.5" />
-          Disa aktar
-        </Button>
+          <Button variant="ghost" size="sm" onClick={onExport} disabled={disabledActions}>
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            Disa aktar
+          </Button>
+        </div>
 
         <Link to="/motion-prompt">
           <Button variant="outline" size="sm" disabled={disabledActions}>
