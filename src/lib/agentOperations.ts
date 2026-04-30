@@ -13,6 +13,76 @@ function unique<T>(items: T[]): T[] {
   return Array.from(new Set(items));
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function replaceInsensitive(source: string, from: string, to: string) {
+  if (!from.trim()) return source;
+  return source.replace(new RegExp(escapeRegExp(from), 'gi'), to);
+}
+
+function buildCharacterReplacementPairs(character: Character, changes: Partial<Character>) {
+  const pairs: Array<{ from: string; to: string }> = [];
+  const keys: Array<keyof Character> = [
+    'name',
+    'visualDescription',
+    'age',
+    'ethnicity',
+    'clothing',
+    'physicalFeatures',
+    'hair',
+    'beard',
+  ];
+
+  for (const key of keys) {
+    const nextValue = changes[key];
+    const prevValue = character[key];
+    if (typeof prevValue === 'string' && typeof nextValue === 'string' && prevValue.trim() && nextValue.trim() && prevValue !== nextValue) {
+      pairs.push({ from: prevValue, to: nextValue });
+    }
+  }
+
+  return pairs;
+}
+
+function buildLocationReplacementPairs(location: Location, changes: Partial<Location>) {
+  const pairs: Array<{ from: string; to: string }> = [];
+  const keys: Array<keyof Location> = [
+    'name',
+    'visualDescription',
+    'period',
+    'geography',
+    'architecture',
+    'atmosphere',
+  ];
+
+  for (const key of keys) {
+    const nextValue = changes[key];
+    const prevValue = location[key];
+    if (typeof prevValue === 'string' && typeof nextValue === 'string' && prevValue.trim() && nextValue.trim() && prevValue !== nextValue) {
+      pairs.push({ from: prevValue, to: nextValue });
+    }
+  }
+
+  return pairs;
+}
+
+function patchPromptText(promptText: string, replacements: Array<{ from: string; to: string }>) {
+  let nextText = promptText;
+  let changed = false;
+
+  for (const replacement of replacements) {
+    const updated = replaceInsensitive(nextText, replacement.from, replacement.to);
+    if (updated !== nextText) {
+      nextText = updated;
+      changed = true;
+    }
+  }
+
+  return { text: nextText, changed };
+}
+
 function markSceneStale(scene: SceneCard, reason: string, promptId?: string): SceneCard {
   const promptIds = promptId ? [promptId] : scene.prompts.map((prompt) => prompt.id);
 
@@ -49,7 +119,7 @@ export function applyAgentOperations(state: AgentApplyState, operationSet: Agent
       case 'update_scene_note':
         nextState.sceneCards = nextState.sceneCards.map((scene) =>
           scene.id === operation.sceneId
-            ? markSceneStale({ ...scene, visualNote: operation.note }, 'Scene note updated')
+            ? markSceneStale({ ...scene, note: operation.note }, 'Scene note updated')
             : scene
         );
         break;
@@ -92,14 +162,44 @@ export function applyAgentOperations(state: AgentApplyState, operationSet: Agent
         break;
 
       case 'update_character':
+        {
+          const previousCharacter = nextState.characters.find((character) => character.id === operation.characterId);
+          const replacements = previousCharacter
+            ? buildCharacterReplacementPairs(previousCharacter, operation.changes)
+            : [];
+
         nextState.characters = nextState.characters.map((character) =>
           character.id === operation.characterId ? { ...character, ...operation.changes } : character
         );
-        nextState.sceneCards = nextState.sceneCards.map((scene) =>
-          scene.characterIds.includes(operation.characterId)
-            ? markSceneStale(scene, 'Character attributes updated')
-            : scene
-        );
+          nextState.sceneCards = nextState.sceneCards.map((scene) => {
+            if (!scene.characterIds.includes(operation.characterId)) return scene;
+
+            let promptChanged = false;
+            const nextPrompts = scene.prompts.map((prompt) => {
+              const result = patchPromptText(prompt.promptText, replacements);
+              if (!result.changed) return prompt;
+              promptChanged = true;
+              return {
+                ...prompt,
+                promptText: result.text,
+                versions: [...prompt.versions, result.text],
+                isStale: false,
+                staleReason: undefined,
+              };
+            });
+
+            if (promptChanged) {
+              return {
+                ...scene,
+                promptsNeedRefresh: false,
+                prompts: nextPrompts,
+                staleReasons: (scene.staleReasons ?? []).filter((reason) => reason !== 'Character attributes updated'),
+              };
+            }
+
+            return markSceneStale(scene, 'Character attributes updated');
+          });
+        }
         break;
 
       case 'remove_character':
@@ -134,14 +234,44 @@ export function applyAgentOperations(state: AgentApplyState, operationSet: Agent
       }
 
       case 'update_location':
+        {
+          const previousLocation = nextState.locations.find((location) => location.id === operation.locationId);
+          const replacements = previousLocation
+            ? buildLocationReplacementPairs(previousLocation, operation.changes)
+            : [];
+
         nextState.locations = nextState.locations.map((location) =>
           location.id === operation.locationId ? { ...location, ...operation.changes } : location
         );
-        nextState.sceneCards = nextState.sceneCards.map((scene) =>
-          scene.locationIds.includes(operation.locationId)
-            ? markSceneStale(scene, 'Location attributes updated')
-            : scene
-        );
+          nextState.sceneCards = nextState.sceneCards.map((scene) => {
+            if (!scene.locationIds.includes(operation.locationId)) return scene;
+
+            let promptChanged = false;
+            const nextPrompts = scene.prompts.map((prompt) => {
+              const result = patchPromptText(prompt.promptText, replacements);
+              if (!result.changed) return prompt;
+              promptChanged = true;
+              return {
+                ...prompt,
+                promptText: result.text,
+                versions: [...prompt.versions, result.text],
+                isStale: false,
+                staleReason: undefined,
+              };
+            });
+
+            if (promptChanged) {
+              return {
+                ...scene,
+                promptsNeedRefresh: false,
+                prompts: nextPrompts,
+                staleReasons: (scene.staleReasons ?? []).filter((reason) => reason !== 'Location attributes updated'),
+              };
+            }
+
+            return markSceneStale(scene, 'Location attributes updated');
+          });
+        }
         break;
 
       case 'attach_character_to_scene':
