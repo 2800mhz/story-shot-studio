@@ -83,8 +83,78 @@ function normalizeOperation(op: any) {
       };
 
     default:
-      return base;
+      break;
   }
+
+  if (base.characterId && (base.changes || base.clothing || base.visualDescription || base.hair || base.beard || base.age || base.ethnicity || base.physicalFeatures)) {
+    return {
+      type: 'update_character',
+      characterId: base.characterId,
+      changes: base.changes && typeof base.changes === 'object'
+        ? base.changes
+        : {
+            ...(base.clothing ? { clothing: base.clothing } : {}),
+            ...(base.visualDescription ? { visualDescription: base.visualDescription } : {}),
+            ...(base.hair ? { hair: base.hair } : {}),
+            ...(base.beard ? { beard: base.beard } : {}),
+            ...(base.age ? { age: base.age } : {}),
+            ...(base.ethnicity ? { ethnicity: base.ethnicity } : {}),
+            ...(base.physicalFeatures ? { physicalFeatures: base.physicalFeatures } : {}),
+          },
+    };
+  }
+
+  if (base.locationId && (base.changes || base.visualDescription || base.architecture || base.atmosphere || base.period || base.geography)) {
+    return {
+      type: 'update_location',
+      locationId: base.locationId,
+      changes: base.changes && typeof base.changes === 'object'
+        ? base.changes
+        : {
+            ...(base.visualDescription ? { visualDescription: base.visualDescription } : {}),
+            ...(base.architecture ? { architecture: base.architecture } : {}),
+            ...(base.atmosphere ? { atmosphere: base.atmosphere } : {}),
+            ...(base.period ? { period: base.period } : {}),
+            ...(base.geography ? { geography: base.geography } : {}),
+          },
+    };
+  }
+
+  if (base.sceneId && base.promptId && (base.promptText || base.text || base.newText)) {
+    return {
+      type: 'update_prompt_text',
+      sceneId: base.sceneId,
+      promptId: base.promptId,
+      promptText: base.promptText || base.text || base.newText,
+    };
+  }
+
+  if (base.sceneId && (base.visualNote || base.note || base.text) && /visual/i.test(rawType || '')) {
+    return {
+      type: 'update_scene_visual_note',
+      sceneId: base.sceneId,
+      visualNote: base.visualNote || base.note || base.text,
+    };
+  }
+
+  if (base.sceneId && (base.note || base.text) && /note/i.test(rawType || '')) {
+    return {
+      type: 'update_scene_note',
+      sceneId: base.sceneId,
+      note: base.note || base.text,
+    };
+  }
+
+  if (base.sceneId && (base.reason || /stale|regen/i.test(rawType || ''))) {
+    return {
+      type: 'mark_prompt_stale',
+      sceneId: base.sceneId,
+      promptId: base.promptId,
+      reason: base.reason,
+    };
+  }
+
+  return base;
 }
 
 export function extractAgentResultBlock(text: string): string | null {
