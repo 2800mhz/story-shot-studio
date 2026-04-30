@@ -1,5 +1,5 @@
 import type { Character, Location, SceneCard, SceneReference, TimeContext } from '@/types';
-import type { AgentOperationSet } from './agentSchema';
+import type { AgentOperation, AgentOperationSet } from './agentSchema';
 
 export interface AgentApplyState {
   sceneCards: SceneCard[];
@@ -135,6 +135,102 @@ function markSceneStale(scene: SceneCard, reason: string, promptId?: string): Sc
         staleReason: reason,
       };
     }),
+  };
+}
+
+export function expandDirectPromptUpdatesForOperationSet(
+  state: AgentApplyState,
+  operationSet: AgentOperationSet,
+): AgentOperationSet {
+  const additionalOperations: AgentOperation[] = [];
+  const resolvedStaleSceneIds = new Set<string>();
+  const seenPromptKeys = new Set<string>();
+
+  for (const operation of operationSet.operations) {
+    if (operation.type === 'update_character') {
+      const previousCharacter = state.characters.find((character) => character.id === operation.characterId);
+      if (!previousCharacter) continue;
+
+      const replacements = buildCharacterReplacementPairs(previousCharacter, operation.changes);
+      const fallbackDetails = buildCharacterFallbackDetails(operation.changes);
+      const relatedScenes = state.sceneCards.filter((scene) => scene.characterIds.includes(operation.characterId));
+
+      for (const scene of relatedScenes) {
+        let scenePatched = false;
+
+        for (const prompt of scene.prompts) {
+          const result = patchPromptText(prompt.promptText, replacements);
+          const fallback = !result.changed
+            ? injectBeforeSuffix(prompt.promptText, fallbackDetails)
+            : { text: result.text, changed: false };
+          const finalText = result.changed ? result.text : fallback.text;
+          const didChange = result.changed || fallback.changed;
+          const promptKey = `${scene.id}:${prompt.id}`;
+
+          if (!didChange || seenPromptKeys.has(promptKey)) continue;
+
+          additionalOperations.push({
+            type: 'update_prompt_text',
+            sceneId: scene.id,
+            promptId: prompt.id,
+            promptText: finalText,
+          });
+          seenPromptKeys.add(promptKey);
+          scenePatched = true;
+        }
+
+        if (scenePatched) resolvedStaleSceneIds.add(scene.id);
+      }
+    }
+
+    if (operation.type === 'update_location') {
+      const previousLocation = state.locations.find((location) => location.id === operation.locationId);
+      if (!previousLocation) continue;
+
+      const replacements = buildLocationReplacementPairs(previousLocation, operation.changes);
+      const fallbackDetails = buildLocationFallbackDetails(operation.changes);
+      const relatedScenes = state.sceneCards.filter((scene) => scene.locationIds.includes(operation.locationId));
+
+      for (const scene of relatedScenes) {
+        let scenePatched = false;
+
+        for (const prompt of scene.prompts) {
+          const result = patchPromptText(prompt.promptText, replacements);
+          const fallback = !result.changed
+            ? injectBeforeSuffix(prompt.promptText, fallbackDetails)
+            : { text: result.text, changed: false };
+          const finalText = result.changed ? result.text : fallback.text;
+          const didChange = result.changed || fallback.changed;
+          const promptKey = `${scene.id}:${prompt.id}`;
+
+          if (!didChange || seenPromptKeys.has(promptKey)) continue;
+
+          additionalOperations.push({
+            type: 'update_prompt_text',
+            sceneId: scene.id,
+            promptId: prompt.id,
+            promptText: finalText,
+          });
+          seenPromptKeys.add(promptKey);
+          scenePatched = true;
+        }
+
+        if (scenePatched) resolvedStaleSceneIds.add(scene.id);
+      }
+    }
+  }
+
+  if (additionalOperations.length === 0) return operationSet;
+
+  return {
+    ...operationSet,
+    operations: [
+      ...operationSet.operations.filter((operation) => (
+        operation.type !== 'mark_prompt_stale' || !resolvedStaleSceneIds.has(operation.sceneId)
+      )),
+      ...additionalOperations,
+    ],
+    stalePromptSceneIds: operationSet.stalePromptSceneIds.filter((sceneId) => !resolvedStaleSceneIds.has(sceneId)),
   };
 }
 

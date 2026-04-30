@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { aiProvider } from '@/lib/aiProvider';
 import { buildAgentContext, buildAgentUserPrompt } from '@/lib/agentContext';
-import { applyAgentOperations } from '@/lib/agentOperations';
+import { applyAgentOperations, expandDirectPromptUpdatesForOperationSet } from '@/lib/agentOperations';
 import { parseAgentOperationSet, stripAgentResultBlock } from '@/lib/agentParser';
 import { AGENT_SYSTEM_PROMPT } from '@/lib/agentPrompts';
 import { tryBuildLocalAgentOperationSet } from '@/lib/agentLocalActions';
@@ -318,7 +318,14 @@ export function useAgentActions({
           });
 
       const finalText = images.length > 0 ? response : streamed || response;
-      const operationSet = parseAgentOperationSet(finalText);
+      const parsedOperationSet = parseAgentOperationSet(finalText);
+      const operationSet = expandDirectPromptUpdatesForOperationSet({
+        sceneCards: state.sceneCards,
+        characters: state.characters,
+        locations: state.locations,
+        timeContexts: state.timeContexts,
+        references: state.references,
+      }, parsedOperationSet);
 
       agent.updateMessage(assistantMessageId, {
         content: stripAgentResultBlock(finalText) || 'Değişiklik hazır.',
