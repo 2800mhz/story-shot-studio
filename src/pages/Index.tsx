@@ -123,7 +123,10 @@ const Index = () => {
   const [showStyleHistory, setShowStyleHistory] = useState(false);
   const [scrollToIndex, setScrollToIndex] = useState<number | null>(null);
   const [agentCommand, setAgentCommand] = useState('');
-  const agent = useAgentSession();
+  const agent = useAgentSession({
+    episodeId,
+    userId: user?.id,
+  });
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
   const isAgentLocked = agent.isBusy;
 

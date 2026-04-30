@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { ProjectType, TimeContext } from '@/types';
+import type { AgentMessage, AgentOperationSet } from '@/lib/agentSchema';
 
 // ── Retry helper with exponential backoff ────────────────────────────────────
 
@@ -653,4 +654,138 @@ export async function saveUserModel(userId: string, model: string): Promise<void
   if (error) {
     console.warn('⚠️ Could not save user model preference:', error.message);
   }
+}
+
+// ============================================
+// AGENT PERSISTENCE
+// ============================================
+
+export async function ensureAgentSession(episodeId: string, userId: string) {
+  const { data: existing, error: fetchError } = await supabase
+    .from('agent_sessions')
+    .select('*')
+    .eq('episode_id', episodeId)
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (fetchError) throw fetchError;
+  if (existing) return existing;
+
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('agent_sessions')
+    .insert({
+      episode_id: episodeId,
+      user_id: userId,
+      status: 'active',
+      updated_at: now,
+      last_activity_at: now,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function touchAgentSession(sessionId: string) {
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from('agent_sessions')
+    .update({
+      updated_at: now,
+      last_activity_at: now,
+    })
+    .eq('id', sessionId);
+
+  if (error) throw error;
+}
+
+export async function fetchAgentMessages(sessionId: string): Promise<AgentMessage[]> {
+  const { data, error } = await supabase
+    .from('agent_messages')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    role: row.role,
+    content: row.content,
+    createdAt: row.created_at,
+    streaming: row.streaming ?? false,
+    status: row.status ?? undefined,
+    attachments: Array.isArray(row.attachments) ? row.attachments : [],
+    tags: Array.isArray(row.tags) ? row.tags : [],
+  }));
+}
+
+export async function saveAgentMessage(sessionId: string, userId: string, message: AgentMessage): Promise<void> {
+  const payload = {
+    id: message.id,
+    session_id: sessionId,
+    user_id: userId,
+    role: message.role,
+    content: message.content,
+    status: message.status ?? null,
+    streaming: message.streaming ?? false,
+    attachments: message.attachments ?? [],
+    tags: message.tags ?? [],
+    created_at: message.createdAt,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase
+    .from('agent_messages')
+    .upsert(payload, { onConflict: 'id' });
+
+  if (error) throw error;
+  await touchAgentSession(sessionId);
+}
+
+export async function fetchLatestAgentOperationLog(sessionId: string): Promise<AgentOperationSet | null> {
+  const { data, error } = await supabase
+    .from('agent_operation_logs')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  return {
+    summary: data.summary,
+    reasoning: data.reasoning ?? undefined,
+    affectedSceneIds: data.affected_scene_ids || [],
+    stalePromptSceneIds: data.stale_prompt_scene_ids || [],
+    operations: Array.isArray(data.operations) ? data.operations : [],
+  };
+}
+
+export async function saveAgentOperationLog(
+  sessionId: string,
+  userId: string,
+  operationSet: AgentOperationSet,
+): Promise<void> {
+  const { error } = await supabase
+    .from('agent_operation_logs')
+    .insert({
+      session_id: sessionId,
+      user_id: userId,
+      summary: operationSet.summary,
+      reasoning: operationSet.reasoning ?? null,
+      affected_scene_ids: operationSet.affectedSceneIds ?? [],
+      stale_prompt_scene_ids: operationSet.stalePromptSceneIds ?? [],
+      operations: operationSet.operations ?? [],
+    });
+
+  if (error) throw error;
+  await touchAgentSession(sessionId);
 }

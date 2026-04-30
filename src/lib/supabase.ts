@@ -220,6 +220,111 @@ export interface Database {
           created_at?: string
         }
       }
+      agent_sessions: {
+        Row: {
+          id: string
+          episode_id: string
+          user_id: string
+          status: string
+          created_at: string
+          updated_at: string
+          last_activity_at: string
+        }
+        Insert: {
+          id?: string
+          episode_id: string
+          user_id: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+          last_activity_at?: string
+        }
+        Update: {
+          id?: string
+          episode_id?: string
+          user_id?: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+          last_activity_at?: string
+        }
+      }
+      agent_messages: {
+        Row: {
+          id: string
+          session_id: string
+          user_id: string
+          role: string
+          content: string
+          status: string | null
+          streaming: boolean
+          attachments: unknown
+          tags: string[]
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          user_id: string
+          role: string
+          content?: string
+          status?: string | null
+          streaming?: boolean
+          attachments?: unknown
+          tags?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          user_id?: string
+          role?: string
+          content?: string
+          status?: string | null
+          streaming?: boolean
+          attachments?: unknown
+          tags?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      agent_operation_logs: {
+        Row: {
+          id: string
+          session_id: string
+          user_id: string
+          summary: string
+          reasoning: string | null
+          affected_scene_ids: string[]
+          stale_prompt_scene_ids: string[]
+          operations: unknown
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          user_id: string
+          summary: string
+          reasoning?: string | null
+          affected_scene_ids?: string[]
+          stale_prompt_scene_ids?: string[]
+          operations?: unknown
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          user_id?: string
+          summary?: string
+          reasoning?: string | null
+          affected_scene_ids?: string[]
+          stale_prompt_scene_ids?: string[]
+          operations?: unknown
+          created_at?: string
+        }
+      }
     }
   }
 }
