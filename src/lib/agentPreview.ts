@@ -26,33 +26,33 @@ export function summarizeAgentOperation(args: {
       const keys = Object.keys(operation.changes || {});
       const prettyKeys = keys.length > 0 ? keys.join(', ') : 'alanlar';
       return {
-        title: `${getCharacterLabel(character)} güncellendi`,
-        lines: [`Değişen alanlar: ${prettyKeys}`],
+        title: `${getCharacterLabel(character)} guncellendi`,
+        lines: [`Degisen alanlar: ${prettyKeys}`],
       };
     }
     case 'update_location': {
       const keys = Object.keys(operation.changes || {});
       return {
-        title: 'Mekan güncellendi',
-        lines: keys.length ? [`Değişen alanlar: ${keys.join(', ')}`] : [],
+        title: 'Mekan guncellendi',
+        lines: keys.length ? [`Degisen alanlar: ${keys.join(', ')}`] : [],
       };
     }
     case 'update_scene_note': {
       const scene = scenesById?.get(operation.sceneId);
-      return { title: `${getSceneLabel(scene)} notu güncellendi`, lines: [] };
+      return { title: `${getSceneLabel(scene)} notu guncellendi`, lines: [] };
     }
     case 'update_scene_visual_note': {
       const scene = scenesById?.get(operation.sceneId);
-      return { title: `${getSceneLabel(scene)} görsel notu güncellendi`, lines: [] };
+      return { title: `${getSceneLabel(scene)} gorsel notu guncellendi`, lines: [] };
     }
     case 'update_prompt_text': {
       const scene = scenesById?.get(operation.sceneId);
-      return { title: `${getSceneLabel(scene)} prompt'u güncellendi`, lines: [] };
+      return { title: `${getSceneLabel(scene)} prompt'u guncellendi`, lines: [] };
     }
     case 'mark_prompt_stale': {
       const scene = scenesById?.get(operation.sceneId);
       return {
-        title: `${getSceneLabel(scene)} yeniden üretim için işaretlendi`,
+        title: `${getSceneLabel(scene)} yeniden uretim icin isaretlendi`,
         lines: operation.reason ? [operation.reason] : [],
       };
     }
@@ -69,7 +69,7 @@ export function summarizeAgentOperation(args: {
       const character = charactersById?.get(operation.characterId);
       return {
         title: `${getCharacterLabel(character)} -> ${getSceneLabel(scene)}`,
-        lines: ['Sahneden çıkarıldı'],
+        lines: ['Sahneden cikarildi'],
       };
     }
     case 'add_reference_to_scene': {
@@ -78,7 +78,7 @@ export function summarizeAgentOperation(args: {
     }
     case 'remove_reference_from_scene': {
       const scene = scenesById?.get(operation.sceneId);
-      return { title: `${getSceneLabel(scene)} referans kaldırıldı`, lines: [] };
+      return { title: `${getSceneLabel(scene)} referans kaldirildi`, lines: [] };
     }
     case 'add_scene_reference':
       return { title: 'Yeni referans eklendi', lines: [] };
@@ -129,11 +129,11 @@ export function summarizeAgentOperationSet(operationSet: {
 
   const pills: string[] = [];
   if (counts.characterUpdates) pills.push(`${counts.characterUpdates} karakter`);
-  if (counts.promptUpdates) pills.push(`${counts.promptUpdates} prompt güncellemesi`);
+  if (counts.promptUpdates) pills.push(`${counts.promptUpdates} prompt guncellemesi`);
   if (counts.sceneNoteUpdates) pills.push(`${counts.sceneNoteUpdates} sahne notu`);
-  if (counts.visualNoteUpdates) pills.push(`${counts.visualNoteUpdates} görsel not`);
+  if (counts.visualNoteUpdates) pills.push(`${counts.visualNoteUpdates} gorsel not`);
   if (operationSet.stalePromptSceneIds.length) pills.push(`${operationSet.stalePromptSceneIds.length} stale sahne`);
-  if (counts.other) pills.push(`${counts.other} ek işlem`);
+  if (counts.other) pills.push(`${counts.other} ek islem`);
 
   return pills;
 }

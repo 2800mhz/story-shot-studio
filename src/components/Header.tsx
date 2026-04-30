@@ -38,46 +38,49 @@ export function Header({
   };
 
   return (
-    <header className="film-grain flex items-center justify-between border-b bg-card px-5 py-3">
+    <header className="flex items-center justify-between border-b border-border/70 bg-card/95 px-5 py-3 backdrop-blur-sm">
       <div className="flex items-center gap-3">
-        <Film className="h-6 w-6 text-primary" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <Film className="h-4.5 w-4.5" />
+        </div>
         <div>
-          <h1 className="font-serif text-lg font-semibold tracking-wide text-foreground">
-            Prompt Forge 4.1.0
-          </h1>
-          <p className="text-xs text-muted-foreground">Görsel Prompt Üretici</p>
+          <h1 className="text-base font-semibold text-foreground">Prompt Forge</h1>
+          <p className="text-xs text-muted-foreground">Episode workspace</p>
         </div>
       </div>
+
       <div className="flex items-center gap-2">
         <input
           type="file"
           accept=".json"
           ref={fileInputRef}
-          style={{ display: 'none' }}
+          className="hidden"
           onChange={handleFileChange}
         />
 
         <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={disabledActions}>
           <FolderUp className="mr-1.5 h-3.5 w-3.5" />
-          İçe Aktar
+          Iceri aktar
         </Button>
 
-        <Button variant="outline" size="sm" className="max-w-[240px]" disabled={disabledActions} onClick={onUploadMain}>
+        <Button variant="outline" size="sm" className="max-w-[260px]" disabled={disabledActions} onClick={onUploadMain}>
           <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{mainFileName || 'Seslendirme Metni Yükle'}</span>
+          <span className="truncate">{mainFileName || 'Seslendirme metni yukle'}</span>
         </Button>
 
         <Button variant="outline" size="sm" onClick={onExport} disabled={disabledActions}>
           <Download className="mr-1.5 h-3.5 w-3.5" />
-          Dışa Aktar
+          Disa aktar
         </Button>
+
         <Link to="/motion-prompt">
           <Button variant="outline" size="sm" disabled={disabledActions}>
             <Video className="mr-1.5 h-3.5 w-3.5" />
             Motion
           </Button>
         </Link>
-        <Button variant="ghost" size="icon" onClick={onInfo} title="Nasıl Çalışır?">
+
+        <Button variant="ghost" size="icon" onClick={onInfo} title="Nasil calisir?">
           <Info className="h-4 w-4" />
         </Button>
         <Button variant="ghost" size="icon" onClick={onSettings}>

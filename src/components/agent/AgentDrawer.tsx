@@ -8,6 +8,7 @@ import {
   Send,
   Sparkles,
   Trash2,
+  Wand2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -49,17 +50,19 @@ interface AgentDrawerProps {
 function getActivityLabel(label: string) {
   switch (label) {
     case 'thinking':
-      return 'Düşündü';
+      return 'Dusundu';
     case 'answered_locally':
-      return 'Yerelden yanıtladı';
+      return 'Yerelden yanitladi';
     case 'applied_local_edit':
-      return 'Yerelde düzenledi';
+      return 'Yerelde uyguladi';
     case 'worked_with_image_context':
-      return 'Görsel bağlamında çalıştı';
+      return 'Gorsel baglaminda calisti';
     case 'worked_with_scene_context':
-      return 'Sahne bağlamında çalıştı';
+      return 'Sahne baglaminda calisti';
+    case 'resolved_intent':
+      return 'Niyeti cozumledi';
     case 'failed':
-      return 'İşlem başarısız oldu';
+      return 'Islem basarisiz oldu';
     default:
       return label;
   }
@@ -67,14 +70,49 @@ function getActivityLabel(label: string) {
 
 function getMessageBubbleClass(role: AgentMessage['role']) {
   if (role === 'user') {
-    return 'ml-12 bg-primary text-primary-foreground';
+    return 'ml-10 border border-primary/15 bg-primary/10 text-foreground';
   }
 
   if (role === 'status') {
-    return 'mr-12 border border-emerald-500/20 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300';
+    return 'mr-10 border border-emerald-500/20 bg-emerald-500/8 text-emerald-900 dark:text-emerald-100';
   }
 
-  return 'mr-12 border bg-background text-foreground';
+  return 'mr-10 border border-border/70 bg-card text-foreground';
+}
+
+function formatRole(role: AgentMessage['role']) {
+  if (role === 'user') return 'Sen';
+  if (role === 'status') return 'Durum';
+  return 'Agent';
+}
+
+function MetricCard(props: { label: string; value: string; accent?: string }) {
+  return (
+    <div className="rounded-2xl border border-border/70 bg-card px-3 py-3">
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{props.label}</div>
+      <div className={cn('mt-1 text-sm font-medium text-foreground', props.accent)}>{props.value}</div>
+    </div>
+  );
+}
+
+function SectionCard(props: React.PropsWithChildren<{ title: string; subtitle?: string; icon?: React.ReactNode }>) {
+  const { title, subtitle, icon, children } = props;
+  return (
+    <div className="rounded-3xl border border-border/70 bg-card/95 p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        {icon ? (
+          <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            {icon}
+          </div>
+        ) : null}
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-foreground">{title}</div>
+          {subtitle ? <div className="mt-1 text-xs text-muted-foreground">{subtitle}</div> : null}
+        </div>
+      </div>
+      <div className="mt-4">{children}</div>
+    </div>
+  );
 }
 
 export function AgentDrawer(props: AgentDrawerProps) {
@@ -115,9 +153,7 @@ export function AgentDrawer(props: AgentDrawerProps) {
   const modelName = aiProvider.getActiveModelName();
   const reasoningLabel = aiProvider.getReasoningStatusLabel();
   const activityItems = activities.slice(0, 6);
-  const operationSummaryPills = operationSetToShow
-    ? summarizeAgentOperationSet(operationSetToShow)
-    : [];
+  const operationSummaryPills = operationSetToShow ? summarizeAgentOperationSet(operationSetToShow) : [];
 
   const formatActivityDuration = (activity: AgentActivityItem) => {
     const start = new Date(activity.startedAt).getTime();
@@ -135,69 +171,78 @@ export function AgentDrawer(props: AgentDrawerProps) {
   };
 
   return (
-    <div className="flex h-full flex-col bg-card/95 backdrop-blur-sm">
-      <div className="flex items-center justify-between border-b px-4 py-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <button
-            type="button"
-            onClick={onToggleOpen}
-            className="flex items-center gap-2 rounded-md px-2 py-1 text-sm font-medium text-foreground hover:bg-accent"
-          >
-            <Bot className="h-4 w-4 text-primary" />
-            AI Editör
-          </button>
+    <div className="flex h-full flex-col bg-background">
+      <div className="border-b border-border/70 bg-card/95 px-4 py-3 backdrop-blur-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <button
+              type="button"
+              onClick={onToggleOpen}
+              className="flex items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-accent/60"
+            >
+              <Bot className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold text-foreground">AI Editor</span>
+            </button>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Prompt, sahne, karakter ve stil revizyonlarini dogrudan buradan yonet.
+            </div>
+          </div>
 
-          <div className="hidden min-w-0 items-center gap-2 md:flex">
-            <Badge variant="outline" className="gap-1.5 text-[10px] font-medium">
-              <span className="truncate">{modelName}</span>
+          <div className="flex shrink-0 items-center gap-2">
+            <Badge variant="outline" className="max-w-[180px] truncate text-[10px] font-medium">
+              {modelName}
             </Badge>
             <Badge variant="outline" className="text-[10px]">
               {reasoningLabel}
             </Badge>
-            {isBusy && (
+            {isBusy ? (
               <Badge variant="secondary" className="gap-1 text-[10px]">
                 <Loader2 className="h-3 w-3 animate-spin" />
-                {isStreaming ? 'Yanıt akıyor' : 'İşleniyor'}
+                {isStreaming ? 'Yanit akiyor' : 'Calisiyor'}
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-[10px]">
+                Hazir
               </Badge>
             )}
           </div>
         </div>
 
-        {open && (
-          <div className="flex items-center gap-3">
-            <div className="hidden text-[11px] text-muted-foreground md:block">Panel yüksekliği</div>
-            <input
-              type="range"
-              min={18}
-              max={40}
-              step={1}
-              value={heightPercent}
-              onChange={(event) => onHeightChange(Number(event.target.value))}
-              className="w-24"
-            />
+        {open ? (
+          <div className="mt-3 flex items-center justify-between gap-4">
+            <div className="text-[11px] text-muted-foreground">
+              Enter gonderir, Shift+Enter yeni satir acar.
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="hidden text-[11px] text-muted-foreground md:block">Panel yuksekligi</div>
+              <input
+                type="range"
+                min={18}
+                max={40}
+                step={1}
+                value={heightPercent}
+                onChange={(event) => onHeightChange(Number(event.target.value))}
+                className="w-24"
+              />
+            </div>
           </div>
-        )}
+        ) : null}
       </div>
 
-      {open && (
-        <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_340px]">
-          <div className="flex min-h-0 flex-col border-r bg-background/40">
-            <div className="border-b px-4 py-3">
+      {open ? (
+        <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_360px] bg-muted/15">
+          <div className="flex min-h-0 flex-col border-r border-border/70 bg-background">
+            <div className="border-b border-border/60 px-4 py-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-sm font-medium text-foreground">Düzenleme Konuşması</div>
+                  <div className="text-sm font-semibold text-foreground">Konusma ve komut akisi</div>
                   <div className="mt-1 text-xs text-muted-foreground">
-                    Direkt komut ver. <span className="font-medium">Enter</span> gönderir,
-                    <span className="font-medium"> Shift+Enter</span> yeni satır açar.
+                    Yonetmen notu gibi yaz. Hedefi sen tarif et, uygulamayi agent ciksin.
                   </div>
                 </div>
-                <div className="flex flex-wrap justify-end gap-1 md:hidden">
-                  <Badge variant="outline" className="max-w-[160px] truncate text-[10px]">
-                    {modelName}
-                  </Badge>
-                  <Badge variant="outline" className="text-[10px]">
-                    {reasoningLabel}
-                  </Badge>
+                <div className="hidden items-center gap-2 md:flex">
+                  <MetricCard label="Mesaj" value={String(messages.length)} />
+                  <MetricCard label="Ek" value={String(attachments.length)} />
                 </div>
               </div>
             </div>
@@ -205,12 +250,24 @@ export function AgentDrawer(props: AgentDrawerProps) {
             <ScrollArea className="flex-1 px-4 py-4">
               <div className="space-y-3">
                 {messages.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
-                    Buradan workspace state&apos;ini doğrudan düzenleyebilirsin.
-                    <div className="mt-3 space-y-1 text-xs">
-                      <div>&quot;Sahne 47&apos;nin pinned prompt&apos;unu daha hareketli yap&quot;</div>
-                      <div>&quot;3. sahnedeki karakterin kaftan rengini koyulaştır&quot;</div>
-                      <div>&quot;Kalabalık sahnelerde modern kıyafet hissini kaldır&quot;</div>
+                  <div className="rounded-3xl border border-dashed border-border/70 bg-card/60 p-5 text-sm text-muted-foreground">
+                    <div className="font-medium text-foreground">Burasi chat degil, calisma yuzeyi.</div>
+                    <div className="mt-2 leading-relaxed">
+                      Ornekler:
+                    </div>
+                    <div className="mt-3 grid gap-2 text-xs md:grid-cols-2">
+                      <div className="rounded-2xl border bg-background px-3 py-2">
+                        Sahne 12'nin yakin planini daha dogal yap.
+                      </div>
+                      <div className="rounded-2xl border bg-background px-3 py-2">
+                        Yasli Gocebe'nin kiyafetini 11. yuzyil gocebe Turkmen cizgisine cek.
+                      </div>
+                      <div className="rounded-2xl border bg-background px-3 py-2">
+                        Kalabaliklarda modern kiyafet hissini kaldir.
+                      </div>
+                      <div className="rounded-2xl border bg-background px-3 py-2">
+                        Pinned prompt'u biraz daha hareketli yap.
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -218,77 +275,66 @@ export function AgentDrawer(props: AgentDrawerProps) {
                     <div
                       key={message.id}
                       className={cn(
-                        'rounded-2xl px-4 py-3 text-sm shadow-sm',
+                        'rounded-3xl px-4 py-3 shadow-sm',
                         getMessageBubbleClass(message.role),
                       )}
                     >
-                      <div className="mb-1 text-[11px] font-medium uppercase tracking-wide opacity-70">
-                        {message.role === 'user'
-                          ? 'Sen'
-                          : message.role === 'status'
-                            ? 'Durum'
-                            : 'Agent'}
-                      </div>
-                      {message.tags && message.tags.length > 0 && (
-                        <div className="mb-2 flex flex-wrap gap-1.5">
-                          {message.tags.slice(0, 4).map((tag) => (
-                            <Badge
-                              key={tag}
-                              variant="outline"
-                              className={cn(
-                                'border-current/15 bg-transparent px-2 py-0 text-[10px] font-normal opacity-90',
-                                message.role === 'user'
-                                  ? 'text-primary-foreground'
-                                  : message.role === 'status'
-                                    ? 'text-emerald-700 dark:text-emerald-300'
-                                    : 'text-muted-foreground',
-                              )}
-                            >
-                              {tag}
-                            </Badge>
-                          ))}
+                      <div className="mb-2 flex items-start justify-between gap-3">
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          {formatRole(message.role)}
                         </div>
-                      )}
-                      <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
+                        {message.tags && message.tags.length > 0 ? (
+                          <div className="flex flex-wrap justify-end gap-1.5">
+                            {message.tags.slice(0, 4).map((tag) => (
+                              <Badge key={tag} variant="outline" className="px-2 py-0 text-[10px] font-normal">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</div>
                     </div>
                   ))
                 )}
               </div>
             </ScrollArea>
 
-            <div className="border-t bg-background px-4 py-4">
-              {attachments.length > 0 && (
+            <div className="border-t border-border/60 bg-card/70 px-4 py-4 backdrop-blur-sm">
+              {attachments.length > 0 ? (
                 <div className="mb-3 flex flex-wrap gap-2">
                   {attachments.map((attachment) => (
                     <div
                       key={attachment.id}
-                      className="flex items-center gap-2 rounded-full border bg-muted/30 px-3 py-1 text-xs"
+                      className="flex max-w-[320px] items-center gap-2 rounded-full border border-border/70 bg-background px-3 py-1.5 text-xs"
                     >
                       <Paperclip className="h-3 w-3 text-primary" />
-                      <span className="max-w-[180px] truncate">{attachment.name}</span>
+                      <span className="truncate">{attachment.name}</span>
                       <button
                         type="button"
                         onClick={() => onRemoveAttachment(attachment.id)}
                         className="text-muted-foreground hover:text-destructive"
-                        aria-label={`${attachment.name} kaldır`}
+                        aria-label={`${attachment.name} kaldir`}
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>
                     </div>
                   ))}
                 </div>
-              )}
+              ) : null}
 
-              <div className="rounded-2xl border bg-card p-3 shadow-sm">
+              <div className="rounded-3xl border border-border/70 bg-background p-3 shadow-sm">
                 <textarea
                   value={command}
                   onChange={(event) => onCommandChange(event.target.value)}
                   onKeyDown={handleComposerKeyDown}
-                  placeholder="Örn: Sahne 45'teki yakın planı daha doğal yap ve adamın el hareketini koru."
-                  className="min-h-[88px] w-full resize-none border-0 bg-transparent px-1 py-1 text-sm outline-none"
+                  placeholder="Orn: Yasli adam hala fazla modern gorunuyor, kaftani ve kemerini daha donemsel yap."
+                  className="min-h-[96px] w-full resize-none border-0 bg-transparent px-1 py-1 text-sm outline-none"
                   disabled={isBusy}
                 />
-                <div className="mt-3 flex items-center justify-between gap-3 border-t pt-3">
+
+                <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/60 pt-3">
                   <div className="flex items-center gap-2">
                     <input
                       ref={fileInputRef}
@@ -310,17 +356,17 @@ export function AgentDrawer(props: AgentDrawerProps) {
                       disabled={isBusy}
                     >
                       <ImagePlus className="mr-1.5 h-4 w-4" />
-                      Görsel Ekle
+                      Gorsel ekle
                     </Button>
                     <div className="hidden text-[11px] text-muted-foreground md:block">
-                      Shift+Enter ile alt satıra geç
+                      Direkt komut ver, uzun aciklama yazmak zorunda degilsin.
                     </div>
                   </div>
 
                   <Button
                     type="button"
                     size="sm"
-                    className="h-9 min-w-[110px]"
+                    className="h-9 min-w-[118px]"
                     onClick={onSubmit}
                     disabled={!canSend}
                   >
@@ -329,90 +375,89 @@ export function AgentDrawer(props: AgentDrawerProps) {
                     ) : (
                       <Send className="mr-1.5 h-4 w-4" />
                     )}
-                    Gönder
+                    Gonder
                   </Button>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-col bg-muted/10">
-            <div className="border-b px-4 py-3">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Sparkles className="h-4 w-4 text-primary" />
-                Son Agent İşlemi
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                Sonuç özeti, işlem izi ve gerekiyorsa bekleyen değişiklikler.
-              </div>
-            </div>
-
+          <div className="flex min-h-0 flex-col bg-muted/20">
             <ScrollArea className="flex-1 px-4 py-4">
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-2xl border bg-background p-3">
-                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Model</div>
-                    <div className="mt-1 text-sm font-medium text-foreground">{modelName}</div>
+                <SectionCard
+                  title="Oturum durumu"
+                  subtitle="Agent hangi modda calisiyor ve son komutta nasil davrandi."
+                  icon={<Bot className="h-4 w-4" />}
+                >
+                  <div className="grid grid-cols-2 gap-2">
+                    <MetricCard label="Model" value={modelName} />
+                    <MetricCard label="Mod" value={reasoningLabel} />
+                    <MetricCard
+                      label="Akis"
+                      value={isBusy ? (isStreaming ? 'Streaming' : 'Calisiyor') : 'Bos'}
+                      accent={isBusy ? 'text-primary' : undefined}
+                    />
+                    <MetricCard
+                      label="Bekleyen"
+                      value={pendingOperationSet ? 'Var' : 'Yok'}
+                      accent={pendingOperationSet ? 'text-amber-600 dark:text-amber-400' : undefined}
+                    />
                   </div>
-                  <div className="rounded-2xl border bg-background p-3">
-                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Mod</div>
-                    <div className="mt-1 text-sm font-medium text-foreground">{reasoningLabel}</div>
-                  </div>
-                </div>
+                </SectionCard>
 
-                <div className="rounded-2xl border bg-background p-3">
-                  <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    İşlem Zaman Çizgisi
-                  </div>
+                <SectionCard
+                  title="Islem zaman cizgisi"
+                  subtitle="Son isteklerde agent'in ne yaptigini katman katman gorebilirsin."
+                  icon={<Wand2 className="h-4 w-4" />}
+                >
                   {activityItems.length === 0 ? (
-                    <div className="text-sm text-muted-foreground">
-                      Henüz bir işlem izi yok.
-                    </div>
+                    <div className="text-sm text-muted-foreground">Henuz bir islem izi yok.</div>
                   ) : (
                     <div className="space-y-2">
                       {activityItems.map((activity) => (
-                        <details key={activity.id} className="group rounded-xl border bg-muted/20 px-3 py-2">
-                          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs">
+                        <details key={activity.id} className="group rounded-2xl border border-border/70 bg-background px-3 py-3">
+                          <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
                             <div className="min-w-0">
-                              <div className="font-medium text-foreground">
-                                {getActivityLabel(activity.label)}
-                              </div>
-                              <div className="text-muted-foreground">
-                                {formatActivityDuration(activity)}
-                              </div>
+                              <div className="text-sm font-medium text-foreground">{getActivityLabel(activity.label)}</div>
+                              <div className="mt-0.5 text-[11px] text-muted-foreground">{formatActivityDuration(activity)}</div>
                             </div>
-                            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
                           </summary>
-                          {activity.details && activity.details.length > 0 && (
-                            <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
+                          {activity.details?.length ? (
+                            <div className="mt-3 space-y-1.5 text-xs text-muted-foreground">
                               {activity.details.map((detail) => (
-                                <div key={detail}>{detail}</div>
+                                <div key={detail} className="rounded-xl bg-muted/40 px-2.5 py-1.5">
+                                  {detail}
+                                </div>
                               ))}
                             </div>
-                          )}
+                          ) : null}
                         </details>
                       ))}
                     </div>
                   )}
-                </div>
+                </SectionCard>
 
-                <div className="rounded-2xl border bg-background p-3">
-                  <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Sonuç
-                  </div>
-
+                <SectionCard
+                  title="Son agent islemi"
+                  subtitle="Sonucun ozeti, uygulanan operasyonlar ve etkilenen sahneler."
+                  icon={<Sparkles className="h-4 w-4" />}
+                >
                   {!operationSetToShow ? (
                     <div className="text-sm text-muted-foreground">
-                      Agent bir düzenleme yaptığında özet ve etkilenen sahneler burada görünecek.
+                      Bir degisiklik uygulandiginda ozet, islem listesi ve etkilenen sahneler burada gorunecek.
                     </div>
                   ) : (
-                    <div className="space-y-4 text-sm">
+                    <div className="space-y-4">
                       <div>
-                        <div className="font-medium text-foreground">{operationSetToShow.summary}</div>
-                        {operationSetToShow.reasoning && (
-                          <p className="mt-1 text-muted-foreground">{operationSetToShow.reasoning}</p>
-                        )}
-                        {operationSummaryPills.length > 0 && (
+                        <div className="text-sm font-semibold text-foreground">{operationSetToShow.summary}</div>
+                        {operationSetToShow.reasoning ? (
+                          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                            {operationSetToShow.reasoning}
+                          </p>
+                        ) : null}
+                        {operationSummaryPills.length ? (
                           <div className="mt-3 flex flex-wrap gap-1.5">
                             {operationSummaryPills.map((item) => (
                               <Badge key={item} variant="outline" className="text-[11px] font-normal">
@@ -420,12 +465,12 @@ export function AgentDrawer(props: AgentDrawerProps) {
                               </Badge>
                             ))}
                           </div>
-                        )}
+                        ) : null}
                       </div>
 
                       <div>
-                        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          İşlemler
+                        <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Islemler
                         </div>
                         <div className="space-y-2">
                           {operationSetToShow.operations.slice(0, 8).map((operation, index) => {
@@ -434,34 +479,35 @@ export function AgentDrawer(props: AgentDrawerProps) {
                               scenesById,
                               charactersById,
                             });
+
                             return (
                               <div
                                 key={`${operation.type}-${index}`}
-                                className="rounded-xl border bg-muted/20 px-3 py-2 text-xs"
+                                className="rounded-2xl border border-border/70 bg-background px-3 py-3"
                               >
-                                <div className="font-medium text-foreground">{summary.title}</div>
-                                {summary.lines.length > 0 && (
-                                  <div className="mt-1 space-y-1 text-[11px] text-muted-foreground">
+                                <div className="text-sm font-medium text-foreground">{summary.title}</div>
+                                {summary.lines.length ? (
+                                  <div className="mt-1 space-y-1 text-xs text-muted-foreground">
                                     {summary.lines.map((line, lineIndex) => (
                                       <div key={`${index}-line-${lineIndex}`}>{line}</div>
                                     ))}
                                   </div>
-                                )}
+                                ) : null}
                               </div>
                             );
                           })}
-                          {operationSetToShow.operations.length > 8 && (
-                            <div className="rounded-xl border border-dashed bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
-                              +{operationSetToShow.operations.length - 8} işlem daha
+                          {operationSetToShow.operations.length > 8 ? (
+                            <div className="rounded-2xl border border-dashed border-border/70 bg-background px-3 py-2 text-xs text-muted-foreground">
+                              +{operationSetToShow.operations.length - 8} islem daha
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       </div>
 
-                      {operationSetToShow.stalePromptSceneIds.length > 0 && (
+                      {operationSetToShow.stalePromptSceneIds.length > 0 ? (
                         <div>
-                          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            Yeniden Üretim Gerekenler
+                          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Yeniden uretim gerekenler
                           </div>
                           <div className="flex flex-wrap gap-1.5">
                             {operationSetToShow.stalePromptSceneIds.map((sceneId) => (
@@ -477,12 +523,12 @@ export function AgentDrawer(props: AgentDrawerProps) {
                             ))}
                           </div>
                         </div>
-                      )}
+                      ) : null}
 
-                      {operationSetToShow.affectedSceneIds.length > 0 && (
+                      {operationSetToShow.affectedSceneIds.length > 0 ? (
                         <div>
-                          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            Etkilenen Sahneler
+                          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Etkilenen sahneler
                           </div>
                           <div className="flex flex-wrap gap-1.5">
                             {operationSetToShow.affectedSceneIds.slice(0, 12).map((sceneId) => (
@@ -492,38 +538,36 @@ export function AgentDrawer(props: AgentDrawerProps) {
                                   : sceneId}
                               </Badge>
                             ))}
-                            {operationSetToShow.affectedSceneIds.length > 12 && (
+                            {operationSetToShow.affectedSceneIds.length > 12 ? (
                               <Badge variant="outline" className="text-[11px] font-normal">
                                 +{operationSetToShow.affectedSceneIds.length - 12} daha
                               </Badge>
-                            )}
+                            ) : null}
                           </div>
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   )}
-                </div>
+                </SectionCard>
               </div>
             </ScrollArea>
 
-            {pendingOperationSet && (
-              <div className="border-t bg-background px-4 py-4">
-                <div className="mb-2 text-xs font-medium text-muted-foreground">
-                  Bekleyen değişiklik var
-                </div>
+            {pendingOperationSet ? (
+              <div className="border-t border-border/70 bg-card/95 px-4 py-4 backdrop-blur-sm">
+                <div className="mb-2 text-xs font-medium text-muted-foreground">Bekleyen degisiklik var</div>
                 <div className="flex gap-2">
                   <Button className="flex-1" onClick={onApply} disabled={isBusy}>
-                    Bekleyeni Uygula
+                    Bekleyeni uygula
                   </Button>
                   <Button variant="outline" className="flex-1" onClick={onDismissChanges} disabled={isBusy}>
                     Temizle
                   </Button>
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

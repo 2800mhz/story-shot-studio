@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Film, Trash2, FileText, Pencil, Search, SortAsc, Clock, Filter, Activity, Zap } from 'lucide-react';
+import { ArrowLeft, Plus, Film, Trash2, FileText, Pencil, Search, SortAsc, Clock, Filter, Zap, Layers3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,30 @@ interface Project {
   updated_at: string;
 }
 
+function projectTypeLabel(type: ProjectType) {
+  switch (type) {
+    case 'commercial':
+      return 'Reklam';
+    case 'narrative':
+      return 'Kurgu';
+    default:
+      return 'Belgesel';
+  }
+}
+
+function renderModeLabel(mode: RenderMode) {
+  switch (mode) {
+    case 'stylized':
+      return 'Stylized';
+    case 'illustration':
+      return 'Illustration';
+    case 'animation':
+      return 'Animation';
+    default:
+      return 'Photoreal';
+  }
+}
+
 export default function ProjectWorkspace() {
   const { id: projectId } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -44,11 +68,7 @@ export default function ProjectWorkspace() {
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
-  
-  // Active API State
-  const [activeAPI, setActiveAPI] = useState<{provider: string, label: string} | null>(null);
-
-  // Search & Filter State
+  const [activeAPI, setActiveAPI] = useState<{ provider: string; label: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'number' | 'newest' | 'oldest' | 'alphabetical'>('number');
   const [dateFilter, setDateFilter] = useState<'all' | 'week' | 'month'>('all');
@@ -74,19 +94,16 @@ export default function ProjectWorkspace() {
         .eq('is_active', true)
         .limit(1)
         .single();
-      
+
       if (data) setActiveAPI(data);
-    } catch (err) {
-      // Ignored
+    } catch {
+      // ignore
     }
   }
 
   async function loadData() {
     try {
-      const [projectData, episodesData] = await Promise.all([
-        fetchProject(projectId!),
-        fetchEpisodes(projectId!)
-      ]);
+      const [projectData, episodesData] = await Promise.all([fetchProject(projectId!), fetchEpisodes(projectId!)]);
       setProject(projectData);
       setProjectType((projectData.project_type as ProjectType) || 'documentary');
       setEpisodes(episodesData);
@@ -127,7 +144,7 @@ export default function ProjectWorkspace() {
     if (!confirm('Delete this episode? This action cannot be undone.')) return;
     try {
       await deleteEpisode(episodeId);
-      setEpisodes(prev => prev.filter(ep => ep.id !== episodeId));
+      setEpisodes((prev) => prev.filter((episode) => episode.id !== episodeId));
     } catch (error) {
       console.error('Error deleting episode:', error);
     }
@@ -140,7 +157,7 @@ export default function ProjectWorkspace() {
     }
     try {
       await updateEpisode(episodeId, { title: newTitle.trim() });
-      setEpisodes(prev => prev.map(ep => ep.id === episodeId ? { ...ep, title: newTitle.trim() } : ep));
+      setEpisodes((prev) => prev.map((episode) => (episode.id === episodeId ? { ...episode, title: newTitle.trim() } : episode)));
     } catch (error) {
       console.error('Error renaming episode:', error);
     } finally {
@@ -152,30 +169,28 @@ export default function ProjectWorkspace() {
     if (!projectId || !project) return;
     const previous = projectType;
     setProjectType(nextType);
-    setProject(prev => prev ? { ...prev, project_type: nextType } : prev);
+    setProject((prev) => (prev ? { ...prev, project_type: nextType } : prev));
     try {
       await updateProject(projectId, { project_type: nextType });
     } catch (error) {
       console.error('Error updating project type:', error);
       setProjectType(previous);
-      setProject(prev => prev ? { ...prev, project_type: previous } : prev);
+      setProject((prev) => (prev ? { ...prev, project_type: previous } : prev));
     }
   }
 
   const filteredEpisodes = episodes
-    .filter(ep => {
-      const matchesSearch = ep.title.toLowerCase().includes(searchTerm.toLowerCase());
-      
+    .filter((episode) => {
+      const matchesSearch = episode.title.toLowerCase().includes(searchTerm.toLowerCase());
       if (dateFilter === 'all') return matchesSearch;
-      
-      const createdAt = new Date(ep.created_at);
+
+      const createdAt = new Date(episode.created_at);
       const now = new Date();
       const diffTime = Math.abs(now.getTime() - createdAt.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       if (dateFilter === 'week') return matchesSearch && diffDays <= 7;
       if (dateFilter === 'month') return matchesSearch && diffDays <= 30;
-      
       return matchesSearch;
     })
     .sort((a, b) => {
@@ -187,261 +202,278 @@ export default function ProjectWorkspace() {
     });
 
   const SkeletonEpisodeCard = () => (
-    <Card className="p-6 border-primary/10 bg-card/40 backdrop-blur-sm">
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-6 w-6 rounded-md" />
-          <Skeleton className="h-4 w-20" />
-        </div>
-        <div className="flex gap-1">
+    <Card className="rounded-3xl border-border/70 p-5">
+      <div className="flex items-start justify-between">
+        <Skeleton className="h-10 w-10 rounded-2xl" />
+        <div className="flex gap-2">
           <Skeleton className="h-8 w-8 rounded-full" />
           <Skeleton className="h-8 w-8 rounded-full" />
         </div>
       </div>
-      <Skeleton className="h-7 w-full mb-3" />
-      <Skeleton className="h-4 w-32" />
+      <Skeleton className="mt-5 h-6 w-2/3" />
+      <Skeleton className="mt-2 h-4 w-1/3" />
+      <div className="mt-8 flex justify-between">
+        <Skeleton className="h-4 w-20" />
+        <Skeleton className="h-4 w-24" />
+      </div>
     </Card>
   );
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card px-6 py-4">
-        <div className="flex items-center justify-between max-w-7xl mx-auto">
+      <header className="border-b border-border/70 bg-card/95 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Dashboard
             </Button>
+
             <div className="flex items-center gap-3">
-              <Film className="h-6 w-6 text-primary" />
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Film className="h-5 w-5" />
+              </div>
               <div>
-                <h1 className="text-xl font-serif font-semibold">
-                  {project?.title || 'Loading...'}
-                </h1>
+                <h1 className="text-xl font-semibold">{project?.title || 'Project'}</h1>
                 <p className="text-xs text-muted-foreground">{user?.email}</p>
-                <div className="mt-2">
-                  <Select value={projectType} onValueChange={(value: ProjectType) => handleProjectTypeChange(value)}>
-                    <SelectTrigger className="w-[220px] h-8 bg-background/50 border-primary/10 text-xs">
-                      <SelectValue placeholder="Proje Türü" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="documentary">🎬 Belgesel</SelectItem>
-                      <SelectItem value="commercial">📺 Reklam / Ticari</SelectItem>
-                      <SelectItem value="narrative">🎭 Kurgu Film / Dizi</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {activeAPI && (
-              <Badge variant="outline" className="hidden md:flex items-center gap-1.5 py-1.5 px-3 border-emerald-200 bg-emerald-50 text-emerald-700 font-bold shadow-sm animate-pulse-slow">
-                <Zap className="h-3.5 w-3.5 fill-emerald-500" />
-                {activeAPI.label || activeAPI.provider.toUpperCase()} ACTIVE
+
+          <div className="flex items-center gap-2">
+            {activeAPI ? (
+              <Badge variant="outline" className="hidden md:inline-flex border-emerald-500/30 text-emerald-700 dark:text-emerald-300">
+                <Zap className="mr-1 h-3.5 w-3.5" />
+                {activeAPI.label || activeAPI.provider.toUpperCase()}
               </Badge>
-            )}
-            <Button onClick={openCreateEpisodeDialog} disabled={creating} className="shadow-lg shadow-primary/20">
+            ) : null}
+            <Button onClick={openCreateEpisodeDialog} disabled={creating}>
               <Plus className="mr-2 h-4 w-4" />
-              {creating ? 'Oluşturuluyor...' : 'Yeni Bölüm'}
+              Yeni bolum
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-12">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
-          <div>
-            <h2 className="text-4xl font-serif font-bold tracking-tight">Bölümler</h2>
-            <p className="text-muted-foreground mt-2 flex items-center gap-2">
-              <span className="inline-flex items-center justify-center bg-primary/10 text-primary font-bold px-2 py-0.5 rounded text-sm">
-                {episodes.length}
-              </span>
-              toplam bölüm hazır
-            </p>
-          </div>
-          
-          <div className="flex flex-wrap items-center gap-3 bg-card/30 backdrop-blur-md p-2 rounded-xl border border-primary/5 shadow-2xl">
-            <div className="relative w-full md:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Bölüm ara..." 
-                className="pl-9 bg-background/50 border-primary/10 focus:border-primary/30 transition-all"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+      <main className="mx-auto max-w-7xl px-6 py-10">
+        <section className="border-b border-border/60 pb-8">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1 text-xs text-muted-foreground">
+                <Layers3 className="h-3.5 w-3.5 text-primary" />
+                Episode workspace
+              </div>
+              <h2 className="mt-4 text-4xl font-semibold tracking-tight">Bolumler</h2>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Her bolum kendi anlatim cizgisi ve render davranisiyla acilsin. Bu ekran episode duzeyindeki ilk kararlarin masasi.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Badge variant="outline">{episodes.length} bolum</Badge>
+                <Badge variant="outline">{projectTypeLabel(projectType)}</Badge>
+                <Badge variant="outline">
+                  {episodes.reduce((sum, episode) => sum + (episode.scene_count || 0), 0)} toplam sahne
+                </Badge>
+              </div>
             </div>
-            
-            <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
-              <SelectTrigger className="w-[160px] bg-background/50 border-primary/10">
-                <SortAsc className="mr-2 h-4 w-4 opacity-50" />
-                <SelectValue placeholder="Sırala" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="number">Bölüm No</SelectItem>
-                <SelectItem value="newest">En Yeni</SelectItem>
-                <SelectItem value="oldest">En Eski</SelectItem>
-                <SelectItem value="alphabetical">A - Z</SelectItem>
-              </SelectContent>
-            </Select>
 
-            <Select value={dateFilter} onValueChange={(v: any) => setDateFilter(v)}>
-              <SelectTrigger className="w-[160px] bg-background/50 border-primary/10">
-                <Filter className="mr-2 h-4 w-4 opacity-50" />
-                <SelectValue placeholder="Zaman" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tüm Zamanlar</SelectItem>
-                <SelectItem value="week">Son 1 Hafta</SelectItem>
-                <SelectItem value="month">Son 1 Ay</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+            <div className="rounded-3xl border border-border/70 bg-card p-5 shadow-sm">
+              <div className="text-sm font-semibold">Proje davranisi</div>
+              <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                Buradaki anlatim turu yeni episode acilirken varsayilan davranisi belirler.
+              </div>
 
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map(i => <SkeletonEpisodeCard key={i} />)}
-          </div>
-        ) : filteredEpisodes.length === 0 ? (
-          <Card className="p-20 text-center bg-card/20 border-dashed border-2 border-primary/20 backdrop-blur-sm">
-            <div className="bg-primary/5 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <FileText className="h-10 w-10 text-primary/40" />
+              <div className="mt-5 space-y-3">
+                <div>
+                  <div className="mb-2 text-xs font-medium text-muted-foreground">Narrative mode</div>
+                  <Select value={projectType} onValueChange={(value: ProjectType) => handleProjectTypeChange(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Proje tipi sec" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="documentary">Belgesel</SelectItem>
+                      <SelectItem value="commercial">Reklam / Ticari</SelectItem>
+                      <SelectItem value="narrative">Kurgu Film / Dizi</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={openCreateEpisodeDialog} disabled={creating} className="w-full">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Yeni bolum ac
+                </Button>
+              </div>
             </div>
-            <h3 className="text-2xl font-serif font-semibold mb-2">Bölüm bulunamadı</h3>
-            <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
-              {searchTerm ? `"${searchTerm}" araması için sonuç bulunamadı.` : 'Bu proje için henüz bir bölüm oluşturulmamış.'}
-            </p>
-            {!searchTerm && (
-              <Button onClick={openCreateEpisodeDialog} disabled={creating} size="lg" className="shadow-lg shadow-primary/20">
-                <Plus className="mr-2 h-5 w-5" />
-                {creating ? 'Oluşturuluyor...' : 'P İlk Bölümü Oluştur'}
-              </Button>
-            )}
-            {searchTerm && (
-              <Button variant="outline" onClick={() => setSearchTerm('')}>
-                Aramayı Temizle
-              </Button>
-            )}
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredEpisodes.map(episode => (
-              <Card
-                key={episode.id}
-                className="group relative overflow-hidden p-6 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-300 cursor-pointer border-primary/10 bg-card/60 backdrop-blur-md hover:-translate-y-1"
-                onClick={() => navigate(`/project/${projectId}/episode/${episode.id}`)}
-              >
-                {/* Visual Accent */}
-                <div className="absolute top-0 right-0 p-8 -mr-8 -mt-8 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors" />
-                
-                <div className="flex items-start justify-between relative z-10 mb-6">
-                  <div className="flex items-center gap-2.5">
-                    <div className="bg-primary/20 p-2 rounded-lg group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-inner">
-                      <FileText className="h-5 w-5" />
-                    </div>
-                    <Badge variant="outline" className="text-[10px] font-bold tracking-wider uppercase border-primary/20 text-primary/70">
-                      BÖLÜM {episode.episode_number}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 rounded-full text-muted-foreground/40 hover:text-primary hover:bg-primary/5"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingId(episode.id);
-                        setEditValue(episode.title);
-                      }}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 rounded-full text-muted-foreground/40 hover:text-destructive hover:bg-destructive/5"
-                      onClick={(e) => handleDeleteEpisode(episode.id, e)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
+          </div>
+        </section>
 
-                {editingId === episode.id ? (
-                  <div className="relative z-10" onClick={e => e.stopPropagation()}>
-                    <Input
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onBlur={() => handleRenameEpisode(episode.id, editValue)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleRenameEpisode(episode.id, editValue);
-                        if (e.key === 'Escape') setEditingId(null);
-                        e.stopPropagation();
-                      }}
-                      autoFocus
-                      className="text-lg font-bold bg-background/80 shadow-inner border-primary/30"
-                    />
-                  </div>
-                ) : (
-                  <div className="relative z-10 min-h-[3rem]">
-                    <h3
-                      className="text-xl font-serif font-bold line-clamp-2 leading-tight group-hover:text-primary transition-colors"
-                    >
-                      {episode.title}
-                    </h3>
-                  </div>
-                )}
-                
-                <div className="mt-6 flex items-center justify-between relative z-10">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                      <Clock className="h-3 w-3 opacity-50" />
-                      {format(new Date(episode.created_at), 'd MMMM yyyy', { locale: tr })}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-primary/80">
-                      <Film className="h-3.5 w-3.5" />
-                      {episode.scene_count || 0} Sahne
-                    </div>
-                  </div>
-                  
-                  <div className="h-10 w-10 rounded-full border border-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-primary/5 group-hover:scale-110 shadow-lg shadow-primary/5">
-                    <ArrowLeft className="h-5 w-5 rotate-180 text-primary" />
-                  </div>
+        <section className="pt-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-1 flex-col gap-4 md:flex-row md:items-center">
+              <div className="relative w-full max-w-md">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Bolum ara..."
+                  className="pl-9"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+
+              <Select value={sortBy} onValueChange={(value: 'number' | 'newest' | 'oldest' | 'alphabetical') => setSortBy(value)}>
+                <SelectTrigger className="w-full md:w-[220px]">
+                  <SortAsc className="mr-2 h-4 w-4 opacity-50" />
+                  <SelectValue placeholder="Sirala" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="number">Bolum no</SelectItem>
+                  <SelectItem value="newest">En yeni</SelectItem>
+                  <SelectItem value="oldest">En eski</SelectItem>
+                  <SelectItem value="alphabetical">Isim A - Z</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={dateFilter} onValueChange={(value: 'all' | 'week' | 'month') => setDateFilter(value)}>
+                <SelectTrigger className="w-full md:w-[180px]">
+                  <Filter className="mr-2 h-4 w-4 opacity-50" />
+                  <SelectValue placeholder="Zaman" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tum zamanlar</SelectItem>
+                  <SelectItem value="week">Son 1 hafta</SelectItem>
+                  <SelectItem value="month">Son 1 ay</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="mt-8">
+            {loading ? (
+              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {[1, 2, 3, 4, 5, 6].map((item) => (
+                  <SkeletonEpisodeCard key={item} />
+                ))}
+              </div>
+            ) : filteredEpisodes.length === 0 ? (
+              <Card className="rounded-3xl border-dashed border-border/70 px-8 py-16 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/8 text-primary">
+                  <FileText className="h-8 w-8" />
                 </div>
+                <h3 className="mt-5 text-2xl font-semibold">Bolum bulunamadi</h3>
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+                  {searchTerm ? `"${searchTerm}" icin sonuc yok.` : 'Bu proje henuz bolum icermiyor. Ilk episode ile acilisi yapabiliriz.'}
+                </p>
+                {!searchTerm ? (
+                  <Button onClick={openCreateEpisodeDialog} disabled={creating} className="mt-6">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Ilk bolumu olustur
+                  </Button>
+                ) : null}
               </Card>
-            ))}
+            ) : (
+              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {filteredEpisodes.map((episode) => (
+                  <Card
+                    key={episode.id}
+                    className="rounded-3xl border-border/70 p-5 transition-colors hover:border-primary/30 hover:bg-card/90"
+                    onClick={() => navigate(`/project/${projectId}/episode/${episode.id}`)}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <FileText className="h-5 w-5" />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingId(episode.id);
+                            setEditValue(episode.title);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => handleDeleteEpisode(episode.id, e)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="mt-5">
+                      {editingId === episode.id ? (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <Input
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onBlur={() => handleRenameEpisode(episode.id, editValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleRenameEpisode(episode.id, editValue);
+                              if (e.key === 'Escape') setEditingId(null);
+                              e.stopPropagation();
+                            }}
+                            autoFocus
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <h3 className="min-h-[3.25rem] text-xl font-semibold leading-tight">{episode.title}</h3>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <Badge variant="outline">Bolum {episode.episode_number}</Badge>
+                            <Badge variant="outline">{episode.scene_count || 0} sahne</Badge>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="mt-8 flex items-end justify-between border-t border-border/60 pt-4">
+                      <div>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Clock className="h-3.5 w-3.5" />
+                          {format(new Date(episode.created_at), 'd MMMM yyyy', { locale: tr })}
+                        </div>
+                        <div className="mt-2 text-sm font-medium text-foreground">Episode workspace'i ac</div>
+                      </div>
+                      <div className="text-xs text-primary">Ac</div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        </section>
       </main>
 
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[520px]">
+        <DialogContent className="sm:max-w-[560px]">
           <DialogHeader>
-            <DialogTitle>Yeni Bölüm Oluştur</DialogTitle>
+            <DialogTitle>Yeni bolum olustur</DialogTitle>
             <DialogDescription>
-              Bölüm daha açılmadan anlatım yönünü ve render modunu seçelim. Bu küçük akış, prompt üretimine daha temiz bir başlangıç veriyor.
+              Episode daha acilmadan anlatim tavrini ve render davranisini belirleyelim. Bu ayarlar yeni bolumun prompt kararlarini daha temiz baslatir.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="episode-title">Bölüm Adı</Label>
+              <Label htmlFor="episode-title">Bolum adi</Label>
               <Input
                 id="episode-title"
                 value={newEpisodeTitle}
                 onChange={(e) => setNewEpisodeTitle(e.target.value)}
-                placeholder="Boş bırakırsan otomatik Episode adı verilir"
+                placeholder="Bos birakirsan varsayilan Episode adi kullanilir"
               />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Narrative Mode</Label>
+                <Label>Narrative mode</Label>
                 <Select value={newEpisodeProjectType} onValueChange={(value: ProjectType) => setNewEpisodeProjectType(value)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Narrative mode seç" />
+                    <SelectValue placeholder="Narrative mode sec" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="documentary">Belgesel</SelectItem>
@@ -449,46 +481,41 @@ export default function ProjectWorkspace() {
                     <SelectItem value="narrative">Kurgu Film / Dizi</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Kamera tavrını, sahne yorumunu ve prompt tonunu belirler.
-                </p>
+                <p className="text-xs text-muted-foreground">Sahne yorumu, tempo ve kamera tavrini etkiler.</p>
               </div>
 
               <div className="space-y-2">
-                <Label>Render Mode</Label>
+                <Label>Render mode</Label>
                 <Select value={newEpisodeRenderMode} onValueChange={(value: RenderMode) => setNewEpisodeRenderMode(value)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Render mode seç" />
+                    <SelectValue placeholder="Render mode sec" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="photoreal">Photoreal</SelectItem>
-                    <SelectItem value="stylized">Stylized Realism</SelectItem>
-                    <SelectItem value="illustration">Illustration</SelectItem>
-                    <SelectItem value="animation">Animation</SelectItem>
+                    <SelectItem value="photoreal">{renderModeLabel('photoreal')}</SelectItem>
+                    <SelectItem value="stylized">{renderModeLabel('stylized')}</SelectItem>
+                    <SelectItem value="illustration">{renderModeLabel('illustration')}</SelectItem>
+                    <SelectItem value="animation">{renderModeLabel('animation')}</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Görüntünün hangi medium gibi davranacağını sabitler.
-                </p>
+                <p className="text-xs text-muted-foreground">Goruntunun hangi medium gibi davranacagini sabitler.</p>
               </div>
             </div>
 
-            <div className="rounded-lg border border-primary/10 bg-primary/5 p-3 text-xs text-muted-foreground">
-              Bu ayarlar episode açıldığında otomatik yüklenir. Sonradan akışı genişletip daha görünür hale getirebiliriz.
+            <div className="rounded-2xl border border-border/70 bg-muted/30 p-3 text-xs leading-5 text-muted-foreground">
+              Bu secim episode acildiginda otomatik yuklenir. Sonradan panel icinden degistirilebilir ama acilisi net kurmak iyi sonuc veriyor.
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateDialogOpen(false)} disabled={creating}>
-              Vazgeç
+              Vazgec
             </Button>
             <Button onClick={handleCreateEpisode} disabled={creating}>
-              {creating ? 'Oluşturuluyor...' : 'Bölümü Aç'}
+              {creating ? 'Olusturuluyor...' : 'Bolumu ac'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }
