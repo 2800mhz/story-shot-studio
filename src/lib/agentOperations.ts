@@ -83,6 +83,43 @@ function patchPromptText(promptText: string, replacements: Array<{ from: string;
   return { text: nextText, changed };
 }
 
+function buildCharacterFallbackDetails(changes: Partial<Character>) {
+  const segments: string[] = [];
+  if (changes.clothing?.trim()) segments.push(`wearing ${changes.clothing.trim()}`);
+  if (changes.hair?.trim()) segments.push(`hair: ${changes.hair.trim()}`);
+  if (changes.beard?.trim()) segments.push(`beard: ${changes.beard.trim()}`);
+  if (changes.physicalFeatures?.trim()) segments.push(`physical features: ${changes.physicalFeatures.trim()}`);
+  return segments.join(', ');
+}
+
+function buildLocationFallbackDetails(changes: Partial<Location>) {
+  const segments: string[] = [];
+  if (changes.visualDescription?.trim()) segments.push(changes.visualDescription.trim());
+  if (changes.architecture?.trim()) segments.push(`architecture: ${changes.architecture.trim()}`);
+  if (changes.atmosphere?.trim()) segments.push(`atmosphere: ${changes.atmosphere.trim()}`);
+  if (changes.period?.trim()) segments.push(`period: ${changes.period.trim()}`);
+  return segments.join(', ');
+}
+
+function injectBeforeSuffix(promptText: string, detail: string) {
+  if (!detail.trim()) return { text: promptText, changed: false };
+  if (promptText.toLocaleLowerCase('en-US').includes(detail.toLocaleLowerCase('en-US'))) {
+    return { text: promptText, changed: false };
+  }
+
+  const suffixMatch = promptText.match(/\s--ar\b[\s\S]*$/i);
+  if (!suffixMatch) {
+    return { text: `${promptText.trim()}, ${detail}`.trim(), changed: true };
+  }
+
+  const suffix = suffixMatch[0];
+  const body = promptText.slice(0, promptText.length - suffix.length).trim().replace(/[,\s]+$/, '');
+  return {
+    text: `${body}, ${detail}${suffix}`,
+    changed: true,
+  };
+}
+
 function markSceneStale(scene: SceneCard, reason: string, promptId?: string): SceneCard {
   const promptIds = promptId ? [promptId] : scene.prompts.map((prompt) => prompt.id);
 
@@ -177,12 +214,17 @@ export function applyAgentOperations(state: AgentApplyState, operationSet: Agent
             let promptChanged = false;
             const nextPrompts = scene.prompts.map((prompt) => {
               const result = patchPromptText(prompt.promptText, replacements);
-              if (!result.changed) return prompt;
+              const fallback = !result.changed
+                ? injectBeforeSuffix(prompt.promptText, buildCharacterFallbackDetails(operation.changes))
+                : { text: result.text, changed: false };
+              const finalText = result.changed ? result.text : fallback.text;
+              const didChange = result.changed || fallback.changed;
+              if (!didChange) return prompt;
               promptChanged = true;
               return {
                 ...prompt,
-                promptText: result.text,
-                versions: [...prompt.versions, result.text],
+                promptText: finalText,
+                versions: [...prompt.versions, finalText],
                 isStale: false,
                 staleReason: undefined,
               };
@@ -249,12 +291,17 @@ export function applyAgentOperations(state: AgentApplyState, operationSet: Agent
             let promptChanged = false;
             const nextPrompts = scene.prompts.map((prompt) => {
               const result = patchPromptText(prompt.promptText, replacements);
-              if (!result.changed) return prompt;
+              const fallback = !result.changed
+                ? injectBeforeSuffix(prompt.promptText, buildLocationFallbackDetails(operation.changes))
+                : { text: result.text, changed: false };
+              const finalText = result.changed ? result.text : fallback.text;
+              const didChange = result.changed || fallback.changed;
+              if (!didChange) return prompt;
               promptChanged = true;
               return {
                 ...prompt,
-                promptText: result.text,
-                versions: [...prompt.versions, result.text],
+                promptText: finalText,
+                versions: [...prompt.versions, finalText],
                 isStale: false,
                 staleReason: undefined,
               };
