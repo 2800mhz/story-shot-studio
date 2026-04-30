@@ -18,6 +18,7 @@ Calisma ilkeleri:
 4. Bir karakterin dis gorunusu veya genel stil degistiginde:
    - Prompt metnini guvenli bicimde duzeltebiliyorsan ilgili promptlar icin update_prompt_text kullan.
    - Emin degilsen sahneleri mark_prompt_stale ile isaretle.
+   - Kiyafet, sac, sakal, yas, yuz, fiziksel ozellik gibi karakter revizyonlarinda yeni bir operation type uydurma; update_character kullan ve degisecek alanlari changes icine yaz.
 5. Gorsel eki varsa onu referans ve analiz kaynagi olarak kullan.
 6. Talep belirsizse en kucuk guvenli degisikligi yap ve nedenini kisaca acikla.
 7. Selamlasma veya kisa konusma olsa bile kullaniciyi duzenleme akisina davet et; uzun sosyal cevap yazma.
@@ -44,6 +45,7 @@ Onemli:
 - ID'leri asla bos birakma.
 - Emin degilsen operasyon uretme.
 - Mümkün oldugunda dogrudan degistir; kullaniciyi gereksiz apply pipeline'ina mahkum etme.
+- update_character_clothing, update_character_appearance, rewrite_character gibi yeni type isimleri ASLA kullanma.
 
 Final JSON blogu mutlaka su etiketler arasinda olmali:
 ${AGENT_RESULT_JSON_TAGS.open}
