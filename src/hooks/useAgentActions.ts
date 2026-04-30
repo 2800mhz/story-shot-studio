@@ -6,6 +6,7 @@ import { parseAgentOperationSet, stripAgentResultBlock } from '@/lib/agentParser
 import { AGENT_SYSTEM_PROMPT } from '@/lib/agentPrompts';
 import { tryBuildLocalAgentOperationSet } from '@/lib/agentLocalActions';
 import { resolveLocalAgentQuery } from '@/lib/agentLocalQueries';
+import { generatePromptsForScene } from '@/lib/promptGenerator';
 import { SceneReference } from '@/types';
 
 function unique(items: string[]) {
@@ -94,7 +95,77 @@ export function useAgentActions({
   setNoKeysWarning: (val: boolean) => void;
   episodeId?: string;
 }) {
-  const applyOperationSet = useCallback((operationSet: any, mode: 'auto' | 'manual' = 'manual') => {
+  const regenerateStaleScenes = useCallback(async (operationSet: any, nextState: any) => {
+    if (!operationSet.stalePromptSceneIds?.length) return operationSet;
+
+    const recoveredSceneIds: string[] = [];
+
+    for (const sceneId of operationSet.stalePromptSceneIds) {
+      const scene = nextState.sceneCards.find((item: any) => item.id === sceneId);
+      if (!scene) continue;
+
+      try {
+        dispatch({ type: 'START_PROMPT_GENERATION', payload: { sceneId } });
+
+        const sceneCharacters = nextState.characters.filter((character: any) => scene.characterIds.includes(character.id));
+        const sceneLocations = nextState.locations.filter((location: any) => scene.locationIds.includes(location.id));
+        const sceneTimeContexts = nextState.timeContexts.filter((timeContext: any) => (scene.timeContextIds ?? []).includes(timeContext.id));
+        const aspectRatio = scene.prompts?.[0]?.aspectRatio || '16:9';
+
+        const result = await generatePromptsForScene(
+          scene,
+          sceneCharacters,
+          sceneLocations,
+          state.masterPrompt,
+          undefined,
+          undefined,
+          aspectRatio,
+          state.sceneAnalyses?.[sceneId],
+          sceneTimeContexts,
+          state.episodePrompt || undefined,
+          nextState.references,
+          'regenerate',
+          undefined,
+          state.projectType,
+          state.renderMode,
+        );
+
+        dispatch({
+          type: 'FINISH_PROMPT_GENERATION',
+          payload: {
+            sceneId,
+            prompts: result.prompts,
+            analysis: result.analysis,
+          },
+        });
+
+        recoveredSceneIds.push(sceneId);
+      } catch (error) {
+        console.warn(`Agent auto-regenerate failed for scene ${sceneId}:`, error);
+      }
+    }
+
+    if (recoveredSceneIds.length === 0) return operationSet;
+
+    const nextOperationSet = {
+      ...operationSet,
+      stalePromptSceneIds: operationSet.stalePromptSceneIds.filter((sceneId: string) => !recoveredSceneIds.includes(sceneId)),
+      summary: operationSet.stalePromptSceneIds.length === recoveredSceneIds.length
+        ? `${operationSet.summary} Etkilenen sahnelerin promptları doğrudan yeniden üretildi.`
+        : `${operationSet.summary} ${recoveredSceneIds.length} sahnenin promptu doğrudan yeniden üretildi.`,
+    };
+
+    return nextOperationSet;
+  }, [
+    dispatch,
+    state.episodePrompt,
+    state.masterPrompt,
+    state.projectType,
+    state.renderMode,
+    state.sceneAnalyses,
+  ]);
+
+  const applyOperationSet = useCallback(async (operationSet: any, mode: 'auto' | 'manual' = 'manual') => {
     const nextState = applyAgentOperations({
       sceneCards: state.sceneCards,
       characters: state.characters,
@@ -114,25 +185,31 @@ export function useAgentActions({
     dispatch({ type: 'SET_TIME_CONTEXTS', payload: nextState.timeContexts });
     dispatch({ type: 'SET_REFERENCES', payload: referencesWithEpisode });
 
-    agent.setLastOperationSet(operationSet);
+    const finalizedOperationSet = await regenerateStaleScenes(operationSet, {
+      ...nextState,
+      references: referencesWithEpisode,
+    });
+
+    agent.setLastOperationSet(finalizedOperationSet);
     agent.clearPendingOperationSet();
     agent.addMessage({
       role: 'status',
       content:
         mode === 'auto'
-          ? `Uygulandı: ${operationSet.summary}`
-          : `Manuel uygulandı: ${operationSet.summary}`,
+          ? `Uygulandı: ${finalizedOperationSet.summary}`
+          : `Manuel uygulandı: ${finalizedOperationSet.summary}`,
       status: 'done',
-      tags: inferOperationSetTags(operationSet),
+      tags: inferOperationSetTags(finalizedOperationSet),
     });
     toast({
       title: mode === 'auto' ? 'Agent değişikliği uygulandı' : 'Agent değişiklikleri uygulandı',
-      description: operationSet.summary,
+      description: finalizedOperationSet.summary,
     });
   }, [
     agent,
     dispatch,
     episodeId,
+    regenerateStaleScenes,
     state.characters,
     state.locations,
     state.references,
@@ -260,7 +337,7 @@ export function useAgentActions({
           streaming: false,
           tags: inferOperationSetTags(localOperationSet),
         });
-        applyOperationSet(localOperationSet, 'auto');
+        await applyOperationSet(localOperationSet, 'auto');
         agent.finishActivity(activityId, {
           label: 'applied_local_edit',
           details: [
@@ -336,7 +413,7 @@ export function useAgentActions({
       });
 
       if (operationSet.operations.length > 0 || operationSet.stalePromptSceneIds.length > 0) {
-        applyOperationSet(operationSet, 'auto');
+        await applyOperationSet(operationSet, 'auto');
       } else {
         agent.setPendingOperationSet(operationSet);
         agent.setLastOperationSet(operationSet);
@@ -396,7 +473,7 @@ export function useAgentActions({
   const handleApplyAgentChanges = useCallback(() => {
     const operationSet = agent.pendingOperationSet;
     if (!operationSet) return;
-    applyOperationSet(operationSet, 'manual');
+    void applyOperationSet(operationSet, 'manual');
   }, [agent.pendingOperationSet, applyOperationSet]);
 
   return {
