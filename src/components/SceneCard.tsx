@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Sparkles, Edit2, Trash2, Check, X, Copy, RefreshCw, Plus, ChevronDown, ChevronUp, AlertCircle, Clock, Pin, ImageIcon } from 'lucide-react';
-import type { SceneCard as SceneCardType, Character, Location, TimeContext, PromptCard } from '@/types';
+import type { SceneCard as SceneCardType, Character, Location, TimeContext, PromptCard, SceneReference } from '@/types';
 import { PromptHistoryModal, type HistoryEntry } from './PromptHistoryModal';
 import { useClipboardState } from '@/hooks/useClipboardState';
 
@@ -12,6 +12,7 @@ interface SceneCardProps {
   characters: Character[];
   locations: Location[];
   timeContexts?: TimeContext[];
+  references?: SceneReference[];
   onUpdateNote: (sceneId: string, note: string) => void;
   onGeneratePrompts: (sceneId: string) => void;
   onDeleteScene: (sceneId: string) => void;
@@ -237,6 +238,7 @@ export function SceneCard({
   characters,
   locations,
   timeContexts = [],
+  references = [],
   onUpdateNote,
   onGeneratePrompts,
   onDeleteScene,
@@ -275,6 +277,20 @@ export function SceneCard({
   };
 
   const hasPrompts = scene.prompts.length > 0;
+
+  const getReferenceTone = (referenceType: SceneReference['referenceType']) => {
+    if (referenceType === 'subject') return 'bg-amber-500/10 text-amber-700 border-amber-500/20 dark:text-amber-300';
+    if (referenceType === 'style') return 'bg-fuchsia-500/10 text-fuchsia-700 border-fuchsia-500/20 dark:text-fuchsia-300';
+    return 'bg-sky-500/10 text-sky-700 border-sky-500/20 dark:text-sky-300';
+  };
+
+  const getReferenceLabel = (reference: SceneReference) => {
+    const base =
+      reference.description?.trim() ||
+      reference.filePath?.split('/').pop()?.split('\\').pop() ||
+      'Referans';
+    return base.length > 28 ? `${base.slice(0, 28)}...` : base;
+  };
 
   return (
     <div className="mb-4 rounded-lg border bg-card shadow-sm">
@@ -529,6 +545,27 @@ export function SceneCard({
             )}
           </div>
         )}
+
+        <div>
+          <div className="text-xs font-semibold mb-1 text-muted-foreground">Referanslar:</div>
+          <div className="flex flex-wrap gap-1">
+            {references.length === 0 ? (
+              <span className="text-xs text-muted-foreground italic">Bu sahneye atanmis referans yok</span>
+            ) : (
+              references.map((reference) => (
+                <span
+                  key={reference.id}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${getReferenceTone(reference.referenceType)}`}
+                  title={reference.description || reference.filePath}
+                >
+                  <ImageIcon className="h-2.5 w-2.5" />
+                  <span>{getReferenceLabel(reference)}</span>
+                  <span className="opacity-70">· {reference.referenceType}</span>
+                </span>
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Prompts */}

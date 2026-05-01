@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PromptCard } from './PromptCard';
 import { SceneCard } from './SceneCard';
-import type { Scene, ConsistencyGroup, ExtractedEntity, SceneAnalysis, SceneCard as SceneCardType, Character, Location } from '@/types';
+import type { Scene, ConsistencyGroup, ExtractedEntity, SceneAnalysis, SceneCard as SceneCardType, Character, Location, SceneReference } from '@/types';
 
 interface RightPanelProps {
   scenes: Scene[];
@@ -45,6 +45,7 @@ interface RightPanelProps {
   characters?: Character[];
   locations?: Location[];
   timeContexts?: import('@/types').TimeContext[];
+  references?: SceneReference[];
   isGeneratingPrompts?: boolean;
   onGeneratePrompts?: (sceneId: string) => void;
   onGenerateAllPrompts?: () => void;
@@ -123,6 +124,7 @@ export function RightPanel({
   onAddSubSceneToGroup, onRemoveSubSceneFromGroup,
   onReorderScenes, onReorderSceneCards,
   sceneCards = [], characters = [], locations = [], timeContexts = [],
+  references = [],
   isGeneratingPrompts, onGeneratePrompts, onGenerateAllPrompts, onDeleteSceneCard,
   onUpdateSceneCardNote, onRemoveCharacterFromSceneCard, onRemoveLocationFromSceneCard,
   onAddCharacterToSceneCard, onAddLocationToSceneCard,
@@ -439,6 +441,7 @@ export function RightPanel({
               const sceneChars = sc.characterIds.map(id => charMap.get(id)).filter(Boolean) as Character[];
               const sceneLocs = sc.locationIds.map(id => locMap.get(id)).filter(Boolean) as Location[];
               const sceneTimeContexts = (sc.timeContextIds ?? []).map(id => timeMap.get(id)).filter(Boolean) as import('@/types').TimeContext[];
+              const sceneReferences = references.filter(ref => ref.assignedSceneIds?.includes(sc.id));
               return (
                 <div
                   key={sc.id}
@@ -464,6 +467,7 @@ export function RightPanel({
                   characters={sceneChars}
                   locations={sceneLocs}
                   timeContexts={sceneTimeContexts}
+                  references={sceneReferences}
                   onUpdateNote={onUpdateSceneCardNote || (() => {})}
                   onGeneratePrompts={onGeneratePrompts || (() => {})}
                   onDeleteScene={onDeleteSceneCard || (() => {})}

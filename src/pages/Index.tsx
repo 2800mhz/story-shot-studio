@@ -1578,6 +1578,7 @@ const Index = () => {
                 characters={state.characters}
                 locations={state.locations}
                 timeContexts={state.timeContexts}
+                references={state.references}
                 onGeneratePrompts={handleGeneratePromptsForScene}
                 onUpdateSceneCardNote={handleSetSceneNote}
                 onAddVariation={handleAddVariation}
