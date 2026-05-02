@@ -3,6 +3,14 @@ import { decryptKey } from './encryption';
 
 export type AIProvider = 'gemini' | 'openai' | 'anthropic' | 'groq' | 'deepinfra';
 
+export const AI_PROVIDER_LABELS: Record<AIProvider, string> = {
+  gemini: 'Google Gemini',
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  groq: 'Groq',
+  deepinfra: 'DeepInfra',
+};
+
 interface APIKey {
   id: string;
   provider: AIProvider;
@@ -13,6 +21,17 @@ interface APIKey {
 }
 
 // Gemini model fallback zinciri — stabil modeller önce
+export const GEMINI_MODELS = [
+  'gemini-3-flash',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-1.5-pro',
+  'gemini-1.5-flash',
+  'gemini-1.5-flash-8b',
+];
+
 const GEMINI_FALLBACK_MODELS = [
   'gemini-2.0-flash',
   'gemini-2.0-flash-lite',
@@ -21,7 +40,7 @@ const GEMINI_FALLBACK_MODELS = [
 ];
 
 // Groq model seçenekleri — güncel 22 Nisan 2026
-const GROQ_MODELS = [
+export const GROQ_MODELS = [
   'llama-3.3-70b-versatile',   // Hızlı, güçlü, prompt generation için ideal
   'groq/compound',             // Tool-use destekli compound model
   'openai/gpt-oss-120b',      // Reasoning model (reasoning_effort: medium)
@@ -29,7 +48,20 @@ const GROQ_MODELS = [
 ];
 
 // DeepInfra model seçenekleri — hız sırasına göre
-const DEEPINFRA_MODELS = [
+export const OPENAI_MODELS = [
+  'gpt-5.4',
+  'gpt-5.4-mini',
+  'gpt-5.5',
+];
+
+export const ANTHROPIC_MODELS = [
+  'claude-3-5-sonnet-20241022',
+  'claude-3-sonnet-20240229',
+  'claude-3-haiku-20240307',
+  'claude-3-opus-20240229',
+];
+
+export const DEEPINFRA_MODELS = [
   'meta-llama/Meta-Llama-3.1-8B-Instruct',     // ⚡ En hızlı — ~1-2sn, prompt gen için yeterli
   'meta-llama/Meta-Llama-3.1-70B-Instruct',    // ⚡ Hızlı — ~3-5sn, kaliteli
   'Qwen/Qwen2.5-72B-Instruct',                 // 🚀 Hız/kalite dengesi — ~5-8sn
@@ -55,6 +87,8 @@ class AIProviderManager {
   private initialized = false;
   private model = 'gemini-2.0-flash';
   private groqModel = 'llama-3.3-70b-versatile';
+  private openaiModel = 'gpt-5.4';
+  private anthropicModel = 'claude-3-5-sonnet-20241022';
   // Qwen2.5-72B: hız/kalite dengesi — DeepSeek-V4-Flash'tan ~10x hızlı
   private deepinfraModel = 'zai-org/GLM-5';
 
@@ -149,6 +183,8 @@ class AIProviderManager {
   getActiveModelName(): string {
     if (this.currentProvider === 'deepinfra') return this.deepinfraModel;
     if (this.currentProvider === 'groq') return this.groqModel;
+    if (this.currentProvider === 'openai') return this.openaiModel;
+    if (this.currentProvider === 'anthropic') return this.anthropicModel;
     return this.getActiveModel();
   }
 
@@ -175,6 +211,10 @@ class AIProviderManager {
     return [...GROQ_MODELS];
   }
 
+  getGeminiModelOptions(): string[] {
+    return [...GEMINI_MODELS];
+  }
+
   setDeepinfraModel(model: string) {
     if (model && model.trim()) this.deepinfraModel = model.trim();
   }
@@ -185,6 +225,34 @@ class AIProviderManager {
 
   getDeepinfraModelOptions(): string[] {
     return [...DEEPINFRA_MODELS];
+  }
+
+  setOpenaiModel(model: string) {
+    if (model && model.trim()) {
+      this.openaiModel = model.trim();
+    }
+  }
+
+  getOpenaiModel(): string {
+    return this.openaiModel;
+  }
+
+  getOpenaiModelOptions(): string[] {
+    return [...OPENAI_MODELS];
+  }
+
+  setAnthropicModel(model: string) {
+    if (model && model.trim()) {
+      this.anthropicModel = model.trim();
+    }
+  }
+
+  getAnthropicModel(): string {
+    return this.anthropicModel;
+  }
+
+  getAnthropicModelOptions(): string[] {
+    return [...ANTHROPIC_MODELS];
   }
 
   async generateContent(
@@ -930,7 +998,7 @@ class AIProviderManager {
         messages.push({ role: 'user', content: prompt });
 
         const body: Record<string, unknown> = {
-          model: 'gpt-5.4',
+          model: this.openaiModel,
           messages,
           // Structured outputs are more reliable with lower temperature for deterministic schema filling.
           temperature: responseSchema ? 0.2 : 0.7,
@@ -963,7 +1031,7 @@ class AIProviderManager {
         const text = data.choices[0].message.content;
         const promptTokens = data.usage?.prompt_tokens || 0;
         const completionTokens = data.usage?.completion_tokens || 0;
-        return { text, promptTokens, completionTokens, modelUsed: 'gpt-5.4' };
+        return { text, promptTokens, completionTokens, modelUsed: this.openaiModel };
       }
 
       case 'anthropic': {
@@ -975,7 +1043,7 @@ class AIProviderManager {
             'anthropic-version': '2023-06-01'
           },
           body: JSON.stringify({
-            model: 'claude-3-5-sonnet-20241022',
+            model: this.anthropicModel,
             max_tokens: 4096,
             system: systemInstruction,
             messages: [{ role: 'user', content: prompt }]
@@ -990,7 +1058,7 @@ class AIProviderManager {
         const text = data.content[0].text;
         const promptTokens = data.usage?.input_tokens || 0;
         const completionTokens = data.usage?.output_tokens || 0;
-        return { text, promptTokens, completionTokens, modelUsed: 'claude-3-5-sonnet-20241022' };
+        return { text, promptTokens, completionTokens, modelUsed: this.anthropicModel };
       }
 
       case 'groq': {

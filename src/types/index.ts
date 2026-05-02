@@ -221,6 +221,11 @@ export interface AppState {
   currentKeyIndex: number;
   settings: {
     model: string;
+    geminiModel: string;
+    groqModel: string;
+    deepinfraModel: string;
+    openaiModel: string;
+    anthropicModel: string;
     thinkingMode: boolean;
     variantCount: 1 | 2 | 3;
     temperature: number;

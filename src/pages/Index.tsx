@@ -73,12 +73,16 @@ const Index = () => {
         .then(async () => {
           // Load preferred model from Supabase (cross-device, persistent)
           const savedModel = await fetchUserModel(user.id);
-          const modelToUse = savedModel || state.settings.model;
-          if (savedModel && savedModel !== state.settings.model) {
+          const modelToUse = savedModel || state.settings.geminiModel || state.settings.model;
+          if (savedModel && savedModel !== state.settings.geminiModel) {
             // Supabase has a newer/different model — update local state too
-            dispatch({ type: 'SET_SETTINGS', payload: { model: savedModel } });
+            dispatch({ type: 'SET_SETTINGS', payload: { model: savedModel, geminiModel: savedModel } });
           }
           aiProvider.setModel(modelToUse);
+          aiProvider.setGroqModel(state.settings.groqModel);
+          aiProvider.setDeepinfraModel(state.settings.deepinfraModel);
+          aiProvider.setOpenaiModel(state.settings.openaiModel);
+          aiProvider.setAnthropicModel(state.settings.anthropicModel);
           setNoKeysWarning(!aiProvider.hasKeys());
 
           // DeepInfra warmup sync
@@ -103,8 +107,19 @@ const Index = () => {
 
   // Sync model to aiProvider whenever settings change
   useEffect(() => {
-    aiProvider.setModel(state.settings.model);
-  }, [state.settings.model]);
+    aiProvider.setModel(state.settings.geminiModel || state.settings.model);
+    aiProvider.setGroqModel(state.settings.groqModel);
+    aiProvider.setDeepinfraModel(state.settings.deepinfraModel);
+    aiProvider.setOpenaiModel(state.settings.openaiModel);
+    aiProvider.setAnthropicModel(state.settings.anthropicModel);
+  }, [
+    state.settings.model,
+    state.settings.geminiModel,
+    state.settings.groqModel,
+    state.settings.deepinfraModel,
+    state.settings.openaiModel,
+    state.settings.anthropicModel,
+  ]);
 
   // Load episode data from Supabase
   useEffect(() => {
@@ -1631,8 +1646,8 @@ const Index = () => {
         onSaveSettings={s => {
           dispatch({ type: 'SET_SETTINGS', payload: s });
           // Persist model preference to Supabase so it survives across devices/sessions
-          if (user?.id && s.model) {
-            saveUserModel(user.id, s.model);
+          if (user?.id && (s.geminiModel || s.model)) {
+            saveUserModel(user.id, s.geminiModel || s.model);
           }
         }}
         aspectRatio={aspectRatio}

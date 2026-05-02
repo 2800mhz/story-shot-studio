@@ -20,6 +20,10 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Activity } from 'lucide-react';
+import { ProviderModelSettings } from '@/components/settings/ProviderModelSettings';
+import { aiProvider } from '@/lib/aiProvider';
+import { saveUserModel } from '@/lib/supabaseQueries';
+import type { AppState } from '@/types';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -108,6 +112,18 @@ export default function Settings() {
   const [bulkText, setBulkText] = useState('');
   const [bulkProvider, setBulkProvider] = useState<'gemini' | 'openai' | 'anthropic' | 'groq' | 'deepinfra'>('gemini');
   const [bulkAdding, setBulkAdding] = useState(false);
+  const [modelSettings, setModelSettings] = useState<AppState['settings']>({
+    model: localStorage.getItem('gemini_model') || 'gemini-2.0-flash',
+    geminiModel: localStorage.getItem('gemini_model') || 'gemini-2.0-flash',
+    groqModel: localStorage.getItem('groq_model') || 'llama-3.3-70b-versatile',
+    deepinfraModel: localStorage.getItem('deepinfra_model') || 'zai-org/GLM-5',
+    openaiModel: localStorage.getItem('openai_model') || 'gpt-5.4',
+    anthropicModel: localStorage.getItem('anthropic_model') || 'claude-3-5-sonnet-20241022',
+    thinkingMode: false,
+    variantCount: 3,
+    temperature: 1.0,
+    imageModel: localStorage.getItem('gemini_image_model') || 'gemini-2.0-flash-exp',
+  });
 
   // ── Billing Filters ──
   const [timeFilter, setTimeFilter] = useState<'all' | 'week' | 'month' | 'custom'>('all');
@@ -259,6 +275,34 @@ export default function Settings() {
     if (newSet.has(keyId)) newSet.delete(keyId);
     else newSet.add(keyId);
     setShowKeys(newSet);
+  }
+
+  async function handleSaveModelSettings() {
+    const next = {
+      ...modelSettings,
+      model: modelSettings.geminiModel || modelSettings.model,
+      geminiModel: modelSettings.geminiModel || modelSettings.model,
+    };
+
+    localStorage.setItem('gemini_model', next.geminiModel);
+    localStorage.setItem('groq_model', next.groqModel);
+    localStorage.setItem('deepinfra_model', next.deepinfraModel);
+    localStorage.setItem('openai_model', next.openaiModel);
+    localStorage.setItem('anthropic_model', next.anthropicModel);
+    localStorage.setItem('gemini_image_model', next.imageModel);
+
+    aiProvider.setModel(next.geminiModel);
+    aiProvider.setGroqModel(next.groqModel);
+    aiProvider.setDeepinfraModel(next.deepinfraModel);
+    aiProvider.setOpenaiModel(next.openaiModel);
+    aiProvider.setAnthropicModel(next.anthropicModel);
+
+    if (user?.id) {
+      await saveUserModel(user.id, next.geminiModel);
+    }
+
+    setModelSettings(next);
+    toast({ title: 'Model ayarları güncellendi' });
   }
 
   // ─── Billing Computations ────────────────────────────────────────────────
@@ -435,7 +479,15 @@ export default function Settings() {
   // ─── Derived display helpers ──────────────────────────────────────────────
 
   const activeGeminiCount = keys.filter(k => k.provider === 'gemini' && k.is_active).length;
+  const activeKeyCount = keys.filter(k => k.is_active).length;
   const rateLimitedCount = keys.filter(k => k.rate_limited_until && new Date(k.rate_limited_until) > new Date()).length;
+  const providerLabelsLegacy: Record<string, string> = {
+    gemini: 'Google Gemini',
+    groq: 'Groq',
+    openai: 'OpenAI',
+    anthropic: 'Anthropic',
+    deepinfra: 'DeepInfra',
+  };
   const providerLabels: Record<string, string> = {
     gemini: '🤖 Google Gemini',
     groq: '⚡ Groq',
@@ -449,7 +501,7 @@ export default function Settings() {
   return (
     <div className="min-h-screen bg-background">
       {/* ── Header ── */}
-      <header className="border-b bg-card px-6 py-4 sticky top-0 z-10">
+      <header className="sticky top-0 z-10 border-b border-border/70 bg-card/95 px-6 py-4 backdrop-blur-sm">
         <div className="flex items-center gap-4 max-w-7xl mx-auto">
           <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
             <ArrowLeft className="h-5 w-5" />
@@ -477,7 +529,49 @@ export default function Settings() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-8 space-y-10">
+      <main className="max-w-6xl mx-auto px-6 py-8 space-y-10">
+
+        <section className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card className="border-border/70 bg-card/70 p-5">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Aktif anahtar</div>
+              <div className="mt-2 text-3xl font-semibold">{activeKeyCount}</div>
+              <div className="mt-1 text-xs text-muted-foreground">Tüm providerlar dahil</div>
+            </Card>
+            <Card className="border-border/70 bg-card/70 p-5">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Gemini havuzu</div>
+              <div className="mt-2 text-3xl font-semibold">{activeGeminiCount}</div>
+              <div className="mt-1 text-xs text-muted-foreground">Şu anki ana metin hattı</div>
+            </Card>
+            <Card className="border-border/70 bg-card/70 p-5">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Rate limited</div>
+              <div className="mt-2 text-3xl font-semibold">{rateLimitedCount}</div>
+              <div className="mt-1 text-xs text-muted-foreground">Döngü dışında bekleyen anahtarlar</div>
+            </Card>
+            <Card className="border-border/70 bg-card/70 p-5">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Ana Gemini modeli</div>
+              <div className="mt-2 truncate text-base font-semibold">{modelSettings.geminiModel}</div>
+              <div className="mt-1 text-xs text-muted-foreground">Workspace varsayılanı</div>
+            </Card>
+          </div>
+
+          <Card className="border-border/70 bg-card/80 p-6">
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">Provider model yönlendirmesi</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Hangi sağlayıcı devreye girerse girsin, hangi modelin kullanılacağını burada netleştir.
+                </p>
+              </div>
+              <Button onClick={handleSaveModelSettings}>Model ayarlarını kaydet</Button>
+            </div>
+
+            <ProviderModelSettings
+              settings={modelSettings}
+              onChange={(patch) => setModelSettings((prev) => ({ ...prev, ...patch }))}
+            />
+          </Card>
+        </section>
 
         {/* ══════════════════════ API KEYS SECTION ══════════════════════ */}
         <section>

@@ -15,6 +15,24 @@ function loadJson<T>(key: string, fallback: T): T {
   } catch { return fallback; }
 }
 
+function loadSetting(key: string, fallback: string): string {
+  const raw = localStorage.getItem(key);
+  return raw && raw.trim() ? raw : fallback;
+}
+
+function normalizeSettings(settings: AppState['settings']): AppState['settings'] {
+  const geminiModel = settings.geminiModel?.trim() || settings.model?.trim() || 'gemini-2.0-flash';
+  return {
+    ...settings,
+    model: geminiModel,
+    geminiModel,
+    groqModel: settings.groqModel?.trim() || 'llama-3.3-70b-versatile',
+    deepinfraModel: settings.deepinfraModel?.trim() || 'zai-org/GLM-5',
+    openaiModel: settings.openaiModel?.trim() || 'gpt-5.4',
+    anthropicModel: settings.anthropicModel?.trim() || 'claude-3-5-sonnet-20241022',
+  };
+}
+
 const initialState: AppState = {
   projectType: 'documentary',
   renderMode: 'photoreal',
@@ -31,7 +49,12 @@ const initialState: AppState = {
   apiKeys: loadKeys('gemini_api_keys'),
   currentKeyIndex: 0,
   settings: {
-    model: localStorage.getItem('gemini_model') || 'gemini-2.0-flash',
+    model: loadSetting('gemini_model', 'gemini-2.0-flash'),
+    geminiModel: loadSetting('gemini_model', 'gemini-2.0-flash'),
+    groqModel: loadSetting('groq_model', 'llama-3.3-70b-versatile'),
+    deepinfraModel: loadSetting('deepinfra_model', 'zai-org/GLM-5'),
+    openaiModel: loadSetting('openai_model', 'gpt-5.4'),
+    anthropicModel: loadSetting('anthropic_model', 'claude-3-5-sonnet-20241022'),
     thinkingMode: false,
     variantCount: 3,
     temperature: 1.0,
@@ -92,7 +115,11 @@ function persistState(s: AppState) {
     // Project data is stored in Supabase per-episode to avoid cross-project data leakage.
     localStorage.setItem('gemini_api_keys', JSON.stringify(s.apiKeys));
     localStorage.setItem('gemini_image_api_keys', JSON.stringify(s.imageApiKeys));
-    localStorage.setItem('gemini_model', s.settings.model);
+    localStorage.setItem('gemini_model', s.settings.geminiModel || s.settings.model);
+    localStorage.setItem('groq_model', s.settings.groqModel);
+    localStorage.setItem('deepinfra_model', s.settings.deepinfraModel);
+    localStorage.setItem('openai_model', s.settings.openaiModel);
+    localStorage.setItem('anthropic_model', s.settings.anthropicModel);
     if (s.settings.imageModel) localStorage.setItem('gemini_image_model', s.settings.imageModel);
   } catch { /* storage full — silently ignore */ }
 }
@@ -176,8 +203,12 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       if (state.apiKeys.length <= 1) return state;
       return { ...state, currentKeyIndex: (state.currentKeyIndex + 1) % state.apiKeys.length };
     case 'SET_SETTINGS': {
-      const newSettings = { ...state.settings, ...action.payload };
-      localStorage.setItem('gemini_model', newSettings.model);
+      const newSettings = normalizeSettings({ ...state.settings, ...action.payload });
+      localStorage.setItem('gemini_model', newSettings.geminiModel);
+      localStorage.setItem('groq_model', newSettings.groqModel);
+      localStorage.setItem('deepinfra_model', newSettings.deepinfraModel);
+      localStorage.setItem('openai_model', newSettings.openaiModel);
+      localStorage.setItem('anthropic_model', newSettings.anthropicModel);
       if (newSettings.imageModel) localStorage.setItem('gemini_image_model', newSettings.imageModel);
       return { ...state, settings: newSettings };
     }
