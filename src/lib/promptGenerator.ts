@@ -217,6 +217,37 @@ NEVER include these in any prompt, any mode:
   âœ— Frozen artificial smile on any human subject
 
 â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+X. OBSERVATIONAL WITNESS MANDATE
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+
+The camera is a witness, not a director.
+Every image must feel as if a camera crew was present and caught this moment by chance.
+
+FORBIDDEN staging patterns:
+  âœ— Subject standing still facing camera
+  âœ— Subject placed at geometric centre of frame for compositional balance
+  âœ— Multiple subjects arranged symmetrically or at equal distances
+  âœ— Subject body perfectly perpendicular to camera axis
+  âœ— Subject weight evenly distributed on both feet in a neutral stance
+  âœ— Any gesture performed for an audience rather than emerging from the scene
+  âœ— Any expression that would look the same if no camera were present
+
+MANDATORY "caught" indicators â€” include at least ONE per shot:
+  âœ“ Weight mid-transfer: heel raised, foot turning, knee flexed, torso shifting
+  âœ“ Interrupted gesture: hand half-raised, mouth half-open, fingers still in motion
+  âœ“ Body axis 15â€“30Â° off camera axis
+  âœ“ Eyes engaged with something inside the scene: another person, an object, the ground, the horizon
+  âœ“ At least one body part partially out of frame: shoulder edge, hand cut, foot cropped
+  âœ“ Evidence of continuous action: sweat, dust, displaced clothing, mid-stride posture
+  âœ“ For conversations: one person mid-word, the other mid-listen â€” never both static
+
+THE DECISIVE MOMENT RULE:
+Write the prompt for one fraction of a second before or after the peak action.
+Not "he strikes" â€” "arm at maximum backswing, knuckles white, torso already rotating."
+Not "she prays" â€” "forehead just touching the ground, fingers not yet fully flat."
+Not "they fight" â€” "distance between blades 8cm, both eyes locked before impact."
+
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 CROWD / ARMY CINEMATIC FRAMING PROTOCOL
 â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 
@@ -474,6 +505,14 @@ FAILURE MODES â€” never do these:
   âœ— Generic "dust motes and shaft of light" as default dramatic device
   âœ— Crowd scenes rendered as neat orderly lines (use one of the 6 crowd techniques above)
   âœ— Full army/crowd arranged facing camera (always fragment, angle, witness, or detail)
+
+THEATRE TEST (run before outputting every prompt):
+  Ask: "Could this scene appear in a stage play?"
+    If YES â€” composition is too arranged. Redesign with asymmetry, interrupted motion, environmental contact.
+  Ask: "Would the subject pose differently if no camera were present?"
+    If NO â€” the moment is staged. Add weight shift, interruption, or engagement with environment.
+  Ask: "Is the subject's eye line going to the lens?"
+    If YES â€” redesign completely. Eyes must go to another person, an object, the horizon, or the ground.
 `;
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -519,6 +558,16 @@ LIGHT PHILOSOPHY (documentary):
   than a face softly lit to look beautiful.
   Prioritise: low-rake sun, window-shaft, fire, practical source glow.
   Never: softbox beauty light, unmotivated fill, frontal even illumination.
+
+FOUND vs DESIGNED LIGHT (CRITICAL):
+  Documentary light is found, not designed. The camera finds light that already exists.
+  Every light source must be named and physically motivated.
+  âœ“ "shaft of noon sun through a cracked wall"
+  âœ“ "fire from the hearth throwing left-side warmth onto his face"
+  âœ“ "overcast white sky acting as a giant soft box"
+  âœ— "dramatic side lighting" (source unnamed â€” designed, not found)
+  âœ— "cinematic lighting" (meaningless â€” all lighting is cinematic)
+  âœ— "beautiful golden hour light" (aesthetic adjective, not physical source)
 
 COLOUR (documentary):
   Era-driven. Emotion-modulated.
@@ -691,6 +740,7 @@ RESPONSE FORMAT â€” JSON only, no markdown, no preamble
       "shotType": "Wide Shot | Medium Shot | Close-up",
       "summary": "Verbatim copy of scene visualNote (Turkish)",
       "explanation": "Bu gÃ¶rsel... (1 sentence Turkish â€” what it shows and why)",
+      "witnessIndicator": "specific caught signal present in the frame, e.g. heel raised mid-transfer or hand half-raised",
       "prompt": "100â€“140 word English prompt with technical suffix"
     },
     { ... },
@@ -704,6 +754,7 @@ type RawPromptCandidate = {
   shotType?: string;
   summary?: string;
   explanation?: string;
+  witnessIndicator?: string;
   prompt?: string;
 };
 
@@ -1059,13 +1110,28 @@ function buildUserMessage(
     return /\bcentury\b|\bhistorical\b|\bmedieval\b|\bancient\b|\bperiod\b|\bempire\b|\bdynasty\b|\bmigration\b/.test(blob);
   });
   const hasCrowdScene = sceneAnalysis?.hasCrowd || characters.some((character) => character.isCrowd) || characters.length >= 5;
-  parts.push(`HUMAN STAGING RULES (MANDATORY):`);
-  parts.push(`- Medium and close-up shots must feel observed mid-action, never posed for the camera.`);
-  parts.push(`- Use asymmetry, shifted weight, interrupted gesture, active hands, and off-axis shoulders.`);
-  parts.push(`- Avoid portrait logic unless the source line is explicitly a portrait or identification moment.`);
-  parts.push(`- In close-ups, prefer hands, profile, working face, or micro-action over static beauty framing.`);
-  parts.push(`- Medium shots must bridge person and world: readable human action plus enough surrounding context to explain the situation.`);
-  parts.push(`- Close-ups must isolate the decisive tactile or emotional payload, not simply repeat the medium shot from a tighter distance.`);
+  parts.push(`OBSERVATIONAL HUMAN STAGING (MANDATORY):`);
+  parts.push(`- Every human figure must feel caught in the middle of action, reaction, labour, listening, or weight shift.`);
+  parts.push(`- Include at least one witness indicator per shot: heel raised, hand half-raised, torso mid-turn, cropped limb, eyes fixed on scene partner/object/ground, dust or clothing displaced by motion.`);
+  parts.push(`- Write the decisive moment one fraction of a second before or after the peak, never the generic peak pose itself.`);
+  parts.push(`- Avoid portrait logic unless the source line is explicitly about identification, ritual stillness, or formal portraiture.`);
+  parts.push(``);
+  parts.push(`WIDE SHOT MANDATE: Show the power geometry of the space.`);
+  parts.push(`- Ask: where are we, who is small, who is large, what does this place do to the human body?`);
+  parts.push(`- Subject belongs on one third of the frame, never in dead centre.`);
+  parts.push(`- Background must read as a world with pressure, depth, and consequence, not a decorative backdrop.`);
+  parts.push(`- Motion design: horizontal parallax drift or scale-revealing pull-back.`);
+  parts.push(``);
+  parts.push(`MEDIUM SHOT MANDATE: Show the verb of the scene.`);
+  parts.push(`- What physical action is happening right now: drawing, lifting, listening, turning, bracing, warning, working?`);
+  parts.push(`- Show hands doing something and feet or torso in relationship to the ground.`);
+  parts.push(`- Body axis should sit roughly 15â€“30Â° off camera axis, with weight favouring one foot or one side.`);
+  parts.push(`- Motion design: slow witness push or subtle drift that stays inside documentary behaviour.`);
+  parts.push(``);
+  parts.push(`CLOSE-UP MANDATE: Show the thing that cannot be spoken.`);
+  parts.push(`- One physical detail must carry the emotional payload: working hands, profile face in micro-expression, object held with purpose, fabric or skin under pressure.`);
+  parts.push(`- Not a static face staring neutrally. Not an object arranged decoratively.`);
+  parts.push(`- Motion design: precise Ken Burns move into the specific detail.`);
   parts.push(``);
   if (hasCrowdScene) {
     parts.push(`CROWD ERA ENFORCEMENT (MANDATORY):`);
@@ -1078,24 +1144,7 @@ function buildUserMessage(
   }
 
   // â”€â”€ Negative Flag Construction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const charNegatives: string[] = [];
-  characters.filter(c => !c.isCrowd).forEach(char => {
-    if (/white|snow|silver/.test((char.beard ?? '').toLowerCase())) {
-      charNegatives.push('dark beard', 'brown beard', 'black beard', 'clean-shaven', 'short beard');
-    }
-    if (/thick|full|dense/.test((char.beard ?? '').toLowerCase())) {
-      charNegatives.push('thin beard', 'patchy beard', 'stubble only');
-    }
-    if (/large|oversized|tall/.test((char.clothing ?? '').toLowerCase())) {
-      charNegatives.push('small cap', 'bare head', 'hat', 'hood');
-    }
-    if (/6[0-9]|7[0-9]|8[0-9]|elder|old|aged/.test((char.age ?? '').toLowerCase())) {
-      charNegatives.push('young face', 'smooth skin', 'no wrinkles');
-    }
-    if (/heavy|stocky|large/.test((char.age ?? '').toLowerCase())) {
-      charNegatives.push('thin figure', 'slender build');
-    }
-  });
+  const charNegatives = buildCharacterNegativeAnchors(characters);
 
   const baseNegatives = [
     'direct gaze', 'eye contact', 'looking at camera',
@@ -1133,17 +1182,18 @@ function buildUserMessage(
 Each prompt 100â€“140 words English.
 The three shots MUST differ in at least 3 of: subject position, camera height,
 light angle, foreground element, screen direction, figure/ground strategy.
-Wide Shot = geography, scale, spatial stakes, crowd density if relevant.
-Medium Shot = human action in context, the hinge between world and detail.
-Close-up = tactile or emotional payload through hands, face-in-action, object detail, or micro-gesture.
+Each shot must include a specific witnessIndicator describing how the moment feels caught rather than staged.
+Wide Shot = geography, scale, power dynamic, crowd density if relevant.
+Medium Shot = the verb of the scene happening right now in a human body.
+Close-up = the tactile or emotional payload that cannot be spoken.
 Do NOT let medium and close-up become near-duplicates.`;
 
   parts.push(shotInstruction);
   parts.push(``);
   parts.push(`OUTPUT FORMAT â€” ADVANCED CINEMATIC BLOCK TEMPLATE (MANDATORY):`);
   parts.push(`Write EACH prompt as a single English paragraph that still follows this block order (use short labels):`);
-  parts.push(`SHOT INTENT: ... | SUBJECT: ... | ACTION: ... | ENVIRONMENT: ... | STYLE: ... | LIGHT: ... | CAMERA/COMP: ... | CONTINUITY LOCK: ... | MOTION HINT: ... | NEGATIVES: ...`);
-  parts.push(`Rules: keep STYLE and CONTENT separated; use concrete physical/material language; avoid empty adjectives (beautiful, cinematic, dramatic).`);
+  parts.push(`SHOT INTENT: ... | SUBJECT: ... | ACTION: ... | ENVIRONMENT: ... | STYLE: ... | LIGHT: ... | CAMERA/COMP: ... | WITNESS: ... | CONTINUITY LOCK: ... | MOTION HINT: ... | NEGATIVES: ...`);
+  parts.push(`Rules: keep STYLE and CONTENT separated; use concrete physical/material language; name the actual light source; avoid empty adjectives (beautiful, cinematic, dramatic).`);
   parts.push(`If something is unknown, omit it â€” do not invent new entities or anachronistic props.`);
   parts.push(``);
   parts.push(`Append to EVERY prompt: ${arSuffix}`);
@@ -1151,7 +1201,7 @@ Do NOT let medium and close-up become near-duplicates.`;
   parts.push(`âš ï¸ FINAL REMINDER: All subjects caught in natural action.`);
   parts.push(`No passport poses. No camera eye contact. No symmetric staging.`);
   parts.push(`When choosing selectedIndex, compare all three carefully; do not default to the wide shot just because it feels safer or more legible.`);
-  parts.push(`Prefer the prompt with the strongest specificity, believable action, visual intelligence, and documentary authenticity.`);
+  parts.push(`Prefer the prompt with the strongest specificity, found-moment authenticity, believable action, and witness intelligence.`);
 
   return parts.join('\n');
 }
@@ -1447,6 +1497,44 @@ function formatShotTypeLabel(type: NormalizedShotType, original?: string): strin
   return 'Wide Shot';
 }
 
+function buildCharacterNegativeAnchors(characters: Character[]): string[] {
+  const negatives: string[] = [];
+
+  characters.filter((character) => !character.isCrowd).forEach((character) => {
+    const anchorBlob = [
+      character.visualDescription,
+      character.physicalFeatures,
+      character.hair,
+      character.beard,
+      character.clothing,
+      character.age,
+      character.ethnicity,
+      character.role,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    if (/\b(white|snow|silver|grey)\b/.test(anchorBlob) && /\b(beard|hair)\b/.test(anchorBlob)) {
+      negatives.push('dark beard', 'brown beard', 'black beard', 'dark hair', 'clean-shaven', 'short beard');
+    }
+    if (/\b(thick|full|dense|coarse)\b/.test(anchorBlob) && /\bbeard\b/.test(anchorBlob)) {
+      negatives.push('thin beard', 'patchy beard', 'stubble only');
+    }
+    if (/\b(turban|wrapped|headwear|coils?|crown|oversized|large|tall headwear)\b/.test(anchorBlob)) {
+      negatives.push('small cap', 'bare head', 'hat', 'hood');
+    }
+    if (/\b(6[0-9]|7[0-9]|8[0-9]|elder|old|aged|wrinkles|crow's-feet|nasolabial)\b/.test(anchorBlob)) {
+      negatives.push('young face', 'smooth skin', 'no wrinkles');
+    }
+    if (/\b(heavy|stocky|large|broad shoulders|90-100kg|slight belly)\b/.test(anchorBlob)) {
+      negatives.push('thin figure', 'slender build');
+    }
+  });
+
+  return negatives;
+}
+
 function normalizePromptCandidates(candidates: RawPromptCandidate[]): Array<RawPromptCandidate & { normalizedType: NormalizedShotType }> {
   const targetOrder: NormalizedShotType[] = ['wide', 'medium', 'closeup'];
   const unused = candidates.map((candidate) => ({
@@ -1509,7 +1597,7 @@ function scorePromptForPin(
   hasCrowdScene: boolean,
   visualNote?: string,
 ): number {
-  const text = `${prompt.shotType ?? ''} ${prompt.prompt ?? ''} ${prompt.explanation ?? ''} ${visualNote ?? ''}`.toLowerCase();
+  const text = `${prompt.shotType ?? ''} ${prompt.prompt ?? ''} ${prompt.explanation ?? ''} ${prompt.witnessIndicator ?? ''} ${visualNote ?? ''}`.toLowerCase();
   let score = 0;
 
   if (prompt.normalizedType === 'medium') score += 3;
@@ -1522,11 +1610,17 @@ function scorePromptForPin(
   if (/\bhand\b|\bhands\b|\bprofile\b|\bgaze\b|\bthumb\b|\bfingers\b|\btexture\b|\bdetail\b|\bmicro\b|\btactile\b|\barrow\b/.test(text)) {
     score += 2;
   }
+  if (/\bmid-stride\b|\bheel\b|\bweight\b|\bwrist\b|\bknuckle\b|\bknuckles\b|\btremor\b|\bpartly\b|\bpartially\b|\bhalf-raised\b|\bhalf-open\b|\binterrupted\b|\bcropped\b|\bmid-turn\b|\bmid-word\b|\boff-axis\b|\boff camera axis\b/.test(text)) {
+    score += 3;
+  }
   if (/\benvironment\b|\bgeography\b|\blandscape\b|\bdust\b|\bhaze\b|\briver\b|\bbackground\b|\bforeground\b/.test(text)) {
     score += 1;
   }
   if (/\bposed\b|\bportrait\b|\bbeauty\b|\bsymmetric\b|\bcentered\b|\bfacing camera\b|\bdirect gaze\b/.test(text)) {
     score -= 4;
+  }
+  if (/\bstaging\b|\bposed\b|\barranged\b|\bsymmetric\b|\bbalanced composition\b|\btheatrical\b|\bperformed for audience\b/.test(text)) {
+    score -= 6;
   }
   if (/\bdramatic documentary frame\b|\bcinematic scene\b|\bbeautiful\b/.test(text)) {
     score -= 2;
