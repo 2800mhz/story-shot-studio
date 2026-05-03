@@ -33,6 +33,23 @@ function normalizeSettings(settings: AppState['settings']): AppState['settings']
   };
 }
 
+function pushUnique(values: string[], nextValue: string): string[] {
+  return values.includes(nextValue) ? values : [...values, nextValue];
+}
+
+function markSceneCardPromptsStale(sceneCard: AppState['sceneCards'][number], reason: string): AppState['sceneCards'][number] {
+  return {
+    ...sceneCard,
+    promptsNeedRefresh: true,
+    staleReasons: pushUnique(sceneCard.staleReasons ?? [], reason),
+    prompts: sceneCard.prompts.map((prompt) => ({
+      ...prompt,
+      isStale: true,
+      staleReason: prompt.staleReason ?? reason,
+    })),
+  };
+}
+
 const initialState: AppState = {
   projectType: 'documentary',
   renderMode: 'photoreal',
@@ -494,12 +511,17 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       return {
         ...state,
         sceneCards: state.sceneCards.map(sc =>
-          sc.id === action.payload.sceneId ? {
-            ...sc,
-            prompts: action.payload.prompts,
-            status: 'ready',
-            analysis: action.payload.analysis,
-          } : sc
+          sc.id === action.payload.sceneId ? (() => {
+            const hasStalePrompts = action.payload.prompts.some(prompt => prompt.isStale);
+            return {
+              ...sc,
+              prompts: action.payload.prompts,
+              status: 'ready',
+              analysis: action.payload.analysis,
+              promptsNeedRefresh: hasStalePrompts,
+              staleReasons: hasStalePrompts ? sc.staleReasons : [],
+            };
+          })() : sc
         ),
       };
     case 'SET_ALL_PROMPTS':
@@ -508,7 +530,14 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
         sceneCards: state.sceneCards.map(sc => {
           const prompts = action.payload[sc.id];
           if (prompts) {
-            return { ...sc, prompts, status: 'ready' };
+            const hasStalePrompts = prompts.some(prompt => prompt.isStale);
+            return {
+              ...sc,
+              prompts,
+              status: 'ready',
+              promptsNeedRefresh: hasStalePrompts,
+              staleReasons: hasStalePrompts ? sc.staleReasons : [],
+            };
           }
           return sc;
         })
@@ -564,11 +593,20 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       return { ...state, locations: action.payload };
     case 'UPSERT_CHARACTER': {
       const exists = state.characters.some(c => c.id === action.payload.id);
+      const previous = state.characters.find(c => c.id === action.payload.id);
+      const didChange = !!previous && JSON.stringify(previous) !== JSON.stringify(action.payload);
       return {
         ...state,
         characters: exists
           ? state.characters.map(c => c.id === action.payload.id ? action.payload : c)
           : [...state.characters, action.payload],
+        sceneCards: didChange
+          ? state.sceneCards.map(sc =>
+              sc.characterIds.includes(action.payload.id)
+                ? markSceneCardPromptsStale(sc, 'Character attributes updated')
+                : sc
+            )
+          : state.sceneCards,
       };
     }
     case 'DELETE_CHARACTER':
@@ -582,11 +620,20 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       };
     case 'UPSERT_LOCATION': {
       const exists = state.locations.some(l => l.id === action.payload.id);
+      const previous = state.locations.find(l => l.id === action.payload.id);
+      const didChange = !!previous && JSON.stringify(previous) !== JSON.stringify(action.payload);
       return {
         ...state,
         locations: exists
           ? state.locations.map(l => l.id === action.payload.id ? action.payload : l)
           : [...state.locations, action.payload],
+        sceneCards: didChange
+          ? state.sceneCards.map(sc =>
+              sc.locationIds.includes(action.payload.id)
+                ? markSceneCardPromptsStale(sc, 'Location attributes updated')
+                : sc
+            )
+          : state.sceneCards,
       };
     }
     case 'DELETE_LOCATION':

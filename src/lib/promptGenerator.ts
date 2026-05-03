@@ -1434,7 +1434,22 @@ RULES:
   4. Keep all technical parameters (--ar, --v, --no flags) intact.
   5. If asked to remove something: remove it cleanly without breaking sentence structure.
   6. Faces may be visible for natural interaction â€” never introduce direct eye contact with lens.
-  7. Do not change the shot type unless explicitly instructed.`;
+  7. Do not change the shot type unless explicitly instructed.
+  8. If FRESH CONTEXT is provided, treat it as the current source of truth for identity, wardrobe, facial hair, body type, location, era, and time conditions.
+  9. When the original prompt conflicts with the FRESH CONTEXT, rewrite the stale attributes to match the FRESH CONTEXT while preserving the shot intent and composition.
+  10. Do not keep outdated character or location traits just because they existed in the original prompt.`;
+
+type PromptRevisionContext = {
+  shotType?: string;
+  sceneText?: string;
+  visualNote?: string;
+  projectType?: ProjectType;
+  renderMode?: RenderMode;
+  characters?: Character[];
+  locations?: Location[];
+  timeContexts?: TimeContext[];
+  staleReasons?: string[];
+};
 
 export async function revisePrompt(
   originalPrompt: string,
@@ -1442,8 +1457,10 @@ export async function revisePrompt(
   _apiKey?: string,
   _model?: string,
   _temperature?: number,
+  revisionContext?: PromptRevisionContext,
 ): Promise<string> {
-  const userMessage = `ORIGINAL PROMPT:\n${originalPrompt}\n\nUSER INSTRUCTION:\n"${instruction}"\n\nProvide the revised English prompt:`;
+  const contextBlock = buildRevisionContextMessage(revisionContext);
+  const userMessage = `ORIGINAL PROMPT:\n${originalPrompt}\n\nUSER INSTRUCTION:\n"${instruction}"\n${contextBlock}\nIf the fresh context conflicts with the original prompt, update the prompt to match the fresh context while keeping the same cinematic shot logic.\n\nProvide the revised English prompt:`;
 
   try {
     const raw = await aiProvider.generateContent(userMessage, REVISION_SYSTEM_PROMPT, {
@@ -1463,6 +1480,73 @@ export async function revisePrompt(
     console.error('[promptEngine] Revision failed:', error);
     throw error;
   }
+}
+
+function buildRevisionContextMessage(context?: PromptRevisionContext): string {
+  if (!context) return '';
+
+  const lines: string[] = [];
+
+  if (context.projectType) lines.push(`PROJECT TYPE: ${context.projectType}`);
+  if (context.renderMode) lines.push(`RENDER MODE: ${context.renderMode}`);
+  if (context.shotType) lines.push(`SHOT TYPE TO PRESERVE: ${context.shotType}`);
+  if (context.visualNote?.trim()) lines.push(`SCENE VISUAL NOTE: ${context.visualNote.trim()}`);
+  if (context.sceneText?.trim()) lines.push(`SCENE TEXT: ${context.sceneText.trim()}`);
+  if (context.staleReasons?.length) lines.push(`STALE REASONS: ${context.staleReasons.join(' | ')}`);
+
+  if (context.characters?.length) {
+    lines.push(`CURRENT CHARACTERS (SOURCE OF TRUTH):`);
+    context.characters.forEach((character) => {
+      const parts = [
+        character.name,
+        character.role,
+        character.visualDescription,
+        character.age,
+        character.ethnicity,
+        character.hair,
+        character.beard,
+        character.clothing,
+        character.physicalFeatures,
+        character.isCrowd ? 'crowd/group entity' : '',
+      ].filter(Boolean);
+      lines.push(`- ${parts.join(' | ')}`);
+    });
+  }
+
+  if (context.locations?.length) {
+    lines.push(`CURRENT LOCATIONS (SOURCE OF TRUTH):`);
+    context.locations.forEach((location) => {
+      const parts = [
+        location.name,
+        location.visualDescription,
+        location.period,
+        location.geography,
+        location.architecture,
+        location.atmosphere,
+      ].filter(Boolean);
+      lines.push(`- ${parts.join(' | ')}`);
+    });
+  }
+
+  if (context.timeContexts?.length) {
+    lines.push(`CURRENT TIME CONTEXT (SOURCE OF TRUTH):`);
+    context.timeContexts.forEach((timeContext) => {
+      const parts = [
+        timeContext.label,
+        timeContext.era,
+        timeContext.season,
+        timeContext.timeOfDay,
+        timeContext.lighting,
+        timeContext.weather,
+        timeContext.historicalNotes,
+      ].filter(Boolean);
+      lines.push(`- ${parts.join(' | ')}`);
+    });
+  }
+
+  if (!lines.length) return '';
+
+  return `\nFRESH CONTEXT:\n${lines.join('\n')}\n`;
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

@@ -1170,6 +1170,21 @@ const Index = () => {
     const promptToRevise = scene.prompts.find(p => p.id === promptId);
     if (!promptToRevise) return;
 
+    const sceneCharacters = state.characters.filter(character => scene.characterIds.includes(character.id));
+    const sceneLocations = state.locations.filter(location => scene.locationIds.includes(location.id));
+    const sceneTimeContexts = state.timeContexts.filter(timeContext => scene.timeContextIds.includes(timeContext.id));
+    const revisionContext = {
+      shotType: promptToRevise.shotType,
+      sceneText: scene.text,
+      visualNote: scene.visualNote,
+      projectType: state.projectType,
+      renderMode: state.renderMode,
+      characters: sceneCharacters,
+      locations: sceneLocations,
+      timeContexts: sceneTimeContexts,
+      staleReasons: [promptToRevise.staleReason, ...(scene.staleReasons ?? [])].filter(Boolean) as string[],
+    };
+
     try {
       // Optik feedback için UI'ı güncelliyoruz diye bir şey yapabiliriz ama
       // şimdilik toast ile bilgi verelim. (SceneCard içinde loading idare edilebilir)
@@ -1178,7 +1193,8 @@ const Index = () => {
         instruction,
         '', // apiKey (aiProvider uses its internal key array)
         state.settings.model,
-        state.settings.temperature
+        state.settings.temperature,
+        revisionContext
       );
 
       const updatedPrompt: PromptCard = {
@@ -1188,6 +1204,8 @@ const Index = () => {
         versions: [...promptToRevise.versions, revisedText],
         generationType: 'revision',
         revisionPrompt: instruction,
+        isStale: false,
+        staleReason: undefined,
       };
 
       dispatch({

@@ -7,7 +7,7 @@ vi.mock('@/lib/aiProvider', () => ({
 }));
 
 import { aiProvider } from '@/lib/aiProvider';
-import { generatePromptsForScene } from '@/lib/promptGenerator';
+import { generatePromptsForScene, revisePrompt } from '@/lib/promptGenerator';
 
 describe('promptGenerator JSON recovery', () => {
   afterEach(() => {
@@ -187,6 +187,39 @@ describe('promptGenerator JSON recovery', () => {
 
     expect(result.prompts[0].isPinned).toBe(false);
     expect(result.prompts.some((prompt) => prompt.type !== 'wide' && prompt.isPinned)).toBe(true);
+  });
+
+  it('injects fresh entity context into prompt revision requests', async () => {
+    const generateSpy = vi.mocked(aiProvider.generateContent).mockResolvedValue('revised prompt');
+
+    await revisePrompt(
+      'old prompt with long white beard',
+      'sakalı güncelle',
+      '',
+      'test-model',
+      1,
+      {
+        shotType: 'Close-up',
+        visualNote: 'Karakterin yüzü ve eli önde',
+        projectType: 'documentary',
+        renderMode: 'photoreal',
+        characters: [
+          {
+            id: 'char-1',
+            name: 'Timur',
+            beard: 'clean-shaven',
+            clothing: 'dark wool coat',
+            physicalFeatures: 'scar above left eyebrow',
+          } as any,
+        ],
+        staleReasons: ['Character attributes updated'],
+      }
+    );
+
+    const revisionUserMessage = generateSpy.mock.calls[0][0] as string;
+    expect(revisionUserMessage).toContain('FRESH CONTEXT');
+    expect(revisionUserMessage).toContain('clean-shaven');
+    expect(revisionUserMessage).toContain('Character attributes updated');
   });
 });
 
