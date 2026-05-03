@@ -125,5 +125,68 @@ describe('promptGenerator JSON recovery', () => {
     expect(generateSpy).toHaveBeenCalledTimes(4);
     expect(onRetry).toHaveBeenCalledTimes(4);
   });
+
+  it('reorders prompts by inferred shot type instead of raw response order', async () => {
+    vi.mocked(aiProvider.generateContent).mockResolvedValue(`{
+      "prompts": [
+        { "shotType": "Close-up", "summary": "detay", "explanation": "yakın", "prompt": "close-up of weathered hands gripping an arrow shaft" },
+        { "shotType": "Wide Shot", "summary": "geniş", "explanation": "wide", "prompt": "wide shot of dense horse archers crossing the plain in dust" },
+        { "shotType": "Medium Shot", "summary": "orta", "explanation": "medium", "prompt": "medium shot of a rider drawing his bow while the formation blurs behind" }
+      ],
+      "selectedIndex": 0
+    }`);
+
+    const result = await generatePromptsForScene(
+      { text: 'Örnek sahne', visualNote: 'Yoğun süvari akını', characterIds: [], locationIds: [], timeContextIds: [] } as any,
+      [],
+      [],
+      'master prompt'
+    );
+
+    expect(result.prompts.map((prompt) => prompt.type)).toEqual(['wide', 'medium', 'closeup']);
+    expect(result.prompts.map((prompt) => prompt.shotType)).toEqual(['Wide Shot', 'Medium Shot', 'Close-up']);
+  });
+
+  it('prefers stronger medium or close documentary prompt over a generic wide auto-pin', async () => {
+    vi.mocked(aiProvider.generateContent).mockResolvedValue(`{
+      "prompts": [
+        {
+          "shotType": "Wide Shot",
+          "summary": "geniş",
+          "explanation": "geniş plan",
+          "prompt": "shot intent: strategic scale reveal, epic wide shot with flag, 4-5 riders visible in foreground, dust behind them"
+        },
+        {
+          "shotType": "Medium Shot",
+          "summary": "orta",
+          "explanation": "orta plan",
+          "prompt": "shot intent: observed mid-action, medium shot of a timurid horse archer drawing his bow while dense formation and dust stay readable behind him"
+        },
+        {
+          "shotType": "Close-up",
+          "summary": "detay",
+          "explanation": "yakın plan",
+          "prompt": "shot intent: tactile detail, close-up of a calloused hand gripping an arrow, blurred helmets crowding the background"
+        }
+      ],
+      "selectedIndex": 0
+    }`);
+
+    const result = await generatePromptsForScene(
+      {
+        text: 'Örnek sahne',
+        visualNote: 'Timurid horse archers in dense formation',
+        characterIds: [],
+        locationIds: [],
+        timeContextIds: [],
+      } as any,
+      Array.from({ length: 6 }, (_, index) => ({ id: String(index), name: `C${index}` })) as any,
+      [],
+      'master prompt'
+    );
+
+    expect(result.prompts[0].isPinned).toBe(false);
+    expect(result.prompts.some((prompt) => prompt.type !== 'wide' && prompt.isPinned)).toBe(true);
+  });
 });
 

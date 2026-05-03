@@ -700,6 +700,15 @@ RESPONSE FORMAT â€” JSON only, no markdown, no preamble
 }
 `;
 
+type RawPromptCandidate = {
+  shotType?: string;
+  summary?: string;
+  explanation?: string;
+  prompt?: string;
+};
+
+type NormalizedShotType = 'wide' | 'medium' | 'closeup';
+
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Â§ 8  MASTER SYSTEM PROMPT BUILDER
 //      Assembles the correct system prompt by project type.
@@ -1055,6 +1064,8 @@ function buildUserMessage(
   parts.push(`- Use asymmetry, shifted weight, interrupted gesture, active hands, and off-axis shoulders.`);
   parts.push(`- Avoid portrait logic unless the source line is explicitly a portrait or identification moment.`);
   parts.push(`- In close-ups, prefer hands, profile, working face, or micro-action over static beauty framing.`);
+  parts.push(`- Medium shots must bridge person and world: readable human action plus enough surrounding context to explain the situation.`);
+  parts.push(`- Close-ups must isolate the decisive tactile or emotional payload, not simply repeat the medium shot from a tighter distance.`);
   parts.push(``);
   if (hasCrowdScene) {
     parts.push(`CROWD ERA ENFORCEMENT (MANDATORY):`);
@@ -1062,6 +1073,7 @@ function buildUserMessage(
     parts.push(`- Use era-correct silhouettes, layered garments, fabric weight, headwear, belts, and footwear.`);
     parts.push(`- Do not introduce hoodies, t-shirts, denim, sneakers, zip jackets, synthetic sportswear, or modern tailoring.`);
     parts.push(`- Crowd figures should be fragmented, partially obscured, and caught in movement rather than posed in clear frontal rows.`);
+    parts.push(`- Across the three prompts, show both macro density and intimate human fragments so coverage does not collapse into only sparse wides.`);
     parts.push(``);
   }
 
@@ -1120,7 +1132,11 @@ function buildUserMessage(
     : `Generate 3 prompts: Wide Shot, Medium Shot, Close-up.
 Each prompt 100â€“140 words English.
 The three shots MUST differ in at least 3 of: subject position, camera height,
-light angle, foreground element, screen direction, figure/ground strategy.`;
+light angle, foreground element, screen direction, figure/ground strategy.
+Wide Shot = geography, scale, spatial stakes, crowd density if relevant.
+Medium Shot = human action in context, the hinge between world and detail.
+Close-up = tactile or emotional payload through hands, face-in-action, object detail, or micro-gesture.
+Do NOT let medium and close-up become near-duplicates.`;
 
   parts.push(shotInstruction);
   parts.push(``);
@@ -1134,6 +1150,8 @@ light angle, foreground element, screen direction, figure/ground strategy.`;
   parts.push(``);
   parts.push(`âš ï¸ FINAL REMINDER: All subjects caught in natural action.`);
   parts.push(`No passport poses. No camera eye contact. No symmetric staging.`);
+  parts.push(`When choosing selectedIndex, compare all three carefully; do not default to the wide shot just because it feels safer or more legible.`);
+  parts.push(`Prefer the prompt with the strongest specificity, believable action, visual intelligence, and documentary authenticity.`);
 
   return parts.join('\n');
 }
@@ -1255,7 +1273,7 @@ export async function generatePromptsForScene(
 
   // Retry loop â€” up to 4 attempts
   let parsed: {
-    prompts?: Array<{ shotType?: string; summary?: string; explanation?: string; prompt?: string }>;
+    prompts?: RawPromptCandidate[];
     analysis?: Partial<PromptAnalysis>;
     selectedIndex?: number;
   } | null = null;
@@ -1305,21 +1323,25 @@ export async function generatePromptsForScene(
   }
 
   const subjectRefs = references?.filter(r => r.referenceType === 'subject') ?? [];
-  const selectedIndex = Number.isInteger(parsed.selectedIndex) && Number(parsed.selectedIndex) >= 0 && Number(parsed.selectedIndex) <= 2
-    ? Number(parsed.selectedIndex)
-    : 0;
+  const normalizedCandidates = normalizePromptCandidates(parsed.prompts);
+  const selectedIndex = selectBestPromptIndex(
+    normalizedCandidates,
+    parsed.selectedIndex,
+    scene,
+    characters,
+    sceneAnalysis,
+  );
 
-  const prompts: PromptCard[] = parsed.prompts.map((p, idx) => {
-    const labels: string[]                       = ['Prompt A', 'Prompt B', 'Prompt C'];
-    const types: Array<'wide' | 'medium' | 'closeup'> = ['wide', 'medium', 'closeup'];
+  const prompts: PromptCard[] = normalizedCandidates.map((p, idx) => {
+    const labels: string[] = ['Prompt A', 'Prompt B', 'Prompt C'];
     const raw = p.prompt ?? '';
     const promptText = /--ar\s+[\d:]+/.test(raw) ? raw : `${raw} ${arSuffix}`.trim();
 
     return {
       id: crypto.randomUUID(),
-      type: types[idx] ?? 'wide',
+      type: p.normalizedType,
       label: labels[idx] ?? `Prompt ${idx + 1}`,
-      shotType: p.shotType ?? 'General',
+      shotType: formatShotTypeLabel(p.normalizedType, p.shotType),
       summary: p.summary ?? scene.visualNote,
       explanation: p.explanation ?? '',
       promptText,
@@ -1399,6 +1421,130 @@ export async function revisePrompt(
 
 function delay(ms: number): Promise<void> {
   return new Promise(r => setTimeout(r, ms));
+}
+
+function inferShotType(value?: string, prompt?: string): NormalizedShotType | null {
+  const blob = `${value ?? ''} ${prompt ?? ''}`.toLowerCase();
+
+  if (/\bclose[-\s]?up\b|\bcloseup\b|\bmacro\b|\bdetail\b|\binsert\b|\bextreme close\b/.test(blob)) {
+    return 'closeup';
+  }
+  if (/\bmedium\b|\bmid shot\b|\bwaist\b|\bhalf[-\s]?body\b|\bthree[-\s]?quarter\b/.test(blob)) {
+    return 'medium';
+  }
+  if (/\bwide\b|\bestablishing\b|\baerial\b|\bbird'?s[-\s]?eye\b|\bpanoramic\b/.test(blob)) {
+    return 'wide';
+  }
+
+  return null;
+}
+
+function formatShotTypeLabel(type: NormalizedShotType, original?: string): string {
+  const cleaned = original?.trim();
+  if (cleaned) return cleaned;
+  if (type === 'closeup') return 'Close-up';
+  if (type === 'medium') return 'Medium Shot';
+  return 'Wide Shot';
+}
+
+function normalizePromptCandidates(candidates: RawPromptCandidate[]): Array<RawPromptCandidate & { normalizedType: NormalizedShotType }> {
+  const targetOrder: NormalizedShotType[] = ['wide', 'medium', 'closeup'];
+  const unused = candidates.map((candidate) => ({
+    ...candidate,
+    inferredType: inferShotType(candidate.shotType, candidate.prompt),
+  }));
+
+  const ordered: Array<RawPromptCandidate & { normalizedType: NormalizedShotType }> = [];
+
+  for (const targetType of targetOrder) {
+    const exactIndex = unused.findIndex((candidate) => candidate.inferredType === targetType);
+    if (exactIndex >= 0) {
+      const [match] = unused.splice(exactIndex, 1);
+      ordered.push({ ...match, normalizedType: targetType });
+      continue;
+    }
+
+    const fallback = unused.shift();
+    if (fallback) {
+      ordered.push({ ...fallback, normalizedType: targetType });
+    }
+  }
+
+  return ordered.slice(0, 3);
+}
+
+function selectBestPromptIndex(
+  prompts: Array<RawPromptCandidate & { normalizedType: NormalizedShotType }>,
+  aiSelectedIndex: number | undefined,
+  scene: SceneCard,
+  characters: Character[],
+  sceneAnalysis?: SceneAnalysis,
+): number {
+  const hasCrowdScene = !!sceneAnalysis?.hasCrowd || characters.some((character) => character.isCrowd) || characters.length >= 5;
+  const aiIndex = Number.isInteger(aiSelectedIndex) && Number(aiSelectedIndex) >= 0 && Number(aiSelectedIndex) < prompts.length
+    ? Number(aiSelectedIndex)
+    : 0;
+
+  let bestIndex = aiIndex;
+  let bestScore = Number.NEGATIVE_INFINITY;
+
+  prompts.forEach((prompt, index) => {
+    const score = scorePromptForPin(prompt, hasCrowdScene, scene.visualNote);
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = index;
+      return;
+    }
+
+    if (score === bestScore && index === aiIndex) {
+      bestIndex = index;
+    }
+  });
+
+  return bestIndex;
+}
+
+function scorePromptForPin(
+  prompt: RawPromptCandidate & { normalizedType: NormalizedShotType },
+  hasCrowdScene: boolean,
+  visualNote?: string,
+): number {
+  const text = `${prompt.shotType ?? ''} ${prompt.prompt ?? ''} ${prompt.explanation ?? ''} ${visualNote ?? ''}`.toLowerCase();
+  let score = 0;
+
+  if (prompt.normalizedType === 'medium') score += 3;
+  if (prompt.normalizedType === 'closeup') score += 2;
+  if (prompt.normalizedType === 'wide') score -= 1;
+
+  if (/\bmid-action\b|\baction\b|\bdrawing\b|\bgrip\b|\bholding\b|\bturning\b|\brunning\b|\briding\b|\bworking\b|\bwatching\b|\baiming\b/.test(text)) {
+    score += 2;
+  }
+  if (/\bhand\b|\bhands\b|\bprofile\b|\bgaze\b|\bthumb\b|\bfingers\b|\btexture\b|\bdetail\b|\bmicro\b|\btactile\b|\barrow\b/.test(text)) {
+    score += 2;
+  }
+  if (/\benvironment\b|\bgeography\b|\blandscape\b|\bdust\b|\bhaze\b|\briver\b|\bbackground\b|\bforeground\b/.test(text)) {
+    score += 1;
+  }
+  if (/\bposed\b|\bportrait\b|\bbeauty\b|\bsymmetric\b|\bcentered\b|\bfacing camera\b|\bdirect gaze\b/.test(text)) {
+    score -= 4;
+  }
+  if (/\bdramatic documentary frame\b|\bcinematic scene\b|\bbeautiful\b/.test(text)) {
+    score -= 2;
+  }
+
+  if (hasCrowdScene) {
+    if (prompt.normalizedType === 'wide' && /\b3-5\b|\bfour\b|\bfive\b|\bsmall cluster\b|\bforeground only\b/.test(text)) {
+      score -= 3;
+    }
+    if (/\bdense\b|\bmass\b|\bcluster\b|\bsea of\b|\bocean of\b|\bformation\b|\bfragmented\b|\bblurred helmets\b|\bcrowd implied\b/.test(text)) {
+      score += 3;
+    }
+    if (prompt.normalizedType === 'wide' && /\bflag\b|\bepic\b|\bscale reveal\b/.test(text) && !/\bdense\b|\bmass\b|\bcluster\b/.test(text)) {
+      score -= 2;
+    }
+  }
+
+  return score;
 }
 
 
