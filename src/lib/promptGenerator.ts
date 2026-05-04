@@ -760,6 +760,11 @@ type RawPromptCandidate = {
 
 type NormalizedShotType = 'wide' | 'medium' | 'closeup';
 
+type PinEvaluation = {
+  score: number;
+  reasons: string[];
+};
+
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Â§ 8  MASTER SYSTEM PROMPT BUILDER
 //      Assembles the correct system prompt by project type.
@@ -1201,6 +1206,7 @@ Do NOT let medium and close-up become near-duplicates.`;
   parts.push(`âš ï¸ FINAL REMINDER: All subjects caught in natural action.`);
   parts.push(`No passport poses. No camera eye contact. No symmetric staging.`);
   parts.push(`When choosing selectedIndex, compare all three carefully; do not default to the wide shot just because it feels safer or more legible.`);
+  parts.push(`Also do not default to medium by habit: if the scene's core value is scale, geography, formation, or world pressure, wide may be the best prompt.`);
   parts.push(`Prefer the prompt with the strongest specificity, found-moment authenticity, believable action, and witness intelligence.`);
 
   return parts.join('\n');
@@ -1381,6 +1387,11 @@ export async function generatePromptsForScene(
     characters,
     sceneAnalysis,
   );
+  const hasCrowdScene = !!sceneAnalysis?.hasCrowd || characters.some((character) => character.isCrowd) || characters.length >= 5;
+  const selectedPinReason = buildPinReason(
+    normalizedCandidates[selectedIndex],
+    evaluatePromptForPin(normalizedCandidates[selectedIndex], hasCrowdScene, scene),
+  );
 
   const prompts: PromptCard[] = normalizedCandidates.map((p, idx) => {
     const labels: string[] = ['Prompt A', 'Prompt B', 'Prompt C'];
@@ -1401,6 +1412,7 @@ export async function generatePromptsForScene(
       hasSubjectReference: subjectRefs.length > 0,
       isPinned: idx === selectedIndex,
       isPinnedByAI: idx === selectedIndex,
+      pinReason: idx === selectedIndex ? selectedPinReason : undefined,
     };
   });
 
@@ -1661,14 +1673,14 @@ function selectBestPromptIndex(
   let bestScore = Number.NEGATIVE_INFINITY;
 
   prompts.forEach((prompt, index) => {
-    const score = scorePromptForPin(prompt, hasCrowdScene, scene.visualNote);
-    if (score > bestScore) {
-      bestScore = score;
+    const evaluation = evaluatePromptForPin(prompt, hasCrowdScene, scene);
+    if (evaluation.score > bestScore) {
+      bestScore = evaluation.score;
       bestIndex = index;
       return;
     }
 
-    if (score === bestScore && index === aiIndex) {
+    if (evaluation.score === bestScore && index === aiIndex) {
       bestIndex = index;
     }
   });
@@ -1676,17 +1688,45 @@ function selectBestPromptIndex(
   return bestIndex;
 }
 
-function scorePromptForPin(
+function evaluatePromptForPin(
   prompt: RawPromptCandidate & { normalizedType: NormalizedShotType },
   hasCrowdScene: boolean,
-  visualNote?: string,
-): number {
-  const text = `${prompt.shotType ?? ''} ${prompt.prompt ?? ''} ${prompt.explanation ?? ''} ${prompt.witnessIndicator ?? ''} ${visualNote ?? ''}`.toLowerCase();
+  scene: Pick<SceneCard, 'text' | 'visualNote'>,
+): PinEvaluation {
+  const sceneBlob = `${scene.visualNote ?? ''} ${scene.text ?? ''}`.toLowerCase();
+  const promptBlob = `${prompt.shotType ?? ''} ${prompt.prompt ?? ''} ${prompt.explanation ?? ''} ${prompt.witnessIndicator ?? ''}`.toLowerCase();
+  const text = `${promptBlob} ${sceneBlob}`.toLowerCase();
+  const sceneWantsScale = /\b(crowd|army|battle|formation|migration|procession|geography|landscape|horizon|skyline|fortress|city|desert|river|mountain|valley|encampment|camp|column|thousands|vast|panorama|strategic|kuşatma|ordu|kalabalık|savaş|manzara|ufuk|kale|şehir|çöl|nehir|dağ|vadi|göç|kervan|kamp)\b/.test(sceneBlob);
+  const sceneWantsDetail = /\b(close|detail|texture|macro|hand|face|eye|arrow|wound|fabric|sweat|tear|finger|object|artifact|letter|coin|seal|yakın|detay|doku|el|yüz|göz|ok|yara|kumaş|ter|gözyaşı|mektup|mühür|para)\b/.test(sceneBlob);
+  const sceneWantsAction = /\b(action|draw|drawing|aim|aiming|ride|riding|run|running|turn|turning|work|working|listen|listening|warn|warning|carry|carrying|lift|lifting|brace|bracing|strike|striking|mid-action|çek|ger|koş|dön|çalış|dinle|uyar|taşı|kaldır|vur|geriyor|çekiyor)\b/.test(sceneBlob);
   let score = 0;
+  const reasons: string[] = [];
 
-  if (prompt.normalizedType === 'medium') score += 3;
-  if (prompt.normalizedType === 'closeup') score += 2;
-  if (prompt.normalizedType === 'wide') score -= 1;
+  if (sceneWantsScale && prompt.normalizedType === 'wide') {
+    score += 4;
+    reasons.push('Sahnenin özü scale ve geography; wide kadraj bunu doğal taşıyor.');
+  }
+  if (sceneWantsDetail && prompt.normalizedType === 'closeup') {
+    score += 4;
+    reasons.push('Sahnenin yükü tactile detail tarafında; close-up bunu en net veriyor.');
+  }
+  if (sceneWantsAction && prompt.normalizedType === 'medium') {
+    score += 3;
+    reasons.push('Sahnenin verbünü insan aksiyonu içinde en okunur bu prompt taşıyor.');
+  }
+
+  if (prompt.normalizedType === 'wide' && /\b(scale|geography|landscape|horizon|formation|column|fortress|city|river|mountain|valley|panorama|bird'?s-eye|aerial|encampment|army|mass|ocean of|sea of|çöl|nehir|dağ|vadi|ufuk|kalabalık|ordu|manzara)\b/.test(promptBlob)) {
+    score += 3;
+    reasons.push('World pressure, formation ve mekân ölçeği promptun içinde açıkça okunuyor.');
+  }
+  if (prompt.normalizedType === 'medium' && /\b(mid-action|action|drawing|grip|holding|turning|running|riding|working|watching|aiming|lifting|bracing|listening|warning|hands doing|weight shift)\b/.test(promptBlob)) {
+    score += 3;
+    reasons.push('Mid-action insan davranışı güçlü ve gözlenmiş hissediliyor.');
+  }
+  if (prompt.normalizedType === 'closeup' && /\b(hand|hands|profile|gaze|thumb|fingers|texture|detail|micro|tactile|arrow|skin|fabric|sweat|tear|knuckle|wrist)\b/.test(promptBlob)) {
+    score += 3;
+    reasons.push('Mikro detay ve tactile payload güçlü kurulmuş.');
+  }
 
   if (/\bmid-action\b|\baction\b|\bdrawing\b|\bgrip\b|\bholding\b|\bturning\b|\brunning\b|\briding\b|\bworking\b|\bwatching\b|\baiming\b/.test(text)) {
     score += 2;
@@ -1709,20 +1749,50 @@ function scorePromptForPin(
   if (/\bdramatic documentary frame\b|\bcinematic scene\b|\bbeautiful\b/.test(text)) {
     score -= 2;
   }
+  if (sceneWantsScale && prompt.normalizedType !== 'wide' && /\b(scale reveal|geography|landscape|formation|strategic)\b/.test(promptBlob)) {
+    score -= 1;
+  }
+  if (sceneWantsDetail && prompt.normalizedType !== 'closeup' && /\b(detail|texture|macro|micro|tactile)\b/.test(promptBlob)) {
+    score -= 1;
+  }
+  if (sceneWantsAction && prompt.normalizedType !== 'medium' && /\b(mid-action|working|turning|listening|warning)\b/.test(promptBlob)) {
+    score -= 1;
+  }
 
   if (hasCrowdScene) {
-    if (prompt.normalizedType === 'wide' && /\b3-5\b|\bfour\b|\bfive\b|\bsmall cluster\b|\bforeground only\b/.test(text)) {
+    if (prompt.normalizedType === 'wide' && /\b3-5\b|\bfour\b|\bfive\b|\bsmall cluster\b|\bforeground only\b/.test(promptBlob)) {
       score -= 3;
     }
-    if (/\bdense\b|\bmass\b|\bcluster\b|\bsea of\b|\bocean of\b|\bformation\b|\bfragmented\b|\bblurred helmets\b|\bcrowd implied\b/.test(text)) {
+    if (/\bdense\b|\bmass\b|\bcluster\b|\bsea of\b|\bocean of\b|\bformation\b|\bfragmented\b|\bblurred helmets\b|\bcrowd implied\b/.test(promptBlob)) {
       score += 3;
+      reasons.push('Kalabalık yoğunluğu sparseleşmeden korunuyor.');
     }
-    if (prompt.normalizedType === 'wide' && /\bflag\b|\bepic\b|\bscale reveal\b/.test(text) && !/\bdense\b|\bmass\b|\bcluster\b/.test(text)) {
+    if (prompt.normalizedType === 'wide' && /\bflag\b|\bepic\b|\bscale reveal\b/.test(promptBlob) && !/\bdense\b|\bmass\b|\bcluster\b/.test(promptBlob)) {
       score -= 2;
     }
   }
 
-  return score;
+  return { score, reasons };
+}
+
+function buildPinReason(
+  prompt: (RawPromptCandidate & { normalizedType: NormalizedShotType }) | undefined,
+  evaluation: PinEvaluation | undefined,
+): string | undefined {
+  if (!prompt || !evaluation) return undefined;
+
+  const uniqueReasons = Array.from(new Set(evaluation.reasons)).slice(0, 2);
+  if (uniqueReasons.length > 0) {
+    return uniqueReasons.join(' ');
+  }
+
+  if (prompt.normalizedType === 'wide') {
+    return 'Bu seçim wide kadrajın dünya ölçeğini ve mekân baskısını daha iyi taşıdığı için yapıldı.';
+  }
+  if (prompt.normalizedType === 'closeup') {
+    return 'Bu seçim close-up detayın duygusal ve fiziksel payloadı daha iyi taşıdığı için yapıldı.';
+  }
+  return 'Bu seçim medium kadrajın insan aksiyonunu ve sahne verbünü daha okunur taşıdığı için yapıldı.';
 }
 
 

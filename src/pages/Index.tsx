@@ -1204,6 +1204,8 @@ const Index = () => {
         versions: [...promptToRevise.versions, revisedText],
         generationType: 'revision',
         revisionPrompt: instruction,
+        isPinnedByAI: false,
+        pinReason: undefined,
         isStale: false,
         staleReason: undefined,
       };

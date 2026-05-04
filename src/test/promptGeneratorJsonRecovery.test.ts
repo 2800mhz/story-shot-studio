@@ -187,6 +187,51 @@ describe('promptGenerator JSON recovery', () => {
 
     expect(result.prompts[0].isPinned).toBe(false);
     expect(result.prompts.some((prompt) => prompt.type !== 'wide' && prompt.isPinned)).toBe(true);
+    const pinned = result.prompts.find((prompt) => prompt.isPinned);
+    expect(pinned?.pinReason).toBeTruthy();
+  });
+
+  it('can prefer wide when the scene is fundamentally about scale and geography', async () => {
+    vi.mocked(aiProvider.generateContent).mockResolvedValue(`{
+      "prompts": [
+        {
+          "shotType": "Wide Shot",
+          "summary": "geniş",
+          "explanation": "geniş plan",
+          "prompt": "shot intent: strategic scale reveal, wide shot of a vast migration column crossing the mountain pass, dense formation stretching to the horizon, river and valley geography fully readable"
+        },
+        {
+          "shotType": "Medium Shot",
+          "summary": "orta",
+          "explanation": "orta plan",
+          "prompt": "shot intent: observed mid-action, medium shot of one rider turning in the saddle while others blur behind him"
+        },
+        {
+          "shotType": "Close-up",
+          "summary": "detay",
+          "explanation": "yakın plan",
+          "prompt": "shot intent: tactile detail, close-up of a hand gripping worn leather reins"
+        }
+      ],
+      "selectedIndex": 1
+    }`);
+
+    const result = await generatePromptsForScene(
+      {
+        text: 'Vast migration column crossing a mountain pass at dawn',
+        visualNote: 'Scale, geography, valley pressure, formation moving toward the horizon',
+        characterIds: [],
+        locationIds: [],
+        timeContextIds: [],
+      } as any,
+      Array.from({ length: 8 }, (_, index) => ({ id: String(index), name: `C${index}` })) as any,
+      [],
+      'master prompt'
+    );
+
+    expect(result.prompts[0].type).toBe('wide');
+    expect(result.prompts[0].isPinned).toBe(true);
+    expect(result.prompts[0].pinReason).toContain('scale');
   });
 
   it('injects fresh entity context into prompt revision requests', async () => {

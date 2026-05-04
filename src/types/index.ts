@@ -162,6 +162,7 @@ export interface PromptCard {
   revisionPrompt?: string;
   isPinned?: boolean; // Raptiye: AI or user marks the best prompt per card
   isPinnedByAI?: boolean; // true if AI auto-selected this prompt
+  pinReason?: string;
   hasSubjectReference?: boolean;
   isStale?: boolean;
   staleReason?: string;

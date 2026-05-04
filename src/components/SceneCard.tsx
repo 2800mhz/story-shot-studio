@@ -179,6 +179,11 @@ function InlinePromptCard({
           "{prompt.explanation}"
         </div>
       )}
+      {prompt.isPinned && prompt.isPinnedByAI && prompt.pinReason && (
+        <div className="mb-1 rounded-md border border-blue-500/20 bg-blue-500/5 px-2 py-1.5 text-[10px] leading-relaxed text-blue-200/90">
+          <span className="font-semibold text-blue-300">AI neden bunu seçti:</span> {prompt.pinReason}
+        </div>
+      )}
       <div
         className={`text-[11px] font-mono leading-relaxed text-foreground/80 bg-muted/20 rounded p-2 ${
           expanded ? 'whitespace-pre-wrap' : 'line-clamp-2'
