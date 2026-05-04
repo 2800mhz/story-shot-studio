@@ -21,6 +21,8 @@ describe('promptGenerator JSON recovery', () => {
   "prompts": [
     {
       "shotType": "Wide",
+      "witnessIndicator": "heel raised mid-transfer",
+      "lightSource": "low morning sun from frame left",
       "summary": "Sahne özeti",
       "explanation": "Açıklama",
       "prompt": "satır 1 \\"alıntı\\"\\nsatır 2"
@@ -63,6 +65,8 @@ describe('promptGenerator JSON recovery', () => {
     expect(result.analysis.hasCrowd).toBe(true);
     expect(result.prompts[0].isPinned).toBe(true);
     expect(result.prompts[0].isPinnedByAI).toBe(true);
+    expect(result.prompts[0].witnessIndicator).toBe('heel raised mid-transfer');
+    expect(result.prompts[0].lightSource).toBe('low morning sun from frame left');
   });
 
   it('retries after an empty response and succeeds with valid JSON', async () => {
@@ -145,6 +149,7 @@ describe('promptGenerator JSON recovery', () => {
 
     expect(result.prompts.map((prompt) => prompt.type)).toEqual(['wide', 'medium', 'closeup']);
     expect(result.prompts.map((prompt) => prompt.shotType)).toEqual(['Wide Shot', 'Medium Shot', 'Close-up']);
+    expect(result.prompts[2].isPinned).toBe(true);
   });
 
   it('prefers stronger medium or close documentary prompt over a generic wide auto-pin', async () => {
@@ -154,7 +159,7 @@ describe('promptGenerator JSON recovery', () => {
           "shotType": "Wide Shot",
           "summary": "geniş",
           "explanation": "geniş plan",
-          "prompt": "shot intent: strategic scale reveal, epic wide shot with flag, 4-5 riders visible in foreground, dust behind them"
+          "prompt": "shot intent: weak wide, 3-5 riders posed in a centered balanced composition facing camera with clean empty background and a flag"
         },
         {
           "shotType": "Medium Shot",
@@ -232,6 +237,32 @@ describe('promptGenerator JSON recovery', () => {
     expect(result.prompts[0].type).toBe('wide');
     expect(result.prompts[0].isPinned).toBe(true);
     expect(result.prompts[0].pinReason).toContain('scale');
+  });
+
+  it('appends aspect suffix when a prompt has --no but no --ar flag', async () => {
+    vi.mocked(aiProvider.generateContent).mockResolvedValue(`{
+      "prompts": [
+        {
+          "shotType": "Wide Shot",
+          "summary": "genis",
+          "explanation": "genis plan",
+          "prompt": "wide documentary prompt with foreground reeds and deep background --no old flags"
+        }
+      ],
+      "selectedIndex": 0
+    }`);
+
+    const result = await generatePromptsForScene(
+      { text: 'Ornek sahne', visualNote: 'Genis plan', characterIds: [], locationIds: [], timeContextIds: [] } as any,
+      [],
+      [],
+      'master prompt',
+      undefined,
+      undefined,
+      '4:3'
+    );
+
+    expect(result.prompts[0].promptText).toContain('--no old flags --ar 4:3 --v 6');
   });
 
   it('injects fresh entity context into prompt revision requests', async () => {

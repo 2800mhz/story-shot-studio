@@ -741,12 +741,13 @@ RESPONSE FORMAT â€” JSON only, no markdown, no preamble
       "summary": "Verbatim copy of scene visualNote (Turkish)",
       "explanation": "Bu gÃ¶rsel... (1 sentence Turkish â€” what it shows and why)",
       "witnessIndicator": "specific caught signal present in the frame, e.g. heel raised mid-transfer or hand half-raised",
-      "prompt": "100â€“140 word English prompt with technical suffix"
+      "lightSource": "named physical source with direction, e.g. noon sun through cracked eastern wall, hard rake at 20 degrees",
+      "prompt": "110â€“140 word English prompt with technical suffix"
     },
     { ... },
     { ... }
   ],
-  "selectedIndex": "0 | 1 | 2 â€” choose the single best prompt for animation suitability, narrative impact, and production accuracy"
+  "selectedIndex": 0
 }
 `;
 
@@ -755,10 +756,15 @@ type RawPromptCandidate = {
   summary?: string;
   explanation?: string;
   witnessIndicator?: string;
+  lightSource?: string;
   prompt?: string;
 };
 
 type NormalizedShotType = 'wide' | 'medium' | 'closeup';
+type NormalizedCandidate = RawPromptCandidate & {
+  normalizedType: NormalizedShotType;
+  originalIndex: number;
+};
 
 type PinEvaluation = {
   score: number;
@@ -818,7 +824,6 @@ function buildSystemPrompt(projectType: ProjectType, renderMode: RenderMode): st
     `from a world-class production in the specified mode.`,
     ``,
     UNIVERSAL_CINEMATIC_GRAMMAR,
-    ERA_DETECTION_MATRIX,
     CHARACTER_ANCHOR_PROTOCOL,
     VISUAL_STYLE_MODES,
     buildRenderModeContext(renderMode),
@@ -1034,6 +1039,12 @@ function buildUserMessage(
   parts.push(`SCENE TEXT:`);
   parts.push(scene.text);
   parts.push(``);
+  parts.push(`VISUAL NOTE TRANSLATION (CRITICAL):`);
+  parts.push(`The visualNote is written in Turkish. Do NOT translate it literally.`);
+  parts.push(`Extract the physical image it implies, then render it cinematically with texture, body mechanics, camera behaviour, and motivated light.`);
+  parts.push(`Example: "Omuz ustu: yasli ellerin mektubu tutmasi, sabah isigi" becomes "Over-shoulder medium close: weathered, deeply veined hands grip a folded letter, morning window light raking across knuckle texture."`);
+  parts.push(`The visual note is your brief, not your script. Go beyond it without inventing new entities.`);
+  parts.push(``);
   parts.push(`VISUAL NOTE (Turkish â€” preserve this spirit in all three shots):`);
   parts.push(`"${scene.visualNote}"`);
   parts.push(``);
@@ -1182,16 +1193,36 @@ function buildUserMessage(
 
   // â”€â”€ Final Instruction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const shotInstruction = sceneAnalysis?.narrativeType === 'timelapse'
-    ? `Generate temporal phase prompts as specified above. Each phase: 100â€“140 words English.`
-    : `Generate 3 prompts: Wide Shot, Medium Shot, Close-up.
-Each prompt 100â€“140 words English.
-The three shots MUST differ in at least 3 of: subject position, camera height,
-light angle, foreground element, screen direction, figure/ground strategy.
-Each shot must include a specific witnessIndicator describing how the moment feels caught rather than staged.
-Wide Shot = geography, scale, power dynamic, crowd density if relevant.
-Medium Shot = the verb of the scene happening right now in a human body.
-Close-up = the tactile or emotional payload that cannot be spoken.
-Do NOT let medium and close-up become near-duplicates.`;
+    ? `Generate temporal phase prompts as specified above. Each phase: 110-140 words English.`
+    : `SHOT PRODUCTION RULES (NON-NEGOTIABLE):
+
+Generate 3 prompts: Wide Shot, Medium Shot, Close-up.
+Each prompt 110-140 words English.
+Each shot must include witnessIndicator and lightSource fields.
+
+WIDE SHOT - Frame as if you just arrived and the camera sees the world before seeing the subject.
+Mandatory elements: (1) foreground framing element, (2) subject off left/right third, (3) deep background with atmospheric depth.
+Motion design: parallax pan or slow pull-back revealing scale.
+FORBIDDEN: Subject centered. Subject facing camera. Clean empty background.
+
+MEDIUM SHOT - Freeze the body at the verb of the scene.
+Mandatory: Capture one specific physical action mid-execution. Weight on one foot. Body axis 15-30 degrees off camera.
+Include: at least one body part partially out of frame.
+Motion design: slow witness push or drift staying within observational behaviour.
+FORBIDDEN: Standing neutrally. Symmetric posture. Both feet flat.
+
+CLOSE-UP - One irreducible physical detail that carries the emotional weight.
+Mandatory: Name the specific object or body part. State what it reveals about the scene's subtext.
+Examples: "calloused thumb pressing against the edge of the letter", "knuckles whitening on the reins".
+Motion design: Ken Burns zoom into the precise detail named.
+FORBIDDEN: Generic "face looking emotional". Vague "hands in frame".
+
+DIFFERENTIATION CHECK - Before outputting, verify the three shots differ in:
+- Subject position (which third)
+- Camera height (low/eye/high)
+- Light angle (from the 7 positions)
+- Foreground element (what it is)
+If fewer than 3 differences: redesign the sequence.`;
 
   parts.push(shotInstruction);
   parts.push(``);
@@ -1201,7 +1232,20 @@ Do NOT let medium and close-up become near-duplicates.`;
   parts.push(`Rules: keep STYLE and CONTENT separated; use concrete physical/material language; name the actual light source; avoid empty adjectives (beautiful, cinematic, dramatic).`);
   parts.push(`If something is unknown, omit it â€” do not invent new entities or anachronistic props.`);
   parts.push(``);
-  parts.push(`Append to EVERY prompt: ${arSuffix}`);
+  parts.push(`PROMPT LENGTH ENFORCEMENT:`);
+  parts.push(`Each prompt MUST be 110-140 words. Count before submitting.`);
+  parts.push(`Under 90 words = REJECTED (not enough specificity). Over 160 words = REJECTED (too dense for AI generation).`);
+  parts.push(``);
+  parts.push(`QUALITY CHECK per prompt:`);
+  parts.push(`- Named light source with direction and color temperature?`);
+  parts.push(`- Subject body position described with measurable specifics?`);
+  parts.push(`- Foreground element named, not merely implied?`);
+  parts.push(`- Animation motion type specified: parallax, Ken Burns, drift, or push?`);
+  parts.push(`- At least one caught indicator: weight shift, interrupted gesture, or cropped limb?`);
+  parts.push(`If any checkbox is empty: rewrite that prompt.`);
+  parts.push(``);
+  parts.push(`Append to EVERY prompt exactly once, at the very end: ${arSuffix}`);
+  parts.push(`IMPORTANT: Do NOT add --ar or --no flags anywhere else in the prompt text. Only at the very end.`);
   parts.push(``);
   parts.push(`âš ï¸ FINAL REMINDER: All subjects caught in natural action.`);
   parts.push(`No passport poses. No camera eye contact. No symmetric staging.`);
@@ -1380,9 +1424,13 @@ export async function generatePromptsForScene(
 
   const subjectRefs = references?.filter(r => r.referenceType === 'subject') ?? [];
   const normalizedCandidates = normalizePromptCandidates(parsed.prompts);
+  const selectedIndexValue = Number(parsed.selectedIndex);
+  const aiOriginalIndex = Number.isInteger(selectedIndexValue) ? selectedIndexValue : 0;
+  const aiSelectedNewIndex = normalizedCandidates.findIndex((candidate) => candidate.originalIndex === aiOriginalIndex);
+  const effectiveAiIndex = aiSelectedNewIndex >= 0 ? aiSelectedNewIndex : 0;
   const selectedIndex = selectBestPromptIndex(
     normalizedCandidates,
-    parsed.selectedIndex,
+    effectiveAiIndex,
     scene,
     characters,
     sceneAnalysis,
@@ -1395,8 +1443,9 @@ export async function generatePromptsForScene(
 
   const prompts: PromptCard[] = normalizedCandidates.map((p, idx) => {
     const labels: string[] = ['Prompt A', 'Prompt B', 'Prompt C'];
-    const raw = p.prompt ?? '';
-    const promptText = /--ar\s+[\d:]+/.test(raw) ? raw : `${raw} ${arSuffix}`.trim();
+    const raw = (p.prompt ?? '').trim();
+    const hasArFlag = /--ar\s+\d+:\d+/i.test(raw);
+    const promptText = hasArFlag ? raw : `${raw} ${arSuffix}`.trim();
 
     return {
       id: crypto.randomUUID(),
@@ -1405,6 +1454,8 @@ export async function generatePromptsForScene(
       shotType: formatShotTypeLabel(p.normalizedType, p.shotType),
       summary: p.summary ?? scene.visualNote,
       explanation: p.explanation ?? '',
+      witnessIndicator: p.witnessIndicator ?? '',
+      lightSource: p.lightSource ?? '',
       promptText,
       versions: [promptText],
       aspectRatio,
@@ -1631,26 +1682,27 @@ function buildCharacterNegativeAnchors(characters: Character[]): string[] {
   return negatives;
 }
 
-function normalizePromptCandidates(candidates: RawPromptCandidate[]): Array<RawPromptCandidate & { normalizedType: NormalizedShotType }> {
+function normalizePromptCandidates(candidates: RawPromptCandidate[]): NormalizedCandidate[] {
   const targetOrder: NormalizedShotType[] = ['wide', 'medium', 'closeup'];
-  const unused = candidates.map((candidate) => ({
+  const unused = candidates.map((candidate, originalIndex) => ({
     ...candidate,
     inferredType: inferShotType(candidate.shotType, candidate.prompt),
+    originalIndex,
   }));
 
-  const ordered: Array<RawPromptCandidate & { normalizedType: NormalizedShotType }> = [];
+  const ordered: NormalizedCandidate[] = [];
 
   for (const targetType of targetOrder) {
     const exactIndex = unused.findIndex((candidate) => candidate.inferredType === targetType);
     if (exactIndex >= 0) {
       const [match] = unused.splice(exactIndex, 1);
-      ordered.push({ ...match, normalizedType: targetType });
+      ordered.push({ ...match, normalizedType: targetType, originalIndex: match.originalIndex });
       continue;
     }
 
     const fallback = unused.shift();
     if (fallback) {
-      ordered.push({ ...fallback, normalizedType: targetType });
+      ordered.push({ ...fallback, normalizedType: targetType, originalIndex: fallback.originalIndex });
     }
   }
 
@@ -1658,12 +1710,13 @@ function normalizePromptCandidates(candidates: RawPromptCandidate[]): Array<RawP
 }
 
 function selectBestPromptIndex(
-  prompts: Array<RawPromptCandidate & { normalizedType: NormalizedShotType }>,
-  aiSelectedIndex: number | undefined,
+  prompts: NormalizedCandidate[],
+  aiSelectedIndex: number,
   scene: SceneCard,
   characters: Character[],
   sceneAnalysis?: SceneAnalysis,
 ): number {
+  const AI_PREFERENCE_BONUS = 3;
   const hasCrowdScene = !!sceneAnalysis?.hasCrowd || characters.some((character) => character.isCrowd) || characters.length >= 5;
   const aiIndex = Number.isInteger(aiSelectedIndex) && Number(aiSelectedIndex) >= 0 && Number(aiSelectedIndex) < prompts.length
     ? Number(aiSelectedIndex)
@@ -1674,13 +1727,15 @@ function selectBestPromptIndex(
 
   prompts.forEach((prompt, index) => {
     const evaluation = evaluatePromptForPin(prompt, hasCrowdScene, scene);
-    if (evaluation.score > bestScore) {
-      bestScore = evaluation.score;
+    const score = evaluation.score + (index === aiIndex ? AI_PREFERENCE_BONUS : 0);
+
+    if (score > bestScore) {
+      bestScore = score;
       bestIndex = index;
       return;
     }
 
-    if (evaluation.score === bestScore && index === aiIndex) {
+    if (score === bestScore && index === aiIndex) {
       bestIndex = index;
     }
   });
@@ -1689,16 +1744,15 @@ function selectBestPromptIndex(
 }
 
 function evaluatePromptForPin(
-  prompt: RawPromptCandidate & { normalizedType: NormalizedShotType },
+  prompt: NormalizedCandidate,
   hasCrowdScene: boolean,
   scene: Pick<SceneCard, 'text' | 'visualNote'>,
 ): PinEvaluation {
   const sceneBlob = `${scene.visualNote ?? ''} ${scene.text ?? ''}`.toLowerCase();
-  const promptBlob = `${prompt.shotType ?? ''} ${prompt.prompt ?? ''} ${prompt.explanation ?? ''} ${prompt.witnessIndicator ?? ''}`.toLowerCase();
-  const text = `${promptBlob} ${sceneBlob}`.toLowerCase();
+  const promptBlob = `${prompt.shotType ?? ''} ${prompt.prompt ?? ''} ${prompt.explanation ?? ''} ${prompt.witnessIndicator ?? ''} ${prompt.lightSource ?? ''}`.toLowerCase();
   const sceneWantsScale = /\b(crowd|army|battle|formation|migration|procession|geography|landscape|horizon|skyline|fortress|city|desert|river|mountain|valley|encampment|camp|column|thousands|vast|panorama|strategic|kuşatma|ordu|kalabalık|savaş|manzara|ufuk|kale|şehir|çöl|nehir|dağ|vadi|göç|kervan|kamp)\b/.test(sceneBlob);
   const sceneWantsDetail = /\b(close|detail|texture|macro|hand|face|eye|arrow|wound|fabric|sweat|tear|finger|object|artifact|letter|coin|seal|yakın|detay|doku|el|yüz|göz|ok|yara|kumaş|ter|gözyaşı|mektup|mühür|para)\b/.test(sceneBlob);
-  const sceneWantsAction = /\b(action|draw|drawing|aim|aiming|ride|riding|run|running|turn|turning|work|working|listen|listening|warn|warning|carry|carrying|lift|lifting|brace|bracing|strike|striking|mid-action|çek|ger|koş|dön|çalış|dinle|uyar|taşı|kaldır|vur|geriyor|çekiyor)\b/.test(sceneBlob);
+  const sceneWantsAction = /\b(draw|drawing|aim|aiming|ride|riding|run|running|turn|turning|listen|listening|warn|warning|carry|carrying|lift|lifting|brace|bracing|strike|striking|kneel|kneeling|pull|pulling|push|pushing|çek|ger|koş|dön|çalış|dinle|uyar|taşı|kaldır|vur|geriyor|çekiyor)\b/.test(sceneBlob);
   let score = 0;
   const reasons: string[] = [];
 
@@ -1719,6 +1773,10 @@ function evaluatePromptForPin(
     score += 3;
     reasons.push('World pressure, formation ve mekân ölçeği promptun içinde açıkça okunuyor.');
   }
+  if (prompt.normalizedType === 'wide' && /\bforeground\b|\bdeep background\b|\batmospheric depth\b|\bleft third\b|\bright third\b|\bparallax\b|\bpull-back\b|\bscale revealing\b|\bworld before\b/.test(promptBlob)) {
+    score += 2;
+    reasons.push('Wide prompt kadraj mantığını foreground, thirds ve depth ile gerçekten kuruyor.');
+  }
   if (prompt.normalizedType === 'medium' && /\b(mid-action|action|drawing|grip|holding|turning|running|riding|working|watching|aiming|lifting|bracing|listening|warning|hands doing|weight shift)\b/.test(promptBlob)) {
     score += 3;
     reasons.push('Mid-action insan davranışı güçlü ve gözlenmiş hissediliyor.');
@@ -1728,25 +1786,25 @@ function evaluatePromptForPin(
     reasons.push('Mikro detay ve tactile payload güçlü kurulmuş.');
   }
 
-  if (/\bmid-action\b|\baction\b|\bdrawing\b|\bgrip\b|\bholding\b|\bturning\b|\brunning\b|\briding\b|\bworking\b|\bwatching\b|\baiming\b/.test(text)) {
+  if (/\bmid-action\b|\bdrawing\b|\bgrip\b|\bholding\b|\bturning\b|\brunning\b|\briding\b|\bworking\b|\bwatching\b|\baiming\b/.test(promptBlob)) {
     score += 2;
   }
-  if (/\bhand\b|\bhands\b|\bprofile\b|\bgaze\b|\bthumb\b|\bfingers\b|\btexture\b|\bdetail\b|\bmicro\b|\btactile\b|\barrow\b/.test(text)) {
+  if (/\bhand\b|\bhands\b|\bprofile\b|\bgaze\b|\bthumb\b|\bfingers\b|\btexture\b|\bdetail\b|\bmicro\b|\btactile\b|\barrow\b/.test(promptBlob)) {
     score += 2;
   }
-  if (/\bmid-stride\b|\bheel\b|\bweight\b|\bwrist\b|\bknuckle\b|\bknuckles\b|\btremor\b|\bpartly\b|\bpartially\b|\bhalf-raised\b|\bhalf-open\b|\binterrupted\b|\bcropped\b|\bmid-turn\b|\bmid-word\b|\boff-axis\b|\boff camera axis\b/.test(text)) {
+  if (/\bmid-stride\b|\bheel\b|\bweight\b|\bwrist\b|\bknuckle\b|\bknuckles\b|\btremor\b|\bpartly\b|\bpartially\b|\bhalf-raised\b|\bhalf-open\b|\binterrupted\b|\bcropped\b|\bmid-turn\b|\bmid-word\b|\boff-axis\b|\boff camera axis\b/.test(promptBlob)) {
     score += 3;
   }
-  if (/\benvironment\b|\bgeography\b|\blandscape\b|\bdust\b|\bhaze\b|\briver\b|\bbackground\b|\bforeground\b/.test(text)) {
+  if (/\benvironment\b|\bgeography\b|\blandscape\b|\bdust\b|\bhaze\b|\briver\b|\bbackground\b|\bforeground\b/.test(promptBlob)) {
     score += 1;
   }
-  if (/\bposed\b|\bportrait\b|\bbeauty\b|\bsymmetric\b|\bcentered\b|\bfacing camera\b|\bdirect gaze\b/.test(text)) {
+  if (/\bposed\b|\bportrait\b|\bbeauty\b|\bsymmetric\b|\bcentered\b|\bfacing camera\b|\bdirect gaze\b/.test(promptBlob)) {
     score -= 4;
   }
-  if (/\bstaging\b|\bposed\b|\barranged\b|\bsymmetric\b|\bbalanced composition\b|\btheatrical\b|\bperformed for audience\b/.test(text)) {
+  if (/\bstaging\b|\bposed\b|\barranged\b|\bsymmetric\b|\bbalanced composition\b|\btheatrical\b|\bperformed for audience\b/.test(promptBlob)) {
     score -= 6;
   }
-  if (/\bdramatic documentary frame\b|\bcinematic scene\b|\bbeautiful\b/.test(text)) {
+  if (/\bdramatic documentary frame\b|\bcinematic scene\b|\bbeautiful\b/.test(promptBlob)) {
     score -= 2;
   }
   if (sceneWantsScale && prompt.normalizedType !== 'wide' && /\b(scale reveal|geography|landscape|formation|strategic)\b/.test(promptBlob)) {
@@ -1776,7 +1834,7 @@ function evaluatePromptForPin(
 }
 
 function buildPinReason(
-  prompt: (RawPromptCandidate & { normalizedType: NormalizedShotType }) | undefined,
+  prompt: NormalizedCandidate | undefined,
   evaluation: PinEvaluation | undefined,
 ): string | undefined {
   if (!prompt || !evaluation) return undefined;
