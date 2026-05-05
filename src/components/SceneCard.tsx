@@ -86,9 +86,9 @@ function SceneEntityPicker({
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 p-0" onClick={(event) => event.stopPropagation()}>
-        <Command>
+        <Command className="[&_[cmdk-item][data-selected=true]]:bg-orange-500/10 [&_[cmdk-item][data-selected=true]]:text-orange-100">
           <CommandInput placeholder={`${label} ara...`} />
-          <CommandList>
+          <CommandList className="scrollbar-thin">
             {selectableOptions.length > 0 && <CommandEmpty>Sonuc bulunamadi.</CommandEmpty>}
             {options.length === 0 ? (
               <div className="px-3 py-4 text-xs text-muted-foreground">{emptyText}</div>
@@ -104,9 +104,9 @@ function SceneEntityPicker({
                       onSelect(option.id);
                       setOpen(false);
                     }}
-                    className="items-start gap-2"
+                    className="items-start gap-2 transition-colors data-[selected=true]:bg-orange-500/10 data-[selected=true]:text-orange-100"
                   >
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary/70" />
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-orange-400/80" />
                     <span className="min-w-0">
                       <span className="block truncate text-xs font-medium">{option.name}</span>
                       {option.meta && (
