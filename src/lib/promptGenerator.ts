@@ -771,6 +771,13 @@ type PinEvaluation = {
   reasons: string[];
 };
 
+type ScenePinIntent = {
+  preferredType: NormalizedShotType | null;
+  scaleScore: number;
+  actionScore: number;
+  detailScore: number;
+};
+
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Â§ 8  MASTER SYSTEM PROMPT BUILDER
 //      Assembles the correct system prompt by project type.
@@ -1251,6 +1258,7 @@ If fewer than 3 differences: redesign the sequence.`;
   parts.push(`No passport poses. No camera eye contact. No symmetric staging.`);
   parts.push(`When choosing selectedIndex, compare all three carefully; do not default to the wide shot just because it feels safer or more legible.`);
   parts.push(`Also do not default to medium by habit: if the scene's core value is scale, geography, formation, or world pressure, wide may be the best prompt.`);
+  parts.push(`selectedIndex discipline: 0 only when world scale or geography is the core value, 1 only when body-action is clearly the core value, 2 only when tactile detail or subtext is the core value.`);
   parts.push(`Prefer the prompt with the strongest specificity, found-moment authenticity, believable action, and witness intelligence.`);
 
   return parts.join('\n');
@@ -1709,6 +1717,50 @@ function normalizePromptCandidates(candidates: RawPromptCandidate[]): Normalized
   return ordered.slice(0, 3);
 }
 
+function countKeywordHits(text: string, pattern: RegExp): number {
+  return text.match(pattern)?.length ?? 0;
+}
+
+function inferScenePinIntent(
+  scene: Pick<SceneCard, 'text' | 'visualNote'>,
+  hasCrowdScene: boolean,
+  sceneAnalysis?: SceneAnalysis,
+): ScenePinIntent {
+  const sceneBlob = `${scene.visualNote ?? ''} ${scene.text ?? ''}`.toLowerCase();
+
+  const scaleScore =
+    countKeywordHits(sceneBlob, /\b(crowd|army|battle|formation|migration|procession|geography|landscape|horizon|skyline|fortress|city|desert|river|mountain|valley|encampment|camp|column|thousands|vast|panorama|strategic|kuşatma|ordu|kalabalık|savaş|manzara|ufuk|kale|şehir|çöl|nehir|dağ|vadi|göç|kervan|kamp)\b/g) +
+    countKeywordHits(sceneBlob, /\b(wide|geniş|establishing|panorama|bird'?s-eye|aerial|overview|formation|horizon)\b/g) * 2 +
+    (hasCrowdScene ? 3 : 0);
+
+  const detailScore =
+    countKeywordHits(sceneBlob, /\b(close|close-up|closeup|detail|texture|macro|hand|face|eye|arrow|wound|fabric|sweat|tear|finger|object|artifact|letter|coin|seal|yakın|detay|doku|el|yüz|göz|ok|yara|kumaş|ter|gözyaşı|mektup|mühür|para)\b/g) +
+    countKeywordHits(sceneBlob, /\b(micro|tactile|thumb|knuckle|wrist|omuz üstü|yakın plan)\b/g) * 2;
+
+  const actionScore =
+    countKeywordHits(sceneBlob, /\b(draw|drawing|aim|aiming|ride|riding|run|running|turn|turning|listen|listening|warn|warning|carry|carrying|lift|lifting|brace|bracing|strike|striking|kneel|kneeling|pull|pulling|push|pushing|çek|ger|koş|dön|çalış|dinle|uyar|taşı|kaldır|vur|geriyor|çekiyor)\b/g) +
+    countKeywordHits(sceneBlob, /\b(medium|orta plan|mid-action|gesture|motion|movement|verb)\b/g) +
+    (sceneAnalysis?.narrativeType === 'sequence' ? 2 : 0);
+
+  let preferredType: NormalizedShotType | null = null;
+
+  if (hasCrowdScene && scaleScore >= actionScore - 1 && scaleScore >= detailScore) {
+    preferredType = 'wide';
+  } else if (scaleScore >= actionScore + 2 && scaleScore >= detailScore + 2) {
+    preferredType = 'wide';
+  } else if (detailScore >= scaleScore + 2 && detailScore >= actionScore + 1) {
+    preferredType = 'closeup';
+  } else if (!hasCrowdScene && actionScore >= scaleScore + 2 && actionScore >= detailScore + 2) {
+    preferredType = 'medium';
+  } else if (scaleScore >= detailScore + 1 && scaleScore >= actionScore + 1) {
+    preferredType = 'wide';
+  } else if (detailScore >= scaleScore + 1 && detailScore >= actionScore) {
+    preferredType = 'closeup';
+  }
+
+  return { preferredType, scaleScore, actionScore, detailScore };
+}
+
 function selectBestPromptIndex(
   prompts: NormalizedCandidate[],
   aiSelectedIndex: number,
@@ -1717,30 +1769,45 @@ function selectBestPromptIndex(
   sceneAnalysis?: SceneAnalysis,
 ): number {
   const AI_PREFERENCE_BONUS = 3;
+  const AI_OVERRIDE_THRESHOLD = 4;
   const hasCrowdScene = !!sceneAnalysis?.hasCrowd || characters.some((character) => character.isCrowd) || characters.length >= 5;
+  const scenePinIntent = inferScenePinIntent(scene, hasCrowdScene, sceneAnalysis);
   const aiIndex = Number.isInteger(aiSelectedIndex) && Number(aiSelectedIndex) >= 0 && Number(aiSelectedIndex) < prompts.length
     ? Number(aiSelectedIndex)
     : 0;
 
-  let bestIndex = aiIndex;
-  let bestScore = Number.NEGATIVE_INFINITY;
-
-  prompts.forEach((prompt, index) => {
+  const scoredPrompts = prompts.map((prompt, index) => {
     const evaluation = evaluatePromptForPin(prompt, hasCrowdScene, scene);
-    const score = evaluation.score + (index === aiIndex ? AI_PREFERENCE_BONUS : 0);
+    let score = evaluation.score + (index === aiIndex ? AI_PREFERENCE_BONUS : 0);
 
-    if (score > bestScore) {
-      bestScore = score;
-      bestIndex = index;
-      return;
+    if (scenePinIntent.preferredType === prompt.normalizedType) {
+      score += 5;
+    }
+    if (scenePinIntent.preferredType && prompt.normalizedType === 'medium' && scenePinIntent.preferredType !== 'medium') {
+      score -= 3;
+    }
+    if (scenePinIntent.preferredType === 'wide' && prompt.normalizedType === 'closeup' && scenePinIntent.scaleScore >= scenePinIntent.detailScore + 3) {
+      score -= 1;
+    }
+    if (scenePinIntent.preferredType === 'closeup' && prompt.normalizedType === 'wide' && scenePinIntent.detailScore >= scenePinIntent.scaleScore + 3) {
+      score -= 1;
     }
 
-    if (score === bestScore && index === aiIndex) {
-      bestIndex = index;
-    }
+    return { index, score };
   });
 
-  return bestIndex;
+  const bestCandidate = scoredPrompts.reduce((best, current) => current.score > best.score ? current : best, scoredPrompts[0]);
+  const aiCandidate = scoredPrompts[aiIndex] ?? scoredPrompts[0];
+
+  if (!bestCandidate || !aiCandidate) {
+    return aiIndex;
+  }
+
+  if (bestCandidate.score - aiCandidate.score <= AI_OVERRIDE_THRESHOLD) {
+    return aiCandidate.index;
+  }
+
+  return bestCandidate.index;
 }
 
 function evaluatePromptForPin(

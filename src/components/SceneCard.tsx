@@ -2,6 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { Sparkles, Edit2, Trash2, Check, X, Copy, RefreshCw, Plus, ChevronDown, ChevronUp, AlertCircle, Clock, Pin, ImageIcon } from 'lucide-react';
 import type { SceneCard as SceneCardType, Character, Location, TimeContext, PromptCard, SceneReference } from '@/types';
 import { PromptHistoryModal, type HistoryEntry } from './PromptHistoryModal';
@@ -11,6 +20,8 @@ interface SceneCardProps {
   scene: SceneCardType;
   characters: Character[];
   locations: Location[];
+  availableCharacters?: Character[];
+  availableLocations?: Location[];
   timeContexts?: TimeContext[];
   references?: SceneReference[];
   onUpdateNote: (sceneId: string, note: string) => void;
@@ -18,8 +29,8 @@ interface SceneCardProps {
   onDeleteScene: (sceneId: string) => void;
   onRemoveCharacter: (sceneId: string, characterId: string) => void;
   onRemoveLocation: (sceneId: string, locationId: string) => void;
-  onAddCharacter?: (sceneId: string, name: string) => void;
-  onAddLocation?: (sceneId: string, name: string) => void;
+  onAddCharacter?: (sceneId: string, characterId: string) => void;
+  onAddLocation?: (sceneId: string, locationId: string) => void;
   onAddTimeContext?: (sceneId: string, timeContextId: string) => void;
   onRemoveTimeContext?: (sceneId: string, timeContextId: string) => void;
   onAddVariation?: (sceneId: string) => void;
@@ -29,6 +40,93 @@ interface SceneCardProps {
   onRestorePreviousPrompt?: (sceneId: string, entry: HistoryEntry) => void;
   onSetPinnedPrompt?: (sceneId: string, promptId: string) => void;
   isBulkGenerating?: boolean;
+}
+
+type EntityPickerOption = {
+  id: string;
+  name: string;
+  meta?: string;
+  description?: string;
+};
+
+function SceneEntityPicker({
+  label,
+  emptyText,
+  allAddedText,
+  options,
+  selectedIds,
+  onSelect,
+  variant = 'primary',
+}: {
+  label: string;
+  emptyText: string;
+  allAddedText: string;
+  options: EntityPickerOption[];
+  selectedIds: string[];
+  onSelect: (id: string) => void;
+  variant?: 'primary' | 'secondary';
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedIdSet = new Set(selectedIds);
+  const selectableOptions = options.filter(option => !selectedIdSet.has(option.id));
+  const buttonClass =
+    variant === 'primary'
+      ? 'border-primary/40 text-primary/70 hover:border-primary hover:text-primary'
+      : 'border-secondary-foreground/30 text-muted-foreground hover:border-foreground/50 hover:text-foreground';
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          onClick={(event) => event.stopPropagation()}
+          className={`inline-flex items-center gap-0.5 rounded-full border border-dashed px-2 py-0.5 text-xs transition-colors ${buttonClass}`}
+        >
+          <Plus className="h-2.5 w-2.5" /> Ekle
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 p-0" onClick={(event) => event.stopPropagation()}>
+        <Command>
+          <CommandInput placeholder={`${label} ara...`} />
+          <CommandList>
+            {selectableOptions.length > 0 && <CommandEmpty>Sonuc bulunamadi.</CommandEmpty>}
+            {options.length === 0 ? (
+              <div className="px-3 py-4 text-xs text-muted-foreground">{emptyText}</div>
+            ) : selectableOptions.length === 0 ? (
+              <div className="px-3 py-4 text-xs text-muted-foreground">{allAddedText}</div>
+            ) : (
+              <CommandGroup heading={`Projedeki ${label.toLocaleLowerCase('tr-TR')}`}>
+                {selectableOptions.map(option => (
+                  <CommandItem
+                    key={option.id}
+                    value={`${option.name} ${option.meta ?? ''} ${option.description ?? ''}`}
+                    onSelect={() => {
+                      onSelect(option.id);
+                      setOpen(false);
+                    }}
+                    className="items-start gap-2"
+                  >
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary/70" />
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-medium">{option.name}</span>
+                      {option.meta && (
+                        <span className="block truncate text-[10px] text-muted-foreground">{option.meta}</span>
+                      )}
+                      {option.description && (
+                        <span className="mt-0.5 line-clamp-2 block text-[10px] leading-snug text-muted-foreground/80">
+                          {option.description}
+                        </span>
+                      )}
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 function InlinePromptCard({
@@ -242,6 +340,8 @@ export function SceneCard({
   scene,
   characters,
   locations,
+  availableCharacters = [],
+  availableLocations = [],
   timeContexts = [],
   references = [],
   onUpdateNote,
@@ -270,8 +370,6 @@ export function SceneCard({
       setEditedNote(scene.visualNote);
     }
   }, [scene.visualNote, isEditingNote]);
-  const [addingCharacter, setAddingCharacter] = useState(false);
-  const [addingLocation, setAddingLocation] = useState(false);
   const [showTimeContextPicker, setShowTimeContextPicker] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [confirmDeleteScene, setConfirmDeleteScene] = useState(false);
@@ -282,6 +380,18 @@ export function SceneCard({
   };
 
   const hasPrompts = scene.prompts.length > 0;
+  const characterOptions = availableCharacters.map(character => ({
+    id: character.id,
+    name: character.name,
+    meta: [character.role, character.isCrowd ? 'Kalabalik/grup' : undefined].filter(Boolean).join(' - '),
+    description: character.visualDescription,
+  }));
+  const locationOptions = availableLocations.map(location => ({
+    id: location.id,
+    name: location.name,
+    meta: [location.period, location.geography, location.architecture].filter(Boolean).join(' - '),
+    description: location.visualDescription || location.atmosphere,
+  }));
 
   const getReferenceTone = (referenceType: SceneReference['referenceType']) => {
     if (referenceType === 'subject') return 'bg-amber-500/10 text-amber-700 border-amber-500/20 dark:text-amber-300';
@@ -397,14 +507,18 @@ export function SceneCard({
         <div>
           <div className="text-xs font-semibold mb-1 text-muted-foreground">👤 Karakterler:</div>
           <div className="flex flex-wrap gap-1">
-            {characters.length === 0 && !addingCharacter ? (
+            {characters.length === 0 ? (
               <span className="text-xs text-muted-foreground italic">Henüz karakter yok</span>
             ) : (
               characters.map(char => (
                 <span key={char.id} className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium">
                   {char.name}
                   <button
-                    onClick={() => onRemoveCharacter(scene.id, char.id)}
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRemoveCharacter(scene.id, char.id);
+                    }}
                     className="hover:text-destructive ml-0.5"
                     title="Kaldır"
                   >
@@ -413,30 +527,15 @@ export function SceneCard({
                 </span>
               ))
             )}
-            {addingCharacter ? (
-              <input
-                autoFocus
-                placeholder="Karakter adı..."
-                className="h-6 w-32 rounded border bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                onBlur={() => setAddingCharacter(false)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                    onAddCharacter?.(scene.id, e.currentTarget.value.trim());
-                    setAddingCharacter(false);
-                  } else if (e.key === 'Escape') {
-                    setAddingCharacter(false);
-                  }
-                }}
+            {onAddCharacter && (
+              <SceneEntityPicker
+                label="Karakter"
+                emptyText="Bu projede henuz karakter yok."
+                allAddedText="Bu sahneye tum proje karakterleri eklenmis."
+                options={characterOptions}
+                selectedIds={scene.characterIds ?? []}
+                onSelect={(characterId) => onAddCharacter(scene.id, characterId)}
               />
-            ) : (
-              onAddCharacter && (
-                <button
-                  onClick={() => setAddingCharacter(true)}
-                  className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-primary/40 px-2 py-0.5 text-xs text-primary/70 hover:border-primary hover:text-primary transition-colors"
-                >
-                  <Plus className="h-2.5 w-2.5" /> Ekle
-                </button>
-              )
             )}
           </div>
         </div>
@@ -444,14 +543,18 @@ export function SceneCard({
         <div>
           <div className="text-xs font-semibold mb-1 text-muted-foreground">📍 Mekanlar:</div>
           <div className="flex flex-wrap gap-1">
-            {locations.length === 0 && !addingLocation ? (
+            {locations.length === 0 ? (
               <span className="text-xs text-muted-foreground italic">Henüz mekan yok</span>
             ) : (
               locations.map(loc => (
                 <span key={loc.id} className="inline-flex items-center gap-1 rounded-full bg-secondary text-secondary-foreground px-2 py-0.5 text-xs font-medium">
                   {loc.name}
                   <button
-                    onClick={() => onRemoveLocation(scene.id, loc.id)}
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRemoveLocation(scene.id, loc.id);
+                    }}
                     className="hover:text-destructive ml-0.5"
                     title="Kaldır"
                   >
@@ -460,30 +563,16 @@ export function SceneCard({
                 </span>
               ))
             )}
-            {addingLocation ? (
-              <input
-                autoFocus
-                placeholder="Mekan adı..."
-                className="h-6 w-32 rounded border bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                onBlur={() => setAddingLocation(false)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                    onAddLocation?.(scene.id, e.currentTarget.value.trim());
-                    setAddingLocation(false);
-                  } else if (e.key === 'Escape') {
-                    setAddingLocation(false);
-                  }
-                }}
+            {onAddLocation && (
+              <SceneEntityPicker
+                label="Mekan"
+                emptyText="Bu projede henuz mekan yok."
+                allAddedText="Bu sahneye tum proje mekanlari eklenmis."
+                options={locationOptions}
+                selectedIds={scene.locationIds ?? []}
+                onSelect={(locationId) => onAddLocation(scene.id, locationId)}
+                variant="secondary"
               />
-            ) : (
-              onAddLocation && (
-                <button
-                  onClick={() => setAddingLocation(true)}
-                  className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-secondary-foreground/30 px-2 py-0.5 text-xs text-muted-foreground hover:border-foreground/50 hover:text-foreground transition-colors"
-                >
-                  <Plus className="h-2.5 w-2.5" /> Ekle
-                </button>
-              )
             )}
           </div>
         </div>

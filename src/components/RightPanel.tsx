@@ -53,8 +53,8 @@ interface RightPanelProps {
   onUpdateSceneCardNote?: (sceneId: string, note: string) => void;
   onRemoveCharacterFromSceneCard?: (sceneId: string, characterId: string) => void;
   onRemoveLocationFromSceneCard?: (sceneId: string, locationId: string) => void;
-  onAddCharacterToSceneCard?: (sceneId: string, name: string) => void;
-  onAddLocationToSceneCard?: (sceneId: string, name: string) => void;
+  onAddCharacterToSceneCard?: (sceneId: string, characterId: string) => void;
+  onAddLocationToSceneCard?: (sceneId: string, locationId: string) => void;
   onAddTimeContextToSceneCard?: (sceneId: string, timeContextId: string) => void;
   onRemoveTimeContextFromSceneCard?: (sceneId: string, timeContextId: string) => void;
   onAddVariation?: (sceneId: string) => void;
@@ -466,6 +466,8 @@ export function RightPanel({
                   scene={sc}
                   characters={sceneChars}
                   locations={sceneLocs}
+                  availableCharacters={characters}
+                  availableLocations={locations}
                   timeContexts={sceneTimeContexts}
                   references={sceneReferences}
                   onUpdateNote={onUpdateSceneCardNote || (() => {})}

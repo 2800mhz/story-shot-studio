@@ -31,7 +31,7 @@ import { AGENT_SYSTEM_PROMPT } from '@/lib/agentPrompts';
 import { analyzeTextIntoScenes, generateEpisodePrompt, generateEpisodePromptExplanation, reviseEpisodePrompt } from '@/lib/sceneAnalyzer';
 import { analyzeReferenceImage } from '@/lib/referenceAnalyzer';
 import { generatePromptsForScene, revisePrompt } from '@/lib/promptGenerator';
-import { fetchProject, fetchEpisode, fetchScenes, saveScenes, fetchPrompts, fetchAllPromptsForScenes, savePrompts, updateEpisode, fetchGlobalCharacters, fetchGlobalLocations, upsertGlobalCharacter, upsertGlobalLocation, saveTimeContexts, setPinnedPrompt, fetchReferences, updateReferenceAssignments, fetchUserModel, saveUserModel } from '@/lib/supabaseQueries';
+import { updateEpisode, setPinnedPrompt, updateReferenceAssignments, fetchUserModel, saveUserModel } from '@/lib/supabaseQueries';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
@@ -1236,37 +1236,21 @@ const Index = () => {
     }
   }, [dispatch, toast]);
 
-  const handleAddNewCharacterToSceneCard = useCallback((sceneId: string, name: string) => {
-    const character = {
-      id: `char-${crypto.randomUUID()}`,
-      name,
-      description: '',
-    };
-    dispatch({ type: 'ADD_NEW_CHARACTER_TO_SCENE_CARD', payload: { sceneId, character } });
+  const handleAddCharacterToSceneCard = useCallback((sceneId: string, characterId: string) => {
+    dispatch({ type: 'ADD_CHARACTER_TO_SCENE_CARD', payload: { sceneId, characterId } });
+  }, [dispatch]);
 
-    // Persist to Supabase so the character survives page refresh
-    if (projectId) {
-      upsertGlobalCharacter(projectId, { name, description: '' }).catch(err => {
-        console.error('Failed to save character to Supabase:', err);
-      });
-    }
-  }, [dispatch, projectId]);
+  const handleRemoveCharacterFromSceneCard = useCallback((sceneId: string, characterId: string) => {
+    dispatch({ type: 'REMOVE_CHARACTER_FROM_SCENE_CARD', payload: { sceneId, characterId } });
+  }, [dispatch]);
 
-  const handleAddNewLocationToSceneCard = useCallback((sceneId: string, name: string) => {
-    const location = {
-      id: `loc-${crypto.randomUUID()}`,
-      name,
-      description: '',
-    };
-    dispatch({ type: 'ADD_NEW_LOCATION_TO_SCENE_CARD', payload: { sceneId, location } });
+  const handleAddLocationToSceneCard = useCallback((sceneId: string, locationId: string) => {
+    dispatch({ type: 'ADD_LOCATION_TO_SCENE_CARD', payload: { sceneId, locationId } });
+  }, [dispatch]);
 
-    // Persist to Supabase so the location survives page refresh
-    if (projectId) {
-      upsertGlobalLocation(projectId, { name, description: '' }).catch(err => {
-        console.error('Failed to save location to Supabase:', err);
-      });
-    }
-  }, [dispatch, projectId]);
+  const handleRemoveLocationFromSceneCard = useCallback((sceneId: string, locationId: string) => {
+    dispatch({ type: 'REMOVE_LOCATION_FROM_SCENE_CARD', payload: { sceneId, locationId } });
+  }, [dispatch]);
 
   return (
     <div className="flex h-screen flex-col bg-background">
@@ -1622,8 +1606,10 @@ const Index = () => {
                 onDeletePrompt={handleDeletePrompt_}
                 onRestorePreviousPrompt_={handleRestoreSceneCardPrompt}
                 onSetPinnedPrompt={handleSetPinnedPrompt}
-                onAddCharacterToSceneCard={handleAddNewCharacterToSceneCard}
-                onAddLocationToSceneCard={handleAddNewLocationToSceneCard}
+                onRemoveCharacterFromSceneCard={handleRemoveCharacterFromSceneCard}
+                onRemoveLocationFromSceneCard={handleRemoveLocationFromSceneCard}
+                onAddCharacterToSceneCard={handleAddCharacterToSceneCard}
+                onAddLocationToSceneCard={handleAddLocationToSceneCard}
                 onDeleteSceneCard={id => dispatch({ type: 'DELETE_SCENE_CARD', payload: id })}
                 onRevise={handleRevise}
                 onRefreshAll={handleRefreshAll}

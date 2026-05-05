@@ -239,6 +239,48 @@ describe('promptGenerator JSON recovery', () => {
     expect(result.prompts[0].pinReason).toContain('scale');
   });
 
+  it('can prefer close-up when the scene is fundamentally about tactile detail', async () => {
+    vi.mocked(aiProvider.generateContent).mockResolvedValue(`{
+      "prompts": [
+        {
+          "shotType": "Wide Shot",
+          "summary": "genis",
+          "explanation": "genis plan",
+          "prompt": "wide shot of the archive room with desks, shelves, and morning haze, one figure small in the background"
+        },
+        {
+          "shotType": "Medium Shot",
+          "summary": "orta",
+          "explanation": "orta plan",
+          "prompt": "medium shot of the old archivist turning toward the table while holding the letter at chest height"
+        },
+        {
+          "shotType": "Close-up",
+          "summary": "detay",
+          "explanation": "yakin plan",
+          "prompt": "close-up of calloused fingers, thumb pressed into the torn wax seal, knuckles whitening as dust catches in the paper fibers"
+        }
+      ],
+      "selectedIndex": 1
+    }`);
+
+    const result = await generatePromptsForScene(
+      {
+        text: 'An old archivist breaks the wax seal and reads the letter in silence',
+        visualNote: 'Yakin detay, parmaklar, mum muhur, kagit dokusu, duygusal yuk ellerde',
+        characterIds: [],
+        locationIds: [],
+        timeContextIds: [],
+      } as any,
+      [{ id: '1', name: 'Archivist' }] as any,
+      [],
+      'master prompt'
+    );
+
+    expect(result.prompts[2].type).toBe('closeup');
+    expect(result.prompts[2].isPinned).toBe(true);
+  });
+
   it('appends aspect suffix when a prompt has --no but no --ar flag', async () => {
     vi.mocked(aiProvider.generateContent).mockResolvedValue(`{
       "prompts": [
