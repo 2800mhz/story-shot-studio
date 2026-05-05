@@ -50,6 +50,19 @@ function markSceneCardPromptsStale(sceneCard: AppState['sceneCards'][number], re
   };
 }
 
+const MAX_PROMPT_VERSIONS = 6;
+
+function clampPromptVersions<T extends { versions?: string[] }>(prompt: T): T {
+  if (!Array.isArray(prompt.versions) || prompt.versions.length <= MAX_PROMPT_VERSIONS) {
+    return prompt;
+  }
+
+  return {
+    ...prompt,
+    versions: prompt.versions.slice(-MAX_PROMPT_VERSIONS),
+  };
+}
+
 const initialState: AppState = {
   projectType: 'documentary',
   renderMode: 'photoreal',
@@ -97,6 +110,9 @@ const NON_UNDOABLE = new Set<string>([
   'ROTATE_API_KEY', 'SET_API_KEYS', 'SET_IMAGE_API_KEYS', 'SET_SETTINGS',
   'START_ANALYSIS', 'START_PROMPT_GENERATION', 'SET_REFERENCES',
   'ADD_EPISODE_STYLE_VERSION', 'SET_EPISODE_STYLE_HISTORY',
+  // AI output hydration can get very large; keeping every generation step in undo
+  // history burns memory quickly and provides limited user value.
+  'FINISH_ANALYSIS', 'FINISH_PROMPT_GENERATION', 'SET_ALL_PROMPTS',
 ]);
 
 // Merge two arrays by id, preferring existing items
@@ -512,10 +528,11 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
         ...state,
         sceneCards: state.sceneCards.map(sc =>
           sc.id === action.payload.sceneId ? (() => {
-            const hasStalePrompts = action.payload.prompts.some(prompt => prompt.isStale);
+            const nextPrompts = action.payload.prompts.map(clampPromptVersions);
+            const hasStalePrompts = nextPrompts.some(prompt => prompt.isStale);
             return {
               ...sc,
-              prompts: action.payload.prompts,
+              prompts: nextPrompts,
               status: 'ready',
               analysis: action.payload.analysis,
               promptsNeedRefresh: hasStalePrompts,
@@ -530,10 +547,11 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
         sceneCards: state.sceneCards.map(sc => {
           const prompts = action.payload[sc.id];
           if (prompts) {
-            const hasStalePrompts = prompts.some(prompt => prompt.isStale);
+            const nextPrompts = prompts.map(clampPromptVersions);
+            const hasStalePrompts = nextPrompts.some(prompt => prompt.isStale);
             return {
               ...sc,
-              prompts,
+              prompts: nextPrompts,
               status: 'ready',
               promptsNeedRefresh: hasStalePrompts,
               staleReasons: hasStalePrompts ? sc.staleReasons : [],
@@ -586,7 +604,13 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
     case 'SET_DOCUMENT_TEXT':
       return { ...state, documentText: action.payload, mainText: action.payload };
     case 'SET_SCENES':
-      return { ...state, sceneCards: action.payload };
+      return {
+        ...state,
+        sceneCards: action.payload.map((sceneCard) => ({
+          ...sceneCard,
+          prompts: Array.isArray(sceneCard.prompts) ? sceneCard.prompts.map(clampPromptVersions) : [],
+        })),
+      };
     case 'SET_CHARACTERS':
       return { ...state, characters: action.payload };
     case 'SET_LOCATIONS':
@@ -715,7 +739,7 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
   }
 }
 
-const MAX_HISTORY = 50;
+const MAX_HISTORY = 15;
 
 export function useAppState() {
   const [state, rawDispatch] = useReducer(reducer, initialState);
@@ -731,8 +755,9 @@ export function useAppState() {
 
     if (isUndoable) {
       const before = stateRef.current;
-      // Compute next state deterministically
-      const after = reducer(before, action);
+      // Use reducerCore here so undo snapshots do not trigger duplicate
+      // persistence work before the real dispatch runs.
+      const after = reducerCore(before, action);
       // Trim forward history
       historyRef.current = historyRef.current.slice(0, indexRef.current + 1);
       historyRef.current.push(after);

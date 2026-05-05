@@ -69,11 +69,13 @@ export function useAutosave({
     characters: state.characters,
     locations: state.locations,
   };
+  const hasGeneratingScenes = state.sceneCards.some((scene: any) => scene.status === 'generating');
 
   const doSave = useCallback(async () => {
     if (!episodeId) return;
     const snap = saveStateRef.current;
     if (snap.sceneCards.length === 0) return;
+    if (snap.sceneCards.some((scene: any) => scene.status === 'generating')) return;
     if (isSavingRef.current) {
       pendingSaveRef.current = true;
       console.log('⏳ Save already in progress, queuing…');
@@ -200,16 +202,15 @@ export function useAutosave({
 
   useEffect(() => {
     if (!loadingData && episode && episodeId) {
-      // Avoid autosave churn while generators are actively running.
-      // (Agent streaming doesn't touch app state much, but prompt generation does.)
-      if (state.isGeneratingPrompts) return;
+      // Avoid autosave churn while prompt generation is actively mutating cards.
+      if (hasGeneratingScenes) return;
       const timeoutId = setTimeout(doSave, AUTO_SAVE_DEBOUNCE_MS);
       return () => clearTimeout(timeoutId);
     }
   }, [
     state.sceneCards, state.timeContexts, state.episodePrompt, state.episodePromptTr,
     state.episodeStyleHistory, state.documentText, state.characters, state.locations,
-    state.isGeneratingPrompts,
+    hasGeneratingScenes,
     episodeId, loadingData, episode, doSave
   ]);
 
