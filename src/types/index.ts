@@ -148,6 +148,22 @@ export interface TimeContext {
   historicalNotes?: string;
 }
 
+/**
+ * Sinematik kamera açısı slotu — AI tarafından sahneye özel olarak tasarlanmış.
+ * Hardcoded enum değil; gerçek sinemacı diliyle: focal length, açı derecesi, hareket tekniği.
+ */
+export interface CameraAngleSlot {
+  id: string;
+  focalLength: string;    // örn: "85mm portrait lens", "16mm ultra-wide", "200mm telephoto"
+  angleDeg: string;       // örn: "eye-level 0°", "low angle 20°", "bird's-eye 85°"
+  technique: string;      // örn: "handheld", "static locked-off", "dolly track", "crane jib"
+  framing: string;        // örn: "medium close-up", "extreme wide", "over-the-shoulder"
+  label: string;          // Türkçe kısa etiket — "Portre — Göz Hizası"
+  rationale: string;      // Türkçe 1 cümle — neden bu sahne için
+  promptId?: string;      // Üretildiyse bağlı PromptCard.id
+  isGenerating?: boolean; // On-demand üretim sırasında
+}
+
 export interface PromptCard {
   id: string;
   type?: 'wide' | 'medium' | 'closeup';
@@ -168,6 +184,7 @@ export interface PromptCard {
   hasSubjectReference?: boolean;
   isStale?: boolean;
   staleReason?: string;
+  slotId?: string; // Hangi CameraAngleSlot'tan üretildi (on-demand ise)
 }
 
 export interface PromptAnalysis {
@@ -184,6 +201,7 @@ export interface PromptAnalysis {
 export interface GenerationResult {
   prompts: PromptCard[];
   analysis: PromptAnalysis;
+  cameraAngleSlots?: CameraAngleSlot[];
 }
 
 export interface SceneCard {
@@ -205,6 +223,8 @@ export interface SceneCard {
   optimizations?: string[];
   promptsNeedRefresh?: boolean;
   staleReasons?: string[];
+  /** 6 sinematik kamera açısı slotu — prompt generation sırasında doldurulur */
+  cameraAngleSlots?: CameraAngleSlot[];
 }
 
 export interface AppState {
@@ -309,6 +329,7 @@ export type AppAction =
       sceneId: string;
       prompts: PromptCard[];
       analysis?: PromptAnalysis;
+      cameraAngleSlots?: CameraAngleSlot[];
     }
   }
   | { type: 'DELETE_SCENE_CARD'; payload: string }
@@ -334,8 +355,11 @@ export type AppAction =
   | { type: 'SET_PINNED_PROMPT'; payload: { sceneId: string; promptId: string; byAI?: boolean } }
   | { type: 'ADD_EPISODE_STYLE_VERSION'; payload: EpisodeStyleVersion }
   | { type: 'SET_EPISODE_STYLE_HISTORY'; payload: EpisodeStyleVersion[] }
-  | { 
-      type: 'IMPORT_PROJECT'; 
+  | { type: 'SET_CAMERA_ANGLE_SLOTS'; payload: { sceneId: string; slots: CameraAngleSlot[] } }
+  | { type: 'START_SLOT_PROMPT_GENERATION'; payload: { sceneId: string; slotId: string } }
+  | { type: 'FINISH_SLOT_PROMPT_GENERATION'; payload: { sceneId: string; slotId: string; prompt: PromptCard } }
+  | {
+      type: 'IMPORT_PROJECT';
       payload: {
         episodeId?: string;
         episodeTitle?: string;

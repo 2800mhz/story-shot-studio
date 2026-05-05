@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,7 @@ import { parseAgentOperationSet, stripAgentResultBlock } from '@/lib/agentParser
 import { AGENT_SYSTEM_PROMPT } from '@/lib/agentPrompts';
 import { analyzeTextIntoScenes, generateEpisodePrompt, generateEpisodePromptExplanation, reviseEpisodePrompt } from '@/lib/sceneAnalyzer';
 import { analyzeReferenceImage } from '@/lib/referenceAnalyzer';
-import { generatePromptsForScene, revisePrompt } from '@/lib/promptGenerator';
+import { generatePromptsForScene, revisePrompt, generatePromptForSlot } from '@/lib/promptGenerator';
 import { updateEpisode, setPinnedPrompt, updateReferenceAssignments, fetchUserModel, saveUserModel } from '@/lib/supabaseQueries';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -899,6 +899,7 @@ const Index = () => {
           sceneId, 
           prompts: result.prompts,
           analysis: result.analysis,
+          cameraAngleSlots: result.cameraAngleSlots,
         } 
       });
 
@@ -913,6 +914,54 @@ const Index = () => {
       return false;
     }
   }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, state.projectType, state.renderMode, dispatch, aspectRatio]);
+
+  const handleGenerateSlotPrompt = useCallback(async (sceneId: string, slotId: string) => {
+    const scene = state.sceneCards.find(s => s.id === sceneId);
+    if (!scene) return;
+    const slot = scene.cameraAngleSlots?.find(s => s.id === slotId);
+    if (!slot) return;
+
+    if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
+      setNoKeysWarning(true);
+      return;
+    }
+
+    dispatch({ type: 'START_SLOT_PROMPT_GENERATION', payload: { sceneId, slotId } });
+
+    const sceneCharacters = state.characters.filter(c => scene.characterIds.includes(c.id));
+    const sceneLocations = state.locations.filter(l => scene.locationIds.includes(l.id));
+    const sceneTimeContexts = state.timeContexts.filter(tc => (scene.timeContextIds ?? []).includes(tc.id));
+
+    try {
+      const prompt = await generatePromptForSlot(
+        slot,
+        scene,
+        sceneCharacters,
+        sceneLocations,
+        state.masterPrompt,
+        aspectRatio,
+        state.sceneAnalyses[sceneId],
+        sceneTimeContexts,
+        state.episodePrompt || undefined,
+        state.references,
+        state.projectType,
+        state.renderMode
+      );
+      dispatch({ type: 'FINISH_SLOT_PROMPT_GENERATION', payload: { sceneId, slotId, prompt } });
+    } catch (e: any) {
+      console.error('Slot prompt generation failed:', e);
+      // Revert generation state
+      const revertedSlots = (scene.cameraAngleSlots || []).map(s => 
+        s.id === slotId ? { ...s, isGenerating: false } : s
+      );
+      dispatch({ type: 'SET_CAMERA_ANGLE_SLOTS', payload: { sceneId, slots: revertedSlots } });
+      toast({
+        title: 'Hata',
+        description: 'Bu açı için prompt üretilemedi.',
+        variant: 'destructive'
+      });
+    }
+  }, [state, dispatch, toast, aspectRatio]);
 
   const WORKER_COUNT = 4; // Qwen/Llama gibi hızlı modellerde 4 paralel stream verimli
 
@@ -1251,6 +1300,8 @@ const Index = () => {
   const handleRemoveLocationFromSceneCard = useCallback((sceneId: string, locationId: string) => {
     dispatch({ type: 'REMOVE_LOCATION_FROM_SCENE_CARD', payload: { sceneId, locationId } });
   }, [dispatch]);
+
+
 
   return (
     <div className="flex h-screen flex-col bg-background">
@@ -1606,6 +1657,7 @@ const Index = () => {
                 onDeletePrompt={handleDeletePrompt_}
                 onRestorePreviousPrompt_={handleRestoreSceneCardPrompt}
                 onSetPinnedPrompt={handleSetPinnedPrompt}
+                onGenerateSlotPrompt={handleGenerateSlotPrompt}
                 onRemoveCharacterFromSceneCard={handleRemoveCharacterFromSceneCard}
                 onRemoveLocationFromSceneCard={handleRemoveLocationFromSceneCard}
                 onAddCharacterToSceneCard={handleAddCharacterToSceneCard}

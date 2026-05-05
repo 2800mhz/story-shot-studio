@@ -537,10 +537,54 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
               analysis: action.payload.analysis,
               promptsNeedRefresh: hasStalePrompts,
               staleReasons: hasStalePrompts ? sc.staleReasons : [],
+              cameraAngleSlots: action.payload.cameraAngleSlots ?? sc.cameraAngleSlots,
             };
           })() : sc
         ),
       };
+    case 'SET_CAMERA_ANGLE_SLOTS':
+      return {
+        ...state,
+        sceneCards: state.sceneCards.map(sc =>
+          sc.id === action.payload.sceneId
+            ? { ...sc, cameraAngleSlots: action.payload.slots }
+            : sc
+        ),
+      };
+    case 'START_SLOT_PROMPT_GENERATION':
+      return {
+        ...state,
+        sceneCards: state.sceneCards.map(sc =>
+          sc.id === action.payload.sceneId
+            ? {
+                ...sc,
+                cameraAngleSlots: (sc.cameraAngleSlots ?? []).map(slot =>
+                  slot.id === action.payload.slotId ? { ...slot, isGenerating: true } : slot
+                ),
+              }
+            : sc
+        ),
+      };
+    case 'FINISH_SLOT_PROMPT_GENERATION': {
+      const { sceneId, slotId, prompt } = action.payload;
+      return {
+        ...state,
+        sceneCards: state.sceneCards.map(sc => {
+          if (sc.id !== sceneId) return sc;
+          const updatedSlots = (sc.cameraAngleSlots ?? []).map(slot =>
+            slot.id === slotId
+              ? { ...slot, promptId: prompt.id, isGenerating: false }
+              : slot
+          );
+          return {
+            ...sc,
+            prompts: [...sc.prompts, clampPromptVersions(prompt)],
+            cameraAngleSlots: updatedSlots,
+          };
+        }),
+      };
+    }
+
     case 'SET_ALL_PROMPTS':
       return {
         ...state,

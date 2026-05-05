@@ -1,4 +1,4 @@
-﻿/**
+/**
  * â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
  * â•‘  STORY SHOT STUDIO â€” UNIVERSAL PROMPT ENGINE  v3.0                     â•‘
  * â•‘  Refactored for global, era-agnostic, format-agnostic production        â•‘
@@ -26,6 +26,7 @@ import type {
   NarrativeLayer,
   ProjectType,
   RenderMode,
+  CameraAngleSlot,
 } from '@/types';
 import { aiProvider } from './aiProvider';
 
@@ -722,36 +723,61 @@ CHARACTER EMOTION â†’ FRAME LANGUAGE:
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const RESPONSE_FORMAT = `
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
-RESPONSE FORMAT â€” JSON only, no markdown, no preamble
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+RESPONSE FORMAT - JSON only, no markdown, no preamble
 
 {
   "analysis": {
-    "detectedEra": "string â€” what era was inferred from metadata",
+    "detectedEra": "string - what era was inferred from metadata",
     "visualMode": "cinematic | symbolic | scientific",
     "humanPresence": "visible_candid | silhouette | crowd | none",
     "complexity": "low | medium | high | extreme",
-    "difficultyScore": 1â€“10,
+    "difficultyScore": 1-10,
     "productionNotes": ["string", "string"]
   },
+  "cameraAngleSlots": [
+    {
+      "focalLength": "actual lens: 16mm ultra-wide, 24mm, 35mm standard, 50mm, 85mm portrait, 100mm macro, 200mm telephoto",
+      "angleDeg": "physical tilt degree: eye-level 0deg, low angle 15-20deg, high angle 35deg, birds-eye 75-85deg, dutch canted 12deg",
+      "technique": "movement: static locked-off, handheld, dolly push, dolly pull, crane jib, steadicam, zoom in, zoom out",
+      "framing": "composition: extreme wide, wide, medium wide, medium, medium close-up, close-up, extreme close-up, over-the-shoulder, POV",
+      "label": "Turkish short label e.g. Kus Bakisi - Asiri Genis",
+      "rationale": "Turkish 1 sentence - why this angle is cinematically appropriate for this specific scene"
+    },
+    { "slot": 1 },
+    { "slot": 2 },
+    { "slot": 3 },
+    { "slot": 4 },
+    { "slot": 5 }
+  ],
   "prompts": [
     {
-      "shotType": "Wide Shot | Medium Shot | Close-up",
+      "slotIndex": 0,
+      "shotType": "descriptive label matching cameraAngleSlots[0]",
       "summary": "Verbatim copy of scene visualNote (Turkish)",
-      "explanation": "Bu gÃ¶rsel... (1 sentence Turkish â€” what it shows and why)",
-      "witnessIndicator": "specific caught signal present in the frame, e.g. heel raised mid-transfer or hand half-raised",
-      "lightSource": "named physical source with direction, e.g. noon sun through cracked eastern wall, hard rake at 20 degrees",
-      "prompt": "110â€“140 word English prompt with technical suffix"
+      "explanation": "Bu gorsel... 1 sentence Turkish what it shows and why",
+      "witnessIndicator": "specific caught signal, e.g. heel raised mid-transfer",
+      "lightSource": "named physical source with direction, e.g. noon sun through cracked eastern wall",
+      "prompt": "110-140 word English prompt with technical suffix"
     },
-    { ... },
-    { ... }
+    { "slotIndex": 1, "...": "..." },
+    { "slotIndex": 2, "...": "..." }
   ],
   "selectedIndex": 0
 }
+
+CRITICAL RULES FOR cameraAngleSlots:
+Produce EXACTLY 6 slots. No more, no less.
+Each slot must be a real cinematographer decision, NOT a generic category.
+focalLength: name the actual lens with mm number.
+angleDeg: specify physical tilt in degrees.
+technique: name the exact movement type.
+framing: name the composition frame.
+All 6 slots must be MEANINGFULLY DIFFERENT from each other.
+prompts array: include ONLY slotIndex 0, 1, 2. Slots 3, 4, 5 are on-demand.
 `;
 
 type RawPromptCandidate = {
+  slotIndex?: number;
   shotType?: string;
   summary?: string;
   explanation?: string;
@@ -759,6 +785,16 @@ type RawPromptCandidate = {
   lightSource?: string;
   prompt?: string;
 };
+
+type RawCameraAngleSlot = {
+  focalLength?: string;
+  angleDeg?: string;
+  technique?: string;
+  framing?: string;
+  label?: string;
+  rationale?: string;
+};
+
 
 type NormalizedShotType = 'wide' | 'medium' | 'closeup';
 type NormalizedCandidate = RawPromptCandidate & {
@@ -1201,35 +1237,56 @@ function buildUserMessage(
   // â”€â”€ Final Instruction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const shotInstruction = sceneAnalysis?.narrativeType === 'timelapse'
     ? `Generate temporal phase prompts as specified above. Each phase: 110-140 words English.`
-    : `SHOT PRODUCTION RULES (NON-NEGOTIABLE):
+    : `CAMERA ANGLE ASSIGNMENT + SHOT PRODUCTION RULES:
 
-Generate 3 prompts: Wide Shot, Medium Shot, Close-up.
+STEP 1 - ASSIGN 6 CINEMATICALLY DISTINCT CAMERA SETUPS:
+
+Design 6 camera angle slots for this scene. Each must be a real cinematographer's decision.
+Ask yourself: What does each lens choice change emotionally? What angle reveals something the others don't?
+
+Rules for the 6 slots:
+- Every slot must differ in: focal length, tilt degree, movement type, and framing.
+- Draw from the full range: from extreme wide establishing shots to extreme close macro details.
+- Include at least one dynamic movement (dolly, crane, steadicam) and at least one static shot.
+- Consider both objective observer angles AND subjective character-POV angles.
+- For action/battle scenes: include overhead coverage, ground-level tension, and intimate detail.
+- For intimate/dialogue scenes: include wide geography, medium interaction, and close subtext.
+
+Example of diverse slot thinking:
+  Slot 0: 16mm ultra-wide, birds-eye 80deg, crane jib descend - battlefield scale
+  Slot 1: 85mm portrait, eye-level 0deg, static locked-off - psychological face read
+  Slot 2: 35mm, low angle 18deg, handheld - ground-level tension
+  Slot 3: 200mm telephoto, eye-level compressed, dolly pull - mass/depth compression
+  Slot 4: 50mm standard, over-the-shoulder, steadicam tracking - subjective witness
+  Slot 5: 100mm macro, extreme close-up, static - one irreducible physical detail
+
+STEP 2 - GENERATE PROMPTS FOR SLOTS 0, 1, 2 ONLY:
+
+Each of the first 3 slots gets a full cinematic prompt. Slots 3, 4, 5 are reserved for on-demand generation.
+
+PROMPT RULES (apply to all 3 generated prompts):
 Each prompt 110-140 words English.
-Each shot must include witnessIndicator and lightSource fields.
+Each must include witnessIndicator and lightSource fields.
 
-WIDE SHOT - Frame as if you just arrived and the camera sees the world before seeing the subject.
-Mandatory elements: (1) foreground framing element, (2) subject off left/right third, (3) deep background with atmospheric depth.
-Motion design: parallax pan or slow pull-back revealing scale.
-FORBIDDEN: Subject centered. Subject facing camera. Clean empty background.
+The 3 prompts must represent MEANINGFULLY DIFFERENT perspectives on the scene.
+Choose slots 0, 1, 2 to maximize visual variety: scale + action + detail is the ideal split,
+but adapt to what this specific scene demands.
 
-MEDIUM SHOT - Freeze the body at the verb of the scene.
-Mandatory: Capture one specific physical action mid-execution. Weight on one foot. Body axis 15-30 degrees off camera.
-Include: at least one body part partially out of frame.
-Motion design: slow witness push or drift staying within observational behaviour.
-FORBIDDEN: Standing neutrally. Symmetric posture. Both feet flat.
+SLOT 0 PROMPT - Apply the camera setup defined in cameraAngleSlots[0]:
+Mandatory: foreground framing element, subject off center, atmospheric depth.
 
-CLOSE-UP - One irreducible physical detail that carries the emotional weight.
-Mandatory: Name the specific object or body part. State what it reveals about the scene's subtext.
-Examples: "calloused thumb pressing against the edge of the letter", "knuckles whitening on the reins".
-Motion design: Ken Burns zoom into the precise detail named.
-FORBIDDEN: Generic "face looking emotional". Vague "hands in frame".
+SLOT 1 PROMPT - Apply the camera setup defined in cameraAngleSlots[1]:
+Mandatory: Freeze the body at the verb of the scene. Weight on one foot. Body axis 15-30 degrees off camera.
 
-DIFFERENTIATION CHECK - Before outputting, verify the three shots differ in:
-- Subject position (which third)
-- Camera height (low/eye/high)
-- Light angle (from the 7 positions)
-- Foreground element (what it is)
-If fewer than 3 differences: redesign the sequence.`;
+SLOT 2 PROMPT - Apply the camera setup defined in cameraAngleSlots[2]:
+Mandatory: One irreducible physical detail that carries the emotional weight.
+
+DIFFERENTIATION CHECK - Before outputting, verify the 3 prompted shots differ in:
+- Focal length (different lens)
+- Camera height (different tilt angle)
+- Movement type (at least 2 of 3 must differ)
+- Compositional framing
+If fewer than 3 differences: redesign.`;
 
   parts.push(shotInstruction);
   parts.push(``);
@@ -1382,6 +1439,7 @@ export async function generatePromptsForScene(
   // Retry loop â€” up to 4 attempts
   let parsed: {
     prompts?: RawPromptCandidate[];
+    cameraAngleSlots?: RawCameraAngleSlot[];
     analysis?: Partial<PromptAnalysis>;
     selectedIndex?: number;
   } | null = null;
@@ -1449,14 +1507,37 @@ export async function generatePromptsForScene(
     evaluatePromptForPin(normalizedCandidates[selectedIndex], hasCrowdScene, scene),
   );
 
+  // Parse camera angle slots from AI response first
+  const rawSlots: RawCameraAngleSlot[] = Array.isArray(parsed.cameraAngleSlots)
+    ? parsed.cameraAngleSlots
+    : [];
+  const cameraAngleSlots: CameraAngleSlot[] = rawSlots.slice(0, 6).map((s, idx) => {
+    return {
+      id: crypto.randomUUID(),
+      focalLength: s.focalLength ?? 'Standard lens',
+      angleDeg: s.angleDeg ?? 'eye-level 0deg',
+      technique: s.technique ?? 'static locked-off',
+      framing: s.framing ?? 'medium',
+      label: s.label ?? `Slot ${idx + 1}`,
+      rationale: s.rationale ?? '',
+    };
+  });
+
   const prompts: PromptCard[] = normalizedCandidates.map((p, idx) => {
     const labels: string[] = ['Prompt A', 'Prompt B', 'Prompt C'];
     const raw = (p.prompt ?? '').trim();
     const hasArFlag = /--ar\s+\d+:\d+/i.test(raw);
     const promptText = hasArFlag ? raw : `${raw} ${arSuffix}`.trim();
+    const slotIdx = p.originalIndex ?? idx;
+    const slotId = cameraAngleSlots[slotIdx]?.id;
+
+    const newPromptId = crypto.randomUUID();
+    if (cameraAngleSlots[slotIdx]) {
+        cameraAngleSlots[slotIdx].promptId = newPromptId;
+    }
 
     return {
-      id: crypto.randomUUID(),
+      id: newPromptId,
       type: p.normalizedType,
       label: labels[idx] ?? `Prompt ${idx + 1}`,
       shotType: formatShotTypeLabel(p.normalizedType, p.shotType),
@@ -1472,6 +1553,7 @@ export async function generatePromptsForScene(
       isPinned: idx === selectedIndex,
       isPinnedByAI: idx === selectedIndex,
       pinReason: idx === selectedIndex ? selectedPinReason : undefined,
+      slotId,
     };
   });
 
@@ -1487,7 +1569,7 @@ export async function generatePromptsForScene(
     productionNotes:    Array.isArray(raw.productionNotes)         ? raw.productionNotes    : DEFAULT_ANALYSIS.productionNotes,
   };
 
-  return { prompts, analysis };
+  return { prompts, analysis, cameraAngleSlots };
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1919,5 +2001,127 @@ function buildPinReason(
   }
   return 'Bu seçim medium kadrajın insan aksiyonunu ve sahne verbünü daha okunur taşıdığı için yapıldı.';
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// § 17  ON-DEMAND SLOT PROMPT GENERATOR
+//       Generates a single prompt for a specific camera angle slot
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function generatePromptForSlot(
+  scene: SceneCard,
+  slot: CameraAngleSlot,
+  characters: Character[],
+  locations: Location[],
+  masterPrompt: string,
+  aspectRatio: '16:9' | '4:3' | '1:1' | '9:16' = '16:9',
+  timeContexts?: TimeContext[],
+  episodePrompt?: string,
+  references?: SceneReference[],
+  projectType: ProjectType = 'documentary',
+  renderMode: RenderMode = 'photoreal',
+): Promise<PromptCard> {
+  const systemPrompt = buildSystemPrompt(projectType, renderMode);
+  const arSuffix = `--ar ${aspectRatio} --v 6`;
+
+  const charNegatives = buildCharacterNegativeAnchors(characters);
+  const baseNegatives = [
+    'direct gaze', 'eye contact', 'looking at camera',
+    'passport portrait', 'artificial smile', 'symmetric composition',
+    'centered subject', 'stock photo lighting', 'white background',
+    'text', 'labels', 'watermarks', 'glowing eyes',
+  ];
+  const allNegatives = [...new Set([...baseNegatives, ...charNegatives])].join(', ');
+  const fullArSuffix = `--ar ${aspectRatio} --v 6 --no ${allNegatives}`;
+
+  const slotContext = `
+CAMERA SETUP FOR THIS PROMPT (NON-NEGOTIABLE):
+Focal Length: ${slot.focalLength}
+Tilt/Angle: ${slot.angleDeg}
+Camera Movement: ${slot.technique}
+Compositional Framing: ${slot.framing}
+Why this angle was chosen: ${slot.rationale}
+
+You MUST honor this exact camera setup in the prompt.
+The focal length, angle, movement, and framing are pre-determined by the director.
+Write the prompt as if this specific camera setup is locked in.
+`;
+
+  const baseUserMessage = buildUserMessage(
+    scene,
+    characters,
+    locations,
+    masterPrompt,
+    aspectRatio,
+    renderMode,
+    timeContexts,
+    episodePrompt,
+    references,
+  );
+
+  const slotInstruction = `
+SINGLE PROMPT GENERATION FOR SPECIFIC CAMERA SLOT:
+
+${slotContext}
+
+Generate ONE prompt (110-140 words English) for this specific camera setup.
+The prompt must honor the exact focal length, angle, movement, and framing defined above.
+Include witnessIndicator and lightSource.
+Append at the very end: ${fullArSuffix}
+
+RESPONSE FORMAT - JSON only:
+{
+  "shotType": "descriptive label for this camera setup",
+  "summary": "scene visualNote verbatim (Turkish)",
+  "explanation": "Bu gorsel... 1 sentence Turkish",
+  "witnessIndicator": "specific caught signal",
+  "lightSource": "named physical source with direction",
+  "prompt": "110-140 word English prompt"
+}
+`;
+
+  const userMessage = `${baseUserMessage}\n\n${slotInstruction}`;
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const raw = await aiProvider.generateContent(userMessage, systemPrompt, {
+        operationType: 'prompt_generation',
+      });
+
+      if (!raw?.trim()) continue;
+
+      const parsed = tryParseJSON(raw) as RawPromptCandidate | null;
+      if (!parsed?.prompt) continue;
+
+      const rawText = (parsed.prompt ?? '').trim();
+      const hasArFlag = /--ar\s+\d+:\d+/i.test(rawText);
+      const promptText = hasArFlag ? rawText : `${rawText} ${arSuffix}`.trim();
+
+      return {
+        id: crypto.randomUUID(),
+        type: 'medium',
+        label: slot.label,
+        shotType: parsed.shotType ?? slot.label,
+        summary: parsed.summary ?? scene.visualNote,
+        explanation: parsed.explanation ?? '',
+        witnessIndicator: parsed.witnessIndicator ?? '',
+        lightSource: parsed.lightSource ?? '',
+        promptText,
+        versions: [promptText],
+        aspectRatio,
+        generationType: 'initial',
+        hasSubjectReference: (references?.filter(r => r.referenceType === 'subject') ?? []).length > 0,
+        isPinned: false,
+        isPinnedByAI: false,
+        slotId: slot.id,
+      };
+    } catch (err) {
+      console.warn(`[slotPromptGen] Attempt ${attempt + 1} failed:`, err);
+      await delay(1500 * (attempt + 1));
+    }
+  }
+
+  throw new Error(`Failed to generate prompt for slot ${slot.id} after 3 attempts`);
+}
+
 
 
