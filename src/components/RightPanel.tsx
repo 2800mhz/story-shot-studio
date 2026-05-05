@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Sparkles, Zap, StickyNote, GripVertical, Download } from 'lucide-react';
+import { Sparkles, Zap, StickyNote, GripVertical, Download, Hash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PromptCard } from './PromptCard';
@@ -138,6 +138,7 @@ export function RightPanel({
   const pendingCount = scenes.filter(s => s.status === 'pending').length;
   const generatingCount = scenes.filter(s => s.status === 'generating').length;
   const totalScenes = scenes.length;
+  const hasSequentialSceneCardNumbers = sceneCards.every((sceneCard, index) => sceneCard.sceneNumber === index + 1);
   const bulkPromptsPercent = bulkPromptsProgress && bulkPromptsProgress.total > 0
     ? Math.round((bulkPromptsProgress.done / bulkPromptsProgress.total) * 100)
     : 0;
@@ -235,6 +236,17 @@ export function RightPanel({
     dragSceneCardIndexRef.current = null;
   }, []);
 
+  const handleRenumberSceneCards = useCallback(() => {
+    if (!onReorderSceneCards) return;
+
+    const renumbered = sceneCards.map((sceneCard, index) => ({
+      ...sceneCard,
+      sceneNumber: index + 1,
+    }));
+
+    onReorderSceneCards(renumbered);
+  }, [sceneCards, onReorderSceneCards]);
+
   return (
     <div className="flex h-full flex-col border-l bg-card">
       <div className="flex items-center justify-between border-b px-4 py-3">
@@ -250,6 +262,19 @@ export function RightPanel({
           </div>
         </div>
         <div className="flex gap-2">
+          {sceneCards.length > 0 && onReorderSceneCards && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 px-3 text-xs"
+              onClick={handleRenumberSceneCards}
+              disabled={hasSequentialSceneCardNumbers}
+              title={hasSequentialSceneCardNumbers ? 'Sahne numaralari zaten sirali' : 'Scene card numaralarini yeniden sirala'}
+            >
+              <Hash className="mr-1.5 h-3.5 w-3.5" />
+              Numaralari Duzelt
+            </Button>
+          )}
           
           {isGeneratingAll ? (
             <Button size="sm" variant="destructive" className="h-8 px-3 text-xs animate-pulse" onClick={onCancelAll}>
