@@ -796,7 +796,8 @@ type RawCameraAngleSlot = {
 };
 
 
-type NormalizedShotType = 'wide' | 'medium' | 'closeup';
+type InferredShotType = 'wide' | 'medium' | 'closeup';
+type NormalizedShotType = InferredShotType | 'custom';
 type NormalizedCandidate = RawPromptCandidate & {
   normalizedType: NormalizedShotType;
   originalIndex: number;
@@ -808,7 +809,7 @@ type PinEvaluation = {
 };
 
 type ScenePinIntent = {
-  preferredType: NormalizedShotType | null;
+  preferredType: InferredShotType | null;
   scaleScore: number;
   actionScore: number;
   detailScore: number;
@@ -1492,7 +1493,10 @@ export async function generatePromptsForScene(
   const normalizedCandidates = normalizePromptCandidates(parsed.prompts);
   const selectedIndexValue = Number(parsed.selectedIndex);
   const aiOriginalIndex = Number.isInteger(selectedIndexValue) ? selectedIndexValue : 0;
-  const aiSelectedNewIndex = normalizedCandidates.findIndex((candidate) => candidate.originalIndex === aiOriginalIndex);
+  const aiSelectedNewIndex = normalizedCandidates.findIndex((candidate) =>
+    getCandidateSlotIndex(candidate, candidate.originalIndex) === aiOriginalIndex ||
+    candidate.originalIndex === aiOriginalIndex
+  );
   const effectiveAiIndex = aiSelectedNewIndex >= 0 ? aiSelectedNewIndex : 0;
   const selectedIndex = selectBestPromptIndex(
     normalizedCandidates,
@@ -1528,19 +1532,22 @@ export async function generatePromptsForScene(
     const raw = (p.prompt ?? '').trim();
     const hasArFlag = /--ar\s+\d+:\d+/i.test(raw);
     const promptText = hasArFlag ? raw : `${raw} ${arSuffix}`.trim();
-    const slotIdx = p.originalIndex ?? idx;
-    const slotId = cameraAngleSlots[slotIdx]?.id;
+    const slotIdx = getCandidateSlotIndex(p, idx);
+    const slot = cameraAngleSlots[slotIdx];
+    const slotId = slot?.id;
+    const slotLabel = slot?.label?.trim();
+    const cameraSetupLabel = formatCameraSetupLabel(slot);
 
     const newPromptId = crypto.randomUUID();
-    if (cameraAngleSlots[slotIdx]) {
-        cameraAngleSlots[slotIdx].promptId = newPromptId;
+    if (slot) {
+      slot.promptId = newPromptId;
     }
 
     return {
       id: newPromptId,
-      type: p.normalizedType,
-      label: labels[idx] ?? `Prompt ${idx + 1}`,
-      shotType: formatShotTypeLabel(p.normalizedType, p.shotType),
+      type: p.normalizedType === 'custom' ? undefined : p.normalizedType,
+      label: slotLabel || labels[idx] || `Prompt ${idx + 1}`,
+      shotType: cameraSetupLabel || formatShotTypeLabel(p.normalizedType, p.shotType),
       summary: p.summary ?? scene.visualNote,
       explanation: p.explanation ?? '',
       witnessIndicator: p.witnessIndicator ?? '',
@@ -1710,7 +1717,7 @@ function delay(ms: number): Promise<void> {
   return new Promise(r => setTimeout(r, ms));
 }
 
-function inferShotType(value?: string, prompt?: string): NormalizedShotType | null {
+function inferShotType(value?: string, prompt?: string): InferredShotType | null {
   const blob = `${value ?? ''} ${prompt ?? ''}`.toLowerCase();
 
   if (/\bclose[-\s]?up\b|\bcloseup\b|\bmacro\b|\bdetail\b|\binsert\b|\bextreme close\b/.test(blob)) {
@@ -1731,7 +1738,21 @@ function formatShotTypeLabel(type: NormalizedShotType, original?: string): strin
   if (cleaned) return cleaned;
   if (type === 'closeup') return 'Close-up';
   if (type === 'medium') return 'Medium Shot';
+  if (type === 'custom') return 'Camera Setup';
   return 'Wide Shot';
+}
+
+function getCandidateSlotIndex(candidate: RawPromptCandidate, fallbackIndex: number): number {
+  const slotIndex = Number(candidate.slotIndex);
+  return Number.isInteger(slotIndex) && slotIndex >= 0 ? slotIndex : fallbackIndex;
+}
+
+function formatCameraSetupLabel(slot?: CameraAngleSlot): string {
+  if (!slot) return '';
+  return [slot.focalLength, slot.framing, slot.technique]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(' - ');
 }
 
 function buildCharacterNegativeAnchors(characters: Character[]): string[] {
@@ -1773,30 +1794,15 @@ function buildCharacterNegativeAnchors(characters: Character[]): string[] {
 }
 
 function normalizePromptCandidates(candidates: RawPromptCandidate[]): NormalizedCandidate[] {
-  const targetOrder: NormalizedShotType[] = ['wide', 'medium', 'closeup'];
-  const unused = candidates.map((candidate, originalIndex) => ({
-    ...candidate,
-    inferredType: inferShotType(candidate.shotType, candidate.prompt),
-    originalIndex,
-  }));
-
-  const ordered: NormalizedCandidate[] = [];
-
-  for (const targetType of targetOrder) {
-    const exactIndex = unused.findIndex((candidate) => candidate.inferredType === targetType);
-    if (exactIndex >= 0) {
-      const [match] = unused.splice(exactIndex, 1);
-      ordered.push({ ...match, normalizedType: targetType, originalIndex: match.originalIndex });
-      continue;
-    }
-
-    const fallback = unused.shift();
-    if (fallback) {
-      ordered.push({ ...fallback, normalizedType: targetType, originalIndex: fallback.originalIndex });
-    }
-  }
-
-  return ordered.slice(0, 3);
+  return candidates.map((candidate, originalIndex) => {
+    const inferred = inferShotType(candidate.shotType, candidate.prompt);
+    return {
+      ...candidate,
+      inferredType: inferred,
+      normalizedType: inferred || 'custom',
+      originalIndex,
+    };
+  }).slice(0, 3);
 }
 
 function countKeywordHits(text: string, pattern: RegExp): number {
@@ -1824,7 +1830,7 @@ function inferScenePinIntent(
     countKeywordHits(sceneBlob, /\b(medium|orta plan|mid-action|gesture|motion|movement|verb)\b/g) +
     (sceneAnalysis?.narrativeType === 'sequence' ? 2 : 0);
 
-  let preferredType: NormalizedShotType | null = null;
+  let preferredType: InferredShotType | null = null;
 
   if (hasCrowdScene && scaleScore >= actionScore - 1 && scaleScore >= detailScore) {
     preferredType = 'wide';
@@ -1996,6 +2002,9 @@ function buildPinReason(
   if (prompt.normalizedType === 'wide') {
     return 'Bu seçim wide kadrajın dünya ölçeğini ve mekân baskısını daha iyi taşıdığı için yapıldı.';
   }
+  if (prompt.normalizedType === 'custom') {
+    return 'Bu secim sahneye ozel kamera kurulumunun ana aksiyonu daha iyi tasidigi icin yapildi.';
+  }
   if (prompt.normalizedType === 'closeup') {
     return 'Bu seçim close-up detayın duygusal ve fiziksel payloadı daha iyi taşıdığı için yapıldı.';
   }
@@ -2095,12 +2104,13 @@ RESPONSE FORMAT - JSON only:
       const rawText = (parsed.prompt ?? '').trim();
       const hasArFlag = /--ar\s+\d+:\d+/i.test(rawText);
       const promptText = hasArFlag ? rawText : `${rawText} ${arSuffix}`.trim();
+      const cameraSetupLabel = formatCameraSetupLabel(slot);
 
       return {
         id: crypto.randomUUID(),
-        type: 'medium',
+        type: inferShotType(parsed.shotType, parsed.prompt) ?? undefined,
         label: slot.label,
-        shotType: parsed.shotType ?? slot.label,
+        shotType: cameraSetupLabel || parsed.shotType || slot.label,
         summary: parsed.summary ?? scene.visualNote,
         explanation: parsed.explanation ?? '',
         witnessIndicator: parsed.witnessIndicator ?? '',

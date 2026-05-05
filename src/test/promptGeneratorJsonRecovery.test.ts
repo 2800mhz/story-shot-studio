@@ -130,12 +130,38 @@ describe('promptGenerator JSON recovery', () => {
     expect(onRetry).toHaveBeenCalledTimes(4);
   });
 
-  it('reorders prompts by inferred shot type instead of raw response order', async () => {
+  it('preserves camera slot order instead of forcing wide-medium-closeup labels', async () => {
     vi.mocked(aiProvider.generateContent).mockResolvedValue(`{
+      "cameraAngleSlots": [
+        {
+          "focalLength": "100mm macro",
+          "angleDeg": "eye-level 0deg",
+          "technique": "static locked-off",
+          "framing": "extreme close-up",
+          "label": "Detay - Eller",
+          "rationale": "Eller sahnenin gerilimini tasir."
+        },
+        {
+          "focalLength": "24mm",
+          "angleDeg": "high angle 35deg",
+          "technique": "crane pull-back",
+          "framing": "wide formation",
+          "label": "Genis - Formasyon",
+          "rationale": "Formasyon ve toz okunur."
+        },
+        {
+          "focalLength": "50mm",
+          "angleDeg": "eye-level 0deg",
+          "technique": "handheld drift",
+          "framing": "medium tracking",
+          "label": "Orta - Binici",
+          "rationale": "Binicinin aksiyonu takip edilir."
+        }
+      ],
       "prompts": [
-        { "shotType": "Close-up", "summary": "detay", "explanation": "yakın", "prompt": "close-up of weathered hands gripping an arrow shaft" },
-        { "shotType": "Wide Shot", "summary": "geniş", "explanation": "wide", "prompt": "wide shot of dense horse archers crossing the plain in dust" },
-        { "shotType": "Medium Shot", "summary": "orta", "explanation": "medium", "prompt": "medium shot of a rider drawing his bow while the formation blurs behind" }
+        { "slotIndex": 0, "shotType": "Close-up", "summary": "detay", "explanation": "yakın", "prompt": "close-up of weathered hands gripping an arrow shaft" },
+        { "slotIndex": 1, "shotType": "Wide Shot", "summary": "geniş", "explanation": "wide", "prompt": "wide shot of dense horse archers crossing the plain in dust" },
+        { "slotIndex": 2, "shotType": "Medium Shot", "summary": "orta", "explanation": "medium", "prompt": "medium shot of a rider drawing his bow while the formation blurs behind" }
       ],
       "selectedIndex": 0
     }`);
@@ -147,9 +173,15 @@ describe('promptGenerator JSON recovery', () => {
       'master prompt'
     );
 
-    expect(result.prompts.map((prompt) => prompt.type)).toEqual(['wide', 'medium', 'closeup']);
-    expect(result.prompts.map((prompt) => prompt.shotType)).toEqual(['Wide Shot', 'Medium Shot', 'Close-up']);
-    expect(result.prompts[2].isPinned).toBe(true);
+    expect(result.prompts.map((prompt) => prompt.type)).toEqual(['closeup', 'wide', 'medium']);
+    expect(result.prompts.map((prompt) => prompt.label)).toEqual(['Detay - Eller', 'Genis - Formasyon', 'Orta - Binici']);
+    expect(result.prompts.map((prompt) => prompt.shotType)).toEqual([
+      '100mm macro - extreme close-up - static locked-off',
+      '24mm - wide formation - crane pull-back',
+      '50mm - medium tracking - handheld drift',
+    ]);
+    expect(result.cameraAngleSlots[0].promptId).toBe(result.prompts[0].id);
+    expect(result.prompts[0].isPinned).toBe(true);
   });
 
   it('prefers stronger medium or close documentary prompt over a generic wide auto-pin', async () => {

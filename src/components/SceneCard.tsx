@@ -730,7 +730,7 @@ export function SceneCard({
                   className={`flex-1 py-1.5 text-xs font-medium border-b-2 transition-colors ${activeTab === 'slots' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                   onClick={() => setActiveTab('slots')}
                 >
-                  🎬 Kamera Açıları
+                  🎬 Alternatifler
                 </button>
               </div>
             </div>
