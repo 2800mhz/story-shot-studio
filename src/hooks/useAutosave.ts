@@ -98,6 +98,12 @@ export function useAutosave({
         noteEditable: s.noteEditable,
         promptsNeedRefresh: !!s.promptsNeedRefresh,
         staleReasons: s.staleReasons ?? [],
+        cameraAngleSlots: Array.isArray(s.cameraAngleSlots)
+          ? s.cameraAngleSlots.map((slot: any) => ({
+              ...slot,
+              isGenerating: false,
+            }))
+          : [],
         promptsCount: Array.isArray(s.prompts) ? s.prompts.length : 0,
         // prompt contents are handled separately per-scene below
       })),

@@ -383,6 +383,8 @@ export function SceneCard({
   };
 
   const hasPrompts = scene.prompts.length > 0;
+  const hasCameraAngleSlots = (scene.cameraAngleSlots?.length ?? 0) > 0;
+  const availableCameraAngleSlots = scene.cameraAngleSlots?.filter(slot => !slot.promptId) ?? [];
   const characterOptions = availableCharacters.map(character => ({
     id: character.id,
     name: character.name,
@@ -718,26 +720,22 @@ export function SceneCard({
                </div>
             </div>
           )}
-          {scene.cameraAngleSlots && scene.cameraAngleSlots.length > 0 ? (
-            <div className="mb-3">
-              <div className="flex border-b">
-                <button
-                  className={`flex-1 py-1.5 text-xs font-medium border-b-2 transition-colors ${activeTab === 'generated' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-                  onClick={() => setActiveTab('generated')}
-                >
-                  Üretilenler
-                </button>
-                <button
-                  className={`flex-1 py-1.5 text-xs font-medium border-b-2 transition-colors ${activeTab === 'slots' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-                  onClick={() => setActiveTab('slots')}
-                >
-                  Alternatifler
-                </button>
-              </div>
+          <div className="mb-3">
+            <div className="flex border-b">
+              <button
+                className={`flex-1 py-1.5 text-xs font-medium border-b-2 transition-colors ${activeTab === 'generated' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                onClick={() => setActiveTab('generated')}
+              >
+                Üretilenler
+              </button>
+              <button
+                className={`flex-1 py-1.5 text-xs font-medium border-b-2 transition-colors ${activeTab === 'slots' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                onClick={() => setActiveTab('slots')}
+              >
+                Alternatifler
+              </button>
             </div>
-          ) : (
-            <div className="text-xs font-semibold text-muted-foreground mb-1">Üretilen Promptlar:</div>
-          )}
+          </div>
 
           {activeTab === 'generated' ? (
             <>
@@ -776,7 +774,7 @@ export function SceneCard({
             </>
           ) : (
             <div className="space-y-3">
-              {scene.cameraAngleSlots?.filter(slot => !slot.promptId).map((slot, index) => (
+              {availableCameraAngleSlots.map((slot, index) => (
                 <div key={slot.id} className="border rounded-md p-3 bg-muted/20 relative">
                   {slot.isGenerating && (
                     <div className="absolute inset-0 z-10 bg-background/50 backdrop-blur-[1px] flex items-center justify-center rounded-md">
@@ -807,9 +805,25 @@ export function SceneCard({
                   </Button>
                 </div>
               ))}
-              {scene.cameraAngleSlots?.filter(slot => !slot.promptId).length === 0 && (
+              {hasCameraAngleSlots && availableCameraAngleSlots.length === 0 && (
                 <div className="text-xs text-muted-foreground text-center py-4 italic">
                   Tüm kamera açıları için prompt üretildi.
+                </div>
+              )}
+              {!hasCameraAngleSlots && (
+                <div className="rounded-md border border-dashed border-border bg-muted/10 p-4 text-center">
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    Bu sahnede alternatif açı verisi yok. Yenileyince 6 açı yeniden oluşturulur.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => onRegenerateAll?.(scene.id)}
+                    disabled={scene.status === 'generating' || isBulkGenerating}
+                  >
+                    Alternatifleri Oluştur
+                  </Button>
                 </div>
               )}
             </div>

@@ -8,6 +8,31 @@ const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 500;
 const BATCH_SIZE = 20; // Max rows per INSERT to avoid payload limits
 
+function serializeCameraAngleSlots(slots: any[] | undefined): any[] | undefined {
+  if (!Array.isArray(slots)) return undefined;
+  return slots.map(({ isGenerating, ...slot }) => ({
+    ...slot,
+    isGenerating: false,
+  }));
+}
+
+function buildSceneAnalysisPayload(scene: any): any {
+  const slots = serializeCameraAngleSlots(scene.cameraAngleSlots);
+  const baseAnalysis =
+    scene.analysis && typeof scene.analysis === 'object' && !Array.isArray(scene.analysis)
+      ? scene.analysis
+      : {};
+
+  if (!slots) {
+    return Object.keys(baseAnalysis).length > 0 ? baseAnalysis : null;
+  }
+
+  return {
+    ...baseAnalysis,
+    cameraAngleSlots: slots,
+  };
+}
+
 async function withRetry<T>(
   fn: () => Promise<T>,
   label = 'Supabase operation',
@@ -216,7 +241,7 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
         time_context_ids: timeContextIds,
         start_index: scene.startIndex ?? null,
         end_index: scene.endIndex ?? null,
-        analysis: scene.analysis || null,
+        analysis: buildSceneAnalysisPayload(scene),
         optimizations: scene.optimizations || [],
       };
     });

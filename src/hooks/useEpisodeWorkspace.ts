@@ -148,22 +148,33 @@ export function useEpisodeWorkspace({
       }
 
       if (scenesData.length > 0) {
-        const mappedScenes = scenesData.map((scene: any) => ({
-          id: scene.id,
-          sceneNumber: scene.scene_number,
-          text: scene.text,
-          visualNote: scene.visual_note || '',
-          characterIds: scene.character_ids || [],
-          locationIds: scene.location_ids || [],
-          timeContextIds: scene.time_context_ids || [],
-          startIndex: scene.start_index ?? undefined,
-          endIndex: scene.end_index ?? undefined,
-          prompts: [],
-          status: 'ready' as const,
-          noteEditable: false,
-          analysis: scene.analysis,
-          optimizations: scene.optimizations || []
-        }));
+        const mappedScenes = scenesData.map((scene: any) => {
+          const rawAnalysis =
+            scene.analysis && typeof scene.analysis === 'object' && !Array.isArray(scene.analysis)
+              ? scene.analysis
+              : {};
+          const { cameraAngleSlots, ...analysis } = rawAnalysis;
+
+          return {
+            id: scene.id,
+            sceneNumber: scene.scene_number,
+            text: scene.text,
+            visualNote: scene.visual_note || '',
+            characterIds: scene.character_ids || [],
+            locationIds: scene.location_ids || [],
+            timeContextIds: scene.time_context_ids || [],
+            startIndex: scene.start_index ?? undefined,
+            endIndex: scene.end_index ?? undefined,
+            prompts: [],
+            status: 'ready' as const,
+            noteEditable: false,
+            analysis: Object.keys(analysis).length > 0 ? analysis : undefined,
+            cameraAngleSlots: Array.isArray(cameraAngleSlots)
+              ? cameraAngleSlots.map((slot: any) => ({ ...slot, isGenerating: false }))
+              : [],
+            optimizations: scene.optimizations || []
+          };
+        });
 
         dispatch({ type: 'SET_SCENES', payload: mappedScenes });
 

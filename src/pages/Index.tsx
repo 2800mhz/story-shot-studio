@@ -934,13 +934,12 @@ const Index = () => {
 
     try {
       const prompt = await generatePromptForSlot(
-        slot,
         scene,
+        slot,
         sceneCharacters,
         sceneLocations,
         state.masterPrompt,
         aspectRatio,
-        state.sceneAnalyses[sceneId],
         sceneTimeContexts,
         state.episodePrompt || undefined,
         state.references,
