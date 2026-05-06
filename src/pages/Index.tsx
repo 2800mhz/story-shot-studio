@@ -35,13 +35,246 @@ import { updateEpisode, setPinnedPrompt, updateReferenceAssignments, fetchUserMo
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
-import type { TextSegment, Scene, SubScene, PromptVariant, ConsistencyGroup, PromptAnalysis, PromptCard, EpisodeStyleVersion, ProjectType, SceneReference } from '@/types';
+import type {
+  CameraAngleSlot,
+  Character,
+  Location,
+  SceneCard,
+  TextSegment,
+  Scene,
+  SubScene,
+  PromptVariant,
+  ConsistencyGroup,
+  PromptAnalysis,
+  PromptCard,
+  EpisodeStyleVersion,
+  ProjectType,
+  SceneReference,
+  TimeContext,
+} from '@/types';
 
 
 const GROUP_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
 const PROMPT_GENERATION_DELAY_MS = 2000;
 const AUTO_SAVE_DEBOUNCE_MS = 2000;
+
+type ImportResult = {
+  episodePrompt?: string;
+  episodePromptTr?: string;
+  characters?: Character[];
+  locations?: Location[];
+  timeContexts?: TimeContext[];
+  sceneCards?: SceneCard[];
+  importedSceneCount: number;
+  importedPromptCount: number;
+  importedEntityCount: number;
+};
+
+function ensureStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
+function findByName<T extends { id: string; name?: string; label?: string }>(items: T[], imported: any): T | undefined {
+  const importedName = typeof imported?.name === 'string' ? imported.name : imported?.label;
+  if (!importedName) return undefined;
+  return items.find((item) => (item.name || item.label || '').toLowerCase() === importedName.toLowerCase());
+}
+
+function normalizeCharacter(raw: any, existing: Character[]): Character {
+  const matched = raw?.id ? existing.find((item) => item.id === raw.id) : findByName(existing, raw);
+  return {
+    id: raw?.id || matched?.id || crypto.randomUUID(),
+    name: raw?.name || matched?.name || 'Imported Character',
+    role: raw?.role || matched?.role || '',
+    visualDescription: raw?.visualDescription || matched?.visualDescription || raw?.description || '',
+    isCrowd: raw?.isCrowd || matched?.isCrowd,
+    age: raw?.age || matched?.age,
+    ethnicity: raw?.ethnicity || matched?.ethnicity,
+    clothing: raw?.clothing || matched?.clothing,
+    physicalFeatures: raw?.physicalFeatures || matched?.physicalFeatures,
+    hair: raw?.hair || matched?.hair,
+    beard: raw?.beard || matched?.beard,
+  };
+}
+
+function normalizeLocation(raw: any, existing: Location[]): Location {
+  const matched = raw?.id ? existing.find((item) => item.id === raw.id) : findByName(existing, raw);
+  return {
+    id: raw?.id || matched?.id || crypto.randomUUID(),
+    name: raw?.name || matched?.name || 'Imported Location',
+    visualDescription: raw?.visualDescription || matched?.visualDescription || raw?.description || '',
+    period: raw?.period || matched?.period,
+    geography: raw?.geography || matched?.geography,
+    architecture: raw?.architecture || matched?.architecture,
+    atmosphere: raw?.atmosphere || matched?.atmosphere,
+  };
+}
+
+function normalizeTimeContext(raw: any, existing: TimeContext[]): TimeContext {
+  const matched = raw?.id ? existing.find((item) => item.id === raw.id) : findByName(existing, raw);
+  return {
+    id: raw?.id || matched?.id || crypto.randomUUID(),
+    label: raw?.label || raw?.name || matched?.label || 'Imported Time',
+    era: raw?.era || matched?.era || '',
+    season: raw?.season || matched?.season,
+    timeOfDay: raw?.timeOfDay || matched?.timeOfDay || '',
+    lighting: raw?.lighting || matched?.lighting || '',
+    weather: raw?.weather || matched?.weather,
+    historicalNotes: raw?.historicalNotes || matched?.historicalNotes,
+  };
+}
+
+function normalizePrompt(raw: any, fallbackPinned = false): PromptCard {
+  const promptText = raw?.promptText || raw?.prompt || raw?.text || '';
+  return {
+    id: raw?.id || crypto.randomUUID(),
+    label: raw?.label,
+    shotType: raw?.shotType || raw?.shot || raw?.type || 'Imported shot',
+    summary: raw?.summary || raw?.explanation || 'Imported prompt',
+    explanation: raw?.explanation,
+    promptText,
+    versions: Array.isArray(raw?.versions) && raw.versions.length > 0 ? raw.versions : promptText ? [promptText] : [],
+    aspectRatio: raw?.aspectRatio,
+    generationType: raw?.generationType,
+    revisionPrompt: raw?.revisionPrompt,
+    isPinned: raw?.isPinned ?? fallbackPinned,
+    isStale: raw?.isStale,
+    staleReason: raw?.staleReason,
+    slotId: raw?.slotId,
+  };
+}
+
+function normalizeCameraSlot(raw: any): CameraAngleSlot {
+  return {
+    id: raw?.id || crypto.randomUUID(),
+    label: raw?.label || 'Imported angle',
+    focalLength: raw?.focalLength || '',
+    angleDeg: raw?.angleDeg || raw?.angle || '',
+    technique: raw?.technique || '',
+    framing: raw?.framing || '',
+    rationale: raw?.rationale || '',
+    promptId: raw?.promptId,
+  };
+}
+
+function mergeImportedPrompt(existingPrompts: PromptCard[], importedPrompt: PromptCard): PromptCard[] {
+  const matchIndex = existingPrompts.findIndex((prompt) =>
+    (importedPrompt.id && prompt.id === importedPrompt.id) ||
+    (!importedPrompt.id && prompt.shotType === importedPrompt.shotType),
+  );
+  const clearedPins = importedPrompt.isPinned
+    ? existingPrompts.map((prompt) => ({ ...prompt, isPinned: false }))
+    : existingPrompts;
+
+  if (matchIndex >= 0) {
+    return clearedPins.map((prompt, index) => (index === matchIndex ? { ...prompt, ...importedPrompt } : prompt));
+  }
+
+  return [...clearedPins, importedPrompt];
+}
+
+function normalizeScene(raw: any, existing?: SceneCard): SceneCard {
+  const importedAllPrompts = Array.isArray(raw?.allPrompts)
+    ? raw.allPrompts.map((prompt: any) => normalizePrompt(prompt))
+    : undefined;
+  const importedActivePrompt = raw?.activePrompt ? normalizePrompt(raw.activePrompt, true) : undefined;
+
+  let prompts = existing?.prompts || [];
+  if (importedAllPrompts) {
+    prompts = importedAllPrompts;
+  } else if (importedActivePrompt) {
+    prompts = mergeImportedPrompt(prompts, importedActivePrompt);
+  }
+
+  const hasPromptData = importedAllPrompts || importedActivePrompt;
+
+  return {
+    id: raw?.id || existing?.id || crypto.randomUUID(),
+    sceneNumber: Number(raw?.sceneNumber || existing?.sceneNumber || 1),
+    text: typeof raw?.text === 'string' ? raw.text : existing?.text || '',
+    visualNote: typeof raw?.visualNote === 'string' ? raw.visualNote : existing?.visualNote || '',
+    visualStyle: raw?.visualStyle || existing?.visualStyle || 'realistic',
+    characterIds: raw?.characterIds ? ensureStringArray(raw.characterIds) : existing?.characterIds || [],
+    locationIds: raw?.locationIds ? ensureStringArray(raw.locationIds) : existing?.locationIds || [],
+    timeContextIds: raw?.timeContextIds ? ensureStringArray(raw.timeContextIds) : existing?.timeContextIds || [],
+    status: raw?.status || (prompts.length > 0 || hasPromptData ? 'ready' : existing?.status || 'analyzed'),
+    noteEditable: existing?.noteEditable ?? false,
+    prompts,
+    analysis: raw?.analysis || existing?.analysis,
+    optimizations: raw?.optimizations || existing?.optimizations,
+    staleReasons: raw?.staleReasons || existing?.staleReasons,
+    promptsNeedRefresh: existing?.promptsNeedRefresh,
+    cameraAngleSlots: Array.isArray(raw?.cameraSlots)
+      ? raw.cameraSlots.map(normalizeCameraSlot)
+      : existing?.cameraAngleSlots,
+  };
+}
+
+function mergeScenes(existingScenes: SceneCard[], importedScenes: any[]): SceneCard[] {
+  const next = [...existingScenes];
+
+  importedScenes.forEach((raw) => {
+    const matchIndex = next.findIndex((scene) =>
+      (raw?.id && scene.id === raw.id) ||
+      (raw?.sceneNumber && scene.sceneNumber === Number(raw.sceneNumber)),
+    );
+    const normalized = normalizeScene(raw, matchIndex >= 0 ? next[matchIndex] : undefined);
+    if (matchIndex >= 0) {
+      next[matchIndex] = normalized;
+    } else {
+      next.push(normalized);
+    }
+  });
+
+  return next.sort((a, b) => a.sceneNumber - b.sceneNumber);
+}
+
+function normalizeImportPayload(raw: any, currentState: ReturnType<typeof useAppState>['state']): ImportResult | null {
+  const legacyStyle = raw?.style;
+  const episodeStyle = raw?.episodeStyle || legacyStyle;
+  const entities = raw?.entities;
+  const rawScenes = Array.isArray(raw) ? raw : Array.isArray(raw?.scenes) ? raw.scenes : undefined;
+
+  if (!episodeStyle && !entities && !rawScenes) return null;
+
+  const result: ImportResult = {
+    importedSceneCount: 0,
+    importedPromptCount: 0,
+    importedEntityCount: 0,
+  };
+
+  if (episodeStyle) {
+    if (typeof episodeStyle.en === 'string') result.episodePrompt = episodeStyle.en;
+    if (typeof episodeStyle.tr === 'string') result.episodePromptTr = episodeStyle.tr;
+  }
+
+  if (entities) {
+    if (Array.isArray(entities.characters)) {
+      result.characters = entities.characters.map((item: any) => normalizeCharacter(item, currentState.characters));
+      result.importedEntityCount += result.characters.length;
+    }
+    if (Array.isArray(entities.locations)) {
+      result.locations = entities.locations.map((item: any) => normalizeLocation(item, currentState.locations));
+      result.importedEntityCount += result.locations.length;
+    }
+    if (Array.isArray(entities.timeContexts)) {
+      result.timeContexts = entities.timeContexts.map((item: any) => normalizeTimeContext(item, currentState.timeContexts));
+      result.importedEntityCount += result.timeContexts.length;
+    }
+  }
+
+  if (rawScenes) {
+    result.sceneCards = mergeScenes(currentState.sceneCards, rawScenes);
+    result.importedSceneCount = rawScenes.length;
+    result.importedPromptCount = rawScenes.reduce((total: number, scene: any) => {
+      const allPrompts = Array.isArray(scene?.allPrompts) ? scene.allPrompts.length : 0;
+      return total + allPrompts + (scene?.activePrompt && allPrompts === 0 ? 1 : 0);
+    }, 0);
+  }
+
+  return result;
+}
 
 const Index = () => {
   const { id: projectId, episodeId } = useParams<{ id: string; episodeId: string }>();
@@ -236,6 +469,34 @@ const Index = () => {
   const handleImportJson = useCallback((fileContent: string) => {
     try {
       const parsedData = JSON.parse(fileContent);
+      const normalized = normalizeImportPayload(parsedData, state);
+
+      if (normalized) {
+        if (normalized.episodePrompt !== undefined) {
+          dispatch({ type: 'SET_EPISODE_PROMPT', payload: normalized.episodePrompt });
+        }
+        if (normalized.episodePromptTr !== undefined) {
+          dispatch({ type: 'SET_EPISODE_PROMPT_TR', payload: normalized.episodePromptTr });
+        }
+        if (normalized.characters) {
+          dispatch({ type: 'SET_CHARACTERS', payload: normalized.characters });
+        }
+        if (normalized.locations) {
+          dispatch({ type: 'SET_LOCATIONS', payload: normalized.locations });
+        }
+        if (normalized.timeContexts) {
+          dispatch({ type: 'SET_TIME_CONTEXTS', payload: normalized.timeContexts });
+        }
+        if (normalized.sceneCards) {
+          dispatch({ type: 'SET_SCENES', payload: normalized.sceneCards });
+        }
+
+        toast({
+          title: 'JSON ice aktarildi',
+          description: `${normalized.importedSceneCount} sahne, ${normalized.importedPromptCount} prompt, ${normalized.importedEntityCount} varlik guncellendi.`,
+        });
+        return;
+      }
 
       if (!parsedData.scenes || !parsedData.entities) {
         toast({ title: "Geçersiz veya bozuk proje dosyası.", variant: "destructive" });
@@ -285,7 +546,7 @@ const Index = () => {
       console.error("JSON okuma hatası:", error);
       toast({ title: "Dosya okunamadı. Lütfen geçerli bir JSON dosyası seçin.", variant: "destructive" });
     }
-  }, [dispatch, toast]);
+  }, [dispatch, state, toast]);
 
   const handleFileUpload = useCallback(async (file: File) => {
     try {
