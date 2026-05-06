@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Film, Trash2, FileText, Pencil, Search, SortAsc, Clock, Filter, Zap, Layers3 } from 'lucide-react';
+import { ArrowLeft, Plus, Film, Trash2, FileText, Pencil, Search, SortAsc, Clock, Filter, Zap, Layers3, Palette, Pin, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,10 +9,20 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchProject, fetchEpisodes, createEpisode, deleteEpisode, updateEpisode, updateProject } from '@/lib/supabaseQueries';
 import { saveEpisodePreferences } from '@/lib/episodePreferences';
 import { supabase } from '@/lib/supabase';
+import { cn } from '@/lib/utils';
+import {
+  getProjectAccent,
+  getProjectUiPreference,
+  PROJECT_ACCENTS,
+  readProjectUiPreferences,
+  updateProjectUiPreference,
+  type ProjectAccentId,
+} from '@/lib/projectUiPreferences';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import type { ProjectType, RenderMode } from '@/types';
@@ -77,6 +87,7 @@ export default function ProjectWorkspace() {
   const [newEpisodeTitle, setNewEpisodeTitle] = useState('');
   const [newEpisodeProjectType, setNewEpisodeProjectType] = useState<ProjectType>('documentary');
   const [newEpisodeRenderMode, setNewEpisodeRenderMode] = useState<RenderMode>('photoreal');
+  const [projectPrefs, setProjectPrefs] = useState(() => readProjectUiPreferences());
 
   useEffect(() => {
     if (projectId) {
@@ -179,6 +190,19 @@ export default function ProjectWorkspace() {
     }
   }
 
+  function toggleProjectPin() {
+    if (!projectId) return;
+    const current = getProjectUiPreference(projectId, projectPrefs);
+    setProjectPrefs(updateProjectUiPreference(projectId, { isPinned: !current.isPinned }));
+  }
+
+  function setProjectAccent(projectId: string, accent: ProjectAccentId) {
+    setProjectPrefs(updateProjectUiPreference(projectId, { accent }));
+  }
+
+  const projectPreference = projectId ? getProjectUiPreference(projectId, projectPrefs) : null;
+  const projectAccent = getProjectAccent(projectPreference?.accent);
+
   const filteredEpisodes = episodes
     .filter((episode) => {
       const matchesSearch = episode.title.toLowerCase().includes(searchTerm.toLowerCase());
@@ -202,9 +226,9 @@ export default function ProjectWorkspace() {
     });
 
   const SkeletonEpisodeCard = () => (
-    <Card className="rounded-3xl border-border/70 p-5">
+    <Card className="rounded-lg border-border/70 p-5">
       <div className="flex items-start justify-between">
-        <Skeleton className="h-10 w-10 rounded-2xl" />
+        <Skeleton className="h-10 w-10 rounded-md" />
         <div className="flex gap-2">
           <Skeleton className="h-8 w-8 rounded-full" />
           <Skeleton className="h-8 w-8 rounded-full" />
@@ -230,7 +254,7 @@ export default function ProjectWorkspace() {
             </Button>
 
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <div className={cn('flex h-11 w-11 items-center justify-center rounded-md border', projectAccent.iconClass)}>
                 <Film className="h-5 w-5" />
               </div>
               <div>
@@ -241,6 +265,41 @@ export default function ProjectWorkspace() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn('hidden h-9 w-9 text-muted-foreground md:inline-flex', projectPreference?.isPinned && projectAccent.textClass)}
+              title={projectPreference?.isPinned ? 'Pini kaldir' : 'Dashboard basina pinle'}
+              onClick={toggleProjectPin}
+            >
+              <Pin className={cn('h-4 w-4', projectPreference?.isPinned && 'fill-current')} />
+            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="hidden h-9 w-9 text-muted-foreground md:inline-flex" title="Proje rengini degistir">
+                  <Palette className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-3" align="end">
+                <div className="mb-3 text-xs font-medium text-muted-foreground">Proje rengi</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {PROJECT_ACCENTS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className={cn(
+                        'flex h-9 items-center justify-center rounded-md border border-border/70 bg-background transition-colors hover:border-foreground/40',
+                        projectPreference?.accent === option.id && 'border-foreground/60',
+                      )}
+                      onClick={() => projectId && setProjectAccent(projectId, option.id)}
+                      title={option.label}
+                    >
+                      <span className={cn('h-4 w-4 rounded-full', option.swatchClass)} />
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
             {activeAPI ? (
               <Badge variant="outline" className="hidden md:inline-flex border-emerald-500/30 text-emerald-700 dark:text-emerald-300">
                 <Zap className="mr-1 h-3.5 w-3.5" />
@@ -260,7 +319,7 @@ export default function ProjectWorkspace() {
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1 text-xs text-muted-foreground">
-                <Layers3 className="h-3.5 w-3.5 text-primary" />
+                <Layers3 className={cn('h-3.5 w-3.5', projectAccent.textClass)} />
                 Episode workspace
               </div>
               <h2 className="mt-4 text-4xl font-semibold tracking-tight">Bolumler</h2>
@@ -270,19 +329,58 @@ export default function ProjectWorkspace() {
               <div className="mt-5 flex flex-wrap gap-2">
                 <Badge variant="outline">{episodes.length} bolum</Badge>
                 <Badge variant="outline">{projectTypeLabel(projectType)}</Badge>
+                {projectPreference?.isPinned ? <Badge variant="outline" className={projectAccent.badgeClass}>Dashboard sabit</Badge> : null}
                 <Badge variant="outline">
                   {episodes.reduce((sum, episode) => sum + (episode.scene_count || 0), 0)} toplam sahne
                 </Badge>
               </div>
             </div>
 
-            <div className="rounded-3xl border border-border/70 bg-card p-5 shadow-sm">
+            <div className={cn('rounded-lg border p-5 shadow-sm', projectAccent.cardClass)}>
               <div className="text-sm font-semibold">Proje davranisi</div>
               <div className="mt-1 text-xs leading-5 text-muted-foreground">
                 Buradaki anlatim turu yeni episode acilirken varsayilan davranisi belirler.
               </div>
 
               <div className="mt-5 space-y-3">
+                <div className="flex items-center justify-between gap-3 rounded-md border border-border/70 bg-background/40 px-3 py-2">
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground">Dashboard sirasi</div>
+                    <div className="text-sm">{projectPreference?.isPinned ? 'Basa sabitli' : 'Normal sirada'}</div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(projectPreference?.isPinned && projectAccent.textClass)}
+                    onClick={toggleProjectPin}
+                  >
+                    <Pin className={cn('h-4 w-4', projectPreference?.isPinned && 'fill-current')} />
+                    {projectPreference?.isPinned ? 'Sabit' : 'Pinle'}
+                  </Button>
+                </div>
+                <div>
+                  <div className="mb-2 text-xs font-medium text-muted-foreground">Kart rengi</div>
+                  <div className="grid grid-cols-6 gap-2">
+                    {PROJECT_ACCENTS.map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={cn(
+                          'flex h-9 items-center justify-center rounded-md border border-border/70 bg-background/50 transition-colors hover:border-foreground/40',
+                          projectPreference?.accent === option.id && 'border-foreground/70',
+                        )}
+                        onClick={() => projectId && setProjectAccent(projectId, option.id)}
+                        title={option.label}
+                      >
+                        {projectPreference?.accent === option.id ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <span className={cn('h-4 w-4 rounded-full', option.swatchClass)} />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div>
                   <div className="mb-2 text-xs font-medium text-muted-foreground">Narrative mode</div>
                   <Select value={projectType} onValueChange={(value: ProjectType) => handleProjectTypeChange(value)}>
@@ -353,8 +451,8 @@ export default function ProjectWorkspace() {
                 ))}
               </div>
             ) : filteredEpisodes.length === 0 ? (
-              <Card className="rounded-3xl border-dashed border-border/70 px-8 py-16 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/8 text-primary">
+              <Card className="rounded-lg border-dashed border-border/70 px-8 py-16 text-center">
+                <div className={cn('mx-auto flex h-16 w-16 items-center justify-center rounded-md border', projectAccent.iconClass)}>
                   <FileText className="h-8 w-8" />
                 </div>
                 <h3 className="mt-5 text-2xl font-semibold">Bolum bulunamadi</h3>
@@ -373,11 +471,16 @@ export default function ProjectWorkspace() {
                 {filteredEpisodes.map((episode) => (
                   <Card
                     key={episode.id}
-                    className="rounded-3xl border-border/70 p-5 transition-colors hover:border-primary/30 hover:bg-card/90"
+                    className={cn(
+                      'group relative cursor-pointer overflow-hidden rounded-lg p-5 transition-colors',
+                      projectAccent.cardClass,
+                      projectAccent.cardHoverClass,
+                    )}
                     onClick={() => navigate(`/project/${projectId}/episode/${episode.id}`)}
                   >
+                    <div className={cn('absolute inset-x-0 top-0 h-1', projectAccent.topBarClass)} />
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                      <div className={cn('flex h-11 w-11 items-center justify-center rounded-md border', projectAccent.iconClass)}>
                         <FileText className="h-5 w-5" />
                       </div>
                       <div className="flex items-center gap-1">
@@ -423,14 +526,14 @@ export default function ProjectWorkspace() {
                         <>
                           <h3 className="min-h-[3.25rem] text-xl font-semibold leading-tight">{episode.title}</h3>
                           <div className="mt-3 flex flex-wrap gap-2">
-                            <Badge variant="outline">Bolum {episode.episode_number}</Badge>
+                            <Badge variant="outline" className={projectAccent.badgeClass}>Bolum {episode.episode_number}</Badge>
                             <Badge variant="outline">{episode.scene_count || 0} sahne</Badge>
                           </div>
                         </>
                       )}
                     </div>
 
-                    <div className="mt-8 flex items-end justify-between border-t border-border/60 pt-4">
+                    <div className={cn('mt-8 flex items-end justify-between border-t pt-4', projectAccent.dividerClass)}>
                       <div>
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <Clock className="h-3.5 w-3.5" />
@@ -438,7 +541,7 @@ export default function ProjectWorkspace() {
                         </div>
                         <div className="mt-2 text-sm font-medium text-foreground">Episode workspace'i ac</div>
                       </div>
-                      <div className="text-xs text-primary">Ac</div>
+                      <div className={cn('text-xs font-medium', projectAccent.textClass)}>Ac</div>
                     </div>
                   </Card>
                 ))}
@@ -501,7 +604,7 @@ export default function ProjectWorkspace() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-border/70 bg-muted/30 p-3 text-xs leading-5 text-muted-foreground">
+            <div className="rounded-lg border border-border/70 bg-muted/30 p-3 text-xs leading-5 text-muted-foreground">
               Bu secim episode acildiginda otomatik yuklenir. Sonradan panel icinden degistirilebilir ama acilisi net kurmak iyi sonuc veriyor.
             </div>
           </div>

@@ -7,7 +7,6 @@ import {
   Folder,
   Clock,
   Settings as SettingsIcon,
-  Key,
   Trash2,
   Pencil,
   Check,
@@ -15,6 +14,8 @@ import {
   Search,
   SortAsc,
   Layers3,
+  Palette,
+  Pin,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -22,6 +23,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +37,15 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { deleteProject, updateProject } from '@/lib/supabaseQueries';
+import { cn } from '@/lib/utils';
+import {
+  getProjectAccent,
+  getProjectUiPreference,
+  PROJECT_ACCENTS,
+  readProjectUiPreferences,
+  updateProjectUiPreference,
+  type ProjectAccentId,
+} from '@/lib/projectUiPreferences';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import type { ProjectType } from '@/types';
@@ -75,6 +86,7 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'updated_at' | 'title' | 'count'>('updated_at');
   const [newProjectType, setNewProjectType] = useState<ProjectType>('documentary');
+  const [projectPrefs, setProjectPrefs] = useState(() => readProjectUiPreferences());
 
   useEffect(() => {
     fetchProjects();
@@ -211,19 +223,33 @@ export default function Dashboard() {
     if (e.key === 'Escape') setEditingId(null);
   }
 
+  function toggleProjectPin(projectId: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    const current = getProjectUiPreference(projectId, projectPrefs);
+    setProjectPrefs(updateProjectUiPreference(projectId, { isPinned: !current.isPinned }));
+  }
+
+  function setProjectAccent(projectId: string, accent: ProjectAccentId) {
+    setProjectPrefs(updateProjectUiPreference(projectId, { accent }));
+  }
+
   const filteredProjects = projects
     .filter((project) => project.title.toLowerCase().includes(searchTerm.toLowerCase()))
     .sort((a, b) => {
+      const aPinned = getProjectUiPreference(a.id, projectPrefs).isPinned;
+      const bPinned = getProjectUiPreference(b.id, projectPrefs).isPinned;
+      if (aPinned !== bPinned) return bPinned ? 1 : -1;
       if (sortBy === 'updated_at') return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
       if (sortBy === 'title') return a.title.localeCompare(b.title);
       if (sortBy === 'count') return (b.episode_count || 0) - (a.episode_count || 0);
       return 0;
     });
+  const pinnedProjectCount = projects.filter((project) => getProjectUiPreference(project.id, projectPrefs).isPinned).length;
 
   const SkeletonProjectCard = () => (
-    <Card className="rounded-3xl border-border/70 p-5">
+    <Card className="rounded-lg border-border/70 p-5">
       <div className="flex items-start justify-between">
-        <Skeleton className="h-10 w-10 rounded-2xl" />
+        <Skeleton className="h-10 w-10 rounded-md" />
         <div className="flex gap-2">
           <Skeleton className="h-8 w-8 rounded-full" />
           <Skeleton className="h-8 w-8 rounded-full" />
@@ -243,7 +269,7 @@ export default function Dashboard() {
       <header className="border-b border-border/70 bg-card/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <div className="flex h-11 w-11 items-center justify-center rounded-md bg-primary/10 text-primary">
               <Film className="h-5 w-5" />
             </div>
             <div>
@@ -278,6 +304,7 @@ export default function Dashboard() {
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
                 <Badge variant="outline">{projects.length} proje</Badge>
+                <Badge variant="outline">{pinnedProjectCount} sabit</Badge>
                 <Badge variant="outline">
                   {projects.reduce((sum, project) => sum + (project.episode_count || 0), 0)} toplam bolum
                 </Badge>
@@ -292,7 +319,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-border/70 bg-card p-5 shadow-sm">
+            <div className="rounded-lg border border-border/70 bg-card p-5 shadow-sm">
               <div className="text-sm font-semibold">Yeni proje</div>
               <div className="mt-1 text-xs leading-5 text-muted-foreground">
                 Yeni proje acarken anlatim turunu basta sec. Episode olustururken bu cizgiyi daha da incelteceksin.
@@ -365,8 +392,8 @@ export default function Dashboard() {
                 ))}
               </div>
             ) : filteredProjects.length === 0 ? (
-              <Card className="rounded-3xl border-dashed border-border/70 px-8 py-16 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/8 text-primary">
+              <Card className="rounded-lg border-dashed border-border/70 px-8 py-16 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-md bg-primary/10 text-primary">
                   <Folder className="h-8 w-8" />
                 </div>
                 <h3 className="mt-5 text-2xl font-semibold">Proje bulunamadi</h3>
@@ -382,89 +409,147 @@ export default function Dashboard() {
               </Card>
             ) : (
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                {filteredProjects.map((project) => (
-                  <Card
-                    key={project.id}
-                    className="rounded-3xl border-border/70 p-5 transition-colors hover:border-primary/30 hover:bg-card/90"
-                    onClick={() => editingId !== project.id && navigate(`/project/${project.id}`)}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                        <Film className="h-5 w-5" />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {project.last_episode_id ? (
+                {filteredProjects.map((project) => {
+                  const preference = getProjectUiPreference(project.id, projectPrefs);
+                  const accent = getProjectAccent(preference.accent);
+
+                  return (
+                    <Card
+                      key={project.id}
+                      className={cn(
+                        'group relative cursor-pointer overflow-hidden rounded-lg p-5 transition-colors',
+                        accent.cardClass,
+                        accent.cardHoverClass,
+                      )}
+                      onClick={() => editingId !== project.id && navigate(`/project/${project.id}`)}
+                    >
+                      <div className={cn('absolute inset-x-0 top-0 h-1', accent.topBarClass)} />
+                      <div className="flex items-start justify-between gap-3">
+                        <div className={cn('flex h-11 w-11 items-center justify-center rounded-md border', accent.iconClass)}>
+                          <Film className="h-5 w-5" />
+                        </div>
+                        <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8"
-                            title="Son bolume git"
+                            className={cn('h-8 w-8 text-muted-foreground', preference.isPinned && accent.textClass)}
+                            title={preference.isPinned ? 'Pini kaldir' : 'Basa pinle'}
+                            onClick={(e) => toggleProjectPin(project.id, e)}
+                          >
+                            <Pin className={cn('h-4 w-4', preference.isPinned && 'fill-current')} />
+                          </Button>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground"
+                                title="Kart rengini degistir"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Palette className="h-4 w-4" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-56 p-3" align="end" onClick={(e) => e.stopPropagation()}>
+                              <div className="mb-3 text-xs font-medium text-muted-foreground">Kart rengi</div>
+                              <div className="grid grid-cols-3 gap-2">
+                                {PROJECT_ACCENTS.map((option) => (
+                                  <button
+                                    key={option.id}
+                                    type="button"
+                                    className={cn(
+                                      'flex h-9 items-center justify-center rounded-md border border-border/70 bg-background transition-colors hover:border-foreground/40',
+                                      preference.accent === option.id && 'border-foreground/60',
+                                    )}
+                                    onClick={() => setProjectAccent(project.id, option.id)}
+                                    title={option.label}
+                                  >
+                                    <span className={cn('h-4 w-4 rounded-full', option.swatchClass)} />
+                                  </button>
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                          {project.last_episode_id ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Son bolume git"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/project/${project.id}/episode/${project.last_episode_id}`);
+                              }}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          ) : null}
+                          {editingId !== project.id ? (
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => startRename(project, e)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          ) : null}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/project/${project.id}/episode/${project.last_episode_id}`);
+                              setDeleteTargetId(project.id);
                             }}
                           >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        ) : null}
-                        {editingId !== project.id ? (
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => startRename(project, e)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        ) : null}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteTargetId(project.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="mt-5">
-                      {editingId === project.id ? (
-                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                          <Input
-                            ref={editInputRef}
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            onKeyDown={(e) => handleRenameKeyDown(e, project.id)}
-                            className="h-10"
-                          />
-                          <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-600" onClick={() => handleRename(project.id)}>
-                            <Check className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      ) : (
-                        <>
-                          <h3 className="text-xl font-semibold leading-tight">{project.title}</h3>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            <Badge variant="outline">{projectTypeLabel(project.project_type)}</Badge>
-                            <Badge variant="outline">{project.episode_count || 0} bolum</Badge>
+                      </div>
+
+                      <div className="mt-5">
+                        {editingId === project.id ? (
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <Input
+                              ref={editInputRef}
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onKeyDown={(e) => handleRenameKeyDown(e, project.id)}
+                              className="h-10"
+                            />
+                            <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-600" onClick={() => handleRename(project.id)}>
+                              <Check className="h-4 w-4" />
+                            </Button>
                           </div>
-                        </>
-                      )}
-                    </div>
-
-                    <div className="mt-8 flex items-end justify-between border-t border-border/60 pt-4">
-                      <div>
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Clock className="h-3.5 w-3.5" />
-                          {format(new Date(project.updated_at), 'd MMMM yyyy', { locale: tr })}
-                        </div>
-                        <div className="mt-2 text-sm font-medium text-foreground">
-                          {project.last_episode_id ? 'Calismaya devam et' : 'Episode olusturmaya hazir'}
-                        </div>
+                        ) : (
+                          <>
+                            <div className="flex items-start gap-2">
+                              <h3 className="min-h-[3.25rem] flex-1 text-xl font-semibold leading-tight">{project.title}</h3>
+                              {preference.isPinned ? (
+                                <Badge variant="outline" className={accent.badgeClass}>
+                                  Sabit
+                                </Badge>
+                              ) : null}
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <Badge variant="outline">{projectTypeLabel(project.project_type)}</Badge>
+                              <Badge variant="outline">{project.episode_count || 0} bolum</Badge>
+                            </div>
+                          </>
+                        )}
                       </div>
-                      <div className="text-xs text-primary">Ac</div>
-                    </div>
-                  </Card>
-                ))}
+
+                      <div className={cn('mt-8 flex items-end justify-between border-t pt-4', accent.dividerClass)}>
+                        <div>
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Clock className="h-3.5 w-3.5" />
+                            {format(new Date(project.updated_at), 'd MMMM yyyy', { locale: tr })}
+                          </div>
+                          <div className="mt-2 text-sm font-medium text-foreground">
+                            {project.last_episode_id ? 'Calismaya devam et' : 'Episode olusturmaya hazir'}
+                          </div>
+                        </div>
+                        <div className={cn('text-xs font-medium', accent.textClass)}>Ac</div>
+                      </div>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </div>
