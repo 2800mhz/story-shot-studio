@@ -1,43 +1,68 @@
 import React from 'react';
-import { Clapperboard, Film, Layers3, Sparkles, Wand2 } from 'lucide-react';
+import { Clapperboard, FileText, Image as ImageIcon, Layers3, Scissors, Sparkles, Video, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const FEATURE_CARDS = [
   {
-    eyebrow: 'EPISODE SETUP',
-    title: 'Narrative mode + render mode secimi',
-    description: 'Belgesel, reklam veya kurgu tavrini; photoreal, stylized, illustration ya da animation render cizgisiyle birlestir.',
+    eyebrow: 'SCRIPT TO SCENES',
+    title: 'Metni episode ve sahne kartlarina ayir',
+    description: 'Senaryo ya da seslendirme metninden episode akisini, sahne omurgasini ve karakter/mekan/zaman baglamini cikar.',
   },
   {
-    eyebrow: 'SCENE WORKSPACE',
-    title: 'Sahne, entity ve prompt akislarini birlikte gor',
-    description: 'Bir panelde metin, digerinde sahne kartlari, yanda ise prompt ve revision akisi.',
+    eyebrow: 'VISUAL PRODUCTION',
+    title: 'Sahneyi gorsele donusturen karar hattini yonet',
+    description: 'Kamera acisi, referans, stil, shot promptlari ve image generation akisi ayni calisma yuzeyinde kalir.',
   },
   {
-    eyebrow: 'AI EDITOR',
-    title: 'Chat gibi degil, editor gibi calisir',
-    description: 'Yasli adamin kiyafetini donemsellestir, bir promptu daha dogal yap ya da sahne notunu tek komutla guncelle.',
+    eyebrow: 'MOTION + ROUGH CUT',
+    title: 'Img shotlari hareketli video parcalarina bagla',
+    description: 'Uretilen gorseller motion prompt/video asamasina gider; kaba kurgu sirasi, revizyon ve export hazirligi takip edilir.',
   },
 ];
 
 const WORKFLOW_STEPS = [
   {
-    title: 'Metni iceri al',
-    description: 'Seslendirme metnini yukle, episode akisini kur ve sahne iskeletini cikar.',
-    icon: Film,
+    title: 'Text',
+    description: 'Senaryo, seslendirme ya da bolum metnini iceri al.',
+    icon: FileText,
   },
   {
-    title: 'Sahneleri duzenle',
-    description: 'Karakter, mekan, zaman, kart rengi ve stil kararlarini tek yerde tut.',
+    title: 'Scenes',
+    description: 'Episode ve sahne kartlarini uret, baglami koru.',
     icon: Layers3,
   },
   {
-    title: 'Promptlari yonet',
-    description: 'Wide, medium ve close-up varyasyonlarini uret, pinle ve revize et.',
+    title: 'Prompts',
+    description: 'Shot acilari, referanslar ve prompt varyasyonlarini yonet.',
     icon: Wand2,
   },
+  {
+    title: 'Image',
+    description: 'Sahne kartlarini tutarli gorsel uretim komutlarina cevir.',
+    icon: ImageIcon,
+  },
+  {
+    title: 'Motion',
+    description: 'Img ciktilarini hareketli shot mantigina hazirla.',
+    icon: Video,
+  },
+  {
+    title: 'Rough cut',
+    description: 'Video parcalarini kaba kurgu sirasi icinde takip et.',
+    icon: Scissors,
+  },
+];
+
+const PIPELINE_LABELS = [
+  'Text',
+  'Episode',
+  'Scenes',
+  'Prompts',
+  'Image',
+  'Motion',
+  'Rough cut',
 ];
 
 export default function Landing() {
@@ -58,7 +83,7 @@ export default function Landing() {
             </div>
             <div>
               <div className="text-lg font-semibold">Prompt Forge</div>
-              <div className="text-xs text-muted-foreground">Storyboard ve prompt workspace</div>
+              <div className="text-xs text-muted-foreground">Storyboard, image ve motion workspace</div>
             </div>
           </div>
 
@@ -74,26 +99,32 @@ export default function Landing() {
             <div className="max-w-2xl">
               <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border/70 bg-background px-3 py-1 text-xs text-muted-foreground">
                 <Sparkles className="h-3.5 w-3.5 text-primary" />
-                AI destekli sahne ve prompt yonetimi
+                AI destekli gorsel uretim hatti
               </div>
               <h1 className="text-4xl font-semibold leading-[1.06] tracking-tight sm:text-5xl">
-                Senaryodan cok,
+                Metinden sahneye,
                 <br />
-                uretim masasi gibi dusunen
+                sahneden gorsele,
                 <br />
-                bir prompt araci
+                gorselden kaba kurguya
               </h1>
               <p className="mt-6 max-w-xl text-base leading-8 text-muted-foreground">
-                Story Shot Studio; episode, sahne, karakter, mekan ve prompt kararlarini ayni yerde toplayan
-                calisma yuzeyi. Metni parcala, sahneyi duzenle, varyasyonlari uret ve tutarliligi kaybetmeden
-                revize et.
+                Story Shot Studio; metni episode ve sahne kartlarina ayiran, sahneleri img uretimine hazirlayan,
+                uretilen gorselleri motion/video akisi ve kaba kurgu mantigiyla takip eden bir production workspace.
               </p>
+              <div className="mt-7 flex max-w-xl flex-wrap gap-2">
+                {PIPELINE_LABELS.map((label) => (
+                  <span key={label} className="rounded-full border border-border/70 bg-background px-3 py-1 text-xs text-muted-foreground">
+                    {label}
+                  </span>
+                ))}
+              </div>
               <div className="mt-9 flex flex-wrap gap-3">
                 <Button onClick={signInWithGoogle} size="lg" className="h-11 px-7">
                   Calisma alanini ac
                 </Button>
                 <Button variant="outline" size="lg" className="h-11 px-7" onClick={() => navigate('/motion-prompt')}>
-                  Motion Prompt aracina git
+                  Motion aracina git
                 </Button>
               </div>
             </div>
@@ -117,12 +148,12 @@ export default function Landing() {
             <div className="max-w-2xl">
               <div className="text-sm font-semibold text-foreground">Temel akis</div>
               <div className="mt-2 text-sm leading-6 text-muted-foreground">
-                Burasi tek atislik prompt yazma araci degil. Episode olceginde karar alip sahne duzeyinde revizyon
-                yoneten bir calisma ortami.
+                Burasi tek atislik prompt yazma araci degil. Metinden gorsele, gorselden hareketli shotlara ve kaba
+                kurguya uzanan bir uretim hattini yoneten calisma ortami.
               </div>
             </div>
 
-            <div className="mt-8 grid gap-4 md:grid-cols-3">
+            <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {WORKFLOW_STEPS.map((step) => (
                 <div key={step.title} className="rounded-lg border border-border/70 bg-card px-5 py-5 shadow-sm">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
