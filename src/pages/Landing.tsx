@@ -167,6 +167,25 @@ export default function Landing() {
           </div>
         </section>
       </main>
+
+      <footer className="border-t border-border/70 bg-background">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-6 py-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <span className="font-medium text-foreground">Prompt Forge</span>
+            <span className="mx-2 text-border">/</span>
+            Metinden gorsele, motion'a ve kaba kurguya uzanan production workspace.
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" className="transition-colors hover:text-foreground" onClick={signInWithGoogle}>
+              Calisma alani
+            </button>
+            <button type="button" className="transition-colors hover:text-foreground" onClick={() => navigate('/motion-prompt')}>
+              Motion araci
+            </button>
+            <span>2026</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
