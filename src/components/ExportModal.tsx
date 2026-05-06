@@ -822,7 +822,7 @@ export function ExportModal({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent className="border-border bg-card p-0 sm:max-w-4xl">
+      <DialogContent className="max-h-[92vh] border-border bg-card p-0 sm:max-w-[96vw] xl:max-w-6xl">
         <DialogHeader className="border-b border-border/70 px-6 py-5">
           <DialogTitle className="flex items-center gap-2 text-foreground">
             <PackageCheck className="h-5 w-5 text-primary" />
@@ -833,7 +833,7 @@ export function ExportModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid max-h-[68vh] gap-0 overflow-y-auto md:grid-cols-[260px_minmax(0,1fr)]">
+        <div className="grid max-h-[70vh] gap-0 overflow-y-auto scrollbar-thin md:grid-cols-[300px_minmax(0,1fr)]">
           <aside className="border-b border-border/70 p-5 md:border-b-0 md:border-r">
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ozet</div>
             <div className="mt-4 grid gap-3">
@@ -869,7 +869,7 @@ export function ExportModal({
             </div>
           </aside>
 
-          <div className="space-y-6 p-5">
+          <div className="min-w-0 space-y-6 p-5">
             <section>
               <div className="mb-3 text-sm font-semibold">Presetler</div>
               <div className="grid gap-2 sm:grid-cols-2">
@@ -901,7 +901,7 @@ export function ExportModal({
                   setPreset('custom');
                   setFormat(value);
                 }}
-                className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"
+                className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3"
               >
                 {FORMAT_OPTIONS.map((option) => {
                   const Icon = option.icon;
@@ -909,14 +909,14 @@ export function ExportModal({
                     <label
                       key={option.id}
                       className={cn(
-                        'cursor-pointer rounded-lg border border-border/70 bg-background/40 p-3 transition-colors hover:border-primary/35',
+                        'min-w-0 cursor-pointer rounded-lg border border-border/70 bg-background/40 p-3 transition-colors hover:border-primary/35',
                         format === option.id && 'border-primary/60 bg-primary/[0.04]',
                       )}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
                         <RadioGroupItem value={option.id} />
                         <Icon className={cn('h-4 w-4', option.iconClass)} />
-                        <span className="text-sm font-medium">{option.label}</span>
+                        <span className="min-w-0 truncate text-sm font-medium">{option.label}</span>
                       </div>
                       <div className="mt-2 text-xs leading-5 text-muted-foreground">{option.description}</div>
                     </label>
