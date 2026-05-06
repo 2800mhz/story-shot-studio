@@ -387,12 +387,31 @@ export function SceneCard({
   const hasCameraAngleSlots = (scene.cameraAngleSlots?.length ?? 0) > 0;
   const hasPromptWorkspace = hasPrompts || hasCameraAngleSlots;
   const cameraAngleSlots = scene.cameraAngleSlots ?? [];
+  const alternativeCameraAngleSlots = cameraAngleSlots.slice(3);
+  const slotIndexBySlotId = new Map(cameraAngleSlots.map((slot, index) => [slot.id, index]));
+  const slotIndexByPromptId = new Map(
+    cameraAngleSlots
+      .filter(slot => !!slot.promptId)
+      .map(slot => [slot.promptId as string, slotIndexBySlotId.get(slot.id) ?? -1])
+  );
   const promptsById = new Map(scene.prompts.map(prompt => [prompt.id, prompt]));
   const promptsBySlotId = new Map(
     scene.prompts
       .filter(prompt => !!prompt.slotId)
       .map(prompt => [prompt.slotId as string, prompt])
   );
+  const getPromptSlotIndex = (prompt: PromptCard) => {
+    if (prompt.slotId && slotIndexBySlotId.has(prompt.slotId)) {
+      return slotIndexBySlotId.get(prompt.slotId);
+    }
+    return slotIndexByPromptId.get(prompt.id);
+  };
+  const generatedPrompts = scene.prompts.filter(prompt => {
+    const slotIndex = getPromptSlotIndex(prompt);
+    return slotIndex === undefined || slotIndex < 3;
+  });
+  const hasGeneratedPrompts = generatedPrompts.length > 0;
+  const hasAlternativeSlots = alternativeCameraAngleSlots.length > 0;
   const getSlotPrompt = (slot: NonNullable<SceneCardType['cameraAngleSlots']>[number]) =>
     (slot.promptId ? promptsById.get(slot.promptId) : undefined) ?? promptsBySlotId.get(slot.id);
   const handleCopySlotPrompt = (prompt: PromptCard) => {
@@ -401,10 +420,10 @@ export function SceneCard({
   };
 
   useEffect(() => {
-    if (!hasPrompts && hasCameraAngleSlots && activeTab === 'generated') {
+    if (!hasGeneratedPrompts && hasAlternativeSlots && activeTab === 'generated') {
       setActiveTab('slots');
     }
-  }, [activeTab, hasCameraAngleSlots, hasPrompts]);
+  }, [activeTab, hasAlternativeSlots, hasGeneratedPrompts]);
 
   const characterOptions = availableCharacters.map(character => ({
     id: character.id,
@@ -760,8 +779,8 @@ export function SceneCard({
 
           {activeTab === 'generated' ? (
             <>
-              {hasPrompts ? (
-                scene.prompts.map(prompt => (
+              {hasGeneratedPrompts ? (
+                generatedPrompts.map(prompt => (
                   <InlinePromptCard
                     key={prompt.id}
                     prompt={prompt}
@@ -773,7 +792,7 @@ export function SceneCard({
                 ))
               ) : (
                 <div className="rounded-md border border-dashed border-border bg-muted/10 p-4 text-center text-xs text-muted-foreground">
-                  Bu sahnede görünen prompt yok.
+                  Bu sahnede ana prompt yok.
                 </div>
               )}
               <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
@@ -801,9 +820,10 @@ export function SceneCard({
             </>
           ) : (
             <div className="space-y-3">
-              {cameraAngleSlots.map((slot, index) => {
+              {alternativeCameraAngleSlots.map((slot) => {
                 const slotPrompt = getSlotPrompt(slot);
                 const hasOrphanedPromptLink = !!slot.promptId && !slotPrompt;
+                const originalSlotIndex = slotIndexBySlotId.get(slot.id) ?? 0;
 
                 return (
                   <div key={slot.id} className="border rounded-md p-3 bg-muted/20 relative">
@@ -814,7 +834,7 @@ export function SceneCard({
                     )}
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <div className="text-xs font-medium text-foreground">
-                        Slot {index + 1}: {slot.label}
+                        Slot {originalSlotIndex + 1}: {slot.label}
                       </div>
                       {slotPrompt && (
                         <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-300">
