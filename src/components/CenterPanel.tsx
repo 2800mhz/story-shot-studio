@@ -31,6 +31,8 @@ export function CenterPanel({
 }: CenterPanelProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const activeSceneRef = useRef<HTMLElement>(null);
+  const episodeScrollAnchorRef = useRef<HTMLSpanElement>(null);
+  const [episodeScrollIndex, setEpisodeScrollIndex] = useState<number | null>(null);
   const [toolbar, setToolbar] = useState<{
     position: { top: number; left: number };
     selectedText: string;
@@ -44,6 +46,8 @@ export function CenterPanel({
 
   // Scroll to active scene when it changes
   useEffect(() => {
+    if (episodeScrollIndex !== null) return;
+
     if (activeSceneId && activeSceneRef.current && scrollContainerRef.current) {
       const container = scrollContainerRef.current;
       const el = activeSceneRef.current;
@@ -52,11 +56,14 @@ export function CenterPanel({
       const scrollTop = container.scrollTop + (elRect.top - containerRect.top) - 80;
       container.scrollTo({ top: scrollTop, behavior: 'smooth' });
     }
-  }, [activeSceneId]);
+  }, [activeSceneId, episodeScrollIndex]);
 
   // Scroll to episode position when scrollToIndex changes
   useEffect(() => {
     if (scrollToIndex === null || !scrollContainerRef.current) return;
+
+    const clampedIndex = Math.max(0, Math.min(scrollToIndex, mainText.length));
+    setEpisodeScrollIndex(clampedIndex);
 
     // In AI scene mode, find the scene containing this index
     if (hasAiScenes) {
@@ -70,7 +77,93 @@ export function CenterPanel({
     }
 
     onScrollComplete();
-  }, [scrollToIndex, onScrollComplete, hasAiScenes, scenes, onSetActiveScene]);
+  }, [scrollToIndex, mainText.length, onScrollComplete, hasAiScenes, scenes, onSetActiveScene]);
+
+  useEffect(() => {
+    if (episodeScrollIndex === null) return;
+
+    let innerScrollFrame: number | null = null;
+    const scrollFrame = window.requestAnimationFrame(() => {
+      innerScrollFrame = window.requestAnimationFrame(() => {
+        const container = scrollContainerRef.current;
+        const target = episodeScrollAnchorRef.current || activeSceneRef.current;
+        if (!container || !target) return;
+
+        const containerRect = container.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+        const headerOffset = Math.min(140, Math.max(72, container.clientHeight * 0.18));
+        const nextTop = container.scrollTop + (targetRect.top - containerRect.top) - headerOffset;
+        container.scrollTo({ top: Math.max(0, nextTop), behavior: 'smooth' });
+      });
+    });
+
+    const highlightTimer = window.setTimeout(() => {
+      setEpisodeScrollIndex(null);
+    }, 1700);
+
+    return () => {
+      window.cancelAnimationFrame(scrollFrame);
+      if (innerScrollFrame !== null) window.cancelAnimationFrame(innerScrollFrame);
+      window.clearTimeout(highlightTimer);
+    };
+  }, [episodeScrollIndex]);
+
+  const renderEpisodeScrollAnchor = useCallback((key: string) => (
+    <span
+      key={key}
+      ref={episodeScrollAnchorRef}
+      aria-hidden="true"
+      className="relative inline-block h-0 w-0 scroll-mt-24 align-baseline"
+    >
+      <span className="pointer-events-none absolute -left-2 -top-3 h-8 w-1 rounded-full bg-primary/90 shadow-lg shadow-primary/30 animate-pulse" />
+    </span>
+  ), []);
+
+  const renderTextRange = useCallback((start: number, end: number, keyPrefix: string): React.ReactNode[] => {
+    const safeStart = Math.max(0, Math.min(start, mainText.length));
+    const safeEnd = Math.max(safeStart, Math.min(end, mainText.length));
+    if (safeEnd <= safeStart) return [];
+
+    const shouldPlaceAnchor =
+      episodeScrollIndex !== null &&
+      episodeScrollIndex >= safeStart &&
+      (episodeScrollIndex < safeEnd || (episodeScrollIndex === mainText.length && safeEnd === mainText.length));
+
+    if (!shouldPlaceAnchor) {
+      return [
+        <span
+          key={`${keyPrefix}-text`}
+          dangerouslySetInnerHTML={{ __html: mainText.substring(safeStart, safeEnd) }}
+        />,
+      ];
+    }
+
+    const before = mainText.substring(safeStart, episodeScrollIndex);
+    const after = mainText.substring(episodeScrollIndex, safeEnd);
+    const nodes: React.ReactNode[] = [];
+
+    if (before) {
+      nodes.push(
+        <span
+          key={`${keyPrefix}-before`}
+          dangerouslySetInnerHTML={{ __html: before }}
+        />,
+      );
+    }
+
+    nodes.push(renderEpisodeScrollAnchor(`${keyPrefix}-anchor`));
+
+    if (after) {
+      nodes.push(
+        <span
+          key={`${keyPrefix}-after`}
+          dangerouslySetInnerHTML={{ __html: after }}
+        />,
+      );
+    }
+
+    return nodes;
+  }, [episodeScrollIndex, mainText, renderEpisodeScrollAnchor]);
 
   // Handle text selection for floating toolbar
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
@@ -211,12 +304,7 @@ export function CenterPanel({
 
                 // Add unhighlighted text before the scene
                 if (start > currentIndex) {
-                  elements.push(
-                    <span 
-                      key={`text-${currentIndex}`}
-                      dangerouslySetInnerHTML={{ __html: mainText.substring(currentIndex, start) }}
-                    />
-                  );
+                  elements.push(...renderTextRange(currentIndex, start, `text-${currentIndex}`));
                 }
 
                 // Add the highlighted scene text
@@ -235,10 +323,10 @@ export function CenterPanel({
                       }`}
                   >
                     <span className={`inline-flex items-center justify-center rounded-full text-[10px] w-5 h-5 mr-1.5 -ml-1 align-middle select-none transition-colors ${isSelected ? 'bg-amber-500 text-amber-950 font-bold shadow-sm shadow-amber-900/50' : 'bg-amber-800/80 text-amber-100 border border-amber-600/50'
-                      }`}>
+                    }`}>
                       {scene.number}
                     </span>
-                    <span dangerouslySetInnerHTML={{ __html: mainText.substring(start, end) }} />
+                    {renderTextRange(start, end, `scene-text-${scene.id}`)}
                   </span>
                 );
 
@@ -247,12 +335,7 @@ export function CenterPanel({
 
               // Add remaining text after the last scene
               if (currentIndex < mainText.length) {
-                elements.push(
-                  <span 
-                    key={`text-${currentIndex}`}
-                    dangerouslySetInnerHTML={{ __html: mainText.substring(currentIndex) }}
-                  />
-                );
+                elements.push(...renderTextRange(currentIndex, mainText.length, `text-${currentIndex}`));
               }
 
               return elements;
@@ -281,8 +364,9 @@ export function CenterPanel({
           <div
             className="font-serif text-[17px] leading-[1.8] text-foreground/90 selection:bg-primary/30"
             style={{ whiteSpace: 'pre-wrap' }}
-            dangerouslySetInnerHTML={{ __html: mainText }}
-          />
+          >
+            {renderTextRange(0, mainText.length, 'legacy-main')}
+          </div>
         ) : (
           <div className="flex h-full flex-col items-center justify-center text-muted-foreground gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="relative">
