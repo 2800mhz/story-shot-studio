@@ -20,6 +20,12 @@ interface APIKey {
   usage_count: number;
 }
 
+type AIRequestRouting = {
+  providerOverride?: AIProvider;
+  modelOverride?: string;
+  lockProvider?: boolean;
+};
+
 // Gemini model fallback zinciri — stabil modeller önce
 export const GEMINI_MODELS = [
   'gemini-3-flash',
@@ -263,7 +269,7 @@ class AIProviderManager {
       images?: Array<{ inlineData: { data: string, mimeType: string } }>;
       responseMimeType?: 'application/json';
       responseSchema?: Record<string, unknown>;
-    }
+    } & AIRequestRouting
   ): Promise<string> {
     return this._generateWithRetry(
       prompt,
@@ -273,7 +279,8 @@ class AIProviderManager {
       options?.images,
       options?.responseMimeType,
       options?.responseSchema,
-      { consecutiveServerErrors: 0 }
+      { consecutiveServerErrors: 0 },
+      options
     );
   }
 
@@ -283,9 +290,9 @@ class AIProviderManager {
     options?: {
       operationType?: string;
       onChunk?: (text: string) => void;
-    }
+    } & AIRequestRouting
   ): Promise<string> {
-    return this._generateWithRetryStream(prompt, systemInstruction, 0, options?.operationType, options?.onChunk, { consecutiveServerErrors: 0 });
+    return this._generateWithRetryStream(prompt, systemInstruction, 0, options?.operationType, options?.onChunk, { consecutiveServerErrors: 0 }, options);
   }
 
   /**
@@ -307,7 +314,8 @@ class AIProviderManager {
     images?: Array<{ inlineData: { data: string, mimeType: string } }>,
     responseMimeType?: 'application/json',
     responseSchema?: Record<string, unknown>,
-    context: { consecutiveServerErrors: number } = { consecutiveServerErrors: 0 }
+    context: { consecutiveServerErrors: number } = { consecutiveServerErrors: 0 },
+    routing: AIRequestRouting = {}
   ): Promise<string> {
     // maxRetries: tüm key sayısı * birkaç bulk-wait turu
     const maxRetries = 60;
@@ -316,17 +324,24 @@ class AIProviderManager {
       throw new Error('All AI providers exhausted after many retries. Please try again later.');
     }
 
+    if (routing.providerOverride && this.currentProvider !== routing.providerOverride) {
+      this.currentProvider = routing.providerOverride;
+      this.currentKeyIndex = 0;
+    }
+
     let currentKey = this.getCurrentKey();
 
     // Eğer şu anki provider'da key yoksa, diğer provider'ları kontrol et
     if (!currentKey) {
       let found = false;
-      for (let i = 0; i < 3; i++) {
-        this.forceRotateProvider();
-        currentKey = this.getCurrentKey();
-        if (currentKey) {
-          found = true;
-          break;
+      if (!routing.lockProvider) {
+        for (let i = 0; i < 3; i++) {
+          this.forceRotateProvider();
+          currentKey = this.getCurrentKey();
+          if (currentKey) {
+            found = true;
+            break;
+          }
         }
       }
 
@@ -334,7 +349,7 @@ class AIProviderManager {
         // Tüm keyler rate-limited veya inactive — bekle
         console.warn(`⏳ All keys across all providers exhausted, waiting 15s before retry (attempt ${retryCount + 1}/${maxRetries})...`);
         await new Promise(resolve => setTimeout(resolve, 15_000));
-        return this._generateWithRetry(prompt, systemInstruction, retryCount + 1, operationType, images, responseMimeType, responseSchema);
+        return this._generateWithRetry(prompt, systemInstruction, retryCount + 1, operationType, images, responseMimeType, responseSchema, context, routing);
       }
     }
 
@@ -347,7 +362,8 @@ class AIProviderManager {
         systemInstruction,
         images,
         responseMimeType,
-        responseSchema
+        responseSchema,
+        routing.modelOverride
       );
       // Başarılı istek — 503 sayacını ve fallback'i sıfırla
       context.consecutiveServerErrors = 0;
@@ -362,23 +378,33 @@ class AIProviderManager {
       if (err.status === 429 || err.message?.includes('429') || err.message?.includes('quota')) {
         console.warn(`⚠️ Rate limit hit for ${this.currentProvider}, rotating...`);
         await this.markRateLimited(currentKey);
-        this.rotateKey();
+        this.rotateKey(routing.lockProvider);
         await new Promise(resolve => setTimeout(resolve, 1500));
       } else if (err.status === 403 || err.status === 400 || err.message?.includes('API key not valid')) {
         console.warn(`🚫 Invalid API key for ${this.currentProvider}, marking inactive...`);
         await this.markInvalid(currentKey, `Invalid or unauthorized API key (${err.status || 400})`);
-        this.rotateKey();
+        this.rotateKey(routing.lockProvider);
         await new Promise(resolve => setTimeout(resolve, 500));
       } else if (err.status === 503 || err.status === 500) {
         context.consecutiveServerErrors++;
         this.lastServerErrorAt = Date.now();
-        this.rotateKey();
+        this.rotateKey(routing.lockProvider);
 
         const retryAfterMs = err.retryAfterMs ?? 0;
         const providerKeys = this.keys.get(this.currentProvider) || [];
         const totalKeys = providerKeys.length;
 
-        if (context.consecutiveServerErrors >= totalKeys) {
+        if (routing.lockProvider && context.consecutiveServerErrors >= Math.max(totalKeys, 1)) {
+          const backoffMs = retryAfterMs > 0
+            ? retryAfterMs
+            : this.getBackoffMs(Math.min(context.consecutiveServerErrors, 4));
+          console.warn(
+            `Locked provider ${this.currentProvider} server error ${err.status}; ` +
+            `${(backoffMs / 1000).toFixed(1)}s bekleniyor...`
+          );
+          context.consecutiveServerErrors = 0;
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+        } else if (context.consecutiveServerErrors >= totalKeys) {
           // Tüm keyler denendi, hepsi 503 — fallback modele geç
           const nextFallbackIdx = this.activeFallbackModelIndex + 1;
           const userModel = this.model;
@@ -424,7 +450,7 @@ class AIProviderManager {
         }
       } else {
         // Bilinmeyen hata — kısa bekleme
-        this.rotateKey();
+        this.rotateKey(routing.lockProvider);
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
@@ -436,7 +462,8 @@ class AIProviderManager {
         images,
         responseMimeType,
         responseSchema,
-        context
+        context,
+        routing
       );
     }
   }
@@ -462,12 +489,16 @@ class AIProviderManager {
     return null;
   }
 
-  private rotateKey() {
+  private rotateKey(lockProvider = false) {
     const providerKeys = this.keys.get(this.currentProvider) || [];
     this.currentKeyIndex++;
 
     if (this.currentKeyIndex >= providerKeys.length) {
-      this.forceRotateProvider();
+      if (lockProvider) {
+        this.currentKeyIndex = 0;
+      } else {
+        this.forceRotateProvider();
+      }
     }
   }
 
@@ -487,7 +518,8 @@ class AIProviderManager {
     retryCount: number,
     operationType: string = 'api_request',
     onChunk?: (text: string) => void,
-    context: { consecutiveServerErrors: number } = { consecutiveServerErrors: 0 }
+    context: { consecutiveServerErrors: number } = { consecutiveServerErrors: 0 },
+    routing: AIRequestRouting = {}
   ): Promise<string> {
     const maxRetries = 60;
 
@@ -495,31 +527,38 @@ class AIProviderManager {
       throw new Error('All AI providers exhausted after many retries. Please try again later.');
     }
 
+    if (routing.providerOverride && this.currentProvider !== routing.providerOverride) {
+      this.currentProvider = routing.providerOverride;
+      this.currentKeyIndex = 0;
+    }
+
     let currentKey = this.getCurrentKey();
 
     // Eğer şu anki provider'da key yoksa, diğer provider'ları kontrol et
     if (!currentKey) {
       let found = false;
-      for (let i = 0; i < 3; i++) {
-        this.forceRotateProvider();
-        currentKey = this.getCurrentKey();
-        if (currentKey) {
-          found = true;
-          break;
+      if (!routing.lockProvider) {
+        for (let i = 0; i < 3; i++) {
+          this.forceRotateProvider();
+          currentKey = this.getCurrentKey();
+          if (currentKey) {
+            found = true;
+            break;
+          }
         }
       }
 
       if (!found) {
         console.warn(`⏳ All keys across all providers exhausted [STREAM], waiting 15s before retry (attempt ${retryCount + 1}/${maxRetries})...`);
         await new Promise(resolve => setTimeout(resolve, 15_000));
-        return this._generateWithRetryStream(prompt, systemInstruction, retryCount + 1, operationType, onChunk);
+        return this._generateWithRetryStream(prompt, systemInstruction, retryCount + 1, operationType, onChunk, context, routing);
       }
     }
 
     try {
       const providerKeys = this.keys.get(this.currentProvider) || [];
       console.log(` Trying ${currentKey.provider} (key ${this.currentKeyIndex + 1}/${providerKeys.length}) [STREAMING]`);
-      const result = await this.callProviderStream(currentKey, prompt, systemInstruction, onChunk);
+      const result = await this.callProviderStream(currentKey, prompt, systemInstruction, onChunk, routing.modelOverride);
       context.consecutiveServerErrors = 0;
       this._tempModel = null;
       this.activeFallbackModelIndex = -1;
@@ -532,23 +571,33 @@ class AIProviderManager {
       if (err.status === 429 || err.message?.includes('429') || err.message?.includes('quota')) {
         console.warn(`⚠️ Rate limit hit for ${this.currentProvider}, rotating...`);
         await this.markRateLimited(currentKey);
-        this.rotateKey();
+        this.rotateKey(routing.lockProvider);
         await new Promise(resolve => setTimeout(resolve, 1500));
       } else if (err.status === 403 || err.status === 400 || err.message?.includes('API key not valid')) {
         console.warn(`🚫 Invalid API key for ${this.currentProvider}, marking inactive...`);
         await this.markInvalid(currentKey, `Invalid or unauthorized API key (${err.status || 400})`);
-        this.rotateKey();
+        this.rotateKey(routing.lockProvider);
         await new Promise(resolve => setTimeout(resolve, 500));
       } else if (err.status === 503 || err.status === 500) {
         context.consecutiveServerErrors++;
         this.lastServerErrorAt = Date.now();
-        this.rotateKey();
+        this.rotateKey(routing.lockProvider);
 
         const retryAfterMs = err.retryAfterMs ?? 0;
         const providerKeys = this.keys.get(this.currentProvider) || [];
         const totalKeys = providerKeys.length;
 
-        if (context.consecutiveServerErrors >= totalKeys) {
+        if (routing.lockProvider && context.consecutiveServerErrors >= Math.max(totalKeys, 1)) {
+          const backoffMs = retryAfterMs > 0
+            ? retryAfterMs
+            : this.getBackoffMs(Math.min(context.consecutiveServerErrors, 4));
+          console.warn(
+            `Locked provider ${this.currentProvider} stream error ${err.status}; ` +
+            `${(backoffMs / 1000).toFixed(1)}s bekleniyor...`
+          );
+          context.consecutiveServerErrors = 0;
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+        } else if (context.consecutiveServerErrors >= totalKeys) {
           // Tüm keyler denendi, hepsi 503 — fallback modele geç
           const nextFallbackIdx = this.activeFallbackModelIndex + 1;
           const userModel = this.model;
@@ -587,11 +636,11 @@ class AIProviderManager {
           await new Promise(resolve => setTimeout(resolve, backoffMs));
         }
       } else {
-        this.rotateKey();
+        this.rotateKey(routing.lockProvider);
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      return this._generateWithRetryStream(prompt, systemInstruction, retryCount + 1, operationType, onChunk, context);
+      return this._generateWithRetryStream(prompt, systemInstruction, retryCount + 1, operationType, onChunk, context, routing);
     }
   }
 
@@ -599,7 +648,8 @@ class AIProviderManager {
     key: APIKey,
     prompt: string,
     systemInstruction?: string,
-    onChunk?: (text: string) => void
+    onChunk?: (text: string) => void,
+    modelOverride?: string
   ): Promise<{ text: string; promptTokens: number; completionTokens: number; modelUsed: string }> {
     const decryptedKey = decryptKey(key.api_key);
 
@@ -703,8 +753,10 @@ class AIProviderManager {
         }
         diStreamMessages.push({ role: 'user', content: prompt });
 
+        const deepinfraModel = modelOverride?.trim() || this.deepinfraModel;
+
         const body: Record<string, unknown> = {
-          model: this.deepinfraModel,
+          model: deepinfraModel,
           messages: diStreamMessages,
           temperature: 0.7,
           max_tokens: 16384,
@@ -715,7 +767,7 @@ class AIProviderManager {
         };
 
         const startTime = Date.now();
-        console.log(`📡 [DeepInfra Stream] İstek gönderiliyor... Model: ${this.deepinfraModel}`);
+        console.log(`📡 [DeepInfra Stream] İstek gönderiliyor... Model: ${deepinfraModel}`);
 
         const response = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
           method: 'POST',
@@ -797,7 +849,7 @@ class AIProviderManager {
           throw emptyStreamErr;
         }
 
-        return { text: fullText, promptTokens: inputTokens, completionTokens: outputTokens, modelUsed: this.deepinfraModel };
+        return { text: fullText, promptTokens: inputTokens, completionTokens: outputTokens, modelUsed: deepinfraModel };
       }
 
       case 'groq': {
@@ -917,7 +969,8 @@ class AIProviderManager {
     systemInstruction?: string,
     images?: Array<{ inlineData: { data: string, mimeType: string } }>,
     responseMimeType?: 'application/json',
-    responseSchema?: Record<string, unknown>
+    responseSchema?: Record<string, unknown>,
+    modelOverride?: string
   ): Promise<{ text: string; promptTokens: number; completionTokens: number; modelUsed: string }> {
     const decryptedKey = decryptKey(key.api_key);
 
@@ -1132,8 +1185,10 @@ class AIProviderManager {
 
         const startedAt = Date.now();
 
+        const deepinfraModel = modelOverride?.trim() || this.deepinfraModel;
+
         const body: Record<string, unknown> = {
-          model: this.deepinfraModel,
+          model: deepinfraModel,
           messages,
           temperature: 0.7,
           max_tokens: 16384,
@@ -1169,7 +1224,7 @@ class AIProviderManager {
           ? new TextEncoder().encode(payload).length
           : payload.length;
 
-        console.log(`📡 [DeepInfra] Sending (stream-backed)... Model: ${this.deepinfraModel}, Vision: ${!!(images && images.length > 0)}, Size: ${payloadBytes} bytes`);
+        console.log(`📡 [DeepInfra] Sending (stream-backed)... Model: ${deepinfraModel}, Vision: ${!!(images && images.length > 0)}, Size: ${payloadBytes} bytes`);
 
         const diResponse = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
           method: 'POST',
@@ -1247,7 +1302,7 @@ class AIProviderManager {
           throw emptyErr;
         }
 
-        return { text: diText, promptTokens: diPromptTokens, completionTokens: diCompletionTokens, modelUsed: this.deepinfraModel };
+        return { text: diText, promptTokens: diPromptTokens, completionTokens: diCompletionTokens, modelUsed: deepinfraModel };
       }
 
       default:

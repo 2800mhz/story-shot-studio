@@ -126,6 +126,14 @@ function inferIntentTags(intent: any) {
   return unique(tags).slice(0, 4);
 }
 
+const AGENT_PROVIDER = 'deepinfra' as const;
+const AGENT_MODEL = 'Qwen/Qwen3.6-35B-A3B';
+const AGENT_MODEL_OPTIONS = {
+  providerOverride: AGENT_PROVIDER,
+  modelOverride: AGENT_MODEL,
+  lockProvider: true,
+};
+
 export function useAgentActions({
   agent,
   state,
@@ -296,6 +304,7 @@ export function useAgentActions({
             {
               operationType: 'agent_attachment_analysis',
               images: [{ inlineData: { data: base64, mimeType: file.type || 'image/png' } }],
+              ...AGENT_MODEL_OPTIONS,
             },
           );
           analysis = attachmentSummary.trim();
@@ -427,6 +436,7 @@ export function useAgentActions({
           const rawIntent = await aiProvider.generateContent(intentPrompt, AGENT_INTENT_SYSTEM_PROMPT, {
             operationType: 'agent_intent',
             responseMimeType: 'application/json',
+            ...AGENT_MODEL_OPTIONS,
           });
 
           const parsedIntent = parseAgentIntent(rawIntent);
@@ -504,9 +514,11 @@ export function useAgentActions({
         ? await aiProvider.generateContent(prompt, AGENT_SYSTEM_PROMPT, {
             operationType: 'agent_edit',
             images,
+            ...AGENT_MODEL_OPTIONS,
           })
         : await aiProvider.generateContentStream(prompt, AGENT_SYSTEM_PROMPT, {
             operationType: 'agent_edit_stream',
+            ...AGENT_MODEL_OPTIONS,
             onChunk: (text) => {
               streamed = text;
               agent.updateMessage(assistantMessageId, {
