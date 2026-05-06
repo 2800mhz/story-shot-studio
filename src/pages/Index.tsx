@@ -1725,8 +1725,17 @@ const Index = () => {
         </div>
       )}
 
-      <input ref={mainFileRef} type="file" accept=".docx,.txt" className="hidden"
-        onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
+      <input
+        ref={mainFileRef}
+        type="file"
+        accept=".docx,.txt"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void handleFileUpload(file);
+          event.target.value = '';
+        }}
+      />
 
       <div className="flex flex-1 overflow-hidden">
         <PanelGroup direction="horizontal" autoSaveId="story-shot-layout">

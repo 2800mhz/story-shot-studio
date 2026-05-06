@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   BookOpen,
   ChevronDown,
@@ -258,6 +258,10 @@ export function LeftPanel({
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'default' | 'name' | 'scenes'>('default');
+  const episodeSignature = useMemo(
+    () => episodes.map((episode) => `${episode.id}:${episode.title}:${episode.parentId ?? ''}`).join('|'),
+    [episodes],
+  );
 
   const stats = useMemo(() => {
     const promptCount = scenes.reduce((sum, scene) => sum + (scene.prompts?.length || 0), 0);
@@ -306,6 +310,14 @@ export function LeftPanel({
       return next;
     });
   };
+
+  useEffect(() => {
+    setSearchTerm('');
+    const expandableIds = episodes
+      .filter((episode) => episodes.some((child) => child.parentId === episode.id) || sceneCountForEpisode(episode, scenes) > 0)
+      .map((episode) => episode.id);
+    setExpandedIds(new Set(expandableIds));
+  }, [episodeSignature, mainFileName, episodes, scenes]);
 
   const handleExpandAll = () => {
     const expandableIds = episodes
