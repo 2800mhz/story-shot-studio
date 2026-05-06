@@ -178,8 +178,11 @@ export function useEpisodeWorkspace({
 
         dispatch({ type: 'SET_SCENES', payload: mappedScenes });
 
-        const promptsByScene = await fetchAllPromptsForScenes(scenesData.map((s: any) => s.id));
-        const allMappedPrompts: Record<string, any[]> = {};
+        const sceneIds = scenesData.map((s: any) => s.id);
+        const promptsByScene = await fetchAllPromptsForScenes(sceneIds);
+        const allMappedPrompts: Record<string, any[]> = Object.fromEntries(
+          sceneIds.map((sceneId: string) => [sceneId, []])
+        );
         
         promptsByScene.forEach((prompts, sceneId) => {
           if (prompts.length > 0) {
@@ -192,6 +195,8 @@ export function useEpisodeWorkspace({
               explanation: p.explanation,
               promptText: p.prompt_text,
               aspectRatio: p.aspect_ratio,
+              generationType: p.generation_type,
+              revisionPrompt: p.revision_prompt,
               versions: [p.prompt_text],
               isPinned: p.is_pinned ?? false,
               isPinnedByAI: false,
@@ -199,9 +204,7 @@ export function useEpisodeWorkspace({
           }
         });
 
-        if (Object.keys(allMappedPrompts).length > 0) {
-          dispatch({ type: 'SET_ALL_PROMPTS', payload: allMappedPrompts });
-        }
+        dispatch({ type: 'SET_ALL_PROMPTS', payload: allMappedPrompts });
       }
 
       const storedTimeContexts = Array.isArray(episodeData.time_contexts) && episodeData.time_contexts.length > 0

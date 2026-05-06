@@ -376,6 +376,7 @@ export function SceneCard({
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [confirmDeleteScene, setConfirmDeleteScene] = useState(false);
   const [activeTab, setActiveTab] = useState<'generated' | 'slots'>('generated');
+  const { copiedId: copiedSlotPromptId, setCopiedId: setCopiedSlotPromptId } = useClipboardState();
 
   const handleSaveNote = () => {
     onUpdateNote(scene.id, editedNote);
@@ -384,7 +385,27 @@ export function SceneCard({
 
   const hasPrompts = scene.prompts.length > 0;
   const hasCameraAngleSlots = (scene.cameraAngleSlots?.length ?? 0) > 0;
-  const availableCameraAngleSlots = scene.cameraAngleSlots?.filter(slot => !slot.promptId) ?? [];
+  const hasPromptWorkspace = hasPrompts || hasCameraAngleSlots;
+  const cameraAngleSlots = scene.cameraAngleSlots ?? [];
+  const promptsById = new Map(scene.prompts.map(prompt => [prompt.id, prompt]));
+  const promptsBySlotId = new Map(
+    scene.prompts
+      .filter(prompt => !!prompt.slotId)
+      .map(prompt => [prompt.slotId as string, prompt])
+  );
+  const getSlotPrompt = (slot: NonNullable<SceneCardType['cameraAngleSlots']>[number]) =>
+    (slot.promptId ? promptsById.get(slot.promptId) : undefined) ?? promptsBySlotId.get(slot.id);
+  const handleCopySlotPrompt = (prompt: PromptCard) => {
+    navigator.clipboard.writeText(prompt.promptText).catch(() => {});
+    setCopiedSlotPromptId(prompt.id);
+  };
+
+  useEffect(() => {
+    if (!hasPrompts && hasCameraAngleSlots && activeTab === 'generated') {
+      setActiveTab('slots');
+    }
+  }, [activeTab, hasCameraAngleSlots, hasPrompts]);
+
   const characterOptions = availableCharacters.map(character => ({
     id: character.id,
     name: character.name,
@@ -710,7 +731,7 @@ export function SceneCard({
         </div>
       )}
 
-      {hasPrompts ? (
+      {hasPromptWorkspace ? (
         <div className="p-3 relative">
           {scene.status === 'generating' && (
             <div className="absolute inset-0 z-10 bg-background/50 backdrop-blur-[1px] rounded-b-lg border-t flex flex-col items-center justify-center p-4">
@@ -739,16 +760,22 @@ export function SceneCard({
 
           {activeTab === 'generated' ? (
             <>
-              {scene.prompts.map(prompt => (
-                <InlinePromptCard
-                  key={prompt.id}
-                  prompt={prompt}
-                  sceneId={scene.id}
-                  onRevise={onRevisePrompt}
-                  onDelete={onDeletePrompt}
-                  onPin={onSetPinnedPrompt}
-                />
-              ))}
+              {hasPrompts ? (
+                scene.prompts.map(prompt => (
+                  <InlinePromptCard
+                    key={prompt.id}
+                    prompt={prompt}
+                    sceneId={scene.id}
+                    onRevise={onRevisePrompt}
+                    onDelete={onDeletePrompt}
+                    onPin={onSetPinnedPrompt}
+                  />
+                ))
+              ) : (
+                <div className="rounded-md border border-dashed border-border bg-muted/10 p-4 text-center text-xs text-muted-foreground">
+                  Bu sahnede görünen prompt yok.
+                </div>
+              )}
               <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
                 <Button
                   size="sm"
@@ -774,42 +801,85 @@ export function SceneCard({
             </>
           ) : (
             <div className="space-y-3">
-              {availableCameraAngleSlots.map((slot, index) => (
-                <div key={slot.id} className="border rounded-md p-3 bg-muted/20 relative">
-                  {slot.isGenerating && (
-                    <div className="absolute inset-0 z-10 bg-background/50 backdrop-blur-[1px] flex items-center justify-center rounded-md">
-                      <span className="text-xs font-medium animate-pulse text-primary">Üretiliyor...</span>
+              {cameraAngleSlots.map((slot, index) => {
+                const slotPrompt = getSlotPrompt(slot);
+                const hasOrphanedPromptLink = !!slot.promptId && !slotPrompt;
+
+                return (
+                  <div key={slot.id} className="border rounded-md p-3 bg-muted/20 relative">
+                    {slot.isGenerating && (
+                      <div className="absolute inset-0 z-10 bg-background/50 backdrop-blur-[1px] flex items-center justify-center rounded-md">
+                        <span className="text-xs font-medium animate-pulse text-primary">Üretiliyor...</span>
+                      </div>
+                    )}
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <div className="text-xs font-medium text-foreground">
+                        Slot {index + 1}: {slot.label}
+                      </div>
+                      {slotPrompt && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-300">
+                          <Check className="h-2.5 w-2.5" />
+                          Prompt hazır
+                        </span>
+                      )}
                     </div>
-                  )}
-                  <div className="text-xs font-medium text-foreground mb-1">
-                    Slot {scene.prompts.length + index + 1}: {slot.label}
+                    <div className="text-xs text-muted-foreground mb-2">
+                      {slot.focalLength} • {slot.angleDeg} • {slot.technique}
+                    </div>
+                    <div className="text-xs italic text-muted-foreground mb-3">
+                      {slot.rationale}
+                    </div>
+
+                    {slotPrompt ? (
+                      <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-2">
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <div className="truncate text-[11px] font-medium text-foreground">
+                            {slotPrompt.label || slotPrompt.shotType}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCopySlotPrompt(slotPrompt)}
+                            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/70 px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            <Copy className="h-2.5 w-2.5" />
+                            {copiedSlotPromptId === slotPrompt.id ? 'Kopyalandı' : 'Kopyala'}
+                          </button>
+                        </div>
+                        {slotPrompt.explanation && (
+                          <div className="mb-1 border-l-2 border-emerald-500/30 pl-2 text-[10px] italic text-muted-foreground">
+                            {slotPrompt.explanation}
+                          </div>
+                        )}
+                        <div className="line-clamp-4 rounded bg-background/40 p-2 font-mono text-[11px] leading-relaxed text-foreground/80">
+                          {slotPrompt.promptText}
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {hasOrphanedPromptLink && (
+                          <div className="mb-2 flex items-start gap-2 rounded-md border border-amber-500/25 bg-amber-500/10 p-2 text-[11px] text-amber-700 dark:text-amber-200">
+                            <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+                            <span>Prompt kaydı bulunamadı. Bu açı yeniden üretilebilir.</span>
+                          </div>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full text-xs h-7"
+                          onClick={() => {
+                            if (onGenerateSlotPrompt) {
+                              onGenerateSlotPrompt(scene.id, slot.id);
+                            }
+                          }}
+                          disabled={slot.isGenerating || scene.status === 'generating'}
+                        >
+                          {hasOrphanedPromptLink ? 'Bu Açı İçin Promptu Yeniden Üret' : 'Bu Açı İçin Prompt Üret'}
+                        </Button>
+                      </>
+                    )}
                   </div>
-                  <div className="text-xs text-muted-foreground mb-2">
-                    {slot.focalLength} • {slot.angleDeg} • {slot.technique}
-                  </div>
-                  <div className="text-xs italic text-muted-foreground mb-3">
-                    {slot.rationale}
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full text-xs h-7"
-                    onClick={() => {
-                      if (onGenerateSlotPrompt) {
-                        onGenerateSlotPrompt(scene.id, slot.id);
-                      }
-                    }}
-                    disabled={slot.isGenerating || scene.status === 'generating'}
-                  >
-                    Bu Açı İçin Prompt Üret
-                  </Button>
-                </div>
-              ))}
-              {hasCameraAngleSlots && availableCameraAngleSlots.length === 0 && (
-                <div className="text-xs text-muted-foreground text-center py-4 italic">
-                  Tüm kamera açıları için prompt üretildi.
-                </div>
-              )}
+                );
+              })}
               {!hasCameraAngleSlots && (
                 <div className="rounded-md border border-dashed border-border bg-muted/10 p-4 text-center">
                   <p className="mb-3 text-xs text-muted-foreground">

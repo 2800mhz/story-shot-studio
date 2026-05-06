@@ -63,6 +63,36 @@ function clampPromptVersions<T extends { versions?: string[] }>(prompt: T): T {
   };
 }
 
+function reconcileCameraAngleSlots(
+  slots: AppState['sceneCards'][number]['cameraAngleSlots'],
+  prompts: AppState['sceneCards'][number]['prompts'],
+): AppState['sceneCards'][number]['cameraAngleSlots'] {
+  if (!Array.isArray(slots)) return slots;
+
+  const promptsById = new Map(prompts.map(prompt => [prompt.id, prompt]));
+  const promptsBySlotId = new Map(
+    prompts
+      .filter(prompt => !!prompt.slotId)
+      .map(prompt => [prompt.slotId as string, prompt])
+  );
+
+  return slots.map(slot => {
+    const linkedPrompt = (slot.promptId ? promptsById.get(slot.promptId) : undefined)
+      ?? promptsBySlotId.get(slot.id);
+
+    if (linkedPrompt) {
+      return { ...slot, promptId: linkedPrompt.id, isGenerating: false };
+    }
+
+    if (slot.promptId) {
+      const { promptId: _orphanedPromptId, ...rest } = slot;
+      return { ...rest, isGenerating: false };
+    }
+
+    return { ...slot, isGenerating: false };
+  });
+}
+
 const initialState: AppState = {
   projectType: 'documentary',
   renderMode: 'photoreal',
@@ -537,7 +567,7 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
               analysis: action.payload.analysis,
               promptsNeedRefresh: hasStalePrompts,
               staleReasons: hasStalePrompts ? sc.staleReasons : [],
-              cameraAngleSlots: action.payload.cameraAngleSlots ?? sc.cameraAngleSlots,
+              cameraAngleSlots: reconcileCameraAngleSlots(action.payload.cameraAngleSlots ?? sc.cameraAngleSlots, nextPrompts),
             };
           })() : sc
         ),
@@ -599,6 +629,7 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
               status: 'ready',
               promptsNeedRefresh: hasStalePrompts,
               staleReasons: hasStalePrompts ? sc.staleReasons : [],
+              cameraAngleSlots: reconcileCameraAngleSlots(sc.cameraAngleSlots, nextPrompts),
             };
           }
           return sc;

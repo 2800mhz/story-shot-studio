@@ -150,7 +150,7 @@ export interface TimeContext {
 
 /**
  * Sinematik kamera açısı slotu — AI tarafından sahneye özel olarak tasarlanmış.
- * Hardcoded enum değil; gerçek sinemacı diliyle: focal length, açı derecesi, hareket tekniği. de
+ * Hardcoded enum değil; gerçek sinemacı diliyle: focal length, açı derecesi, hareket tekniği. deneme klayve çalışıyor kontrol 
  */
 export interface CameraAngleSlot {
   id: string;
@@ -359,15 +359,15 @@ export type AppAction =
   | { type: 'START_SLOT_PROMPT_GENERATION'; payload: { sceneId: string; slotId: string } }
   | { type: 'FINISH_SLOT_PROMPT_GENERATION'; payload: { sceneId: string; slotId: string; prompt: PromptCard } }
   | {
-      type: 'IMPORT_PROJECT';
-      payload: {
-        episodeId?: string;
-        episodeTitle?: string;
-        episodePrompt?: string;
-        episodePromptTr?: string;
-        characters: Character[];
-        locations: Location[];
-        timeContexts: TimeContext[];
-        sceneCards: SceneCard[];
-      }
-    };
+    type: 'IMPORT_PROJECT';
+    payload: {
+      episodeId?: string;
+      episodeTitle?: string;
+      episodePrompt?: string;
+      episodePromptTr?: string;
+      characters: Character[];
+      locations: Location[];
+      timeContexts: TimeContext[];
+      sceneCards: SceneCard[];
+    }
+  };
