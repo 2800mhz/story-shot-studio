@@ -1,10 +1,25 @@
-import React, { useState, useMemo } from 'react';
-import { ChevronRight, ChevronDown, FileText, GripVertical, Folder, FolderOpen, Search, SortAsc, SortDesc, Filter, X } from 'lucide-react';
-import type { Episode, Scene, ConsistencyGroup } from '@/types';
+import React, { useMemo, useState } from 'react';
+import {
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  Filter,
+  Folder,
+  FolderOpen,
+  GripVertical,
+  Layers3,
+  ListTree,
+  Search,
+  SortAsc,
+  X,
+} from 'lucide-react';
+import type { ConsistencyGroup, Episode, Scene } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface LeftPanelProps {
   episodes: Episode[];
@@ -38,89 +53,122 @@ interface EpisodeNodeProps {
   onSceneClick: (id: string) => void;
 }
 
+function getSceneText(scene: Scene): string {
+  return scene.text || scene.segments[0]?.text || '';
+}
+
+function sceneCountForEpisode(episode: Episode, scenes: Scene[]) {
+  return scenes.filter((scene) => scene.episodeTitle === episode.title).length;
+}
+
 function EpisodeNode({
-  episode, children, allEpisodes, scenes, expandedIds, onToggle, onEpisodeClick,
-  draggedId, onDragStart, onDragOver, onDrop, onDragEnd, dropTargetId,
-  activeSceneId, onSceneClick,
+  episode,
+  children,
+  allEpisodes,
+  scenes,
+  expandedIds,
+  onToggle,
+  onEpisodeClick,
+  draggedId,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+  dropTargetId,
+  activeSceneId,
+  onSceneClick,
 }: EpisodeNodeProps) {
   const isExpanded = expandedIds.has(episode.id);
   const hasChildren = children.length > 0;
-  const episodeScenes = scenes.filter(s => s.episodeTitle === episode.title);
+  const episodeScenes = scenes.filter((scene) => scene.episodeTitle === episode.title);
   const hasExpandable = hasChildren || episodeScenes.length > 0;
-  const childSceneCount = children.reduce(
-    (sum, ch) => sum + scenes.filter(s => s.episodeTitle === ch.title).length, 0
-  );
+  const childSceneCount = children.reduce((sum, child) => sum + sceneCountForEpisode(child, scenes), 0);
   const totalScenes = episodeScenes.length + childSceneCount;
   const isDragging = draggedId === episode.id;
   const isDropTarget = dropTargetId === episode.id;
+  const hasActiveScene = episodeScenes.some((scene) => scene.id === activeSceneId);
 
   return (
-    <div className={`${isDragging ? 'opacity-40' : ''}`}>
+    <div className={cn(isDragging && 'opacity-40')}>
       <div
         draggable
-        onDragStart={(e) => {
-          e.stopPropagation();
+        onDragStart={(event) => {
+          event.stopPropagation();
           onDragStart(episode.id);
         }}
-        onDragOver={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onDragOver(e, episode.id);
+        onDragOver={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onDragOver(event, episode.id);
         }}
-        onDrop={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onDrop(e, episode.id);
+        onDrop={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onDrop(event, episode.id);
         }}
         onDragEnd={onDragEnd}
-        className={`group flex w-full items-center gap-1 rounded-md px-1 py-1.5 text-left text-sm transition-colors hover:bg-secondary cursor-pointer ${
-          isDropTarget ? 'ring-1 ring-primary bg-primary/5' : ''
-        } ${episode.level > 0 ? 'ml-4' : ''}`}
+        className={cn(
+          'group flex w-full cursor-pointer items-center gap-2 rounded-lg border border-transparent px-2 py-2 text-left transition-colors hover:border-border/80 hover:bg-secondary/55',
+          episode.level > 0 && 'ml-4',
+          isDropTarget && 'border-primary/60 bg-primary/[0.05]',
+          hasActiveScene && 'border-primary/30 bg-primary/[0.035]',
+        )}
       >
-        <GripVertical className="h-3 w-3 shrink-0 text-muted-foreground/40 opacity-0 group-hover:opacity-100 cursor-grab" />
+        <GripVertical className="h-3.5 w-3.5 shrink-0 cursor-grab text-muted-foreground/35 opacity-0 transition-opacity group-hover:opacity-100" />
 
         {hasExpandable ? (
           <button
-            onClick={(e) => { e.stopPropagation(); onToggle(episode.id); }}
-            className="shrink-0 p-0.5 rounded hover:bg-muted"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggle(episode.id);
+            }}
+            className="rounded-md p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            {isExpanded ? (
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-            )}
+            {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           </button>
         ) : (
-          <span className="w-5" />
+          <span className="w-4 shrink-0" />
         )}
 
-        {episode.level === 0 && hasChildren ? (
-          isExpanded ? <FolderOpen className="h-3.5 w-3.5 shrink-0 text-primary" /> : <Folder className="h-3.5 w-3.5 shrink-0 text-primary" />
-        ) : (
-          <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        )}
+        <div
+          className={cn(
+            'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background/50',
+            episode.level === 0 && hasChildren && 'border-primary/25 bg-primary/[0.06] text-primary',
+          )}
+        >
+          {episode.level === 0 && hasChildren ? (
+            isExpanded ? <FolderOpen className="h-3.5 w-3.5" /> : <Folder className="h-3.5 w-3.5" />
+          ) : (
+            <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+          )}
+        </div>
 
-        <span
-          className="flex-1 truncate text-xs cursor-pointer"
+        <button
+          type="button"
+          className="min-w-0 flex-1 text-left"
           onClick={() => onEpisodeClick(episode)}
           title={episode.title}
         >
-          {episode.title}
-        </span>
+          <span className="block truncate text-xs font-medium text-foreground">{episode.title}</span>
+          <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
+            {hasChildren ? `${children.length} alt bolum` : episode.level > 0 ? 'Alt bolum' : 'Bolum'}
+          </span>
+        </button>
 
-        {totalScenes > 0 && (
-          <Badge variant="secondary" className="h-4 justify-center bg-primary/10 text-primary text-[10px] px-1.5 font-bold border border-primary/20">
-            {totalScenes} {totalScenes === 1 ? 'Sahne' : 'Sahne'}
+        {totalScenes > 0 ? (
+          <Badge variant="outline" className="h-5 shrink-0 border-primary/20 bg-primary/[0.06] px-1.5 text-[10px] text-primary">
+            {totalScenes}
           </Badge>
-        )}
+        ) : null}
       </div>
 
-      {hasExpandable && isExpanded && (
-        <div>
-          {hasChildren && (
-            <div className="border-l border-border/50 ml-3">
-              {children.map(child => {
-                const grandChildren = allEpisodes.filter(e => e.parentId === child.id);
+      {hasExpandable && isExpanded ? (
+        <div className="ml-5 border-l border-border/60 pl-2">
+          {hasChildren ? (
+            <div className="py-1">
+              {children.map((child) => {
+                const grandChildren = allEpisodes.filter((item) => item.parentId === child.id);
                 return (
                   <EpisodeNode
                     key={child.id}
@@ -143,40 +191,67 @@ function EpisodeNode({
                 );
               })}
             </div>
-          )}
-          {episodeScenes.length > 0 && (
-            <div className="ml-3 space-y-0.5 py-0.5">
-              {episodeScenes.map(scene => (
-                <button
-                  key={scene.id}
-                  onClick={() => onSceneClick(scene.id)}
-                  className={`w-full text-left rounded-md px-2 py-1.5 transition-colors ${
-                    activeSceneId === scene.id
-                      ? 'border border-primary bg-primary/5 text-primary'
-                      : 'hover:bg-muted/50 border border-transparent'
-                  }`}
-                >
-                  <div className="text-xs font-medium truncate">
-                    {scene.title || `Sahne ${scene.number}`}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">
-                    {(scene.text || scene.segments[0]?.text || '').substring(0, 60)}
-                  </div>
-                </button>
-              ))}
+          ) : null}
+
+          {episodeScenes.length > 0 ? (
+            <div className="space-y-1 py-1">
+              {episodeScenes.map((scene) => {
+                const isActive = activeSceneId === scene.id;
+                const promptCount = scene.prompts?.length || 0;
+                return (
+                  <button
+                    key={scene.id}
+                    type="button"
+                    onClick={() => onSceneClick(scene.id)}
+                    className={cn(
+                      'w-full rounded-lg border px-2.5 py-2 text-left transition-colors',
+                      isActive
+                        ? 'border-primary/60 bg-primary/[0.06] text-primary'
+                        : 'border-transparent text-foreground hover:border-border/70 hover:bg-muted/40',
+                    )}
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className={cn(
+                          'h-1.5 w-1.5 shrink-0 rounded-full',
+                          scene.status === 'done' ? 'bg-emerald-400' : scene.status === 'generating' ? 'bg-primary' : 'bg-muted-foreground/50',
+                        )}
+                      />
+                      <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                        {scene.title || `Sahne ${scene.number}`}
+                      </span>
+                      {promptCount > 0 ? (
+                        <span className="shrink-0 rounded-md border border-border/70 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          {promptCount}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="mt-1 line-clamp-1 pl-3.5 text-[10px] leading-4 text-muted-foreground">
+                      {getSceneText(scene).substring(0, 90) || 'Metin yok'}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-          )}
+          ) : null}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
 
 export function LeftPanel({
-  episodes, scenes, consistencyGroups, activeSceneId,
-  mainFileName, isAnalyzing, isLoading,
-  onEpisodeClick, onSceneClick,
-  onMoveEpisode, onReorderEpisodes,
+  episodes,
+  scenes,
+  consistencyGroups,
+  activeSceneId,
+  mainFileName,
+  isAnalyzing,
+  isLoading,
+  onEpisodeClick,
+  onSceneClick,
+  onMoveEpisode,
+  onReorderEpisodes,
 }: LeftPanelProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -184,34 +259,48 @@ export function LeftPanel({
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'default' | 'name' | 'scenes'>('default');
 
+  const stats = useMemo(() => {
+    const promptCount = scenes.reduce((sum, scene) => sum + (scene.prompts?.length || 0), 0);
+    return {
+      topLevel: episodes.filter((episode) => episode.parentId === null).length,
+      scenes: scenes.length,
+      prompts: promptCount,
+      groups: consistencyGroups.length,
+    };
+  }, [consistencyGroups.length, episodes, scenes]);
+
   const filteredEpisodes = useMemo(() => {
     let result = episodes;
+
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      result = result.filter(ep => ep.title.toLowerCase().includes(term));
+      result = result.filter((episode) => {
+        const episodeMatch = episode.title.toLowerCase().includes(term);
+        const sceneMatch = scenes.some((scene) =>
+          scene.episodeTitle === episode.title &&
+          `${scene.title || ''} ${getSceneText(scene)}`.toLowerCase().includes(term),
+        );
+        return episodeMatch || sceneMatch;
+      });
     }
-    
+
     if (sortBy === 'name') {
       result = [...result].sort((a, b) => a.title.localeCompare(b.title));
     } else if (sortBy === 'scenes') {
-      result = [...result].sort((a, b) => {
-        const aCount = scenes.filter(s => s.episodeTitle === a.title).length;
-        const bCount = scenes.filter(s => s.episodeTitle === b.title).length;
-        return bCount - aCount;
-      });
+      result = [...result].sort((a, b) => sceneCountForEpisode(b, scenes) - sceneCountForEpisode(a, scenes));
     }
-    
+
     return result;
-  }, [episodes, searchTerm, sortBy, scenes]);
+  }, [episodes, scenes, searchTerm, sortBy]);
 
   const topLevelEpisodes = useMemo(
-    () => filteredEpisodes.filter(ep => ep.parentId === null || !!searchTerm),
-    [filteredEpisodes, searchTerm]
+    () => filteredEpisodes.filter((episode) => episode.parentId === null || !!searchTerm),
+    [filteredEpisodes, searchTerm],
   );
 
   const toggleExpanded = (id: string) => {
-    setExpandedIds(prev => {
-      const next = new Set(prev);
+    setExpandedIds((previous) => {
+      const next = new Set(previous);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
@@ -219,46 +308,41 @@ export function LeftPanel({
   };
 
   const handleExpandAll = () => {
-    const parentIds = episodes.filter(ep => episodes.some(c => c.parentId === ep.id)).map(ep => ep.id);
-    setExpandedIds(new Set(parentIds));
+    const expandableIds = episodes
+      .filter((episode) => episodes.some((child) => child.parentId === episode.id) || sceneCountForEpisode(episode, scenes) > 0)
+      .map((episode) => episode.id);
+    setExpandedIds(new Set(expandableIds));
   };
 
-  const handleCollapseAll = () => {
-    setExpandedIds(new Set());
-  };
+  const handleCollapseAll = () => setExpandedIds(new Set());
 
   const handleDragStart = (id: string) => setDraggedId(id);
 
-  const handleDragOver = (_e: React.DragEvent, targetId: string) => {
-    if (draggedId && draggedId !== targetId) {
-      setDropTargetId(targetId);
-    }
+  const handleDragOver = (_event: React.DragEvent, targetId: string) => {
+    if (draggedId && draggedId !== targetId) setDropTargetId(targetId);
   };
 
-  const handleDrop = (_e: React.DragEvent, targetId: string) => {
+  const handleDrop = (_event: React.DragEvent, targetId: string) => {
     if (!draggedId || draggedId === targetId) return;
 
-    const draggedEp = episodes.find(e => e.id === draggedId);
-    const targetEp = episodes.find(e => e.id === targetId);
-    if (!draggedEp || !targetEp) return;
+    const draggedEpisode = episodes.find((episode) => episode.id === draggedId);
+    const targetEpisode = episodes.find((episode) => episode.id === targetId);
+    if (!draggedEpisode || !targetEpisode) return;
 
-    // If dropping on a level-0 (parent) episode, make dragged a child
-    if (targetEp.level === 0 && draggedEp.level !== 0) {
+    if (targetEpisode.level === 0 && draggedEpisode.level !== 0) {
       onMoveEpisode(draggedId, targetId);
     } else {
-      // Reorder: move dragged before/after target
-      const newEpisodes = [...episodes];
-      const dragIdx = newEpisodes.findIndex(e => e.id === draggedId);
-      const targetIdx = newEpisodes.findIndex(e => e.id === targetId);
-      if (dragIdx >= 0 && targetIdx >= 0) {
-        const [removed] = newEpisodes.splice(dragIdx, 1);
-        // If moving to a parent, set parentId
-        if (targetEp.parentId !== null) {
-          removed.parentId = targetEp.parentId;
+      const reordered = [...episodes];
+      const dragIndex = reordered.findIndex((episode) => episode.id === draggedId);
+      const targetIndex = reordered.findIndex((episode) => episode.id === targetId);
+      if (dragIndex >= 0 && targetIndex >= 0) {
+        const [removed] = reordered.splice(dragIndex, 1);
+        if (targetEpisode.parentId !== null) {
+          removed.parentId = targetEpisode.parentId;
           removed.level = 1;
         }
-        newEpisodes.splice(targetIdx, 0, removed);
-        onReorderEpisodes(newEpisodes);
+        reordered.splice(targetIndex, 0, removed);
+        onReorderEpisodes(reordered);
       }
     }
 
@@ -272,94 +356,139 @@ export function LeftPanel({
   };
 
   return (
-    <div className="flex h-full flex-col border-r bg-card">
-      <div className="border-b px-4 py-3 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">
-            Doküman Gezgini
-          </h2>
-          {episodes.length > 0 && (
-            <div className="flex gap-1">
-              <button 
-                onClick={() => setSortBy(prev => prev === 'name' ? 'default' : 'name')} 
-                className={`rounded p-1 text-muted-foreground transition-colors hover:bg-secondary ${sortBy === 'name' ? 'text-primary bg-primary/10' : ''}`}
-                title="İsme göre sırala"
-              >
-                <SortAsc className="h-3 w-3" />
-              </button>
-               <button 
-                onClick={() => setSortBy(prev => prev === 'scenes' ? 'default' : 'scenes')} 
-                className={`rounded p-1 text-muted-foreground transition-colors hover:bg-secondary ${sortBy === 'scenes' ? 'text-primary bg-primary/10' : ''}`}
-                title="Sahne sayısına göre sırala"
-              >
-                <Filter className="h-3 w-3" />
-              </button>
-              <button onClick={handleExpandAll} className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Tümünü aç">
-                <ChevronDown className="h-3 w-3" />
-              </button>
-              <button onClick={handleCollapseAll} className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Tümünü kapat">
-                <ChevronRight className="h-3 w-3" />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Search Bar */}
-        <div className="relative group">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
-          <Input
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Episode ara..."
-            className="h-8 pl-8 pr-7 text-xs bg-secondary/50 border-transparent focus-visible:ring-1 focus-visible:ring-primary/40 focus-visible:bg-background transition-all"
-          />
-          {searchTerm && (
-            <button 
-              onClick={() => setSearchTerm('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          )}
-        </div>
-
-        {mainFileName && (
-          <div className="flex items-center gap-2 rounded-md bg-secondary/30 px-2 py-1.5 border border-border/50">
-            <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
-            <span className="truncate text-[11px] font-medium text-foreground/80">{mainFileName}</span>
+    <div className="flex h-full flex-col border-r border-border/70 bg-card">
+      <div className="border-b border-border/70 px-4 py-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/80">Workspace</div>
+            <h2 className="mt-1 text-base font-semibold text-foreground">Dokuman gezgini</h2>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Episode, sahne ve prompt akisi</p>
           </div>
-        )}
+          {isAnalyzing ? (
+            <Badge variant="outline" className="border-primary/30 bg-primary/[0.06] text-[10px] text-primary">
+              Analiz
+            </Badge>
+          ) : null}
+        </div>
+
+        <div className="mt-4 rounded-lg border border-border/70 bg-background/40 p-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-primary/20 bg-primary/[0.06] text-primary">
+              <BookOpen className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-xs font-medium text-foreground">{mainFileName || 'Dokuman yuklenmedi'}</div>
+              <div className="mt-0.5 text-[10px] text-muted-foreground">
+                {stats.topLevel} episode / {stats.scenes} sahne / {stats.prompts} prompt
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="rounded-md border border-border/70 bg-background/30 px-2 py-2">
+            <div className="text-sm font-semibold">{stats.topLevel}</div>
+            <div className="text-[10px] text-muted-foreground">episode</div>
+          </div>
+          <div className="rounded-md border border-border/70 bg-background/30 px-2 py-2">
+            <div className="text-sm font-semibold">{stats.scenes}</div>
+            <div className="text-[10px] text-muted-foreground">sahne</div>
+          </div>
+          <div className="rounded-md border border-border/70 bg-background/30 px-2 py-2">
+            <div className="text-sm font-semibold">{stats.groups}</div>
+            <div className="text-[10px] text-muted-foreground">grup</div>
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Episode veya sahne ara..."
+              className="h-8 border-border/70 bg-background/50 pl-8 pr-7 text-xs"
+            />
+            {searchTerm ? (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            ) : null}
+          </div>
+
+          <div className="flex rounded-md border border-border/70 bg-background/40 p-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn('h-7 w-7', sortBy === 'name' && 'bg-primary/[0.08] text-primary')}
+              onClick={() => setSortBy((previous) => (previous === 'name' ? 'default' : 'name'))}
+              title="Isme gore sirala"
+            >
+              <SortAsc className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn('h-7 w-7', sortBy === 'scenes' && 'bg-primary/[0.08] text-primary')}
+              onClick={() => setSortBy((previous) => (previous === 'scenes' ? 'default' : 'scenes'))}
+              title="Sahne sayisina gore sirala"
+            >
+              <Filter className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+
+        {episodes.length > 0 ? (
+          <div className="mt-3 flex items-center justify-between">
+            <button type="button" className="text-[11px] text-muted-foreground hover:text-foreground" onClick={handleExpandAll}>
+              Tumunu ac
+            </button>
+            <button type="button" className="text-[11px] text-muted-foreground hover:text-foreground" onClick={handleCollapseAll}>
+              Tumunu kapat
+            </button>
+          </div>
+        ) : null}
       </div>
 
-      {/* Episode Tree with Skeleton */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin px-2 py-2">
+      <div className="flex-1 overflow-y-auto scrollbar-thin px-2 py-3">
         {isLoading ? (
-          <div className="space-y-3 px-2 py-2">
-            {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="flex items-center gap-2">
-                <Skeleton className="h-4 w-4 rounded shrink-0" />
-                <Skeleton className="h-4 flex-1 rounded" />
-                <Skeleton className="h-4 w-6 rounded-full shrink-0" />
+          <div className="space-y-3 px-2">
+            {[1, 2, 3, 4, 5].map((item) => (
+              <div key={item} className="flex items-center gap-2 rounded-lg border border-border/50 p-2">
+                <Skeleton className="h-7 w-7 rounded-md" />
+                <div className="flex-1 space-y-1">
+                  <Skeleton className="h-3 w-2/3 rounded" />
+                  <Skeleton className="h-2.5 w-1/2 rounded" />
+                </div>
               </div>
             ))}
           </div>
         ) : topLevelEpisodes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-40 px-4 text-center">
-            <div className="bg-secondary/40 p-3 rounded-full mb-3">
-              <Search className="h-5 w-5 text-muted-foreground/40" />
+          <div className="flex h-52 flex-col items-center justify-center px-4 text-center">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-border/70 bg-background/40">
+              {searchTerm ? <Search className="h-5 w-5 text-muted-foreground" /> : <ListTree className="h-5 w-5 text-muted-foreground" />}
             </div>
-            <p className="text-xs text-muted-foreground">
-              {searchTerm ? "Sonuç bulunamadı" : "Henüz doküman yüklenmedi"}
+            <p className="text-sm font-medium text-foreground">{searchTerm ? 'Sonuc bulunamadi' : 'Gezgin bos'}</p>
+            <p className="mt-1 max-w-[220px] text-xs leading-5 text-muted-foreground">
+              {searchTerm ? 'Arama metni episode veya sahne icinde bulunamadi.' : 'Metin yuklediginde episode ve sahne yapisi burada gorunur.'}
             </p>
           </div>
         ) : (
-          <div className="space-y-0.5 animate-in fade-in duration-500">
-            {topLevelEpisodes.map(ep => {
-              const children = searchTerm ? [] : episodes.filter(e => e.parentId === ep.id);
+          <div className="space-y-1 animate-in fade-in duration-300">
+            <div className="mb-2 flex items-center gap-2 px-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <Layers3 className="h-3.5 w-3.5" />
+              Episode agaci
+            </div>
+            {topLevelEpisodes.map((episode) => {
+              const children = searchTerm ? [] : episodes.filter((item) => item.parentId === episode.id);
               return (
                 <EpisodeNode
-                  key={ep.id}
-                  episode={ep}
+                  key={episode.id}
+                  episode={episode}
                   children={children}
                   allEpisodes={episodes}
                   scenes={scenes}
