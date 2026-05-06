@@ -7,6 +7,7 @@ import { parseAgentOperationSet, stripAgentResultBlock } from '@/lib/agentParser
 import { AGENT_SYSTEM_PROMPT } from '@/lib/agentPrompts';
 import { tryBuildLocalAgentOperationSet } from '@/lib/agentLocalActions';
 import { resolveLocalAgentQuery } from '@/lib/agentLocalQueries';
+import { AGENT_MODEL_OPTIONS } from '@/lib/agentModel';
 import { generatePromptsForScene } from '@/lib/promptGenerator';
 import { SceneReference } from '@/types';
 
@@ -125,14 +126,6 @@ function inferIntentTags(intent: any) {
 
   return unique(tags).slice(0, 4);
 }
-
-const AGENT_PROVIDER = 'deepinfra' as const;
-const AGENT_MODEL = 'Qwen/Qwen3.6-35B-A3B';
-const AGENT_MODEL_OPTIONS = {
-  providerOverride: AGENT_PROVIDER,
-  modelOverride: AGENT_MODEL,
-  lockProvider: true,
-};
 
 export function useAgentActions({
   agent,

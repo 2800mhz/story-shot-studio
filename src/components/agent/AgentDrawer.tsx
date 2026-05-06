@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { aiProvider } from '@/lib/aiProvider';
+import { AGENT_MODEL, AGENT_REASONING_LABEL } from '@/lib/agentModel';
 import type {
   AgentActivityItem,
   AgentAttachment,
@@ -150,8 +150,8 @@ export function AgentDrawer(props: AgentDrawerProps) {
     [characters],
   );
   const operationSetToShow = pendingOperationSet ?? lastOperationSet;
-  const modelName = aiProvider.getActiveModelName();
-  const reasoningLabel = aiProvider.getReasoningStatusLabel();
+  const modelName = AGENT_MODEL;
+  const reasoningLabel = AGENT_REASONING_LABEL;
   const activityItems = activities.slice(0, 6);
   const operationSummaryPills = operationSetToShow ? summarizeAgentOperationSet(operationSetToShow) : [];
 
