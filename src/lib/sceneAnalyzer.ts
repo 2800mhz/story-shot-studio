@@ -319,7 +319,25 @@ export function getSceneAnalysisTargetInstruction(targetSceneCount: number): str
 This target is CRITICAL and overrides all other density rules.
 - If the text is dense: merge secondary details to fit the count.
 - If the text is sparse: split single sentences into multiple visual moments or focus on background details.
+- If the target is higher than the sentence count: split clauses, reactions, objects, entrances, exits, landscape beats, and tactile details into separate scenes.
+- It is allowed to make multiple scenes from one sentence, but each scenes[].text must still be an exact phrase copied from the source.
+- Never use text-on-screen/title-card visuals just to represent dialogue. Show a physical cinematic moment instead.
 - Plan your ${targetSceneCount} beats before writing JSON.`;
+}
+
+function getSceneAnalysisRetryInstruction(targetSceneCount: number, actualSceneCount: number): string {
+  return `Your previous answer produced ${actualSceneCount} scenes, but the required target is EXACTLY ${targetSceneCount} scenes.
+
+Retry now and obey the target count. This is not optional.
+
+To reach ${targetSceneCount} scenes:
+- Split longer sentences into smaller visual beats.
+- Add separate beats for entrances, hands, faces, objects, architecture, shadows, weather, and reaction details when implied by the source.
+- Use exact source subphrases for scenes[].text. Do not invent narration.
+- Do not summarize multiple source moments into one scene when the target requires more scenes.
+- Avoid title cards, readable text, or symbolic black-background writing unless the source explicitly requires a written object in the world.
+
+Return only valid JSON.`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -679,24 +697,41 @@ async function analyseChunk(
     userMessage = `${getSceneAnalysisTargetInstruction(targetSceneCount)}\n\n--- TEXT TO ANALYZE ---\n${chunk}`;
   }
 
-  const raw = await aiProvider.generateContent(userMessage, systemPrompt, { operationType: 'scene_analysis' });
-
-  let cleaned: string;
-  try {
-    cleaned = cleanJsonResponse(raw);
-  } catch {
-    cleaned = raw;
-  }
-
-  try {
-    return JSON.parse(cleaned) as AnalysisPayload;
-  } catch (err) {
+  const parseAnalysisPayload = (raw: string): AnalysisPayload => {
+    let cleaned: string;
     try {
-      return JSON.parse(recoverTruncatedJson(cleaned)) as AnalysisPayload;
+      cleaned = cleanJsonResponse(raw);
     } catch {
-      throw new Error(`Scene analysis JSON parse failed: ${err instanceof Error ? err.message : err}`);
+      cleaned = raw;
     }
+
+    try {
+      return JSON.parse(cleaned) as AnalysisPayload;
+    } catch (err) {
+      try {
+        return JSON.parse(recoverTruncatedJson(cleaned)) as AnalysisPayload;
+      } catch {
+        throw new Error(`Scene analysis JSON parse failed: ${err instanceof Error ? err.message : err}`);
+      }
+    }
+  };
+
+  const raw = await aiProvider.generateContent(userMessage, systemPrompt, { operationType: 'scene_analysis' });
+  let parsed = parseAnalysisPayload(raw);
+
+  const actualSceneCount = parsed.scenes?.length ?? 0;
+  if (targetSceneCount && Math.abs(actualSceneCount - targetSceneCount) > 1) {
+    const retryMessage = `${getSceneAnalysisTargetInstruction(targetSceneCount)}
+
+${getSceneAnalysisRetryInstruction(targetSceneCount, actualSceneCount)}
+
+--- TEXT TO ANALYZE ---
+${chunk}`;
+    const retryRaw = await aiProvider.generateContent(retryMessage, systemPrompt, { operationType: 'scene_analysis' });
+    parsed = parseAnalysisPayload(retryRaw);
   }
+
+  return parsed;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
