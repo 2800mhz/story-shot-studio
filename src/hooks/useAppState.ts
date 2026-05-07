@@ -139,6 +139,7 @@ const NON_UNDOABLE = new Set<string>([
   'SET_ACTIVE_SCENE', 'SET_SELECTION_MODE', 'SET_CURRENT_KEY_INDEX',
   'ROTATE_API_KEY', 'SET_API_KEYS', 'SET_IMAGE_API_KEYS', 'SET_SETTINGS',
   'START_ANALYSIS', 'START_PROMPT_GENERATION', 'SET_REFERENCES',
+  'RESET_EPISODE_WORKSPACE',
   'ADD_EPISODE_STYLE_VERSION', 'SET_EPISODE_STYLE_HISTORY',
   // AI output hydration can get very large; keeping every generation step in undo
   // history burns memory quickly and provides limited user value.
@@ -457,11 +458,13 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
     case 'START_ANALYSIS':
       return { ...state, isAnalyzing: true };
     case 'FINISH_ANALYSIS': {
-      const { sceneCards: newCards, characters: newChars, locations: newLocs, suggestedTimeContexts } = action.payload;
+      const { sceneCards: newCards, characters: newChars, locations: newLocs, suggestedTimeContexts, mode = 'append' } = action.payload;
+      const shouldReplace = mode === 'replace';
+      const baseTimeContexts = shouldReplace ? [] : state.timeContexts;
       // Merge incoming time contexts by label (dedup), preferring existing entries
       const mergedTimeContexts = suggestedTimeContexts?.length
-        ? mergeTimeContextsByLabel(state.timeContexts, suggestedTimeContexts)
-        : state.timeContexts;
+        ? mergeTimeContextsByLabel(baseTimeContexts, suggestedTimeContexts)
+        : baseTimeContexts;
 
       // Build a mapping from incoming (analyzer-generated) time context IDs to canonical (merged) IDs.
       // When an incoming label matches an existing time context, the merged list keeps the existing ID.
@@ -472,9 +475,9 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       const canonicalLabelToId = new Map<string, string>();
       mergedTimeContexts.forEach(tc => canonicalLabelToId.set(tc.label, tc.id));
 
-      const nextSequenceStart = state.sceneCards.length > 0 
-        ? Math.max(...state.sceneCards.map(s => s.sceneNumber)) + 1 
-        : 1;
+      const nextSequenceStart = shouldReplace || state.sceneCards.length === 0
+        ? 1
+        : Math.max(...state.sceneCards.map(s => s.sceneNumber)) + 1;
 
       // Remap each card's timeContextIds from incoming IDs to canonical IDs
       // Each card keeps ONLY its own time context (not all of them)
@@ -495,9 +498,9 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       return {
         ...state,
         isAnalyzing: false,
-        sceneCards: [...state.sceneCards, ...updatedNewCards],
-        characters: mergeById(state.characters, newChars),
-        locations: mergeById(state.locations, newLocs),
+        sceneCards: shouldReplace ? updatedNewCards : [...state.sceneCards, ...updatedNewCards],
+        characters: shouldReplace ? newChars : mergeById(state.characters, newChars),
+        locations: shouldReplace ? newLocs : mergeById(state.locations, newLocs),
         timeContexts: mergedTimeContexts,
       };
     }
@@ -690,6 +693,24 @@ function reducerCore(state: AppState, action: InternalAction): AppState {
       return { ...state, characters: action.payload };
     case 'SET_LOCATIONS':
       return { ...state, locations: action.payload };
+    case 'RESET_EPISODE_WORKSPACE':
+      return {
+        ...state,
+        mainText: '',
+        documentText: '',
+        episodes: [],
+        scenes: [],
+        sceneCards: [],
+        references: [],
+        activeSceneId: null,
+        episodePrompt: '',
+        episodePromptTr: '',
+        episodeStyleHistory: [],
+        characters: [],
+        locations: [],
+        timeContexts: [],
+        isAnalyzing: false,
+      };
     case 'UPSERT_CHARACTER': {
       const exists = state.characters.some(c => c.id === action.payload.id);
       const previous = state.characters.find(c => c.id === action.payload.id);

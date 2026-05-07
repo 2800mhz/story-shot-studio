@@ -313,7 +313,7 @@ export type AppAction =
   | { type: 'DETACH_ENTITY_FROM_PROMPT'; payload: { sceneId: string; promptId: string; entityId: string } }
   // Two-stage AI workflow actions
   | { type: 'START_ANALYSIS' }
-  | { type: 'FINISH_ANALYSIS'; payload: { sceneCards: SceneCard[]; characters: Character[]; locations: Location[]; suggestedTimeContexts?: TimeContext[] } }
+  | { type: 'FINISH_ANALYSIS'; payload: { sceneCards: SceneCard[]; characters: Character[]; locations: Location[]; suggestedTimeContexts?: TimeContext[]; mode?: 'append' | 'replace' } }
   | { type: 'SET_TIME_CONTEXTS'; payload: TimeContext[] }
   | { type: 'UPDATE_SCENE_CARD_NOTE'; payload: { sceneId: string; note: string } }
   | { type: 'ADD_CHARACTER_TO_SCENE_CARD'; payload: { sceneId: string; characterId: string } }
@@ -341,6 +341,7 @@ export type AppAction =
   | { type: 'SET_SCENES'; payload: SceneCard[] }
   | { type: 'SET_CHARACTERS'; payload: Character[] }
   | { type: 'SET_LOCATIONS'; payload: Location[] }
+  | { type: 'RESET_EPISODE_WORKSPACE' }
   | { type: 'UPSERT_CHARACTER'; payload: Character }
   | { type: 'DELETE_CHARACTER'; payload: string }
   | { type: 'UPSERT_LOCATION'; payload: Location }

@@ -49,6 +49,12 @@ export function useAutosave({
   const lastSavedFingerprintRef = useRef<string | null>(null);
   const lastSavedPromptFingerprintsRef = useRef<Map<string, string>>(new Map());
 
+  useEffect(() => {
+    lastSavedFingerprintRef.current = null;
+    lastSavedPromptFingerprintsRef.current = new Map();
+    pendingSaveRef.current = false;
+  }, [episodeId]);
+
   const saveStateRef = useRef({
     sceneCards: state.sceneCards,
     timeContexts: state.timeContexts,

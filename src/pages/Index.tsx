@@ -1087,7 +1087,7 @@ const Index = () => {
       );
       
       console.log('Analysis Result:', result.sceneCards.length, 'scenes produced.');
-      dispatch({ type: 'FINISH_ANALYSIS', payload: result });
+      dispatch({ type: 'FINISH_ANALYSIS', payload: { ...result, mode: 'replace' } });
 
       // Mevcut referansları yeni sahnelere ata
       if (state.references.length > 0) {
@@ -1153,7 +1153,7 @@ const Index = () => {
         description: error instanceof Error ? error.message : 'Failed to analyze text',
         variant: 'destructive'
       });
-      dispatch({ type: 'FINISH_ANALYSIS', payload: { sceneCards: [], characters: [], locations: [] } });
+      dispatch({ type: 'FINISH_ANALYSIS', payload: { sceneCards: [], characters: [], locations: [], mode: 'append' } });
     }
   }, [dispatch, toast, state.references]);
 

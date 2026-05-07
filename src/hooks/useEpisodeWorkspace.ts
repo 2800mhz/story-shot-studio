@@ -26,6 +26,8 @@ export function useEpisodeWorkspace({
     if (!projectId || !episodeId) return;
 
     setLoadingData(true);
+    setEpisode(null);
+    dispatch({ type: 'RESET_EPISODE_WORKSPACE' });
     try {
       console.log('📥 Loading episode data:', episodeId);
 
@@ -69,6 +71,9 @@ export function useEpisodeWorkspace({
         const plainText = episodeData.document_text.replace(/<[^>]+>/g, '');
         const derivedEpisodes = parseEpisodes(plainText);
         dispatch({ type: 'SET_EPISODES', payload: derivedEpisodes });
+      } else {
+        dispatch({ type: 'SET_DOCUMENT_TEXT', payload: '' });
+        dispatch({ type: 'SET_EPISODES', payload: [] });
       }
 
       if (episodeData.episode_prompt) {
@@ -205,6 +210,8 @@ export function useEpisodeWorkspace({
         });
 
         dispatch({ type: 'SET_ALL_PROMPTS', payload: allMappedPrompts });
+      } else {
+        dispatch({ type: 'SET_SCENES', payload: [] });
       }
 
       const storedTimeContexts = Array.isArray(episodeData.time_contexts) && episodeData.time_contexts.length > 0
@@ -212,6 +219,8 @@ export function useEpisodeWorkspace({
         : null;
       if (storedTimeContexts) {
         dispatch({ type: 'SET_TIME_CONTEXTS', payload: storedTimeContexts });
+      } else {
+        dispatch({ type: 'SET_TIME_CONTEXTS', payload: [] });
       }
     } catch (error) {
       console.error('❌ Error loading episode data:', error);
