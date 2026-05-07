@@ -46,6 +46,10 @@ Onemli:
 - Emin degilsen operasyon uretme.
 - Mümkün oldugunda dogrudan degistir; kullaniciyi gereksiz apply pipeline'ina mahkum etme.
 - update_character_clothing, update_character_appearance, rewrite_character gibi yeni type isimleri ASLA kullanma.
+- Gorsel eki icin analiz-only operation type uydurma. analyze_image, describe_image, update_scene_from_image, apply_image_reference gibi tipler yasaktir.
+- Gorseli sahneye referans yapmak gerekiyorsa sadece add_scene_reference kullan.
+- Gorsel karakter/kiyafet/stil degisikligi icin kullaniliyorsa update_character, update_scene_visual_note, update_prompt_text veya mark_prompt_stale disina cikma.
+- Gecerli operasyon uretemiyorsan operations: [] dondur; yeni type uydurma.
 
 Final JSON blogu mutlaka su etiketler arasinda olmali:
 ${AGENT_RESULT_JSON_TAGS.open}

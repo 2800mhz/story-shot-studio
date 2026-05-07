@@ -1,4 +1,4 @@
-import { agentOperationSetSchema, type AgentOperationSet } from './agentSchema';
+import { agentOperationSchema, agentOperationSetSchema, type AgentOperationSet } from './agentSchema';
 
 const JSON_OPEN = '<AGENT_RESULT_JSON>';
 const JSON_CLOSE = '</AGENT_RESULT_JSON>';
@@ -11,6 +11,9 @@ function normalizeOperation(op: any) {
     : { ...op };
 
   const rawType = typeof base.type === 'string' ? base.type : '';
+  const normalizeReferenceType = (value: unknown) => (
+    value === 'subject' || value === 'style' || value === 'scene' ? value : 'scene'
+  );
 
   switch (rawType) {
     case 'update_character_clothing':
@@ -55,17 +58,25 @@ function normalizeOperation(op: any) {
       };
 
     case 'update_visual_note':
+    case 'update_scene_visual':
+    case 'update_scene_visuals':
+    case 'update_scene_card_visual':
+    case 'update_scene_card_visual_note':
+    case 'update_scene_description':
       return {
         type: 'update_scene_visual_note',
         sceneId: base.sceneId,
-        visualNote: base.visualNote || base.note || base.text,
+        visualNote: base.visualNote || base.note || base.text || base.description,
       };
 
     case 'update_note':
+    case 'update_scene':
+    case 'update_scene_card':
+    case 'update_scene_text':
       return {
         type: 'update_scene_note',
         sceneId: base.sceneId,
-        note: base.note || base.text,
+        note: base.note || base.text || base.description,
       };
 
     case 'attach_reference_to_scene':
@@ -80,6 +91,52 @@ function normalizeOperation(op: any) {
         type: 'remove_reference_from_scene',
         sceneId: base.sceneId,
         referenceId: base.referenceId,
+      };
+
+    case 'add_scene_reference':
+      return {
+        type: 'add_scene_reference',
+        reference: {
+          ...(base.reference && typeof base.reference === 'object' ? base.reference : {}),
+          description: base.reference?.description || base.description || base.analysis || base.note || base.text,
+          referenceType: normalizeReferenceType(base.reference?.referenceType || base.referenceType || base.typeHint),
+          filePath: base.reference?.filePath || base.filePath,
+          fileUrl: base.reference?.fileUrl || base.fileUrl,
+          assignedSceneIds: Array.isArray(base.reference?.assignedSceneIds)
+            ? base.reference.assignedSceneIds
+            : Array.isArray(base.assignedSceneIds)
+              ? base.assignedSceneIds
+              : base.sceneId
+                ? [base.sceneId]
+                : [],
+          aiAnalysis: base.reference?.aiAnalysis || base.aiAnalysis || base.analysis,
+        },
+      };
+
+    case 'add_reference':
+    case 'create_reference':
+    case 'add_image_reference':
+    case 'create_image_reference':
+    case 'add_visual_reference':
+    case 'create_visual_reference':
+    case 'add_scene_image_reference':
+    case 'create_scene_reference':
+    case 'use_image_as_reference':
+    case 'analyze_image_reference':
+      return {
+        type: 'add_scene_reference',
+        reference: {
+          description: base.description || base.analysis || base.note || base.text,
+          referenceType: normalizeReferenceType(base.referenceType || base.typeHint),
+          filePath: base.filePath,
+          fileUrl: base.fileUrl,
+          assignedSceneIds: Array.isArray(base.assignedSceneIds)
+            ? base.assignedSceneIds
+            : base.sceneId
+              ? [base.sceneId]
+              : [],
+          aiAnalysis: base.aiAnalysis || base.analysis,
+        },
       };
 
     default:
@@ -157,6 +214,24 @@ function normalizeOperation(op: any) {
   return base;
 }
 
+function toStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
+function normalizeOperationSetEnvelope(parsed: any, operations: AgentOperationSet['operations']): AgentOperationSet {
+  return {
+    summary: typeof parsed?.summary === 'string'
+      ? parsed.summary
+      : operations.length > 0
+        ? 'Agent duzenleme onerisi hazirlandi.'
+        : 'Agent yaniti alindi fakat uygulanabilir bir operasyon bulunamadi.',
+    reasoning: typeof parsed?.reasoning === 'string' ? parsed.reasoning : undefined,
+    affectedSceneIds: toStringArray(parsed?.affectedSceneIds),
+    stalePromptSceneIds: toStringArray(parsed?.stalePromptSceneIds),
+    operations,
+  };
+}
+
 export function extractAgentResultBlock(text: string): string | null {
   const start = text.indexOf(JSON_OPEN);
   const end = text.indexOf(JSON_CLOSE);
@@ -180,12 +255,32 @@ export function parseAgentOperationSet(text: string): AgentOperationSet {
   try {
     const parsed = JSON.parse(cleaned);
 
-    const normalized = (() => {
-      if (!parsed || typeof parsed !== 'object') return parsed;
-      const ops = Array.isArray((parsed as any).operations) ? (parsed as any).operations : [];
-      const normalizedOps = ops.map((op: any) => normalizeOperation(op));
-      return { ...(parsed as any), operations: normalizedOps };
-    })();
+    if (!parsed || typeof parsed !== 'object') {
+      throw new Error('Agent yaniti JSON nesnesi olmali.');
+    }
+
+    const ops = Array.isArray((parsed as any).operations) ? (parsed as any).operations : [];
+    const normalizedOps = ops.map((op: any) => normalizeOperation(op));
+    const validOps: AgentOperationSet['operations'] = [];
+    const invalidTypes: string[] = [];
+
+    normalizedOps.forEach((op: any) => {
+      const opResult = agentOperationSchema.safeParse(op);
+      if (opResult.success) {
+        validOps.push(opResult.data);
+      } else {
+        invalidTypes.push(typeof op?.type === 'string' ? op.type : 'unknown');
+      }
+    });
+
+    const normalized = normalizeOperationSetEnvelope(parsed, validOps);
+    if (invalidTypes.length > 0) {
+      const uniqueInvalidTypes = Array.from(new Set(invalidTypes)).slice(0, 6);
+      normalized.reasoning = [
+        normalized.reasoning,
+        `${invalidTypes.length} gecersiz operasyon atlandi: ${uniqueInvalidTypes.join(', ')}.`,
+      ].filter(Boolean).join(' ');
+    }
 
     const result = agentOperationSetSchema.safeParse(normalized);
     if (!result.success) {
