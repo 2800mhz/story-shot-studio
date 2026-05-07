@@ -80,14 +80,19 @@ interface ExportScene {
   activePrompt?: ExportPrompt | null;
   allPrompts?: ExportPrompt[];
   cameraSlots?: Array<{
-    id: string;
+    id?: string;
+    slotIndex: number;
+    promptGroup: 'generated' | 'alternative';
+    status: 'empty' | 'generating' | 'generated';
     label: string;
+    shotType: string;
     focalLength: string;
     angleDeg: string;
     technique: string;
     framing: string;
     rationale: string;
     promptId?: string;
+    prompt?: ExportPrompt | null;
   }>;
   analysis?: SceneCard['analysis'];
   optimizations?: string[];
@@ -241,7 +246,7 @@ const SECTION_OPTIONS: Array<{
   {
     id: 'cameraSlots',
     label: 'Camera angle slots',
-    description: 'Alternatif aci slotlari ve gerekceleri.',
+    description: '3 ana + 3 alternatif aci; uretilmisse prompt icerigiyle.',
   },
   {
     id: 'analysis',
@@ -282,6 +287,18 @@ function promptToExport(prompt: SceneCard['prompts'][number]): ExportPrompt {
     staleReason: prompt.staleReason,
     slotId: prompt.slotId,
   };
+}
+
+function getSlotPrompt(
+  scene: SceneCard,
+  slot: NonNullable<SceneCard['cameraAngleSlots']>[number],
+): SceneCard['prompts'][number] | undefined {
+  if (slot.promptId) {
+    const promptById = scene.prompts.find((prompt) => prompt.id === slot.promptId);
+    if (promptById) return promptById;
+  }
+
+  return scene.prompts.find((prompt) => prompt.slotId === slot.id);
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -393,16 +410,26 @@ export function ExportModal({
       }
 
       if (hasSection('cameraSlots')) {
-        item.cameraSlots = (scene.cameraAngleSlots || []).map((slot) => ({
-          id: slot.id,
-          label: slot.label,
-          focalLength: slot.focalLength,
-          angleDeg: slot.angleDeg,
-          technique: slot.technique,
-          framing: slot.framing,
-          rationale: slot.rationale,
-          promptId: slot.promptId,
-        }));
+        item.cameraSlots = (scene.cameraAngleSlots || []).map((slot, index) => {
+          const slotPrompt = getSlotPrompt(scene, slot);
+          const exportedPrompt = slotPrompt ? promptToExport(slotPrompt) : null;
+
+          return {
+            id: slot.id,
+            slotIndex: index + 1,
+            promptGroup: index < 3 ? 'generated' : 'alternative',
+            status: slotPrompt ? 'generated' : slot.isGenerating ? 'generating' : 'empty',
+            label: slot.label,
+            shotType: slotPrompt?.shotType || slot.label,
+            focalLength: slot.focalLength,
+            angleDeg: slot.angleDeg,
+            technique: slot.technique,
+            framing: slot.framing,
+            rationale: slot.rationale,
+            promptId: slotPrompt?.id || slot.promptId,
+            prompt: exportedPrompt,
+          };
+        });
       }
 
       if (hasSection('analysis')) {
@@ -423,7 +450,7 @@ export function ExportModal({
         episodeTitle,
         episodeId,
         exportedAt: new Date().toISOString(),
-        formatVersion: '2.0',
+        formatVersion: '2.1',
         scope,
         sections,
         includeIds,
@@ -550,8 +577,10 @@ export function ExportModal({
         }
         if (scene.cameraSlots && scene.cameraSlots.length > 0) {
           lines.push('Camera slots:');
-          scene.cameraSlots.forEach((slot, index) => {
-            lines.push(`${index + 1}. ${slot.label} - ${slot.focalLength}, ${slot.framing}, ${slot.technique}`);
+          scene.cameraSlots.forEach((slot) => {
+            const groupLabel = slot.promptGroup === 'generated' ? 'main' : 'alternative';
+            lines.push(`${slot.slotIndex}. [${groupLabel} / ${slot.status}] ${slot.shotType} - ${slot.focalLength}, ${slot.framing}, ${slot.technique}`);
+            if (slot.prompt?.promptText) lines.push(slot.prompt.promptText);
           });
         }
         if (scene.analysis) {
@@ -658,15 +687,19 @@ export function ExportModal({
 
       if (hasSection('cameraSlots')) {
         const slotRows = payload.scenes.flatMap((scene) =>
-          (scene.cameraSlots || []).map((slot, index) => ({
+          (scene.cameraSlots || []).map((slot) => ({
             Scene: scene.sceneNumber,
-            Slot: index + 1,
+            Slot: slot.slotIndex,
+            Group: slot.promptGroup,
+            Status: slot.status,
             Label: slot.label,
+            Shot: slot.shotType,
             Focal: slot.focalLength,
             Angle: slot.angleDeg,
             Technique: slot.technique,
             Framing: slot.framing,
             Rationale: slot.rationale,
+            Prompt: slot.prompt?.promptText || '',
             ...(slot.id ? { 'Slot ID': slot.id } : {}),
             ...(slot.promptId ? { 'Prompt ID': slot.promptId } : {}),
           })),
@@ -762,19 +795,23 @@ export function ExportModal({
         });
       });
 
-      scene.cameraSlots?.forEach((slot, index) => {
+      scene.cameraSlots?.forEach((slot) => {
         rows.push({
           table: 'cameraSlots',
           sceneNumber: scene.sceneNumber,
           id: slot.id,
-          slot: index + 1,
+          slot: slot.slotIndex,
+          group: slot.promptGroup,
+          status: slot.status,
           label: slot.label,
+          shotType: slot.shotType,
           focalLength: slot.focalLength,
           angle: slot.angleDeg,
           technique: slot.technique,
           framing: slot.framing,
           rationale: slot.rationale,
           promptId: slot.promptId || '',
+          prompt: slot.prompt?.promptText || '',
         });
       });
     });

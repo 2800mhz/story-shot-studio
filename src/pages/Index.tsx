@@ -125,7 +125,7 @@ function normalizeTimeContext(raw: any, existing: TimeContext[]): TimeContext {
   };
 }
 
-function normalizePrompt(raw: any, fallbackPinned = false): PromptCard {
+function normalizePrompt(raw: any, fallbackPinned = false, fallbackSlotId?: string): PromptCard {
   const promptText = raw?.promptText || raw?.prompt || raw?.text || '';
   return {
     id: raw?.id || crypto.randomUUID(),
@@ -141,27 +141,35 @@ function normalizePrompt(raw: any, fallbackPinned = false): PromptCard {
     isPinned: raw?.isPinned ?? fallbackPinned,
     isStale: raw?.isStale,
     staleReason: raw?.staleReason,
-    slotId: raw?.slotId,
+    slotId: raw?.slotId || fallbackSlotId,
   };
 }
 
 function normalizeCameraSlot(raw: any): CameraAngleSlot {
   return {
     id: raw?.id || crypto.randomUUID(),
-    label: raw?.label || 'Imported angle',
+    label: raw?.label || raw?.shotType || 'Imported angle',
     focalLength: raw?.focalLength || '',
     angleDeg: raw?.angleDeg || raw?.angle || '',
     technique: raw?.technique || '',
     framing: raw?.framing || '',
     rationale: raw?.rationale || '',
-    promptId: raw?.promptId,
+    promptId: raw?.promptId || raw?.prompt?.id,
   };
+}
+
+function getEmbeddedSlotPrompt(raw: any): any | null {
+  const candidate = raw?.prompt || raw?.generatedPrompt || raw?.embeddedPrompt || raw?.promptData;
+  if (!candidate) return null;
+  const promptText = candidate.promptText || candidate.prompt || candidate.text;
+  return promptText ? candidate : null;
 }
 
 function mergeImportedPrompt(existingPrompts: PromptCard[], importedPrompt: PromptCard): PromptCard[] {
   const matchIndex = existingPrompts.findIndex((prompt) =>
-    (importedPrompt.id && prompt.id === importedPrompt.id) ||
-    (!importedPrompt.id && prompt.shotType === importedPrompt.shotType),
+    prompt.id === importedPrompt.id ||
+    (!!prompt.slotId && !!importedPrompt.slotId && prompt.slotId === importedPrompt.slotId) ||
+    (!!prompt.promptText && prompt.promptText === importedPrompt.promptText),
   );
   const clearedPins = importedPrompt.isPinned
     ? existingPrompts.map((prompt) => ({ ...prompt, isPinned: false }))
@@ -179,6 +187,24 @@ function normalizeScene(raw: any, existing?: SceneCard): SceneCard {
     ? raw.allPrompts.map((prompt: any) => normalizePrompt(prompt))
     : undefined;
   const importedActivePrompt = raw?.activePrompt ? normalizePrompt(raw.activePrompt, true) : undefined;
+  const rawCameraSlots = Array.isArray(raw?.cameraSlots)
+    ? raw.cameraSlots
+    : Array.isArray(raw?.promptSlots)
+      ? raw.promptSlots
+      : undefined;
+  const importedCameraSlots = rawCameraSlots?.map(normalizeCameraSlot);
+  const embeddedSlotPrompts = rawCameraSlots && importedCameraSlots
+    ? rawCameraSlots
+        .map((slot: any, index: number) => {
+          const embeddedPrompt = getEmbeddedSlotPrompt(slot);
+          if (!embeddedPrompt) return null;
+
+          const normalizedPrompt = normalizePrompt(embeddedPrompt, false, importedCameraSlots[index].id);
+          importedCameraSlots[index].promptId = normalizedPrompt.id;
+          return normalizedPrompt;
+        })
+        .filter((prompt): prompt is PromptCard => !!prompt)
+    : [];
 
   let prompts = existing?.prompts || [];
   if (importedAllPrompts) {
@@ -187,7 +213,11 @@ function normalizeScene(raw: any, existing?: SceneCard): SceneCard {
     prompts = mergeImportedPrompt(prompts, importedActivePrompt);
   }
 
-  const hasPromptData = importedAllPrompts || importedActivePrompt;
+  embeddedSlotPrompts.forEach((prompt) => {
+    prompts = mergeImportedPrompt(prompts, prompt);
+  });
+
+  const hasPromptData = importedAllPrompts || importedActivePrompt || embeddedSlotPrompts.length > 0;
 
   return {
     id: raw?.id || existing?.id || crypto.randomUUID(),
@@ -205,8 +235,8 @@ function normalizeScene(raw: any, existing?: SceneCard): SceneCard {
     optimizations: raw?.optimizations || existing?.optimizations,
     staleReasons: raw?.staleReasons || existing?.staleReasons,
     promptsNeedRefresh: existing?.promptsNeedRefresh,
-    cameraAngleSlots: Array.isArray(raw?.cameraSlots)
-      ? raw.cameraSlots.map(normalizeCameraSlot)
+    cameraAngleSlots: importedCameraSlots
+      ? importedCameraSlots
       : existing?.cameraAngleSlots,
   };
 }
@@ -269,7 +299,15 @@ function normalizeImportPayload(raw: any, currentState: ReturnType<typeof useApp
     result.importedSceneCount = rawScenes.length;
     result.importedPromptCount = rawScenes.reduce((total: number, scene: any) => {
       const allPrompts = Array.isArray(scene?.allPrompts) ? scene.allPrompts.length : 0;
-      return total + allPrompts + (scene?.activePrompt && allPrompts === 0 ? 1 : 0);
+      const rawSlots = Array.isArray(scene?.cameraSlots)
+        ? scene.cameraSlots
+        : Array.isArray(scene?.promptSlots)
+          ? scene.promptSlots
+          : [];
+      const slotPrompts = rawSlots.length > 0
+        ? rawSlots.filter((slot: any) => !!getEmbeddedSlotPrompt(slot)).length
+        : 0;
+      return total + allPrompts + slotPrompts + (scene?.activePrompt && allPrompts === 0 ? 1 : 0);
     }, 0);
   }
 
