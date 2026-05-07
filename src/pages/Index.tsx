@@ -1744,9 +1744,10 @@ const Index = () => {
             <LeftPanel
               episodes={state.episodes}
               scenes={state.scenes}
+              sceneCards={state.sceneCards}
               consistencyGroups={state.consistencyGroups}
               activeSceneId={state.activeSceneId}
-              mainFileName={state.mainFileName}
+              mainFileName={state.mainFileName || episode?.title || project?.title || ''}
               isAnalyzing={state.isAnalyzing}
               isLoading={loadingData}
               onEpisodeClick={(ep) => setScrollToIndex(ep.startIndex)}

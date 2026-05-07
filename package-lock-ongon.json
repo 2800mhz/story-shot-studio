@@ -45,6 +45,7 @@
         "embla-carousel-react": "^8.6.0",
         "fast-xml-parser": "^5.5.9",
         "fflate": "^0.8.2",
+        "immer": "^11.1.4",
         "input-otp": "^1.4.2",
         "lucide-react": "^0.462.0",
         "mammoth": "^1.11.0",
@@ -5491,6 +5492,16 @@
       "resolved": "https://registry.npmjs.org/immediate/-/immediate-3.0.6.tgz",
       "integrity": "sha512-XXOFtyqDjNDAQxVfYxuF7g9Il/IbWmmlQg2MYKOH8ExIT1qg6xc4zyS3HaEEATgs1btfzxq15ciUiY7gjSXRGQ==",
       "license": "MIT"
+    },
+    "node_modules/immer": {
+      "version": "11.1.4",
+      "resolved": "https://registry.npmjs.org/immer/-/immer-11.1.4.tgz",
+      "integrity": "sha512-XREFCPo6ksxVzP4E0ekD5aMdf8WMwmdNaz6vuvxgI40UaEiu6q3p8X52aU6GdyvLY3XXX/8R7JOTXStz/nBbRw==",
+      "license": "MIT",
+      "funding": {
+        "type": "opencollective",
+        "url": "https://opencollective.com/immer"
+      }
     },
     "node_modules/import-fresh": {
       "version": "3.3.1",

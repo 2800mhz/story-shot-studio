@@ -50,6 +50,7 @@
     "embla-carousel-react": "^8.6.0",
     "fast-xml-parser": "^5.5.9",
     "fflate": "^0.8.2",
+    "immer": "^11.1.4",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.462.0",
     "mammoth": "^1.11.0",

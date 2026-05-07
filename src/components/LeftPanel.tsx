@@ -14,7 +14,7 @@ import {
   SortAsc,
   X,
 } from 'lucide-react';
-import type { ConsistencyGroup, Episode, Scene } from '@/types';
+import type { ConsistencyGroup, Episode, Scene, SceneCard as SceneCardType } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 interface LeftPanelProps {
   episodes: Episode[];
   scenes: Scene[];
+  sceneCards?: SceneCardType[];
   consistencyGroups: ConsistencyGroup[];
   activeSceneId: string | null;
   mainFileName: string;
@@ -39,7 +40,7 @@ interface EpisodeNodeProps {
   episode: Episode;
   children: Episode[];
   allEpisodes: Episode[];
-  scenes: Scene[];
+  scenes: ExplorerScene[];
   expandedIds: Set<string>;
   onToggle: (id: string) => void;
   onEpisodeClick: (ep: Episode) => void;
@@ -53,12 +54,66 @@ interface EpisodeNodeProps {
   onSceneClick: (id: string) => void;
 }
 
-function getSceneText(scene: Scene): string {
-  return scene.text || scene.segments[0]?.text || '';
+type ExplorerScene = {
+  id: string;
+  number: number;
+  title?: string;
+  text?: string;
+  startIndex?: number;
+  endIndex?: number;
+  episodeTitle?: string;
+  prompts?: unknown[];
+  status?: Scene['status'] | SceneCardType['status'];
+};
+
+function getSceneText(scene: ExplorerScene): string {
+  return scene.text || '';
 }
 
-function sceneCountForEpisode(episode: Episode, scenes: Scene[]) {
+function sceneCountForEpisode(episode: Episode, scenes: ExplorerScene[]) {
   return scenes.filter((scene) => scene.episodeTitle === episode.title).length;
+}
+
+function getEpisodeTitleForIndex(index: number | undefined, episodes: Episode[]): string | undefined {
+  if (index === undefined) return undefined;
+
+  const sortedEpisodes = [...episodes].sort((a, b) => a.startIndex - b.startIndex);
+  let matched: Episode | undefined;
+
+  for (const episode of sortedEpisodes) {
+    if (episode.startIndex <= index) matched = episode;
+    else break;
+  }
+
+  return matched?.title;
+}
+
+function normalizeLegacyScene(scene: Scene): ExplorerScene {
+  return {
+    id: scene.id,
+    number: scene.number,
+    title: scene.title,
+    text: scene.text || scene.segments[0]?.text || '',
+    startIndex: scene.startIndex,
+    endIndex: scene.endIndex,
+    episodeTitle: scene.episodeTitle,
+    prompts: scene.prompts,
+    status: scene.status,
+  };
+}
+
+function normalizeSceneCard(sceneCard: SceneCardType, episodes: Episode[]): ExplorerScene {
+  return {
+    id: sceneCard.id,
+    number: sceneCard.sceneNumber,
+    title: `Sahne ${sceneCard.sceneNumber}`,
+    text: sceneCard.text || sceneCard.visualNote || '',
+    startIndex: sceneCard.startIndex,
+    endIndex: sceneCard.endIndex,
+    episodeTitle: getEpisodeTitleForIndex(sceneCard.startIndex, episodes),
+    prompts: sceneCard.prompts,
+    status: sceneCard.status,
+  };
 }
 
 function EpisodeNode({
@@ -198,6 +253,7 @@ function EpisodeNode({
               {episodeScenes.map((scene) => {
                 const isActive = activeSceneId === scene.id;
                 const promptCount = scene.prompts?.length || 0;
+                const isReady = scene.status === 'done' || scene.status === 'ready' || scene.status === 'analyzed';
                 return (
                   <button
                     key={scene.id}
@@ -214,7 +270,7 @@ function EpisodeNode({
                       <span
                         className={cn(
                           'h-1.5 w-1.5 shrink-0 rounded-full',
-                          scene.status === 'done' ? 'bg-emerald-400' : scene.status === 'generating' ? 'bg-primary' : 'bg-muted-foreground/50',
+                          isReady ? 'bg-emerald-400' : scene.status === 'generating' ? 'bg-primary' : 'bg-muted-foreground/50',
                         )}
                       />
                       <span className="min-w-0 flex-1 truncate text-xs font-medium">
@@ -243,6 +299,7 @@ function EpisodeNode({
 export function LeftPanel({
   episodes,
   scenes,
+  sceneCards = [],
   consistencyGroups,
   activeSceneId,
   mainFileName,
@@ -263,15 +320,29 @@ export function LeftPanel({
     [episodes],
   );
 
+  const explorerScenes = useMemo(() => {
+    const sceneMap = new Map<string, ExplorerScene>();
+
+    scenes.forEach((scene) => {
+      sceneMap.set(scene.id, normalizeLegacyScene(scene));
+    });
+
+    sceneCards.forEach((sceneCard) => {
+      sceneMap.set(sceneCard.id, normalizeSceneCard(sceneCard, episodes));
+    });
+
+    return [...sceneMap.values()].sort((a, b) => a.number - b.number);
+  }, [episodes, sceneCards, scenes]);
+
   const stats = useMemo(() => {
-    const promptCount = scenes.reduce((sum, scene) => sum + (scene.prompts?.length || 0), 0);
+    const promptCount = explorerScenes.reduce((sum, scene) => sum + (scene.prompts?.length || 0), 0);
     return {
-      topLevel: episodes.filter((episode) => episode.parentId === null).length,
-      scenes: scenes.length,
+      episodes: episodes.length,
+      scenes: explorerScenes.length,
       prompts: promptCount,
       groups: consistencyGroups.length,
     };
-  }, [consistencyGroups.length, episodes, scenes]);
+  }, [consistencyGroups.length, episodes.length, explorerScenes]);
 
   const filteredEpisodes = useMemo(() => {
     let result = episodes;
@@ -280,7 +351,7 @@ export function LeftPanel({
       const term = searchTerm.toLowerCase();
       result = result.filter((episode) => {
         const episodeMatch = episode.title.toLowerCase().includes(term);
-        const sceneMatch = scenes.some((scene) =>
+        const sceneMatch = explorerScenes.some((scene) =>
           scene.episodeTitle === episode.title &&
           `${scene.title || ''} ${getSceneText(scene)}`.toLowerCase().includes(term),
         );
@@ -291,11 +362,11 @@ export function LeftPanel({
     if (sortBy === 'name') {
       result = [...result].sort((a, b) => a.title.localeCompare(b.title));
     } else if (sortBy === 'scenes') {
-      result = [...result].sort((a, b) => sceneCountForEpisode(b, scenes) - sceneCountForEpisode(a, scenes));
+      result = [...result].sort((a, b) => sceneCountForEpisode(b, explorerScenes) - sceneCountForEpisode(a, explorerScenes));
     }
 
     return result;
-  }, [episodes, scenes, searchTerm, sortBy]);
+  }, [episodes, explorerScenes, searchTerm, sortBy]);
 
   const topLevelEpisodes = useMemo(
     () => filteredEpisodes.filter((episode) => episode.parentId === null || !!searchTerm),
@@ -314,14 +385,14 @@ export function LeftPanel({
   useEffect(() => {
     setSearchTerm('');
     const expandableIds = episodes
-      .filter((episode) => episodes.some((child) => child.parentId === episode.id) || sceneCountForEpisode(episode, scenes) > 0)
+      .filter((episode) => episodes.some((child) => child.parentId === episode.id) || sceneCountForEpisode(episode, explorerScenes) > 0)
       .map((episode) => episode.id);
     setExpandedIds(new Set(expandableIds));
-  }, [episodeSignature, mainFileName, episodes, scenes]);
+  }, [episodeSignature, mainFileName, episodes, explorerScenes]);
 
   const handleExpandAll = () => {
     const expandableIds = episodes
-      .filter((episode) => episodes.some((child) => child.parentId === episode.id) || sceneCountForEpisode(episode, scenes) > 0)
+      .filter((episode) => episodes.some((child) => child.parentId === episode.id) || sceneCountForEpisode(episode, explorerScenes) > 0)
       .map((episode) => episode.id);
     setExpandedIds(new Set(expandableIds));
   };
@@ -391,20 +462,24 @@ export function LeftPanel({
             <div className="min-w-0">
               <div className="truncate text-xs font-medium text-foreground">{mainFileName || 'Dokuman yuklenmedi'}</div>
               <div className="mt-0.5 text-[10px] text-muted-foreground">
-                {stats.topLevel} episode / {stats.scenes} sahne / {stats.prompts} prompt
+                {stats.episodes} episode / {stats.scenes} sahne / {stats.prompts} prompt
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-3 gap-2">
+        <div className="mt-3 grid grid-cols-2 gap-2">
           <div className="rounded-md border border-border/70 bg-background/30 px-2 py-2">
-            <div className="text-sm font-semibold">{stats.topLevel}</div>
+            <div className="text-sm font-semibold">{stats.episodes}</div>
             <div className="text-[10px] text-muted-foreground">episode</div>
           </div>
           <div className="rounded-md border border-border/70 bg-background/30 px-2 py-2">
             <div className="text-sm font-semibold">{stats.scenes}</div>
             <div className="text-[10px] text-muted-foreground">sahne</div>
+          </div>
+          <div className="rounded-md border border-border/70 bg-background/30 px-2 py-2">
+            <div className="text-sm font-semibold">{stats.prompts}</div>
+            <div className="text-[10px] text-muted-foreground">prompt</div>
           </div>
           <div className="rounded-md border border-border/70 bg-background/30 px-2 py-2">
             <div className="text-sm font-semibold">{stats.groups}</div>
@@ -503,7 +578,7 @@ export function LeftPanel({
                   episode={episode}
                   children={children}
                   allEpisodes={episodes}
-                  scenes={scenes}
+                  scenes={explorerScenes}
                   expandedIds={expandedIds}
                   onToggle={toggleExpanded}
                   onEpisodeClick={onEpisodeClick}
