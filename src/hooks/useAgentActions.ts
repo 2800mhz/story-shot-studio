@@ -286,8 +286,35 @@ export function useAgentActions({
 
   const handleAddAgentAttachment = useCallback(async (file: File) => {
     try {
+      if (file.type && !file.type.startsWith('image/')) {
+        toast({
+          title: 'Görsel eklenemedi',
+          description: 'Lütfen PNG, JPG, WEBP gibi bir görsel dosyası seç.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       const base64 = await fileToBase64(file);
+      const attachmentId = crypto.randomUUID();
+      const mimeType = file.type || 'image/png';
       let analysis = '';
+
+      agent.setAttachments((prev: any) => [
+        ...prev,
+        {
+          id: attachmentId,
+          type: 'image',
+          name: file.name,
+          mimeType,
+          base64,
+        },
+      ]);
+
+      toast({
+        title: 'Görsel eklendi',
+        description: 'Agent komutunda bu görseli bağlam olarak kullanacak.',
+      });
 
       if (aiProvider.isInitialized() && aiProvider.hasKeys()) {
         try {
@@ -296,27 +323,22 @@ export function useAgentActions({
             'You are a visual reference analyst for a film editing tool. Respond in one short paragraph only.',
             {
               operationType: 'agent_attachment_analysis',
-              images: [{ inlineData: { data: base64, mimeType: file.type || 'image/png' } }],
+              images: [{ inlineData: { data: base64, mimeType } }],
               ...AGENT_MODEL_OPTIONS,
             },
           );
           analysis = attachmentSummary.trim();
         } catch (attachmentError) {
           console.warn('Attachment analysis skipped:', attachmentError);
+          analysis = 'Görsel eklendi; otomatik ön analiz alınamadı.';
         }
+      } else {
+        analysis = 'Görsel eklendi; komut gönderilirken görsel bağlamı kullanılacak.';
       }
 
-      agent.setAttachments((prev: any) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          type: 'image',
-          name: file.name,
-          mimeType: file.type || 'image/png',
-          base64,
-          analysis,
-        },
-      ]);
+      agent.setAttachments((prev: any) => prev.map((attachment: any) => (
+        attachment.id === attachmentId ? { ...attachment, analysis } : attachment
+      )));
     } catch (error) {
       console.error('Failed to attach image:', error);
       toast({

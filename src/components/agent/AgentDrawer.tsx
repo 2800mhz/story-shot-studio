@@ -293,10 +293,23 @@ export function AgentDrawer(props: AgentDrawerProps) {
                   {attachments.map((attachment) => (
                     <div
                       key={attachment.id}
-                      className="flex max-w-[320px] items-center gap-2 rounded-full border border-border/70 bg-background px-3 py-1.5 text-xs"
+                      className="flex max-w-[360px] items-center gap-2 rounded-2xl border border-border/70 bg-background px-2.5 py-2 text-xs"
                     >
-                      <Paperclip className="h-3 w-3 text-primary" />
-                      <span className="truncate">{attachment.name}</span>
+                      {attachment.base64 ? (
+                        <img
+                          src={`data:${attachment.mimeType};base64,${attachment.base64}`}
+                          alt=""
+                          className="h-8 w-8 shrink-0 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <Paperclip className="h-3 w-3 text-primary" />
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium">{attachment.name}</span>
+                        <span className="block truncate text-[10px] text-muted-foreground">
+                          {attachment.analysis ? 'Hazir' : 'Analiz hazirlaniyor...'}
+                        </span>
+                      </span>
                       <button
                         type="button"
                         onClick={() => onRemoveAttachment(attachment.id)}
