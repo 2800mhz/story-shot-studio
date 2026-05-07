@@ -719,16 +719,36 @@ async function analyseChunk(
   const raw = await aiProvider.generateContent(userMessage, systemPrompt, { operationType: 'scene_analysis' });
   let parsed = parseAnalysisPayload(raw);
 
-  const actualSceneCount = parsed.scenes?.length ?? 0;
-  if (targetSceneCount && Math.abs(actualSceneCount - targetSceneCount) > 1) {
-    const retryMessage = `${getSceneAnalysisTargetInstruction(targetSceneCount)}
+  if (targetSceneCount) {
+    let bestParsed = parsed;
+    let bestDiff = Math.abs((parsed.scenes?.length ?? 0) - targetSceneCount);
+
+    for (let attempt = 1; bestDiff > 1 && attempt <= 3; attempt++) {
+      const actualSceneCount = parsed.scenes?.length ?? 0;
+      const retryMessage = `${getSceneAnalysisTargetInstruction(targetSceneCount)}
 
 ${getSceneAnalysisRetryInstruction(targetSceneCount, actualSceneCount)}
 
+HARD COUNT MODE:
+- The JSON scenes array MUST contain exactly ${targetSceneCount} scene objects.
+- Count the scene objects before returning JSON.
+- If you are below ${targetSceneCount}, keep splitting implied visual beats until the count is reached.
+- For a target of ${targetSceneCount}, do not return ${actualSceneCount}, ${actualSceneCount + 1}, or any lower natural count.
+- Attempt ${attempt + 1} of 4.
+
 --- TEXT TO ANALYZE ---
 ${chunk}`;
-    const retryRaw = await aiProvider.generateContent(retryMessage, systemPrompt, { operationType: 'scene_analysis' });
-    parsed = parseAnalysisPayload(retryRaw);
+      const retryRaw = await aiProvider.generateContent(retryMessage, systemPrompt, { operationType: 'scene_analysis' });
+      parsed = parseAnalysisPayload(retryRaw);
+
+      const diff = Math.abs((parsed.scenes?.length ?? 0) - targetSceneCount);
+      if (diff < bestDiff) {
+        bestParsed = parsed;
+        bestDiff = diff;
+      }
+    }
+
+    parsed = bestParsed;
   }
 
   return parsed;
