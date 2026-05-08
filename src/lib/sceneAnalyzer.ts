@@ -305,6 +305,9 @@ No preamble, no markdown, no explanation.
 }
 
 CRITICAL CONSTRAINTS:
+  - scenes[].text values MUST be unique and non-overlapping in source order
+  - Never reuse the same sentence as scenes[].text for multiple scene objects
+  - If one sentence needs multiple visual beats, split it into smaller consecutive exact source phrases
   • Every scene MUST have a timeContextLabel
   • Every character MUST have all seven fields filled — NEVER leave empty or write "unknown"
   • If character details are not in the text, INFER from era, geography, and role
@@ -321,12 +324,15 @@ This target is CRITICAL and overrides all other density rules.
 - If the text is sparse: split single sentences into multiple visual moments or focus on background details.
 - If the target is higher than the sentence count: split clauses, reactions, objects, entrances, exits, landscape beats, and tactile details into separate scenes.
 - It is allowed to make multiple scenes from one sentence, but each scenes[].text must still be an exact phrase copied from the source.
+- Do not duplicate scenes[].text. Multiple visual beats from one sentence must each use a different exact subphrase from that sentence.
+- The scenes array must cover the narration in source order with non-overlapping text spans.
 - Never use text-on-screen/title-card visuals just to represent dialogue. Show a physical cinematic moment instead.
 - Plan your ${targetSceneCount} beats before writing JSON.`;
 }
 
-function getSceneAnalysisRetryInstruction(targetSceneCount: number, actualSceneCount: number): string {
+function getSceneAnalysisRetryInstruction(targetSceneCount: number, actualSceneCount: number, duplicateTextCount: number): string {
   return `Your previous answer produced ${actualSceneCount} scenes, but the required target is EXACTLY ${targetSceneCount} scenes.
+It also produced ${duplicateTextCount} duplicate scene text value(s).
 
 Retry now and obey the target count. This is not optional.
 
@@ -334,6 +340,9 @@ To reach ${targetSceneCount} scenes:
 - Split longer sentences into smaller visual beats.
 - Add separate beats for entrances, hands, faces, objects, architecture, shadows, weather, and reaction details when implied by the source.
 - Use exact source subphrases for scenes[].text. Do not invent narration.
+- Every scenes[].text must be unique. Never copy the same full sentence into two scene objects.
+- If you need two shots from one sentence, divide that sentence into two different exact source phrases.
+- Keep all text spans in source order and non-overlapping.
 - Do not summarize multiple source moments into one scene when the target requires more scenes.
 - Avoid title cards, readable text, or symbolic black-background writing unless the source explicitly requires a written object in the world.
 
@@ -544,6 +553,26 @@ type AnalysisPayload = {
   timeContext?: TimeContextRaw;
 };
 
+function normaliseSceneTextForValidation(text?: string): string {
+  return (text ?? '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('tr-TR');
+}
+
+function countDuplicateSceneTexts(scenes?: SceneRaw[]): number {
+  if (!Array.isArray(scenes)) return 0;
+  const counts = new Map<string, number>();
+  for (const scene of scenes) {
+    const key = normaliseSceneTextForValidation(scene.text);
+    if (!key) continue;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  let duplicates = 0;
+  counts.forEach((count) => {
+    if (count > 1) duplicates += count - 1;
+  });
+  return duplicates;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // § 6  NORMALISATION HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -722,18 +751,23 @@ async function analyseChunk(
   if (targetSceneCount) {
     let bestParsed = parsed;
     let bestDiff = Math.abs((parsed.scenes?.length ?? 0) - targetSceneCount);
+    let bestDuplicateCount = countDuplicateSceneTexts(parsed.scenes);
+    let bestScore = bestDiff * 10 + bestDuplicateCount * 100;
 
-    for (let attempt = 1; bestDiff > 1 && attempt <= 3; attempt++) {
+    for (let attempt = 1; (bestDiff > 1 || bestDuplicateCount > 0) && attempt <= 3; attempt++) {
       const actualSceneCount = parsed.scenes?.length ?? 0;
+      const duplicateTextCount = countDuplicateSceneTexts(parsed.scenes);
       const retryMessage = `${getSceneAnalysisTargetInstruction(targetSceneCount)}
 
-${getSceneAnalysisRetryInstruction(targetSceneCount, actualSceneCount)}
+${getSceneAnalysisRetryInstruction(targetSceneCount, actualSceneCount, duplicateTextCount)}
 
 HARD COUNT MODE:
 - The JSON scenes array MUST contain exactly ${targetSceneCount} scene objects.
 - Count the scene objects before returning JSON.
 - If you are below ${targetSceneCount}, keep splitting implied visual beats until the count is reached.
 - For a target of ${targetSceneCount}, do not return ${actualSceneCount}, ${actualSceneCount + 1}, or any lower natural count.
+- DUPLICATE TEXT MODE: no two scene objects may have identical scenes[].text.
+- If any scene text repeats, split that repeated source sentence into smaller unique exact phrases.
 - Attempt ${attempt + 1} of 4.
 
 --- TEXT TO ANALYZE ---
@@ -742,9 +776,13 @@ ${chunk}`;
       parsed = parseAnalysisPayload(retryRaw);
 
       const diff = Math.abs((parsed.scenes?.length ?? 0) - targetSceneCount);
-      if (diff < bestDiff) {
+      const duplicateCount = countDuplicateSceneTexts(parsed.scenes);
+      const score = diff * 10 + duplicateCount * 100;
+      if (score < bestScore) {
         bestParsed = parsed;
         bestDiff = diff;
+        bestDuplicateCount = duplicateCount;
+        bestScore = score;
       }
     }
 
