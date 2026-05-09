@@ -204,7 +204,11 @@ export async function fetchScenes(episodeId: string) {
     .order('scene_number', { ascending: true });
 
   if (error) throw error;
-  return data || [];
+  // Backward-compat: DB'deki eski 'realistic' kayıtları → 'cinematic' olarak normalize et
+  return (data || []).map((row: any) => ({
+    ...row,
+    visual_style: row.visual_style === 'realistic' ? 'cinematic' : (row.visual_style || 'cinematic'),
+  }));
 }
 
 export async function saveScenes(episodeId: string, scenes: any[]) {
@@ -235,7 +239,7 @@ export async function saveScenes(episodeId: string, scenes: any[]) {
         scene_number: scene.sceneNumber ?? idx + 1,
         text: scene.text || '',
         visual_note: scene.visualNote || null,
-        visual_style: scene.visualStyle || 'realistic',
+        visual_style: scene.visualStyle === 'realistic' ? 'cinematic' : (scene.visualStyle || 'cinematic'),
         character_ids: characterIds,
         location_ids: locationIds,
         time_context_ids: timeContextIds,
@@ -593,7 +597,6 @@ export async function fetchReferences(episodeId: string) {
     }
   }
 
-  // Convert snake_case back to camelCase mapping for the UI
   return (data || []).map(row => ({
     id: row.id,
     episodeId: row.episode_id,
@@ -640,10 +643,15 @@ export async function deleteReference(id: string) {
   if (error) throw error;
 }
 
-export async function updateReferenceAssignments(id: string, sceneIds: string[]) {
+export async function updateReferenceAssignments(id: string, sceneIds: string[], aiAnalysis?: string) {
+  const payload = {
+    assigned_scene_ids: sceneIds,
+    ...(aiAnalysis !== undefined ? { ai_analysis: aiAnalysis } : {}),
+  };
+
   const { data, error } = await supabase
     .from('references')
-    .update({ assigned_scene_ids: sceneIds })
+    .update(payload)
     .eq('id', id)
     .select()
     .single();

@@ -969,6 +969,10 @@ export function analyzeSceneComplexity(
 //       Constructs the complete per-scene instruction block.
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+function getAssignedReferencesForScene(sceneId: string, references?: SceneReference[]): SceneReference[] {
+  return (references ?? []).filter((reference) => reference.assignedSceneIds?.includes(sceneId));
+}
+
 function buildUserMessage(
   scene: SceneCard,
   characters: Character[],
@@ -1135,17 +1139,16 @@ function buildUserMessage(
   }
 
   // â”€â”€ References â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const subjectRefs = references?.filter(r => r.referenceType === 'subject') ?? [];
-  const styleRefs   = references?.filter(r => r.referenceType === 'style')   ?? [];
+  const sceneReferences = getAssignedReferencesForScene(scene.id, references);
 
-  if (subjectRefs.length > 0) {
-    parts.push(`SUBJECT REFERENCES:`);
-    subjectRefs.forEach(r => parts.push(`  - ${r.description || r.filePath}`));
-    parts.push(``);
-  }
-  if (styleRefs.length > 0) {
-    parts.push(`STYLE REFERENCES:`);
-    styleRefs.forEach(r => parts.push(`  - ${r.description || r.filePath}`));
+  if (sceneReferences.length > 0) {
+    parts.push(`REFERENCE IMAGES FOR THIS SCENE:`);
+    sceneReferences.forEach((reference) => {
+      const label = reference.description || reference.filePath;
+      const analysis = reference.aiAnalysis?.trim();
+      parts.push(`- [${reference.referenceType}] ${label}${analysis ? `: ${analysis}` : ''}`);
+    });
+    parts.push(`Use these references only for this scene. Preserve the source scene content if a reference conflicts with it.`);
     parts.push(``);
   }
 
@@ -1489,7 +1492,7 @@ export async function generatePromptsForScene(
     throw new Error(`Prompt generation failed after 4 attempts. Last error: ${lastError}`);
   }
 
-  const subjectRefs = references?.filter(r => r.referenceType === 'subject') ?? [];
+  const subjectRefs = getAssignedReferencesForScene(scene.id, references).filter(r => r.referenceType === 'subject');
   const normalizedCandidates = normalizePromptCandidates(parsed.prompts);
   const selectedIndexValue = Number(parsed.selectedIndex);
   const aiOriginalIndex = Number.isInteger(selectedIndexValue) ? selectedIndexValue : 0;
@@ -2119,7 +2122,7 @@ RESPONSE FORMAT - JSON only:
         versions: [promptText],
         aspectRatio,
         generationType: 'initial',
-        hasSubjectReference: (references?.filter(r => r.referenceType === 'subject') ?? []).length > 0,
+        hasSubjectReference: getAssignedReferencesForScene(scene.id, references).some(r => r.referenceType === 'subject'),
         isPinned: false,
         isPinnedByAI: false,
         slotId: slot.id,

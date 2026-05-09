@@ -209,7 +209,7 @@ export interface SceneCard {
   sceneNumber: number;
   text: string;
   visualNote: string;
-  visualStyle?: 'realistic' | 'symbolic' | 'scientific' | 'abstract';
+  visualStyle?: 'cinematic' | 'symbolic' | 'scientific' | 'abstract';
   narrativeLayer?: NarrativeLayer;
   characterIds: string[];
   locationIds: string[];

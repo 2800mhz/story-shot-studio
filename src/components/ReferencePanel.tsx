@@ -7,7 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import { saveReference, deleteReference } from '@/lib/supabaseQueries';
-import type { AppAction, SceneReference } from '@/types';
+import { analyzeReferenceImage } from '@/lib/referenceAnalyzer';
+import type { AppAction, SceneCard, SceneReference } from '@/types';
 
 interface UploadItem {
   id: string;
@@ -20,11 +21,12 @@ interface UploadItem {
 interface ReferencePanelProps {
   episodeId: string | null;
   references: SceneReference[];
+  sceneCards: SceneCard[];
   dispatch: React.Dispatch<AppAction>;
   disabled?: boolean;
 }
 
-export function ReferencePanel({ episodeId, references, dispatch, disabled = false }: ReferencePanelProps) {
+export function ReferencePanel({ episodeId, references, sceneCards, dispatch, disabled = false }: ReferencePanelProps) {
   const { toast } = useToast();
 
   const [isUploading, setIsUploading] = useState(false);
@@ -49,7 +51,7 @@ export function ReferencePanel({ episodeId, references, dispatch, disabled = fal
     }
     
     setUploadItems(prev => [...prev, ...newItems]);
-  }, [toast]);
+  }, [disabled, toast]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -92,7 +94,7 @@ export function ReferencePanel({ episodeId, references, dispatch, disabled = fal
     setIsUploading(true);
 
     try {
-      const results = [];
+      const results: SceneReference[] = [];
 
       for (const item of uploadItems) {
         toast({ title: 'Yükleniyor...', description: item.file.name });
@@ -115,12 +117,26 @@ export function ReferencePanel({ episodeId, references, dispatch, disabled = fal
         if (signedError) throw signedError;
         const publicUrl = signedData.signedUrl;
 
-        const aiAnalysis = '';
-        const assignedSceneIds: string[] = [];
+        let aiAnalysis = '';
+        let assignedSceneIds: string[] = [];
+
+        if (sceneCards.length > 0) {
+          toast({ title: 'Referans analiz ediliyor...', description: item.file.name });
+          const base64 = await fileToBase64(item.file);
+          const analysis = await analyzeReferenceImage(
+            base64,
+            item.file.type || 'image/jpeg',
+            item.description,
+            item.referenceType,
+            sceneCards,
+          );
+          aiAnalysis = analysis.aiAnalysis;
+          assignedSceneIds = analysis.assignedSceneIds;
+        }
 
         // 3. Save to DB
         const refId = crypto.randomUUID();
-        const newRef = {
+        const newRef: SceneReference = {
           id: refId,
           episodeId: episodeId,
           filePath: filePath,
@@ -139,9 +155,13 @@ export function ReferencePanel({ episodeId, references, dispatch, disabled = fal
         results.push(newRef);
       }
 
+      const totalAssigned = results.reduce((sum, ref) => sum + (ref.assignedSceneIds?.length ?? 0), 0);
+
       toast({ 
         title: 'Referanslar Eklendi ✨', 
-        description: `${results.length} fotoğraf yüklendi. Sahne analizi sonrasında sahnelere atanacaklar.`
+        description: totalAssigned > 0
+          ? `${results.length} fotoğraf yüklendi, ${totalAssigned} sahne ataması yapıldı.`
+          : `${results.length} fotoğraf yüklendi. Sahne eşleşmesi bulunursa analiz sonrası atanacaklar.`
       });
 
       // Clear uploads
@@ -274,7 +294,10 @@ export function ReferencePanel({ episodeId, references, dispatch, disabled = fal
               <p className="text-sm">Henüz referans eklenmedi.</p>
             </div>
           ) : (
-            references.map(ref => (
+            references.map(ref => {
+              const assignedCount = ref.assignedSceneIds?.length ?? 0;
+
+              return (
               <div key={ref.id} className="group relative flex gap-3 p-3 rounded-lg border border-zinc-800/50 bg-zinc-900/30 hover:bg-zinc-900/80 hover:border-zinc-700/50 transition-colors">
                 
                 <div className="w-16 h-16 rounded-md overflow-hidden bg-zinc-950 flex-shrink-0 border border-zinc-800">
@@ -293,9 +316,9 @@ export function ReferencePanel({ episodeId, references, dispatch, disabled = fal
                     <span className="truncate text-zinc-500" title={ref.description}>{ref.description || 'İsimsiz'}</span>
                   </div>
                   
-                  <div className="mt-1 flex items-center gap-1.5 text-[11px] text-zinc-500">
+                  <div className={`mt-1 flex items-center gap-1.5 text-[11px] ${assignedCount > 0 ? 'text-indigo-300' : 'text-zinc-500'}`}>
                     <Sparkles className="w-3 h-3 text-indigo-400" />
-                    <span>{ref.assignedSceneIds.length} sahneye atandı</span>
+                    <span title={ref.aiAnalysis || undefined}>{assignedCount} sahneye atandı</span>
                   </div>
                 </div>
 
@@ -306,7 +329,8 @@ export function ReferencePanel({ episodeId, references, dispatch, disabled = fal
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </ScrollArea>

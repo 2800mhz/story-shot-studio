@@ -75,6 +75,14 @@ function ensureStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
+function normalizeVisualStyle(value: unknown): SceneCard['visualStyle'] {
+  if (value === 'realistic' || value == null || value === '') return 'cinematic';
+  if (value === 'cinematic' || value === 'symbolic' || value === 'scientific' || value === 'abstract') {
+    return value;
+  }
+  return 'cinematic';
+}
+
 function findByName<T extends { id: string; name?: string; label?: string }>(items: T[], imported: any): T | undefined {
   const importedName = typeof imported?.name === 'string' ? imported.name : imported?.label;
   if (!importedName) return undefined;
@@ -224,7 +232,7 @@ function normalizeScene(raw: any, existing?: SceneCard): SceneCard {
     sceneNumber: Number(raw?.sceneNumber || existing?.sceneNumber || 1),
     text: typeof raw?.text === 'string' ? raw.text : existing?.text || '',
     visualNote: typeof raw?.visualNote === 'string' ? raw.visualNote : existing?.visualNote || '',
-    visualStyle: raw?.visualStyle || existing?.visualStyle || 'realistic',
+    visualStyle: normalizeVisualStyle(raw?.visualStyle ?? existing?.visualStyle),
     characterIds: raw?.characterIds ? ensureStringArray(raw.characterIds) : existing?.characterIds || [],
     locationIds: raw?.locationIds ? ensureStringArray(raw.locationIds) : existing?.locationIds || [],
     timeContextIds: raw?.timeContextIds ? ensureStringArray(raw.timeContextIds) : existing?.timeContextIds || [],
@@ -1079,7 +1087,7 @@ const Index = () => {
       const result = await analyzeTextIntoScenes(
         selectedText,
         undefined,
-        undefined,
+        state.settings.geminiModel || state.settings.model,
         (message: string) => {
           setAnalysisLog(prev => [...prev, message]);
         },
@@ -1111,7 +1119,7 @@ const Index = () => {
             );
             
             dispatch({ type: 'UPDATE_REFERENCE', payload: { ...ref, assignedSceneIds, aiAnalysis }});
-            await updateReferenceAssignments(ref.id, assignedSceneIds);
+            await updateReferenceAssignments(ref.id, assignedSceneIds, aiAnalysis);
           }
           setAnalysisLog(prev => [...prev, `✅ ${state.references.length} referans sahnelere atandı`]);
         } catch (refErr) {
@@ -1155,7 +1163,7 @@ const Index = () => {
       });
       dispatch({ type: 'FINISH_ANALYSIS', payload: { sceneCards: [], characters: [], locations: [], mode: 'append' } });
     }
-  }, [dispatch, toast, state.references]);
+  }, [dispatch, toast, state.references, state.settings.geminiModel, state.settings.model]);
 
   const handleGeneratePromptsForScene = useCallback(async (sceneId: string, isRegeneration: boolean = false): Promise<boolean> => {
     const scene = state.sceneCards.find(s => s.id === sceneId);
@@ -1886,6 +1894,7 @@ const Index = () => {
                             <ReferencePanel
                               episodeId={episodeId ?? null}
                               references={state.references}
+                              sceneCards={state.sceneCards}
                               dispatch={dispatch}
                               disabled={isAgentLocked}
                             />

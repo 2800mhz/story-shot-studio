@@ -101,7 +101,7 @@ GÖRSEL STİL TESPİTİ (KRİTİK):
 - Ruhların fiziksel tezahürü, şekil alması, dönüşümü
 - Gök Tengri, Umay Ana, ruhani varlıklar
 
-"realistic" seç sadece gerçek fiziksel çekim için:
+"cinematic" seç sadece gerçek fiziksel çekim için:
 - Gerçek insan, hayvan
 - Gerçek doğa, mekan
 - Fizik yasalarına uygun hareket
@@ -116,7 +116,7 @@ JSON ÇIKTI:
       "sceneNumber": 1,
       "text": "Çivit mavisi gökyüzü gece başlangıcında",
       "visualNote": "Boş çivit mavisi gökyüzü yıldızsız",
-      "visualStyle": "realistic",
+      "visualStyle": "cinematic",
       "characterNames": [],
       "locationNames": ["Ötüken Düzlüğü"],
       "timeContextLabel": "Ötüken - Gece"
@@ -254,6 +254,7 @@ ${s.perdeNo} — ${s.perdeTitle}\nGÖRÜNTÜ:\n${s.visualBlock}\n${s.voContext ?
     visualNote: s.visualNote || '',
     visualStyle: (() => {
       if (s.visualStyle === 'symbolic') return 'symbolic';
+      if (s.visualStyle === 'scientific') return 'scientific';
       // AI 'symbolic' demese bile metin içeriğine bakarak tespit et
       const note = (s.visualNote || '').toLowerCase();
       const text = (s.text || '').toLowerCase();
@@ -264,7 +265,7 @@ ${s.perdeNo} — ${s.perdeTitle}\nGÖRÜNTÜ:\n${s.visualBlock}\n${s.voContext ?
         'gök tengri', 'umay ana', 'ruh', 'tezahür'
       ];
       const isSymbolic = symbolicKeywords.some(k => note.includes(k) || text.includes(k));
-      return isSymbolic ? 'symbolic' : 'realistic';
+      return isSymbolic ? 'symbolic' : 'cinematic';
     })(),
     characterIds: (s.characterNames || []).map((n) =>
       `char-${n.replace(/\s+/g, '-').toLocaleLowerCase('tr-TR')}`

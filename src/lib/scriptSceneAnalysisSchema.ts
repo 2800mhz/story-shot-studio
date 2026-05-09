@@ -7,7 +7,7 @@ export const scriptAnalysisResponseSchema = z.object({
       sceneNumber: z.number().optional(),
       text: z.string().optional(),
       visualNote: z.string().optional(),
-      visualStyle: z.enum(['realistic', 'symbolic']).optional(),
+      visualStyle: z.enum(['cinematic', 'symbolic', 'scientific']).optional(),
       characterNames: z.array(z.string()).optional(),
       locationNames: z.array(z.string()).optional(),
       timeContextLabel: z.string().optional(),
@@ -60,7 +60,7 @@ export const scriptAnalysisResponseJsonSchema: Record<string, unknown> = {
           sceneNumber: { type: 'number' },
           text: { type: 'string' },
           visualNote: { type: 'string' },
-          visualStyle: { type: 'string', enum: ['realistic', 'symbolic'] },
+          visualStyle: { type: 'string', enum: ['cinematic', 'symbolic', 'scientific'] },
           characterNames: { type: 'array', items: { type: 'string' } },
           locationNames: { type: 'array', items: { type: 'string' } },
           timeContextLabel: { type: 'string' },
@@ -134,9 +134,17 @@ export function parseScriptAnalysisResponse(content: string) {
 
   const clean = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   const parsed = JSON.parse(clean) as {
+    scenes?: Array<Record<string, unknown>>;
     characters?: Array<Record<string, unknown>>;
     [key: string]: unknown;
   };
+
+  if (Array.isArray(parsed.scenes)) {
+    parsed.scenes = parsed.scenes.map((scene) => ({
+      ...scene,
+      visualStyle: scene.visualStyle === 'realistic' ? 'cinematic' : scene.visualStyle,
+    }));
+  }
 
   if (Array.isArray(parsed.characters)) {
     parsed.characters = parsed.characters.map((character) => ({
@@ -149,4 +157,4 @@ export function parseScriptAnalysisResponse(content: string) {
   }
 
   return scriptAnalysisResponseSchema.parse(parsed);
-}
+}

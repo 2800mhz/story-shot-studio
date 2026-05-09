@@ -165,6 +165,7 @@ export function useEpisodeWorkspace({
             sceneNumber: scene.scene_number,
             text: scene.text,
             visualNote: scene.visual_note || '',
+            visualStyle: scene.visual_style || 'cinematic',
             characterIds: scene.character_ids || [],
             locationIds: scene.location_ids || [],
             timeContextIds: scene.time_context_ids || [],

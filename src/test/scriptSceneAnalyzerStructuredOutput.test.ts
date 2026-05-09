@@ -8,7 +8,7 @@ describe('scriptSceneAnalyzer structured output parsing', () => {
         {
           "text": "Test sahne",
           "visualNote": "Test notu",
-          "visualStyle": "realistic",
+          "visualStyle": "cinematic",
           "characterNames": ["Modern Visitors"],
           "locationNames": ["Müze Salonu"],
           "timeContextLabel": "Modern Dönem"

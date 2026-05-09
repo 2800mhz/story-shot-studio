@@ -395,7 +395,9 @@ export function ExportModal({
       if (hasSection('scenes')) {
         item.text = scene.text;
         item.visualNote = scene.visualNote;
-        item.visualStyle = scene.visualStyle || 'realistic';
+        item.visualStyle = (scene.visualStyle as string) === 'realistic'
+          ? 'cinematic'
+          : scene.visualStyle || 'cinematic';
         item.characterIds = scene.characterIds;
         item.locationIds = scene.locationIds;
         item.timeContextIds = scene.timeContextIds;
