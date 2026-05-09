@@ -52,11 +52,17 @@ interface LogRecord {
 
 // ─── Model Pricing (per 1M tokens, in USD) ───────────────────────────────────
 
-const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+type ModelPricing = {
+  input: number;
+  output: number;
+  cachedInput?: number;
+};
+
+const MODEL_PRICING: Record<string, ModelPricing> = {
   // Gemini
   'gemini-2.5-pro-exp-03-25': { input: 1.25, output: 10.00 },
   'gemini-2.5-flash-preview-04-17': { input: 0.15, output: 0.60 },
-  'gemini-2.5-flash': { input: 0.10, output: 0.40 },
+  'gemini-2.5-flash': { input: 0.30, output: 2.50 },
   'gemini-2.5-flash-lite': { input: 0.075, output: 0.30 },
   'gemini-3-flash': { input: 0.10, output: 0.40 },
   'gemini-3.1-flash-lite': { input: 0.075, output: 0.30 },
@@ -73,11 +79,15 @@ const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   'claude-3-opus-20240229': { input: 15.00, output: 75.00 },
   'claude-3-5-sonnet-20241022': { input: 3.00, output: 15.00 },
   // DeepInfra
+  'zai-org/GLM-5': { cachedInput: 0.12, input: 0.60, output: 2.08 },
+  'Qwen/Qwen3.6-35B-A3B': { input: 0.15, output: 0.95 },
+  'Qwen/Qwen3.6-35B': { input: 0.15, output: 0.95 },
+  'qwen3.6-35B': { input: 0.15, output: 0.95 },
   'deepseek-ai/DeepSeek-V3': { input: 0.14, output: 0.28 },
   'deepseek-ai/DeepSeek-V4-Flash': { input: 0.05, output: 0.10 },
 };
 
-const DEFAULT_PRICING = { input: 0.10, output: 0.40 }; // fallback
+const DEFAULT_PRICING: ModelPricing = { input: 0.10, output: 0.40 }; // fallback
 
 function calcCost(model: string | undefined, inputTokens: number, outputTokens: number): number {
   const pricing = (model && MODEL_PRICING[model]) ? MODEL_PRICING[model] : DEFAULT_PRICING;
