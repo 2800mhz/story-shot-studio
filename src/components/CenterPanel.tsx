@@ -31,6 +31,20 @@ type RichTextRun = {
   mark?: boolean;
 };
 
+const SCENE_HIGHLIGHT_TONES = [
+  { bg: '#F59E0B24', activeBg: '#F59E0B42', border: '#F59E0B88', text: '#FDECC8', badgeBg: '#92400EAA', badgeBorder: '#F59E0B66', badgeText: '#FFE8A3' },
+  { bg: '#EAB30822', activeBg: '#EAB30840', border: '#EAB30882', text: '#FBF0C4', badgeBg: '#854D0EAA', badgeBorder: '#EAB30866', badgeText: '#FEF3B4' },
+  { bg: '#D9770624', activeBg: '#D9770642', border: '#D9770688', text: '#FFE3C2', badgeBg: '#7C2D12AA', badgeBorder: '#D9770666', badgeText: '#FFD7A3' },
+  { bg: '#CA8A0422', activeBg: '#CA8A0440', border: '#CA8A0482', text: '#F5E8B9', badgeBg: '#713F12AA', badgeBorder: '#CA8A0466', badgeText: '#FCE79E' },
+  { bg: '#B4530924', activeBg: '#B4530942', border: '#B4530988', text: '#FBD9BA', badgeBg: '#7C2D12AA', badgeBorder: '#B4530966', badgeText: '#FFD2A1' },
+  { bg: '#A1620722', activeBg: '#A1620740', border: '#A1620782', text: '#EFE5C0', badgeBg: '#713F12AA', badgeBorder: '#A1620766', badgeText: '#F5E6A8' },
+];
+
+function getSceneHighlightTone(sceneNumber: number) {
+  const index = Math.abs(Math.round(sceneNumber || 1) - 1) % SCENE_HIGHLIGHT_TONES.length;
+  return SCENE_HIGHLIGHT_TONES[index];
+}
+
 function fallbackPlainText(value: string): string {
   return value
     .replace(/<br\s*\/?>/gi, '\n')
@@ -123,7 +137,7 @@ function getRunClassName(run: RichTextRun): string {
   if (run.italic) classes.push('italic');
   if (run.underline) classes.push('underline decoration-amber-400/80 underline-offset-4');
   if (run.strike) classes.push('line-through decoration-destructive/70');
-  if (run.mark) classes.push('rounded-sm bg-yellow-300 px-0.5 text-yellow-950 box-decoration-clone');
+  if (run.mark) classes.push('rounded-sm bg-yellow-400/20 px-0.5 text-foreground ring-1 ring-yellow-300/15 box-decoration-clone');
   return classes.join(' ');
 }
 
@@ -472,6 +486,7 @@ export function CenterPanel({
 
                 // Add the highlighted scene text
                 const isSelected = activeSceneId === scene.id;
+                const tone = getSceneHighlightTone(scene.number);
                 elements.push(
                   <span
                     key={`scene-${scene.id}`}
@@ -480,16 +495,23 @@ export function CenterPanel({
                       if (activeSceneRef) activeSceneRef.current = el;
                     } : undefined}
                     onClick={() => onSetActiveScene(scene.id)}
-                    className={`relative cursor-pointer transition-colors duration-200 rounded px-1 -mx-1 ${isSelected
-                        ? 'bg-amber-600/30 text-amber-200 outline outline-1 outline-amber-500/50 shadow-sm z-10'
-                        : 'hover:bg-amber-900/30 text-amber-100/90'
-                      }`}
+                    className={`relative cursor-pointer rounded px-1 -mx-1 box-decoration-clone transition-all duration-200 hover:brightness-110 ${isSelected ? 'z-10' : ''}`}
+                    style={{
+                      backgroundColor: isSelected ? tone.activeBg : tone.bg,
+                      color: tone.text,
+                      boxShadow: isSelected ? `0 0 0 1px ${tone.border}, 0 8px 18px ${tone.bg}` : undefined,
+                    }}
                   >
                     <span
                       data-offset-ignore="true"
                       aria-hidden="true"
-                      className={`inline-flex items-center justify-center rounded-full text-[10px] w-5 h-5 mr-1.5 -ml-1 align-middle select-none transition-colors ${isSelected ? 'bg-amber-500 text-amber-950 font-bold shadow-sm shadow-amber-900/50' : 'bg-amber-800/80 text-amber-100 border border-amber-600/50'
-                    }`}>
+                      className={`inline-flex items-center justify-center rounded-full border text-[10px] w-5 h-5 mr-1.5 -ml-1 align-middle select-none transition-colors ${isSelected ? 'font-bold shadow-sm' : 'font-semibold'}`}
+                      style={{
+                        backgroundColor: isSelected ? tone.border : tone.badgeBg,
+                        borderColor: tone.badgeBorder,
+                        color: isSelected ? '#211400' : tone.badgeText,
+                      }}
+                    >
                       {scene.number}
                     </span>
                     {renderTextRange(start, end, `scene-text-${scene.id}`)}
