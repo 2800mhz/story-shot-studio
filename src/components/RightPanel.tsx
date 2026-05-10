@@ -146,21 +146,7 @@ export function RightPanel({
           </div>
         </div>
 
-        <div className="flex gap-2">
-          {sceneCards.length > 0 && onReorderSceneCards && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 px-3 text-xs"
-              onClick={handleRenumberSceneCards}
-              disabled={hasSequentialSceneCardNumbers}
-              title={hasSequentialSceneCardNumbers ? 'Sahne numaralari zaten sirali' : 'Sahne numaralarini yeniden sirala'}
-            >
-              <Hash className="mr-1.5 h-3.5 w-3.5" />
-              Numaralari Duzelt
-            </Button>
-          )}
-
+        <div className="flex items-center justify-end gap-1.5">
           {onGenerateAllPrompts && sceneCards.length > 0 ? (
             isBulkGeneratingPrompts ? (
               <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-secondary/50 px-2 py-1">
@@ -197,6 +183,20 @@ export function RightPanel({
               </Button>
             )
           ) : null}
+
+          {sceneCards.length > 0 && onReorderSceneCards && (
+            <Button
+              size="icon"
+              variant="outline"
+              className="h-8 w-8 shrink-0 border-border/60 bg-background/40 text-muted-foreground hover:bg-secondary hover:text-foreground"
+              onClick={handleRenumberSceneCards}
+              disabled={hasSequentialSceneCardNumbers}
+              title={hasSequentialSceneCardNumbers ? 'Sahne numaralari zaten sirali' : 'Sahne numaralarini yeniden sirala'}
+              aria-label="Sahne numaralarini yeniden sirala"
+            >
+              <Hash className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       </div>
 
