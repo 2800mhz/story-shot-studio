@@ -16,10 +16,141 @@ interface CenterPanelProps {
   scrollToIndex: number | null;
   onScrollComplete: () => void;
   onSetActiveScene: (id: string | null) => void;
-  onAnalyzeText?: (text: string, targetSceneCount?: number) => void;
+  onAnalyzeText?: (text: string, targetSceneCount?: number, sourceStartIndex?: number) => void;
   isAnalyzing?: boolean;
   isLoading?: boolean;
   analysisLog?: string[];
+}
+
+type RichTextRun = {
+  text: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strike?: boolean;
+  mark?: boolean;
+};
+
+function fallbackPlainText(value: string): string {
+  return value
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+function mergeRuns(runs: RichTextRun[]): RichTextRun[] {
+  const merged: RichTextRun[] = [];
+
+  for (const run of runs) {
+    if (!run.text) continue;
+    const previous = merged[merged.length - 1];
+    const sameStyle = previous
+      && previous.bold === run.bold
+      && previous.italic === run.italic
+      && previous.underline === run.underline
+      && previous.strike === run.strike
+      && previous.mark === run.mark;
+
+    if (sameStyle) {
+      previous.text += run.text;
+    } else {
+      merged.push({ ...run });
+    }
+  }
+
+  return merged;
+}
+
+function parseRichText(value: string): { plainText: string; runs: RichTextRun[] } {
+  if (!value) return { plainText: '', runs: [] };
+
+  if (typeof DOMParser === 'undefined') {
+    const plainText = fallbackPlainText(value);
+    return { plainText, runs: [{ text: plainText }] };
+  }
+
+  const parser = new DOMParser();
+  const document = parser.parseFromString(`<div>${value}</div>`, 'text/html');
+  const root = document.body.firstElementChild;
+  const runs: RichTextRun[] = [];
+
+  const visit = (node: Node, style: Omit<RichTextRun, 'text'>) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      runs.push({ ...style, text: node.textContent ?? '' });
+      return;
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+    const element = node as HTMLElement;
+    const tag = element.tagName.toLowerCase();
+
+    if (tag === 'br') {
+      runs.push({ ...style, text: '\n' });
+      return;
+    }
+
+    const nextStyle = { ...style };
+    if (tag === 'strong' || tag === 'b') nextStyle.bold = true;
+    if (tag === 'em' || tag === 'i') nextStyle.italic = true;
+    if (tag === 'u') nextStyle.underline = true;
+    if (tag === 'del' || tag === 's' || tag === 'strike') nextStyle.strike = true;
+    if (tag === 'mark') nextStyle.mark = true;
+
+    element.childNodes.forEach(child => visit(child, nextStyle));
+  };
+
+  if (root) {
+    root.childNodes.forEach(child => visit(child, {}));
+  }
+
+  const merged = mergeRuns(runs);
+  return {
+    plainText: merged.map(run => run.text).join(''),
+    runs: merged,
+  };
+}
+
+function getRunClassName(run: RichTextRun): string {
+  const classes: string[] = [];
+  if (run.bold) classes.push('font-bold text-foreground');
+  if (run.italic) classes.push('italic');
+  if (run.underline) classes.push('underline decoration-amber-400/80 underline-offset-4');
+  if (run.strike) classes.push('line-through decoration-destructive/70');
+  if (run.mark) classes.push('rounded-sm bg-yellow-300 px-0.5 text-yellow-950 box-decoration-clone');
+  return classes.join(' ');
+}
+
+function getRangeStartOffset(root: HTMLElement, range: Range): number | undefined {
+  if (!root.contains(range.startContainer)) return undefined;
+
+  let offset = 0;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const parent = node.parentElement;
+      if (parent?.closest('[data-offset-ignore="true"]')) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+
+  let node = walker.nextNode();
+  while (node) {
+    if (node === range.startContainer) {
+      return offset + range.startOffset;
+    }
+    offset += node.textContent?.length ?? 0;
+    node = walker.nextNode();
+  }
+
+  return undefined;
 }
 
 export function CenterPanel({
@@ -36,9 +167,12 @@ export function CenterPanel({
     position: { top: number; left: number };
     selectedText: string;
     selectionCount?: number;
+    sourceStartIndex?: number;
   } | null>(null);
   
   const [multiSelection, setMultiSelection] = useState<string[]>([]);
+  const richText = React.useMemo(() => parseRichText(mainText), [mainText]);
+  const plainText = richText.plainText;
 
   // Check if scenes are AI-parsed (have text property)
   const hasAiScenes = scenes.length > 0 && scenes.some(s => s.text);
@@ -61,7 +195,7 @@ export function CenterPanel({
   useEffect(() => {
     if (scrollToIndex === null || !scrollContainerRef.current) return;
 
-    const clampedIndex = Math.max(0, Math.min(scrollToIndex, mainText.length));
+    const clampedIndex = Math.max(0, Math.min(scrollToIndex, plainText.length));
     setEpisodeScrollIndex(clampedIndex);
 
     // In AI scene mode, find the scene containing this index
@@ -76,7 +210,7 @@ export function CenterPanel({
     }
 
     onScrollComplete();
-  }, [scrollToIndex, mainText.length, onScrollComplete, hasAiScenes, scenes, onSetActiveScene]);
+  }, [scrollToIndex, plainText.length, onScrollComplete, hasAiScenes, scenes, onSetActiveScene]);
 
   useEffect(() => {
     if (episodeScrollIndex === null) return;
@@ -119,62 +253,78 @@ export function CenterPanel({
   ), []);
 
   const renderTextRange = useCallback((start: number, end: number, keyPrefix: string): React.ReactNode[] => {
-    const safeStart = Math.max(0, Math.min(start, mainText.length));
-    const safeEnd = Math.max(safeStart, Math.min(end, mainText.length));
+    const safeStart = Math.max(0, Math.min(start, plainText.length));
+    const safeEnd = Math.max(safeStart, Math.min(end, plainText.length));
     if (safeEnd <= safeStart) return [];
 
     const shouldPlaceAnchor =
       episodeScrollIndex !== null &&
       episodeScrollIndex >= safeStart &&
-      (episodeScrollIndex < safeEnd || (episodeScrollIndex === mainText.length && safeEnd === mainText.length));
+      (episodeScrollIndex < safeEnd || (episodeScrollIndex === plainText.length && safeEnd === plainText.length));
+
+    const renderPlainRange = (from: number, to: number, keySuffix: string): React.ReactNode[] => {
+      const nodes: React.ReactNode[] = [];
+      let cursor = 0;
+
+      richText.runs.forEach((run, runIndex) => {
+        const runStart = cursor;
+        const runEnd = cursor + run.text.length;
+        cursor = runEnd;
+
+        const sliceStart = Math.max(from, runStart);
+        const sliceEnd = Math.min(to, runEnd);
+        if (sliceEnd <= sliceStart) return;
+
+        nodes.push(
+          <span
+            key={`${keyPrefix}-${keySuffix}-${runIndex}-${sliceStart}`}
+            className={getRunClassName(run)}
+          >
+            {run.text.slice(sliceStart - runStart, sliceEnd - runStart)}
+          </span>,
+        );
+      });
+
+      return nodes;
+    };
 
     if (!shouldPlaceAnchor) {
-      return [
-        <span
-          key={`${keyPrefix}-text`}
-          dangerouslySetInnerHTML={{ __html: mainText.substring(safeStart, safeEnd) }}
-        />,
-      ];
+      return renderPlainRange(safeStart, safeEnd, 'text');
     }
 
-    const before = mainText.substring(safeStart, episodeScrollIndex);
-    const after = mainText.substring(episodeScrollIndex, safeEnd);
     const nodes: React.ReactNode[] = [];
 
-    if (before) {
-      nodes.push(
-        <span
-          key={`${keyPrefix}-before`}
-          dangerouslySetInnerHTML={{ __html: before }}
-        />,
-      );
+    if (episodeScrollIndex > safeStart) {
+      nodes.push(...renderPlainRange(safeStart, episodeScrollIndex, 'before'));
     }
 
     nodes.push(renderEpisodeScrollAnchor(`${keyPrefix}-anchor`));
 
-    if (after) {
-      nodes.push(
-        <span
-          key={`${keyPrefix}-after`}
-          dangerouslySetInnerHTML={{ __html: after }}
-        />,
-      );
+    if (episodeScrollIndex < safeEnd) {
+      nodes.push(...renderPlainRange(episodeScrollIndex, safeEnd, 'after'));
     }
 
     return nodes;
-  }, [episodeScrollIndex, mainText, renderEpisodeScrollAnchor]);
+  }, [episodeScrollIndex, plainText.length, renderEpisodeScrollAnchor, richText.runs]);
 
   // Handle text selection for floating toolbar
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
     const selection = window.getSelection();
-    if (!selection || selection.isCollapsed || !selection.toString().trim()) {
+    const rawSelectedText = selection?.toString() ?? '';
+    const selectedText = rawSelectedText.trim();
+
+    if (!selection || selection.isCollapsed || !selectedText) {
       return;
     }
-    const selectedText = selection.toString().trim();
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
+    const leadingTrimLength = rawSelectedText.length - rawSelectedText.trimStart().length;
+    const selectionStart = scrollContainerRef.current
+      ? getRangeStartOffset(scrollContainerRef.current, range)
+      : undefined;
 
     let currentSelectionList = [...multiSelection];
+    let sourceStartIndex: number | undefined;
 
     // If Ctrl or Meta (Cmd) key is pressed, append to existing selection
     if (e.ctrlKey || e.metaKey) {
@@ -184,6 +334,7 @@ export function CenterPanel({
     } else {
       // Otherwise, start a fresh selection
       currentSelectionList = [selectedText];
+      sourceStartIndex = selectionStart !== undefined ? selectionStart + leadingTrimLength : undefined;
     }
     
     setMultiSelection(currentSelectionList);
@@ -191,7 +342,8 @@ export function CenterPanel({
     setToolbar({
       position: { top: rect.top + window.scrollY, left: Math.max(8, rect.left + window.scrollX) },
       selectedText: currentSelectionList.join('\n\n'),
-      selectionCount: currentSelectionList.length
+      selectionCount: currentSelectionList.length,
+      sourceStartIndex,
     });
   }, [multiSelection]);
 
@@ -203,9 +355,21 @@ export function CenterPanel({
 
   const handleAnalyzeFromSelection = useCallback((targetSceneCount?: number) => {
     if (!toolbar?.selectedText || !onAnalyzeText) return;
-    onAnalyzeText(toolbar.selectedText, targetSceneCount);
+    onAnalyzeText(toolbar.selectedText, targetSceneCount, toolbar.sourceStartIndex);
     dismissToolbar();
   }, [toolbar, onAnalyzeText, dismissToolbar]);
+
+  const renderSelectionToolbar = () => (
+    toolbar && onAnalyzeText ? (
+      <FloatingToolbar
+        position={toolbar.position}
+        onAnalyzeWithAI={handleAnalyzeFromSelection}
+        onDismiss={dismissToolbar}
+        isAnalyzing={isAnalyzing}
+        selectionCount={toolbar.selectionCount}
+      />
+    ) : null
+  );
 
   // ─── AI Scene View ────────────────────────────────────────────────
   if (hasAiScenes || isAnalyzing || isLoading) {
@@ -258,8 +422,8 @@ export function CenterPanel({
           <div className="text-xs text-muted-foreground">{scenes.length} sahne tespit edildi</div>
         </div>
 
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin">
-          <div className="p-8 font-serif text-[17px] leading-[2.2] text-foreground/90 whitespace-pre-wrap">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin" onMouseUp={onAnalyzeText ? handleMouseUp : undefined}>
+          <div className="p-8 font-serif text-[17px] leading-[2.2] text-foreground/90 whitespace-pre-wrap selection:bg-primary/30">
             {/* If we don't have mainText or scenes lack indices, fallback to legacy block render */}
             {!mainText || !scenes.some(s => s.startIndex !== undefined) ? (
               scenes.map((scene, idx) => (
@@ -272,7 +436,7 @@ export function CenterPanel({
                       }`}
                     onClick={() => onSetActiveScene(scene.id)}
                   >
-                    <div dangerouslySetInnerHTML={{ __html: scene.text || '' }} />
+                    <div>{scene.text || ''}</div>
                   </div>
                   {idx < scenes.length - 1 && (
                     <div className="my-4 flex items-center gap-3">
@@ -321,7 +485,10 @@ export function CenterPanel({
                         : 'hover:bg-amber-900/30 text-amber-100/90'
                       }`}
                   >
-                    <span className={`inline-flex items-center justify-center rounded-full text-[10px] w-5 h-5 mr-1.5 -ml-1 align-middle select-none transition-colors ${isSelected ? 'bg-amber-500 text-amber-950 font-bold shadow-sm shadow-amber-900/50' : 'bg-amber-800/80 text-amber-100 border border-amber-600/50'
+                    <span
+                      data-offset-ignore="true"
+                      aria-hidden="true"
+                      className={`inline-flex items-center justify-center rounded-full text-[10px] w-5 h-5 mr-1.5 -ml-1 align-middle select-none transition-colors ${isSelected ? 'bg-amber-500 text-amber-950 font-bold shadow-sm shadow-amber-900/50' : 'bg-amber-800/80 text-amber-100 border border-amber-600/50'
                     }`}>
                       {scene.number}
                     </span>
@@ -333,14 +500,15 @@ export function CenterPanel({
               });
 
               // Add remaining text after the last scene
-              if (currentIndex < mainText.length) {
-                elements.push(...renderTextRange(currentIndex, mainText.length, `text-${currentIndex}`));
+              if (currentIndex < plainText.length) {
+                elements.push(...renderTextRange(currentIndex, plainText.length, `text-${currentIndex}`));
               }
 
               return elements;
             })()}
           </div>
         </div>
+        {renderSelectionToolbar()}
       </div>
     );
   }
@@ -364,7 +532,7 @@ export function CenterPanel({
             className="font-serif text-[17px] leading-[1.8] text-foreground/90 selection:bg-primary/30"
             style={{ whiteSpace: 'pre-wrap' }}
           >
-            {renderTextRange(0, mainText.length, 'legacy-main')}
+            {renderTextRange(0, plainText.length, 'legacy-main')}
           </div>
         ) : (
           <div className="flex h-full flex-col items-center justify-center text-muted-foreground gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -384,16 +552,7 @@ export function CenterPanel({
         )}
       </div>
 
-      {/* Floating Toolbar for text selection - AI only */}
-      {toolbar && onAnalyzeText && (
-        <FloatingToolbar
-          position={toolbar.position}
-          onAnalyzeWithAI={handleAnalyzeFromSelection}
-          onDismiss={dismissToolbar}
-          isAnalyzing={isAnalyzing}
-          selectionCount={toolbar.selectionCount}
-        />
-      )}
+      {renderSelectionToolbar()}
     </div>
   );
 }

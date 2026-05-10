@@ -600,7 +600,7 @@ const Index = () => {
   }, [dispatch, episodeId]);
 
   // Two-stage AI workflow handlers
-  const handleAnalyzeText = useCallback(async (selectedText: string, targetSceneCount?: number) => {
+  const handleAnalyzeText = useCallback(async (selectedText: string, targetSceneCount?: number, sourceStartIndex?: number) => {
     console.log('--- ANALYSIS START ---');
     console.log('Target Scene Count (from UI):', targetSceneCount);
     
@@ -623,8 +623,18 @@ const Index = () => {
         targetSceneCount
       );
       
-      console.log('Analysis Result:', result.sceneCards.length, 'scenes produced.');
-      dispatch({ type: 'FINISH_ANALYSIS', payload: { ...result, mode: 'replace' } });
+      const sceneCards = typeof sourceStartIndex === 'number'
+        ? result.sceneCards.map((scene) => ({
+          ...scene,
+          startIndex: scene.startIndex === undefined ? undefined : scene.startIndex + sourceStartIndex,
+          endIndex: scene.endIndex === undefined ? undefined : scene.endIndex + sourceStartIndex,
+        }))
+        : result.sceneCards;
+
+      const adjustedResult = { ...result, sceneCards };
+
+      console.log('Analysis Result:', adjustedResult.sceneCards.length, 'scenes produced.');
+      dispatch({ type: 'FINISH_ANALYSIS', payload: { ...adjustedResult, mode: 'replace' } });
 
       // Mevcut referansları yeni sahnelere ata
       if (state.references.length > 0) {
@@ -644,7 +654,7 @@ const Index = () => {
               blob.type,
               ref.description || '',
               ref.referenceType,
-              result.sceneCards
+              adjustedResult.sceneCards
             );
             
             dispatch({ type: 'UPDATE_REFERENCE', payload: { ...ref, assignedSceneIds, aiAnalysis }});
