@@ -14,7 +14,7 @@ import {
   SortAsc,
   X,
 } from 'lucide-react';
-import type { ConsistencyGroup, Episode, Scene, SceneCard as SceneCardType } from '@/types';
+import type { Episode, SceneCard as SceneCardType } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,9 +23,7 @@ import { cn } from '@/lib/utils';
 
 interface LeftPanelProps {
   episodes: Episode[];
-  scenes: Scene[];
-  sceneCards?: SceneCardType[];
-  consistencyGroups: ConsistencyGroup[];
+  sceneCards: SceneCardType[];
   activeSceneId: string | null;
   mainFileName: string;
   isAnalyzing?: boolean;
@@ -63,7 +61,7 @@ type ExplorerScene = {
   endIndex?: number;
   episodeTitle?: string;
   prompts?: unknown[];
-  status?: Scene['status'] | SceneCardType['status'];
+  status?: SceneCardType['status'];
 };
 
 function getSceneText(scene: ExplorerScene): string {
@@ -86,20 +84,6 @@ function getEpisodeTitleForIndex(index: number | undefined, episodes: Episode[])
   }
 
   return matched?.title;
-}
-
-function normalizeLegacyScene(scene: Scene): ExplorerScene {
-  return {
-    id: scene.id,
-    number: scene.number,
-    title: scene.title,
-    text: scene.text || scene.segments[0]?.text || '',
-    startIndex: scene.startIndex,
-    endIndex: scene.endIndex,
-    episodeTitle: scene.episodeTitle,
-    prompts: scene.prompts,
-    status: scene.status,
-  };
 }
 
 function normalizeSceneCard(sceneCard: SceneCardType, episodes: Episode[]): ExplorerScene {
@@ -298,9 +282,7 @@ function EpisodeNode({
 
 export function LeftPanel({
   episodes,
-  scenes,
-  sceneCards = [],
-  consistencyGroups,
+  sceneCards,
   activeSceneId,
   mainFileName,
   isAnalyzing,
@@ -321,18 +303,10 @@ export function LeftPanel({
   );
 
   const explorerScenes = useMemo(() => {
-    const sceneMap = new Map<string, ExplorerScene>();
-
-    scenes.forEach((scene) => {
-      sceneMap.set(scene.id, normalizeLegacyScene(scene));
-    });
-
-    sceneCards.forEach((sceneCard) => {
-      sceneMap.set(sceneCard.id, normalizeSceneCard(sceneCard, episodes));
-    });
-
-    return [...sceneMap.values()].sort((a, b) => a.number - b.number);
-  }, [episodes, sceneCards, scenes]);
+    return sceneCards
+      .map((sceneCard) => normalizeSceneCard(sceneCard, episodes))
+      .sort((a, b) => a.number - b.number);
+  }, [episodes, sceneCards]);
 
   const stats = useMemo(() => {
     const promptCount = explorerScenes.reduce((sum, scene) => sum + (scene.prompts?.length || 0), 0);
@@ -340,9 +314,8 @@ export function LeftPanel({
       episodes: episodes.length,
       scenes: explorerScenes.length,
       prompts: promptCount,
-      groups: consistencyGroups.length,
     };
-  }, [consistencyGroups.length, episodes.length, explorerScenes]);
+  }, [episodes.length, explorerScenes]);
 
   const filteredEpisodes = useMemo(() => {
     let result = episodes;
@@ -468,7 +441,7 @@ export function LeftPanel({
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="mt-3 grid grid-cols-3 gap-2">
           <div className="rounded-md border border-border/70 bg-background/30 px-2 py-2">
             <div className="text-sm font-semibold">{stats.episodes}</div>
             <div className="text-[10px] text-muted-foreground">episode</div>
@@ -480,10 +453,6 @@ export function LeftPanel({
           <div className="rounded-md border border-border/70 bg-background/30 px-2 py-2">
             <div className="text-sm font-semibold">{stats.prompts}</div>
             <div className="text-[10px] text-muted-foreground">prompt</div>
-          </div>
-          <div className="rounded-md border border-border/70 bg-background/30 px-2 py-2">
-            <div className="text-sm font-semibold">{stats.groups}</div>
-            <div className="text-[10px] text-muted-foreground">grup</div>
           </div>
         </div>
 

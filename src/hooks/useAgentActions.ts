@@ -173,7 +173,7 @@ export function useAgentActions({
           undefined,
           undefined,
           aspectRatio,
-          state.sceneAnalyses?.[sceneId],
+          scene.analysis,
           sceneTimeContexts,
           state.episodePrompt || undefined,
           nextState.references,
@@ -215,7 +215,6 @@ export function useAgentActions({
     state.masterPrompt,
     state.projectType,
     state.renderMode,
-    state.sceneAnalyses,
   ]);
 
   const applyOperationSet = useCallback(async (operationSet: any, mode: 'auto' | 'manual' = 'manual') => {

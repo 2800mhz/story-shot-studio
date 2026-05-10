@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseScriptAnalysisResponse } from '@/lib/scriptSceneAnalysisSchema';
 
-describe('scriptSceneAnalyzer structured output parsing', () => {
+describe('script scene analysis schema parsing', () => {
   it('maps structured character fields into explicit age/ethnicity/clothing/physicalFeatures keys', () => {
     const parsed = parseScriptAnalysisResponse(`{
       "scenes": [

@@ -23,7 +23,6 @@ import { useAgentActions } from '@/hooks/useAgentActions';
 
 import { parseDocument } from '@/lib/documentParser';
 import { parseEpisodes } from '@/lib/episodeParser';
-import { generatePrompts, loadSystemPrompt } from '@/lib/geminiApi';
 import { buildAgentContext, buildAgentUserPrompt } from '@/lib/agentContext';
 import { applyAgentOperations } from '@/lib/agentOperations';
 import { parseAgentOperationSet, stripAgentResultBlock } from '@/lib/agentParser';
@@ -40,21 +39,11 @@ import type {
   Character,
   Location,
   SceneCard,
-  TextSegment,
-  Scene,
-  SubScene,
-  PromptVariant,
-  ConsistencyGroup,
-  PromptAnalysis,
   PromptCard,
   EpisodeStyleVersion,
-  ProjectType,
-  SceneReference,
   TimeContext,
 } from '@/types';
 
-
-const GROUP_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
 const PROMPT_GENERATION_DELAY_MS = 2000;
 const AUTO_SAVE_DEBOUNCE_MS = 2000;
@@ -473,16 +462,12 @@ const Index = () => {
     }
   }, [state.episodePrompt, state.episodePromptTr, dispatch, toast]);
   const mainFileRef = useRef<HTMLInputElement>(null);
-  const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
-  const bulkAbortRef = useRef<AbortController | null>(null);
-  const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [isBulkGeneratingPrompts, setIsBulkGeneratingPrompts] = useState(false);
   const [bulkPromptsProgress, setBulkPromptsProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const bulkPromptsAbortRef = useRef<AbortController | null>(null);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '4:3' | '1:1' | '9:16'>('16:9');
-  // Use a ref to access current scenes without adding them as a callback dependency
-  const scenesRef = useRef(state.scenes);
-  scenesRef.current = state.scenes;
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   // Ctrl+Z / Ctrl+Y global keyboard shortcuts
   useEffect(() => {
@@ -614,463 +599,7 @@ const Index = () => {
     }
   }, [dispatch, episodeId]);
 
-  const handleAddScene = useCallback((segment: TextSegment, episodeTitle: string) => {
-    const scene: Scene = {
-      id: crypto.randomUUID(),
-      number: state.scenes.length + 1,
-      episodeTitle,
-      segments: [segment],
-      subjectReferences: [],
-      consistencyGroupIds: [],
-      prompts: [],
-      status: 'pending',
-    };
-    dispatch({ type: 'ADD_SCENE', payload: scene });
-    dispatch({ type: 'SET_ACTIVE_SCENE', payload: scene.id });
-  }, [dispatch, state.scenes.length]);
-
-  const handleAddReference = useCallback((segment: TextSegment) => {
-    const targetScene = state.scenes.find(s => s.id === state.activeSceneId) || state.scenes[state.scenes.length - 1];
-    if (!targetScene) return;
-    dispatch({ type: 'ADD_SUBJECT_REFERENCE', payload: { sceneId: targetScene.id, segment } });
-  }, [dispatch, state.scenes, state.activeSceneId]);
-
-  const handleAppendToLastScene = useCallback((segment: TextSegment) => {
-    const activeScene = state.scenes.find(s => s.id === state.activeSceneId) || state.scenes[state.scenes.length - 1];
-    if (!activeScene) return;
-    dispatch({ type: 'ADD_SEGMENT_TO_SCENE', payload: { sceneId: activeScene.id, segment } });
-  }, [dispatch, state.scenes, state.activeSceneId]);
-
-  const handleAddConsistency = useCallback((segment: TextSegment, groupId: string | null) => {
-    const activeScene = state.scenes.find(s => s.id === state.activeSceneId) || state.scenes[state.scenes.length - 1];
-    if (!activeScene) return;
-
-    let targetGroupId = groupId;
-    if (!targetGroupId) {
-      const label = GROUP_LABELS[state.consistencyGroups.length % GROUP_LABELS.length];
-      const newGroup: ConsistencyGroup = {
-        id: `group-${Date.now()}`,
-        label,
-        color: `highlight-group-${label.toLowerCase()}`,
-        sceneIds: [],
-      };
-      dispatch({ type: 'ADD_CONSISTENCY_GROUP', payload: newGroup });
-      targetGroupId = newGroup.id;
-    }
-
-    dispatch({ type: 'ADD_SCENE_TO_GROUP', payload: { groupId: targetGroupId, sceneId: activeScene.id } });
-  }, [dispatch, state.scenes, state.activeSceneId, state.consistencyGroups]);
-
-  const handleAddSceneToGroup = useCallback((sceneId: string, groupId: string | null) => {
-    let targetGroupId = groupId;
-    if (!targetGroupId) {
-      const label = GROUP_LABELS[state.consistencyGroups.length % GROUP_LABELS.length];
-      const newGroup: ConsistencyGroup = {
-        id: `group-${Date.now()}`,
-        label,
-        color: `highlight-group-${label.toLowerCase()}`,
-        sceneIds: [],
-      };
-      dispatch({ type: 'ADD_CONSISTENCY_GROUP', payload: newGroup });
-      targetGroupId = newGroup.id;
-    }
-    dispatch({ type: 'ADD_SCENE_TO_GROUP', payload: { groupId: targetGroupId, sceneId } });
-  }, [dispatch, state.consistencyGroups]);
-
-  const handleRemoveSceneFromGroup = useCallback((sceneId: string, groupId: string) => {
-    dispatch({ type: 'REMOVE_SCENE_FROM_GROUP', payload: { groupId, sceneId } });
-  }, [dispatch]);
-
-  const handleDeletePrompt = useCallback((sceneId: string, promptId: string) => {
-    dispatch({ type: 'REMOVE_PROMPT', payload: { sceneId, promptId } });
-  }, [dispatch]);
-
-  const handleAttachEntity = useCallback((sceneId: string, promptId: string, entityId: string) => {
-    dispatch({ type: 'ATTACH_ENTITY_TO_PROMPT', payload: { sceneId, promptId, entityId } });
-  }, [dispatch]);
-
-  const handleDetachEntity = useCallback((sceneId: string, promptId: string, entityId: string) => {
-    dispatch({ type: 'DETACH_ENTITY_FROM_PROMPT', payload: { sceneId, promptId, entityId } });
-  }, [dispatch]);
-
-  const handleSetSceneNote = useCallback((sceneId: string, note: string) => {
-    dispatch({ type: 'SET_SCENE_NOTE', payload: { sceneId, note } });
-    dispatch({ type: 'UPDATE_SCENE_CARD_NOTE', payload: { sceneId, note } });
-  }, [dispatch]);
-
-  const handleSetGroupNote = useCallback((groupId: string, note: string) => {
-    dispatch({ type: 'SET_GROUP_NOTE', payload: { groupId, note } });
-  }, [dispatch]);
-
-  // ─── Sub-scene handlers ───────────────────────────────────────────
-  const handleAddSubScene = useCallback((sceneId: string, label: string) => {
-    const parentScene = state.scenes.find(s => s.id === sceneId);
-    if (!parentScene) return;
-    const subScene: SubScene = {
-      id: `subscene-${Date.now()}`,
-      parentSceneId: sceneId,
-      label,
-      segments: [{ id: `seg-${Date.now()}`, text: label, startIndex: 0, endIndex: label.length }],
-      subjectReferences: [],
-      consistencyGroupIds: [],
-      prompts: [],
-      status: 'pending',
-    };
-    dispatch({ type: 'ADD_SUB_SCENE', payload: { sceneId, subScene } });
-  }, [dispatch, state.scenes]);
-
-  const handleRemoveSubScene = useCallback((sceneId: string, subSceneId: string) => {
-    dispatch({ type: 'REMOVE_SUB_SCENE', payload: { sceneId, subSceneId } });
-  }, [dispatch]);
-
-  const handleSetSubSceneNote = useCallback((sceneId: string, subSceneId: string, note: string) => {
-    dispatch({ type: 'SET_SUB_SCENE_NOTE', payload: { sceneId, subSceneId, note } });
-  }, [dispatch]);
-
-  const handleDeleteSubScenePrompt = useCallback((sceneId: string, subSceneId: string, promptId: string) => {
-    dispatch({ type: 'REMOVE_SUB_SCENE_PROMPT', payload: { sceneId, subSceneId, promptId } });
-  }, [dispatch]);
-
-  const handleAddSubSceneToGroup = useCallback((sceneId: string, subSceneId: string, groupId: string | null) => {
-    const scene = state.scenes.find(s => s.id === sceneId);
-    if (!scene) return;
-    const subScene = (scene.subScenes || []).find(ss => ss.id === subSceneId);
-    if (!subScene) return;
-
-    let targetGroupId = groupId;
-    if (!targetGroupId) {
-      const label = GROUP_LABELS[state.consistencyGroups.length % GROUP_LABELS.length];
-      const newGroup: ConsistencyGroup = {
-        id: `group-${Date.now()}`,
-        label,
-        color: `highlight-group-${label.toLowerCase()}`,
-        sceneIds: [],
-      };
-      dispatch({ type: 'ADD_CONSISTENCY_GROUP', payload: newGroup });
-      targetGroupId = newGroup.id;
-    }
-
-    const updated: SubScene = {
-      ...subScene,
-      consistencyGroupIds: subScene.consistencyGroupIds.includes(targetGroupId)
-        ? subScene.consistencyGroupIds
-        : [...subScene.consistencyGroupIds, targetGroupId],
-    };
-    dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: updated } });
-  }, [dispatch, state.scenes, state.consistencyGroups]);
-
-  const handleRemoveSubSceneFromGroup = useCallback((sceneId: string, subSceneId: string, groupId: string) => {
-    const scene = state.scenes.find(s => s.id === sceneId);
-    if (!scene) return;
-    const subScene = (scene.subScenes || []).find(ss => ss.id === subSceneId);
-    if (!subScene) return;
-    const updated: SubScene = {
-      ...subScene,
-      consistencyGroupIds: subScene.consistencyGroupIds.filter(gId => gId !== groupId),
-    };
-    dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: updated } });
-  }, [dispatch, state.scenes]);
-
-  const handleGenerateSubScene = useCallback(async (sceneId: string, subSceneId: string) => {
-    if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
-      setNoKeysWarning(true);
-      return;
-    }
-    const scene = state.scenes.find(s => s.id === sceneId);
-    if (!scene) return;
-    const subScene = (scene.subScenes || []).find(ss => ss.id === subSceneId);
-    if (!subScene) return;
-
-    const updatedSub: SubScene = { ...subScene, status: 'generating' };
-    dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: updatedSub } });
-
-    const parentGroups = state.consistencyGroups.filter(g => scene.consistencyGroupIds?.includes(g.id));
-    const subGroups = state.consistencyGroups.filter(g => subScene.consistencyGroupIds?.includes(g.id));
-
-    try {
-      const results = await generatePrompts({
-        scene,
-        apiKey: '',
-        model: state.settings.model,
-        variantCount: state.settings.variantCount,
-        temperature: state.settings.temperature,
-        consistencyGroups: subGroups.length > 0 ? subGroups : undefined,
-        allScenes: state.scenes,
-        systemPrompt: loadSystemPrompt(),
-        subScene,
-        parentScene: scene,
-        parentConsistencyGroups: parentGroups.length > 0 ? parentGroups : undefined,
-        generateFn: aiProvider.generateContent.bind(aiProvider),
-      });
-
-      const prompts: PromptVariant[] = results.map((r, i) => ({
-        id: crypto.randomUUID(),
-        shotType: r.shotType,
-        text: r.text,
-        summary: r.summary,
-        attachedEntityIds: [],
-        versions: [r.text],
-        isRevising: false,
-      }));
-      dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, prompts, status: 'done' } } });
-    } catch (e: any) {
-      console.error('Sub-scene generation failed:', e);
-      dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, status: 'error' } } });
-    }
-  }, [state, dispatch]);
-
-  const handleReviseSubScene = useCallback(async (sceneId: string, subSceneId: string, promptId: string, instruction: string) => {
-    const scene = state.scenes.find(s => s.id === sceneId);
-    if (!scene) return;
-    const subScene = (scene.subScenes || []).find(ss => ss.id === subSceneId);
-    if (!subScene) return;
-    const prompt = subScene.prompts.find(p => p.id === promptId);
-    if (!prompt) return;
-
-    // Version restore — no API call needed
-    if (instruction.startsWith('__RESTORE__::')) {
-      const restored = instruction.slice('__RESTORE__::'.length);
-      const updatedPrompts = subScene.prompts.map(p =>
-        p.id === promptId ? { ...p, text: restored, versions: [...p.versions, restored] } : p
-      );
-      dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, prompts: updatedPrompts } } });
-      return;
-    }
-
-    try {
-      const revised = await revisePrompt(prompt.text, instruction, '', state.settings.model, state.settings.temperature);
-      const updatedPrompts = subScene.prompts.map(p =>
-        p.id === promptId ? { ...p, text: revised, versions: [...p.versions, revised] } : p
-      );
-      dispatch({ type: 'UPDATE_SUB_SCENE', payload: { sceneId, subScene: { ...subScene, prompts: updatedPrompts } } });
-    } catch (e: any) {
-      console.error('Sub-scene revizyon başarısız', e);
-    }
-  }, [state, dispatch]);
-
-
-  const handleCancel = useCallback((sceneId: string) => {
-    const controller = abortControllersRef.current.get(sceneId);
-    if (controller) {
-      controller.abort();
-      abortControllersRef.current.delete(sceneId);
-    }
-    const scene = state.scenes.find(s => s.id === sceneId);
-    if (scene) {
-      dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'pending' } });
-    }
-  }, [state.scenes, dispatch]);
-
-  // Ref to access latest state in callbacks without adding state to their dependency arrays.
-  // This prevents heavy callbacks from being recreated on every state update.
-  const stateRef = useRef(state);
-  stateRef.current = state;
-
-  const handleGenerate = useCallback(async (sceneId: string) => {
-    if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
-      setNoKeysWarning(true);
-      setSettingsOpen(false);
-      return;
-    }
-    const scene = stateRef.current.scenes.find(s => s.id === sceneId);
-    if (!scene) return;
-
-    // Create AbortController for this scene
-    const controller = new AbortController();
-    abortControllersRef.current.set(sceneId, controller);
-
-    dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'generating' } });
-
-    const groups = stateRef.current.consistencyGroups.filter(g => scene.consistencyGroupIds?.includes(g.id));
-
-    // Determine effective variant count based on scene analysis
-    const sceneAnalysis = stateRef.current.sceneAnalyses[sceneId];
-    let effectiveVariantCount: number = stateRef.current.settings.variantCount;
-    if (sceneAnalysis) {
-      if (sceneAnalysis.narrativeType === 'timelapse') {
-        effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, stateRef.current.settings.variantCount), 5);
-      } else if (sceneAnalysis.narrativeType === 'sequence') {
-        effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, stateRef.current.settings.variantCount), 4);
-      }
-    }
-
-    try {
-      if (controller.signal.aborted) {
-        abortControllersRef.current.delete(sceneId);
-        return;
-      }
-      const sceneEntities = {
-        characters: stateRef.current.extractedEntities.filter(e => e.type === 'character' && e.sceneIds.includes(sceneId)),
-        locations: stateRef.current.extractedEntities.filter(e => e.type === 'location' && e.sceneIds.includes(sceneId)),
-      };
-      const results = await generatePrompts({
-        scene,
-        apiKey: '',
-        model: stateRef.current.settings.model,
-        variantCount: effectiveVariantCount,
-        temperature: stateRef.current.settings.temperature,
-        consistencyGroups: groups.length > 0 ? groups : undefined,
-        allScenes: stateRef.current.scenes,
-        systemPrompt: loadSystemPrompt(),
-        sceneEntities: (sceneEntities.characters.length > 0 || sceneEntities.locations.length > 0) ? sceneEntities : undefined,
-        sceneAnalysis: sceneAnalysis,
-        signal: controller.signal,
-        generateFn: aiProvider.generateContent.bind(aiProvider),
-      });
-
-      const prompts: PromptVariant[] = results.map((r) => ({
-        id: crypto.randomUUID(),
-        shotType: r.shotType,
-        text: r.text,
-        summary: r.summary,
-        attachedEntityIds: [],
-        versions: [r.text],
-        isRevising: false,
-      }));
-      dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, prompts, status: 'done' } });
-      abortControllersRef.current.delete(sceneId);
-    } catch (e: any) {
-      if (e.name === 'AbortError') {
-        abortControllersRef.current.delete(sceneId);
-        return;
-      }
-      console.error('Generation failed:', e);
-      dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, status: 'error' } });
-      abortControllersRef.current.delete(sceneId);
-    }
-  }, [state, dispatch]);
-
-  const handleGenerateAll = useCallback(async () => {
-    const pending = stateRef.current.scenes.filter(s => s.status === 'pending');
-    const bulkController = new AbortController();
-    bulkAbortRef.current = bulkController;
-    setIsGeneratingAll(true);
-    
-    for (let i = 0; i < pending.length; i++) {
-      if (bulkController.signal.aborted) break;
-
-      const scene = pending[i];
-      const sceneRef = state.scenes.find(s => s.id === scene.id);
-      if (!sceneRef) continue;
-
-      dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'generating' } });
-
-      const groups = state.consistencyGroups.filter(g => sceneRef.consistencyGroupIds?.includes(g.id));
-
-      // Determine effective variant count based on scene analysis
-      const sceneAnalysis = state.sceneAnalyses[sceneRef.id];
-      let effectiveVariantCount: number = state.settings.variantCount;
-      if (sceneAnalysis) {
-        if (sceneAnalysis.narrativeType === 'timelapse') {
-          effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, state.settings.variantCount), 5);
-        } else if (sceneAnalysis.narrativeType === 'sequence') {
-          effectiveVariantCount = Math.min(Math.max(sceneAnalysis.suggestedPromptCount, state.settings.variantCount), 4);
-        }
-      }
-
-      if (bulkController.signal.aborted) {
-        dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'pending' } });
-        break;
-      }
-
-      try {
-        const sceneEntitiesAll = {
-          characters: state.extractedEntities.filter(e => e.type === 'character' && e.sceneIds.includes(sceneRef.id)),
-          locations: state.extractedEntities.filter(e => e.type === 'location' && e.sceneIds.includes(sceneRef.id)),
-        };
-        const results = await generatePrompts({
-          scene: sceneRef,
-          apiKey: '',
-          model: state.settings.model,
-          variantCount: effectiveVariantCount,
-          temperature: state.settings.temperature,
-          consistencyGroups: groups.length > 0 ? groups : undefined,
-          allScenes: state.scenes,
-          systemPrompt: loadSystemPrompt(),
-          sceneEntities: (sceneEntitiesAll.characters.length > 0 || sceneEntitiesAll.locations.length > 0) ? sceneEntitiesAll : undefined,
-          sceneAnalysis: sceneAnalysis,
-          signal: bulkController.signal,
-          generateFn: aiProvider.generateContent.bind(aiProvider),
-        });
-
-        const prompts: PromptVariant[] = results.map((r) => ({
-          id: crypto.randomUUID(),
-          shotType: r.shotType,
-          text: r.text,
-          summary: r.summary,
-          attachedEntityIds: [],
-          versions: [r.text],
-          isRevising: false,
-        }));
-        dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, prompts, status: 'done' } });
-      } catch (e: any) {
-        if (e.name === 'AbortError') {
-          dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'pending' } });
-          break;
-        }
-        console.error('Bulk generation error:', e);
-        dispatch({ type: 'UPDATE_SCENE', payload: { ...sceneRef, status: 'error' } });
-      }
-
-      // Delay between scenes to avoid rate limits
-      if (i < pending.length - 1 && !bulkController.signal.aborted) {
-        await new Promise(r => setTimeout(r, 1500));
-      }
-    }
-    setIsGeneratingAll(false);
-    bulkAbortRef.current = null;
-  }, [state, dispatch]);
-
-  const handleCancelAll = useCallback(() => {
-    if (bulkAbortRef.current) {
-      bulkAbortRef.current.abort();
-    }
-    // Also abort any individual scene controllers
-    abortControllersRef.current.forEach((controller) => controller.abort());
-    abortControllersRef.current.clear();
-    // Revert all generating scenes to pending
-    state.scenes.forEach(s => {
-      if (s.status === 'generating') {
-        dispatch({ type: 'UPDATE_SCENE', payload: { ...s, status: 'pending' } });
-      }
-    });
-    setIsGeneratingAll(false);
-  }, [state.scenes, dispatch]);
-
-  const handleRevise = useCallback(async (sceneId: string, promptId: string, instruction: string) => {
-    const scene = state.scenes.find(s => s.id === sceneId);
-    if (!scene) return;
-    const prompt = scene.prompts.find(p => p.id === promptId);
-    if (!prompt) return;
-
-    // Version restore — no API call needed
-    if (instruction.startsWith('__RESTORE__::')) {
-      const restored = instruction.slice('__RESTORE__::'.length);
-      const updatedPrompts = scene.prompts.map(p =>
-        p.id === promptId ? { ...p, text: restored, versions: [...p.versions, restored] } : p
-      );
-      dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, prompts: updatedPrompts } });
-      return;
-    }
-
-    try {
-      const revised = await revisePrompt(prompt.text, instruction, '', state.settings.model, state.settings.temperature);
-      const updatedPrompts = scene.prompts.map(p =>
-        p.id === promptId
-          ? { ...p, text: revised, versions: [...p.versions, revised] }
-          : p
-      );
-      dispatch({ type: 'UPDATE_SCENE', payload: { ...scene, prompts: updatedPrompts } });
-    } catch (e: any) {
-      console.error('Revizyon başarısız', e);
-    }
-  }, [state, dispatch]);
-
-  const handleRefreshAll = useCallback(async (sceneId: string) => {
-    await handleGenerate(sceneId);
-  }, [handleGenerate]);
-
-  // ─── Two-stage AI workflow handlers ─────────────────────────────
+  // Two-stage AI workflow handlers
   const handleAnalyzeText = useCallback(async (selectedText: string, targetSceneCount?: number) => {
     console.log('--- ANALYSIS START ---');
     console.log('Target Scene Count (from UI):', targetSceneCount);
@@ -1185,7 +714,7 @@ const Index = () => {
         undefined,
         undefined,
         aspectRatio,
-        state.sceneAnalyses[sceneId],
+        scene.analysis,
         sceneTimeContexts,
         state.episodePrompt || undefined,
         state.references,
@@ -1220,7 +749,7 @@ const Index = () => {
       });
       return false;
     }
-  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, state.projectType, state.renderMode, dispatch, aspectRatio]);
+  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.timeContexts, state.projectType, state.renderMode, dispatch, aspectRatio]);
 
   const handleGenerateSlotPrompt = useCallback(async (sceneId: string, slotId: string) => {
     const scene = state.sceneCards.find(s => s.id === sceneId);
@@ -1436,7 +965,7 @@ const Index = () => {
         undefined,
         undefined,
         aspectRatio,
-        state.sceneAnalyses[sceneId],
+        scene.analysis,
         sceneTimeContexts,
         state.episodePrompt || undefined,
         state.references,
@@ -1460,7 +989,7 @@ const Index = () => {
       console.error('Variation generation error:', error);
       dispatch({ type: 'FINISH_PROMPT_GENERATION', payload: { sceneId, prompts: existingPrompts } });
     }
-  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.sceneAnalyses, state.timeContexts, state.projectType, state.renderMode, dispatch, aspectRatio]);
+  }, [state.sceneCards, state.characters, state.locations, state.masterPrompt, state.timeContexts, state.projectType, state.renderMode, dispatch, aspectRatio]);
 
   const handleRestoreSceneCardPrompt = useCallback((sceneId: string, entry: any) => {
     const scene = state.sceneCards.find(s => s.id === sceneId);
@@ -1789,9 +1318,7 @@ const Index = () => {
           <Panel defaultSize={20} minSize={15}>
             <LeftPanel
               episodes={state.episodes}
-              scenes={state.scenes}
               sceneCards={state.sceneCards}
-              consistencyGroups={state.consistencyGroups}
               activeSceneId={state.activeSceneId}
               mainFileName={state.mainFileName || episode?.title || project?.title || ''}
               isAnalyzing={state.isAnalyzing}
@@ -1814,12 +1341,17 @@ const Index = () => {
                   <Panel defaultSize={50} minSize={20}>
                     <CenterPanel
                       mainText={state.mainText}
-                      scenes={state.scenes}
+                      scenes={state.sceneCards.map(sceneCard => ({
+                        id: sceneCard.id,
+                        number: sceneCard.sceneNumber,
+                        text: sceneCard.text,
+                        startIndex: sceneCard.startIndex,
+                        endIndex: sceneCard.endIndex,
+                      }))}
                       activeSceneId={state.activeSceneId}
                       scrollToIndex={scrollToIndex}
                       onScrollComplete={() => setScrollToIndex(null)}
                       onSetActiveScene={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
-                      onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
                       onAnalyzeText={handleAnalyzeText}
                       isAnalyzing={state.isAnalyzing}
                       isLoading={loadingData}
@@ -1842,8 +1374,8 @@ const Index = () => {
                             onShowHistory={() => setShowStyleHistory(true)}
                             historyCount={state.episodeStyleHistory.length}
                             onRegenerateAll={handleRegenerateAllScenes}
-                            isGeneratingAll={isGeneratingAll}
-                            sceneCount={state.scenes.length}
+                            isGeneratingAll={isBulkGeneratingPrompts}
+                            sceneCount={state.sceneCards.length}
                             onClose={() => setShowEpisodeStylePanel(false)}
                           />
                         </div>
@@ -1947,16 +1479,6 @@ const Index = () => {
           <Panel defaultSize={25} minSize={15}>
             <div className={`h-full overflow-hidden ${isAgentLocked ? 'pointer-events-none opacity-60' : ''}`}>
               <RightPanel
-                scenes={state.scenes}
-                consistencyGroups={state.consistencyGroups}
-                activeSceneId={state.activeSceneId}
-                extractedEntities={state.extractedEntities}
-                sceneAnalyses={state.sceneAnalyses}
-                onGenerate={handleGenerate}
-                onCancel={handleCancel}
-                onCancelAll={handleCancelAll}
-                onGenerateAll={handleGenerateAll}
-                isGeneratingAll={isGeneratingAll}
                 onGenerateAllPrompts={handleGenerateAllPrompts}
                 isBulkGeneratingPrompts={isBulkGeneratingPrompts}
                 bulkPromptsProgress={bulkPromptsProgress}
@@ -1967,7 +1489,7 @@ const Index = () => {
                 timeContexts={state.timeContexts}
                 references={state.references}
                 onGeneratePrompts={handleGeneratePromptsForScene}
-                onUpdateSceneCardNote={handleSetSceneNote}
+                onUpdateSceneCardNote={(sceneId, note) => dispatch({ type: 'UPDATE_SCENE_CARD_NOTE', payload: { sceneId, note } })}
                 onAddVariation={handleAddVariation}
                 onRegenerateAllPrompts_={handleRegenerateAllPrompts}
                 onRevisePrompt={handleRevisePrompt_}
@@ -1980,27 +1502,7 @@ const Index = () => {
                 onAddCharacterToSceneCard={handleAddCharacterToSceneCard}
                 onAddLocationToSceneCard={handleAddLocationToSceneCard}
                 onDeleteSceneCard={id => dispatch({ type: 'DELETE_SCENE_CARD', payload: id })}
-                onRevise={handleRevise}
-                onRefreshAll={handleRefreshAll}
                 isLoading={loadingData}
-                onSetActiveScene={id => dispatch({ type: 'SET_ACTIVE_SCENE', payload: id })}
-                onRemoveScene={id => dispatch({ type: 'REMOVE_SCENE', payload: id })}
-                onAddSceneToGroup={handleAddSceneToGroup}
-                onRemoveSceneFromGroup={handleRemoveSceneFromGroup}
-                onAttachEntity={handleAttachEntity}
-                onDetachEntity={handleDetachEntity}
-                onSetSceneNote={handleSetSceneNote}
-                onSetGroupNote={handleSetGroupNote}
-                onAddSubScene={handleAddSubScene}
-                onRemoveSubScene={handleRemoveSubScene}
-                onGenerateSubScene={handleGenerateSubScene}
-                onReviseSubScene={handleReviseSubScene}
-                onRefreshSubScene={(sceneId, subSceneId) => handleGenerateSubScene(sceneId, subSceneId)}
-                onDeleteSubScenePrompt={handleDeleteSubScenePrompt}
-                onSetSubSceneNote={handleSetSubSceneNote}
-                onAddSubSceneToGroup={handleAddSubSceneToGroup}
-                onRemoveSubSceneFromGroup={handleRemoveSubSceneFromGroup}
-                onReorderScenes={(reordered) => dispatch({ type: 'REORDER_SCENES', payload: reordered })}
                 onReorderSceneCards={(reordered) => dispatch({ type: 'REORDER_SCENE_CARDS', payload: reordered })}
               />
             </div>

@@ -16,7 +16,6 @@ interface CenterPanelProps {
   scrollToIndex: number | null;
   onScrollComplete: () => void;
   onSetActiveScene: (id: string | null) => void;
-  onRemoveScene: (id: string) => void;
   onAnalyzeText?: (text: string, targetSceneCount?: number) => void;
   isAnalyzing?: boolean;
   isLoading?: boolean;
@@ -26,7 +25,7 @@ interface CenterPanelProps {
 export function CenterPanel({
   mainText, scenes, activeSceneId,
   scrollToIndex, onScrollComplete,
-  onSetActiveScene, onRemoveScene,
+  onSetActiveScene,
   onAnalyzeText, isAnalyzing, isLoading, analysisLog,
 }: CenterPanelProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);

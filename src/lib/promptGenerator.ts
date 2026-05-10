@@ -30,6 +30,8 @@ import type {
 } from '@/types';
 import { aiProvider } from './aiProvider';
 
+type PromptGenerationSceneAnalysis = Partial<SceneAnalysis & PromptAnalysis>;
+
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Â§ 1  UNIVERSAL CINEMATIC GRAMMAR
 //      This block is injected into EVERY system prompt regardless of mode.
@@ -983,7 +985,7 @@ function buildUserMessage(
   timeContexts?: TimeContext[],
   episodePrompt?: string,
   references?: SceneReference[],
-  sceneAnalysis?: SceneAnalysis,
+  sceneAnalysis?: PromptGenerationSceneAnalysis,
 ): string {
   const parts: string[] = [];
 
@@ -1413,7 +1415,7 @@ export async function generatePromptsForScene(
   _apiKey?: string,
   _model?: string,
   aspectRatio: '16:9' | '4:3' | '1:1' | '9:16' = '16:9',
-  sceneAnalysis?: SceneAnalysis,
+  sceneAnalysis?: PromptGenerationSceneAnalysis,
   timeContexts?: TimeContext[],
   episodePrompt?: string,
   references?: SceneReference[],
@@ -1815,7 +1817,7 @@ function countKeywordHits(text: string, pattern: RegExp): number {
 function inferScenePinIntent(
   scene: Pick<SceneCard, 'text' | 'visualNote'>,
   hasCrowdScene: boolean,
-  sceneAnalysis?: SceneAnalysis,
+  sceneAnalysis?: PromptGenerationSceneAnalysis,
 ): ScenePinIntent {
   const sceneBlob = `${scene.visualNote ?? ''} ${scene.text ?? ''}`.toLowerCase();
 
@@ -1857,7 +1859,7 @@ function selectBestPromptIndex(
   aiSelectedIndex: number,
   scene: SceneCard,
   characters: Character[],
-  sceneAnalysis?: SceneAnalysis,
+  sceneAnalysis?: PromptGenerationSceneAnalysis,
 ): number {
   const AI_PREFERENCE_BONUS = 3;
   const AI_OVERRIDE_THRESHOLD = 4;
