@@ -361,6 +361,13 @@ export function CenterPanel({
     });
   }, [multiSelection]);
 
+  const handleTextClick = useCallback((event: React.MouseEvent) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('[data-scene-highlight="true"]')) return;
+
+    onSetActiveScene(null);
+  }, [onSetActiveScene]);
+
   const dismissToolbar = useCallback(() => {
     setToolbar(null);
     setMultiSelection([]);
@@ -436,7 +443,12 @@ export function CenterPanel({
           <div className="text-xs text-muted-foreground">{scenes.length} sahne tespit edildi</div>
         </div>
 
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin" onMouseUp={onAnalyzeText ? handleMouseUp : undefined}>
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-auto scrollbar-thin"
+          onMouseUp={onAnalyzeText ? handleMouseUp : undefined}
+          onClick={handleTextClick}
+        >
           <div className="p-8 font-serif text-[17px] leading-[2.2] text-foreground/90 whitespace-pre-wrap selection:bg-primary/30">
             {/* If we don't have mainText or scenes lack indices, fallback to legacy block render */}
             {!mainText || !scenes.some(s => s.startIndex !== undefined) ? (
@@ -448,7 +460,11 @@ export function CenterPanel({
                         ? 'bg-yellow-200/70 dark:bg-yellow-500/30 border-l-4 border-yellow-500 font-medium shadow-sm'
                         : 'hover:bg-muted/40 hover:border-l-2 hover:border-muted-foreground/30'
                       }`}
-                    onClick={() => onSetActiveScene(scene.id)}
+                    data-scene-highlight="true"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onSetActiveScene(scene.id);
+                    }}
                   >
                     <div>{scene.text || ''}</div>
                   </div>
@@ -494,8 +510,12 @@ export function CenterPanel({
                       // Note: We use HTMLElement ref above to match the span element.
                       if (activeSceneRef) activeSceneRef.current = el;
                     } : undefined}
-                    onClick={() => onSetActiveScene(scene.id)}
-                    className={`relative cursor-pointer rounded px-1 -mx-1 box-decoration-clone transition-all duration-200 hover:brightness-110 ${isSelected ? 'z-10' : ''}`}
+                    data-scene-highlight="true"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onSetActiveScene(scene.id);
+                    }}
+                    className={`relative cursor-pointer rounded-sm px-[0.18em] mx-[0.06em] box-decoration-clone transition-all duration-200 hover:brightness-110 ${isSelected ? 'z-10' : ''}`}
                     style={{
                       backgroundColor: isSelected ? tone.activeBg : tone.bg,
                       color: tone.text,
@@ -505,7 +525,7 @@ export function CenterPanel({
                     <span
                       data-offset-ignore="true"
                       aria-hidden="true"
-                      className={`inline-flex items-center justify-center rounded-full border text-[10px] w-5 h-5 mr-1.5 -ml-1 align-middle select-none transition-colors ${isSelected ? 'font-bold shadow-sm' : 'font-semibold'}`}
+                      className={`inline-flex items-center justify-center rounded-full border text-[10px] w-5 h-5 mx-1 align-middle select-none transition-colors ${isSelected ? 'font-bold shadow-sm' : 'font-semibold'}`}
                       style={{
                         backgroundColor: isSelected ? tone.border : tone.badgeBg,
                         borderColor: tone.badgeBorder,
@@ -548,7 +568,12 @@ export function CenterPanel({
           </div>
         </div>
       )}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-8 py-6" onMouseUp={onAnalyzeText ? handleMouseUp : undefined}>
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto scrollbar-thin px-8 py-6"
+        onMouseUp={onAnalyzeText ? handleMouseUp : undefined}
+        onClick={handleTextClick}
+      >
         {mainText ? (
           <div
             className="font-serif text-[17px] leading-[1.8] text-foreground/90 selection:bg-primary/30"
