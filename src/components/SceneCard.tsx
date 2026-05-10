@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -376,6 +376,8 @@ export function SceneCard({
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [confirmDeleteScene, setConfirmDeleteScene] = useState(false);
   const [activeTab, setActiveTab] = useState<'generated' | 'slots'>('generated');
+  const previousGeneratedPromptCountRef = useRef(0);
+  const previousStatusRef = useRef(scene.status);
   const { copiedId: copiedSlotPromptId, setCopiedId: setCopiedSlotPromptId } = useClipboardState();
 
   const handleSaveNote = () => {
@@ -420,10 +422,19 @@ export function SceneCard({
   };
 
   useEffect(() => {
-    if (!hasGeneratedPrompts && hasAlternativeSlots && activeTab === 'generated') {
+    const previousGeneratedPromptCount = previousGeneratedPromptCountRef.current;
+    const justReceivedGeneratedPrompts = previousGeneratedPromptCount === 0 && generatedPrompts.length > 0;
+    const justFinishedGenerating = previousStatusRef.current === 'generating' && scene.status === 'ready';
+
+    if ((justReceivedGeneratedPrompts || justFinishedGenerating) && hasGeneratedPrompts) {
+      setActiveTab('generated');
+    } else if (!hasGeneratedPrompts && hasAlternativeSlots && activeTab === 'generated' && scene.status !== 'generating') {
       setActiveTab('slots');
     }
-  }, [activeTab, hasAlternativeSlots, hasGeneratedPrompts]);
+
+    previousGeneratedPromptCountRef.current = generatedPrompts.length;
+    previousStatusRef.current = scene.status;
+  }, [activeTab, generatedPrompts.length, hasAlternativeSlots, hasGeneratedPrompts, scene.status]);
 
   const characterOptions = availableCharacters.map(character => ({
     id: character.id,

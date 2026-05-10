@@ -116,15 +116,6 @@ export function InfoModal({ open, onClose }: InfoModalProps) {
             </section>
 
             <section>
-              <h3 className="text-primary font-semibold mb-1.5">🤖 Sistem Prompt</h3>
-              <p>
-                Gemini API'ye gönderilen yönerge metnidir. Prompt üretiminin kalitesini,
-                formatını ve stilini belirler. <strong>Ayarlar → Sistem Prompt</strong> sekmesinden
-                düzenleyebilirsiniz. Değişiklikleriniz kalıcıdır — siz değiştirmedikçe korunur.
-              </p>
-            </section>
-
-            <section>
               <h3 className="text-primary font-semibold mb-1.5">🔑 API Anahtarları</h3>
               <p>
                 Google AI Studio'dan aldığınız Gemini API anahtarları. Birden fazla anahtar
@@ -149,11 +140,11 @@ export function InfoModal({ open, onClose }: InfoModalProps) {
               <h3 className="text-primary font-semibold mb-1.5">💾 Veri Saklama (Bellek)</h3>
               <p>Uygulama iki tür veri saklar:</p>
               <ul className="list-disc list-inside mt-1 space-y-1 text-muted-foreground">
-                <li><strong className="text-foreground">Kalıcı (silinmez):</strong> API anahtarları, sistem prompt, model adı ve ayarları</li>
+                <li><strong className="text-foreground">Kalıcı (silinmez):</strong> API anahtarları, model adı ve ayarları</li>
                 <li><strong className="text-foreground">Geçici (oturum):</strong> Yüklenen metin, sahneler, referanslar, tutarlılık grupları, üretilen prompt'lar</li>
               </ul>
               <p className="mt-1.5 text-muted-foreground text-xs">
-                Tarayıcıyı kapattığınızda geçici veriler temizlenir, ama API ayarlarınız ve sistem prompt'unuz
+                Tarayıcıyı kapattığınızda geçici veriler temizlenir, ama API ve model ayarlarınız
                 aynen kalır. Dışa aktarma özelliği ile çalışmanızı kaydetmeyi unutmayın.
               </p>
             </section>

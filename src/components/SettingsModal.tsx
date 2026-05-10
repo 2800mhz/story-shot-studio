@@ -10,12 +10,10 @@ import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { ExternalLink, RotateCcw, Copy, Sparkles, SlidersHorizontal } from 'lucide-react';
+import { ExternalLink, Sparkles, SlidersHorizontal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { DEFAULT_SYSTEM_PROMPT_DISPLAY, loadSystemPrompt, saveSystemPrompt } from '@/lib/geminiApi';
 import type { AppState } from '@/types';
 import { ProviderModelSettings } from '@/components/settings/ProviderModelSettings';
 
@@ -55,28 +53,20 @@ export function SettingsModal({
   const [localKeys, setLocalKeys] = useState<string[]>(apiKeys);
   const [localImageKeys, setLocalImageKeys] = useState<string[]>(imageApiKeys);
   const [localSettings, setLocalSettings] = useState(settings);
-  const [systemPrompt, setSystemPrompt] = useState('');
 
   useEffect(() => {
     if (!open) return;
     setLocalKeys(apiKeys);
     setLocalImageKeys(imageApiKeys);
     setLocalSettings(settings);
-    setSystemPrompt(loadSystemPrompt());
   }, [open, apiKeys, imageApiKeys, settings]);
 
   const handleSave = () => {
     onSaveKeys(localKeys);
     onSaveImageKeys(localImageKeys);
     onSaveSettings(localSettings);
-    saveSystemPrompt(systemPrompt);
     onClose();
     toast.success('Ayarlar kaydedildi');
-  };
-
-  const handleResetPrompt = () => {
-    setSystemPrompt(DEFAULT_SYSTEM_PROMPT_DISPLAY);
-    toast.info('Sistem promptu varsayılana döndü');
   };
 
   const goToSettings = () => {
@@ -95,7 +85,7 @@ export function SettingsModal({
             <div>
               <div>Workspace ayarları</div>
               <p className="mt-1 text-sm font-normal text-muted-foreground">
-                Model yönlendirmesini, üretim davranışını ve prompt sistemini buradan toparla.
+                Model yönlendirmesini ve üretim davranışını buradan toparla.
               </p>
             </div>
           </DialogTitle>
@@ -103,10 +93,9 @@ export function SettingsModal({
 
         <div className="px-6 py-5">
           <Tabs defaultValue="workspace" className="space-y-5">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="workspace">Çalışma</TabsTrigger>
               <TabsTrigger value="providers">Provider modelleri</TabsTrigger>
-              <TabsTrigger value="prompt">Sistem promptu</TabsTrigger>
               <TabsTrigger value="keys">API ayarları</TabsTrigger>
             </TabsList>
 
@@ -197,44 +186,6 @@ export function SettingsModal({
                 settings={localSettings}
                 onChange={(patch) => setLocalSettings((prev) => ({ ...prev, ...patch }))}
               />
-            </TabsContent>
-
-            <TabsContent value="prompt" className="space-y-4">
-              <Card className="border-border/70 bg-background/70 p-4">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-medium">Sistem promptu</div>
-                    <p className="text-xs text-muted-foreground">
-                      Prompt üretiminin omurgası. Buradaki değişiklik yeni üretimlere uygulanır.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button type="button" variant="ghost" size="sm" onClick={handleResetPrompt}>
-                      <RotateCcw className="mr-2 h-3.5 w-3.5" />
-                      Sıfırla
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        navigator.clipboard.writeText(systemPrompt);
-                        toast.success('Prompt kopyalandı');
-                      }}
-                    >
-                      <Copy className="mr-2 h-3.5 w-3.5" />
-                      Kopyala
-                    </Button>
-                  </div>
-                </div>
-
-                <Textarea
-                  value={systemPrompt}
-                  onChange={(event) => setSystemPrompt(event.target.value)}
-                  className="min-h-[280px] bg-card font-mono text-[12px] leading-6"
-                  placeholder="Sistem promptunu burada düzenle"
-                />
-              </Card>
             </TabsContent>
 
             <TabsContent value="keys" className="space-y-4">
