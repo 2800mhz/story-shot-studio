@@ -634,7 +634,7 @@ const Index = () => {
       const adjustedResult = { ...result, sceneCards };
 
       console.log('Analysis Result:', adjustedResult.sceneCards.length, 'scenes produced.');
-      dispatch({ type: 'FINISH_ANALYSIS', payload: { ...adjustedResult, mode: 'replace' } });
+      dispatch({ type: 'FINISH_ANALYSIS', payload: { ...adjustedResult, mode: 'append' } });
 
       // Mevcut referansları yeni sahnelere ata
       if (state.references.length > 0) {

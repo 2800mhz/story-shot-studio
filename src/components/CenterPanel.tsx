@@ -417,7 +417,7 @@ export function CenterPanel({
 
     return (
       <div className="flex h-full flex-col bg-background">
-        <div className="border-b p-3 bg-muted/30 shrink-0">
+        <div className="hidden">
           <div className="text-sm font-medium">📄 Metin Görünümü</div>
           <div className="text-xs text-muted-foreground">{scenes.length} sahne tespit edildi</div>
         </div>
