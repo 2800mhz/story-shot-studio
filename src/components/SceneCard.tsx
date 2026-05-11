@@ -877,11 +877,11 @@ export function SceneCard({
                   <Button
                   size="sm"
                   variant="ghost"
-                  className={`h-6 px-2 text-[10px] font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                    isRegenerateEditorOpen
-                      ? 'bg-blue-500/12 text-blue-600 ring-1 ring-blue-500/25 hover:bg-blue-500/18'
-                      : 'text-muted-foreground hover:text-blue-600 hover:bg-blue-50'
-                  }`}
+                    className={`h-6 px-2 text-[10px] font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                      isRegenerateEditorOpen
+                        ? 'bg-amber-500/15 text-amber-500 ring-1 ring-amber-500/30 hover:bg-amber-500/20'
+                        : 'text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10'
+                    }`}
                   onClick={() => void handleRegenerateAllClick()}
                   disabled={scene.status === 'generating' || isBulkGenerating}
                   title={isRegenerateEditorOpen ? 'Yenilemeyi uygula' : 'Yenileme notu alanini ac'}
