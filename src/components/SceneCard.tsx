@@ -377,8 +377,10 @@ export function SceneCard({
   const [confirmDeleteScene, setConfirmDeleteScene] = useState(false);
   const [activeTab, setActiveTab] = useState<'generated' | 'slots'>('generated');
   const [regenerateInstruction, setRegenerateInstruction] = useState('');
+  const [isRegenerateEditorOpen, setIsRegenerateEditorOpen] = useState(false);
   const previousGeneratedPromptCountRef = useRef(0);
   const previousStatusRef = useRef(scene.status);
+  const regenerateInputRef = useRef<HTMLInputElement>(null);
   const { copiedId: copiedSlotPromptId, setCopiedId: setCopiedSlotPromptId } = useClipboardState();
 
   const handleSaveNote = () => {
@@ -422,10 +424,22 @@ export function SceneCard({
     setCopiedSlotPromptId(prompt.id);
   };
   const handleRegenerateAllClick = async () => {
+    if (!isRegenerateEditorOpen) {
+      setIsRegenerateEditorOpen(true);
+      return;
+    }
+
     const instruction = regenerateInstruction.trim();
     await onRegenerateAll?.(scene.id, instruction || undefined);
-    if (instruction) setRegenerateInstruction('');
+    setRegenerateInstruction('');
+    setIsRegenerateEditorOpen(false);
   };
+
+  useEffect(() => {
+    if (isRegenerateEditorOpen) {
+      regenerateInputRef.current?.focus();
+    }
+  }, [isRegenerateEditorOpen]);
 
   useEffect(() => {
     const previousGeneratedPromptCount = previousGeneratedPromptCountRef.current;
@@ -512,7 +526,7 @@ export function SceneCard({
             ) : (
               <div className="flex items-start gap-2">
                 <p className="text-base font-medium flex-1">"{scene.visualNote}"</p>
-                <Button
+                  <Button
                   size="icon"
                   variant="ghost"
                   className="h-7 w-7 shrink-0"
@@ -813,19 +827,26 @@ export function SceneCard({
                 </div>
               )}
               <div className="mt-3 space-y-2 border-t border-border/50 pt-3">
-                <input
-                  value={regenerateInstruction}
-                  onChange={(event) => setRegenerateInstruction(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault();
-                      void handleRegenerateAllClick();
-                    }
-                  }}
-                  placeholder="Opsiyonel yenileme notu"
-                  className="h-7 w-full rounded-md border border-border/70 bg-background px-2 text-[11px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/55 focus:border-primary/60"
-                  disabled={scene.status === 'generating' || isBulkGenerating}
-                />
+                {isRegenerateEditorOpen && (
+                  <input
+                    ref={regenerateInputRef}
+                    value={regenerateInstruction}
+                    onChange={(event) => setRegenerateInstruction(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        void handleRegenerateAllClick();
+                      }
+                      if (event.key === 'Escape') {
+                        setIsRegenerateEditorOpen(false);
+                        setRegenerateInstruction('');
+                      }
+                    }}
+                    placeholder="Opsiyonel yenileme notu"
+                    className="h-7 w-full rounded-md border border-primary/45 bg-primary/5 px-2 text-[11px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/55 focus:border-primary/70"
+                    disabled={scene.status === 'generating' || isBulkGenerating}
+                  />
+                )}
                 <div className="flex items-center justify-between">
                 <Button
                   size="sm"
@@ -836,18 +857,22 @@ export function SceneCard({
                 >
                   <Plus className="h-3 w-3 mr-1" />
                   Yeni Varyasyon
-                </Button>
-                <Button
+                  </Button>
+                  <Button
                   size="sm"
                   variant="ghost"
-                  className="h-6 px-2 text-[10px] font-medium text-muted-foreground hover:text-blue-600 hover:bg-blue-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`h-6 px-2 text-[10px] font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isRegenerateEditorOpen
+                      ? 'bg-blue-500/12 text-blue-600 ring-1 ring-blue-500/25 hover:bg-blue-500/18'
+                      : 'text-muted-foreground hover:text-blue-600 hover:bg-blue-50'
+                  }`}
                   onClick={() => void handleRegenerateAllClick()}
                   disabled={scene.status === 'generating' || isBulkGenerating}
-                  title={regenerateInstruction.trim() ? 'Notu mevcut promptlara hafif revizyon olarak uygula' : 'Promptlari bastan yenile'}
+                  title={isRegenerateEditorOpen ? 'Yenilemeyi uygula' : 'Yenileme notu alanini ac'}
                 >
                   <RefreshCw className="h-3 w-3 mr-1" />
                   Tümünü Yenile
-                </Button>
+                  </Button>
                 </div>
               </div>
             </>
