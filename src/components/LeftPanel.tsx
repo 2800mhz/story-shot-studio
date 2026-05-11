@@ -59,6 +59,7 @@ type ExplorerScene = {
   text?: string;
   startIndex?: number;
   endIndex?: number;
+  episodeId?: string;
   episodeTitle?: string;
   prompts?: unknown[];
   status?: SceneCardType['status'];
@@ -69,10 +70,10 @@ function getSceneText(scene: ExplorerScene): string {
 }
 
 function sceneCountForEpisode(episode: Episode, scenes: ExplorerScene[]) {
-  return scenes.filter((scene) => scene.episodeTitle === episode.title).length;
+  return scenes.filter((scene) => scene.episodeId === episode.id).length;
 }
 
-function getEpisodeTitleForIndex(index: number | undefined, episodes: Episode[]): string | undefined {
+function getEpisodeForIndex(index: number | undefined, episodes: Episode[]): Episode | undefined {
   if (index === undefined) return undefined;
 
   const sortedEpisodes = [...episodes].sort((a, b) => a.startIndex - b.startIndex);
@@ -83,10 +84,12 @@ function getEpisodeTitleForIndex(index: number | undefined, episodes: Episode[])
     else break;
   }
 
-  return matched?.title;
+  return matched;
 }
 
 function normalizeSceneCard(sceneCard: SceneCardType, episodes: Episode[]): ExplorerScene {
+  const episode = getEpisodeForIndex(sceneCard.startIndex, episodes);
+
   return {
     id: sceneCard.id,
     number: sceneCard.sceneNumber,
@@ -94,7 +97,8 @@ function normalizeSceneCard(sceneCard: SceneCardType, episodes: Episode[]): Expl
     text: sceneCard.text || sceneCard.visualNote || '',
     startIndex: sceneCard.startIndex,
     endIndex: sceneCard.endIndex,
-    episodeTitle: getEpisodeTitleForIndex(sceneCard.startIndex, episodes),
+    episodeId: episode?.id,
+    episodeTitle: episode?.title,
     prompts: sceneCard.prompts,
     status: sceneCard.status,
   };
@@ -119,7 +123,7 @@ function EpisodeNode({
 }: EpisodeNodeProps) {
   const isExpanded = expandedIds.has(episode.id);
   const hasChildren = children.length > 0;
-  const episodeScenes = scenes.filter((scene) => scene.episodeTitle === episode.title);
+  const episodeScenes = scenes.filter((scene) => scene.episodeId === episode.id);
   const hasExpandable = hasChildren || episodeScenes.length > 0;
   const childSceneCount = children.reduce((sum, child) => sum + sceneCountForEpisode(child, scenes), 0);
   const totalScenes = episodeScenes.length + childSceneCount;
@@ -325,7 +329,7 @@ export function LeftPanel({
       result = result.filter((episode) => {
         const episodeMatch = episode.title.toLowerCase().includes(term);
         const sceneMatch = explorerScenes.some((scene) =>
-          scene.episodeTitle === episode.title &&
+          scene.episodeId === episode.id &&
           `${scene.title || ''} ${getSceneText(scene)}`.toLowerCase().includes(term),
         );
         return episodeMatch || sceneMatch;
