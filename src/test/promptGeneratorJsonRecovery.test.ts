@@ -339,11 +339,11 @@ describe('promptGenerator JSON recovery', () => {
     expect(result.prompts[0].promptText).toContain('--no old flags --ar 4:3 --v 6');
   });
 
-  it('injects fresh entity context into prompt revision requests', async () => {
+  it('keeps prompt revision requests lightweight and structure-preserving', async () => {
     const generateSpy = vi.mocked(aiProvider.generateContent).mockResolvedValue('revised prompt');
 
     await revisePrompt(
-      'old prompt with long white beard',
+      'SHOT INTENT: old prompt with long white beard | CAMERA/COMP: close-up --ar 16:9 --v 6',
       'sakalı güncelle',
       '',
       'test-model',
@@ -367,9 +367,13 @@ describe('promptGenerator JSON recovery', () => {
     );
 
     const revisionUserMessage = generateSpy.mock.calls[0][0] as string;
-    expect(revisionUserMessage).toContain('FRESH CONTEXT');
-    expect(revisionUserMessage).toContain('clean-shaven');
-    expect(revisionUserMessage).toContain('Character attributes updated');
+    expect(revisionUserMessage).toContain('PROMPT TO EDIT');
+    expect(revisionUserMessage).toContain('USER CHANGE');
+    expect(revisionUserMessage).toContain('Keep this label order exactly');
+    expect(revisionUserMessage).not.toContain('FRESH CONTEXT');
+    expect(revisionUserMessage).not.toContain('clean-shaven');
+    expect(generateSpy.mock.calls[0][1]).toContain('surgical text editor');
+    expect(generateSpy.mock.calls[0][2]).toMatchObject({ operationType: 'prompt_revision_light' });
   });
 });
 

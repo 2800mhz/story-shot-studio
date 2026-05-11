@@ -1604,6 +1604,12 @@ RULES:
   9. When the original prompt conflicts with the FRESH CONTEXT, rewrite the stale attributes to match the FRESH CONTEXT while preserving the shot intent and composition.
   10. Do not keep outdated character or location traits just because they existed in the original prompt.`;
 
+const LIGHTWEIGHT_REVISION_SYSTEM_PROMPT = `You are a surgical text editor for structured cinematic image prompts.
+Apply the user's change by editing the existing prompt text, not by rewriting from scratch.
+Preserve label order, camera setup, style, length, and all --ar/--v/--no flags unless the user explicitly changes them.
+The user instruction may be Turkish; apply its meaning in natural English.
+Return only the final revised prompt text.`;
+
 type PromptRevisionContext = {
   shotType?: string;
   sceneText?: string;
@@ -1616,20 +1622,39 @@ type PromptRevisionContext = {
   staleReasons?: string[];
 };
 
+function extractPromptLabelOrder(prompt: string): string[] {
+  const matches = prompt.match(/\b[A-Z][A-Z /-]{2,}:/g) ?? [];
+  return [...new Set(matches.map(label => label.replace(':', '').trim()))].slice(0, 16);
+}
+
 export async function revisePrompt(
   originalPrompt: string,
   instruction: string,
   _apiKey?: string,
   _model?: string,
   _temperature?: number,
-  revisionContext?: PromptRevisionContext,
+  _revisionContext?: PromptRevisionContext,
 ): Promise<string> {
-  const contextBlock = buildRevisionContextMessage(revisionContext);
-  const userMessage = `ORIGINAL PROMPT:\n${originalPrompt}\n\nUSER INSTRUCTION:\n"${instruction}"\n${contextBlock}\nIf the fresh context conflicts with the original prompt, update the prompt to match the fresh context while keeping the same cinematic shot logic.\n\nProvide the revised English prompt:`;
+  const labelOrder = extractPromptLabelOrder(originalPrompt);
+  const structureInstruction = labelOrder.length > 0
+    ? `Keep this label order exactly: ${labelOrder.join(' | ')}.`
+    : `Keep the existing sentence order and formatting.`;
+
+  const userMessage = `PROMPT TO EDIT:
+${originalPrompt}
+
+USER CHANGE:
+${instruction}
+
+EDIT RULES:
+- ${structureInstruction}
+- Change only the words or phrases needed for the user request.
+- Do not add scene entities, camera moves, flags, or explanations not requested.
+- Return only the edited prompt.`;
 
   try {
-    const raw = await aiProvider.generateContent(userMessage, REVISION_SYSTEM_PROMPT, {
-      operationType: 'prompt_revision',
+    const raw = await aiProvider.generateContent(userMessage, LIGHTWEIGHT_REVISION_SYSTEM_PROMPT, {
+      operationType: 'prompt_revision_light',
     });
 
     let cleaned = raw.trim()
