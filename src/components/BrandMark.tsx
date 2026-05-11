@@ -24,26 +24,21 @@ export function BrandIcon({ className }: BrandIconProps) {
       xmlns="http://www.w3.org/2000/svg"
     >
       <defs>
-        <linearGradient id="sss-icon-frame" x1="8" y1="6" x2="41" y2="42" gradientUnits="userSpaceOnUse">
+        <linearGradient id="sss-target-ring" x1="8" y1="7" x2="40" y2="41" gradientUnits="userSpaceOnUse">
           <stop stopColor="#f59e0b" />
           <stop offset="1" stopColor="#22d3ee" />
         </linearGradient>
-        <radialGradient id="sss-icon-glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(28 21) rotate(127) scale(22)">
+        <radialGradient id="sss-target-glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(24 24) scale(22)">
           <stop stopColor="#f59e0b" stopOpacity="0.35" />
           <stop offset="1" stopColor="#020617" stopOpacity="0" />
         </radialGradient>
       </defs>
       <rect x="2.5" y="2.5" width="43" height="43" rx="12" fill="#0b0f19" />
-      <rect x="2.5" y="2.5" width="43" height="43" rx="12" fill="url(#sss-icon-glow)" />
-      <rect x="4" y="4" width="40" height="40" rx="10.5" stroke="url(#sss-icon-frame)" strokeWidth="2" />
-      <path d="M12 13.5h20.5c3.6 0 6.5 2.9 6.5 6.5v14.5H18.2c-3.7 0-6.7-3-6.7-6.7V13.5Z" fill="#111827" stroke="#f8fafc" strokeOpacity="0.13" />
-      <path d="M13.5 15.5h6.2v17.2h-6.2" stroke="#f59e0b" strokeOpacity="0.8" strokeWidth="1.6" strokeLinecap="round" />
-      <path d="M35.5 17.5h-8.8c-4.6 0-8.4 3.7-8.4 8.4s3.8 8.4 8.4 8.4h9.2" stroke="#22d3ee" strokeOpacity="0.78" strokeWidth="1.7" strokeLinecap="round" />
-      <path d="M25 18.5c-3.5 1.1-6.1 4.4-6.1 8.3 0 1.3.3 2.5.8 3.6" stroke="#f59e0b" strokeWidth="1.7" strokeLinecap="round" />
-      <circle cx="27.3" cy="26.2" r="5.5" stroke="#f8fafc" strokeOpacity="0.72" strokeWidth="1.5" />
-      <circle cx="27.3" cy="26.2" r="2.1" fill="#f59e0b" />
-      <path d="M14 19.5h4M14 24h4M14 28.5h4" stroke="#f8fafc" strokeOpacity="0.32" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M31.8 13.5l4.9-4.1M36.5 34.5l4.2 3.9" stroke="#22d3ee" strokeOpacity="0.55" strokeWidth="1.5" strokeLinecap="round" />
+      <rect x="2.5" y="2.5" width="43" height="43" rx="12" fill="url(#sss-target-glow)" />
+      <circle cx="24" cy="24" r="16.5" stroke="url(#sss-target-ring)" strokeWidth="3.2" />
+      <circle cx="24" cy="24" r="10.2" stroke="#22d3ee" strokeOpacity="0.88" strokeWidth="2.8" />
+      <circle cx="24" cy="24" r="4.6" stroke="#f8fafc" strokeOpacity="0.75" strokeWidth="2.1" />
+      <circle cx="24" cy="24" r="2" fill="#f59e0b" />
     </svg>
   );
 }
