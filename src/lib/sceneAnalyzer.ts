@@ -11,7 +11,7 @@ import { aiProvider } from './aiProvider';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // § 1  SCENE ANALYSIS SYSTEM PROMPT
-//      Completely language and culture neutral.
+//      Completely language and culture neutral.deploy
 //      Era, geography, and cultural context are always read from the text —
 //      never assumed from a default (no "Ottoman", no "Anatolian", no "Turkish").
 // ─────────────────────────────────────────────────────────────────────────────
@@ -388,7 +388,7 @@ function recoverTruncatedJson(raw: string): string {
   let brackets = 0, braces = 0, inStr = false, esc = false;
 
   for (const ch of candidate) {
-    if (esc)  { esc = false; continue; }
+    if (esc) { esc = false; continue; }
     if (ch === '\\' && inStr) { esc = true; continue; }
     if (ch === '"') { inStr = !inStr; continue; }
     if (inStr) continue;
@@ -499,8 +499,8 @@ function fuzzyFindText(
   if (!searchTokens.length) return null;
 
   const threshold = Math.ceil(searchTokens.length * 0.8);
-  const fromIdx   = fullTokens.findIndex(t => t.index >= Math.max(0, startIndex - 50));
-  const from      = fromIdx >= 0 ? fromIdx : 0;
+  const fromIdx = fullTokens.findIndex(t => t.index >= Math.max(0, startIndex - 50));
+  const from = fromIdx >= 0 ? fromIdx : 0;
 
   const tryFrom = (start: number, end: number) => {
     for (let i = start; i <= end - searchTokens.length; i++) {
@@ -620,10 +620,10 @@ function buildSceneCards(
   searchState: { lastIndex: number },
 ): SceneCard[] {
   return scenes.map((scene, idx) => {
-    const globalIdx  = sceneNumberOffset + idx;
-    const id         = crypto.randomUUID();
-    const charIds: string[]  = [];
-    const locIds: string[]   = [];
+    const globalIdx = sceneNumberOffset + idx;
+    const id = crypto.randomUUID();
+    const charIds: string[] = [];
+    const locIds: string[] = [];
 
     // Link characters by name
     scene.characterNames?.forEach(name => {
@@ -651,7 +651,7 @@ function buildSceneCards(
     // Link locations by normalised name
     scene.locationNames?.forEach(name => {
       const norm = normaliseLocationName(name);
-      const lid  = locationNormMap.get(norm);
+      const lid = locationNormMap.get(norm);
       if (lid && !locIds.includes(lid)) locIds.push(lid);
     });
 
@@ -676,7 +676,7 @@ function buildSceneCards(
       const match = fuzzyFindText(fullText, scene.text, searchState.lastIndex);
       if (match) {
         startIndex = match.start;
-        endIndex   = match.end;
+        endIndex = match.end;
         searchState.lastIndex = match.end;
       }
     }
@@ -707,7 +707,7 @@ function buildSceneCards(
 }
 
 function resolveVisualStyle(scene: SceneRaw): 'cinematic' | 'symbolic' | 'scientific' | 'abstract' | undefined {
-  if (scene.visualStyle === 'symbolic')   return 'symbolic';
+  if (scene.visualStyle === 'symbolic') return 'symbolic';
   if (scene.visualStyle === 'scientific') return 'scientific';
   if (scene.narrativeLayer === 'scientific') return 'scientific';
 
@@ -732,7 +732,7 @@ async function analyseChunk(
   targetSceneCount?: number,
 ): Promise<AnalysisPayload> {
   const systemPrompt = getSceneAnalysisSystemPrompt();
-  
+
   // Inject target instruction into User Message to preserve System Prompt caching
   let userMessage = chunk;
   if (targetSceneCount) {
@@ -779,11 +779,10 @@ async function analyseChunk(
       const retryMessage = `${getSceneAnalysisRetryInstruction(targetSceneCount)}
 
 PREVIOUS ATTEMPT RESULT: ${actualSceneCount} scenes produced (target: ${targetSceneCount}, diff: ${actualSceneCount - targetSceneCount > 0 ? '+' : ''}${actualSceneCount - targetSceneCount}).
-${
-  duplicateTextCount > 0
-    ? `DUPLICATE TEXTS FOUND: ${duplicateTextCount} scene(s) have repeated text values. Fix all duplicates.`
-    : ''
-}
+${duplicateTextCount > 0
+          ? `DUPLICATE TEXTS FOUND: ${duplicateTextCount} scene(s) have repeated text values. Fix all duplicates.`
+          : ''
+        }
 ${countCorrection}
 Attempt ${attempt + 1} of 3.
 
@@ -840,9 +839,9 @@ export async function analyzeTextIntoScenes(
   const chunks = splitTextIntoChunks(text, getSceneAnalysisChunkLimit(_model));
   onProgress?.(`Split into ${chunks.length} chunk(s) for analysis`);
 
-  const characterMap       = new Map<string, Character>();
-  const locationMap        = new Map<string, Location>();
-  const locationNormMap    = new Map<string, string>(); // normalised name → id
+  const characterMap = new Map<string, Character>();
+  const locationMap = new Map<string, Location>();
+  const locationNormMap = new Map<string, string>(); // normalised name → id
   const timeContextLabelMap = new Map<string, string>(); // sceneId → label
   const allSceneCards: SceneCard[] = [];
   let suggestedTimeContexts: TimeContext[] = [];
@@ -853,18 +852,18 @@ export async function analyzeTextIntoScenes(
   const chunkWordCounts = chunks.map(countWords);
   const totalWords = Math.max(1, chunkWordCounts.reduce((sum, words) => sum + words, 0));
   let remainingTarget: number = targetSceneCount ?? 0;
-  
+
   const chunkTargets: (number | undefined)[] = chunks.map((_chunk, i) => {
     if (!targetSceneCount) return undefined;
     if (chunks.length === 1) return targetSceneCount;
 
     const chunksAfter = chunks.length - i - 1;
-    
+
     // Word-count based proportional target. Keep at least one scene per chunk when the target allows it.
     let target = Math.round(targetSceneCount * (chunkWordCounts[i] / totalWords));
-    
+
     if (targetSceneCount >= chunks.length && target < 1) target = 1;
-    
+
     // Last chunk gets the remainder to ensure exact total
     if (i === chunks.length - 1) {
       return Math.max(1, remainingTarget);
@@ -873,7 +872,7 @@ export async function analyzeTextIntoScenes(
     const minimumForRemainingChunks = targetSceneCount >= chunks.length ? chunksAfter : 0;
     const maxForCurrentChunk = Math.max(1, remainingTarget - minimumForRemainingChunks);
     target = Math.min(Math.max(1, target), maxForCurrentChunk);
-    
+
     remainingTarget -= target;
     return target;
   });
@@ -1001,7 +1000,7 @@ export async function generateEpisodePrompt(
 ): Promise<string> {
   const charSummary = characters.slice(0, 5)
     .map(c => `${c.name}${c.role ? ` (${c.role})` : ''}`).join(', ');
-  const locSummary  = locations.slice(0, 5).map(l => l.name).join(', ');
+  const locSummary = locations.slice(0, 5).map(l => l.name).join(', ');
 
   const systemPrompt = `You are a world-class documentary film art director.
 You will be given a narration excerpt, character list, and location list from a documentary episode.
