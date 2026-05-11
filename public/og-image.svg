@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#05070d"/>
+      <stop offset=".58" stop-color="#101827"/>
+      <stop offset="1" stop-color="#07111c"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="112" y1="72" x2="1054" y2="560" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f59e0b"/>
+      <stop offset=".46" stop-color="#fbbf24"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+    <radialGradient id="warmGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(695 230) rotate(143) scale(470 340)">
+      <stop stop-color="#f59e0b" stop-opacity=".26"/>
+      <stop offset="1" stop-color="#020617" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="coolGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1035 496) rotate(-156) scale(360 250)">
+      <stop stop-color="#22d3ee" stop-opacity=".2"/>
+      <stop offset="1" stop-color="#020617" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="54" height="54" patternUnits="userSpaceOnUse">
+      <path d="M54 0H0v54" stroke="#f8fafc" stroke-opacity=".035"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <rect width="1200" height="630" fill="url(#warmGlow)"/>
+  <rect width="1200" height="630" fill="url(#coolGlow)"/>
+
+  <path d="M0 96c126 34 223 50 337 47 146-4 241-43 385-49 160-7 290 27 478 87" stroke="#f8fafc" stroke-opacity=".055" stroke-width="2"/>
+  <path d="M0 538c150-47 272-61 414-46 177 19 272 67 455 53 104-8 206-32 331-76" stroke="#22d3ee" stroke-opacity=".08" stroke-width="2"/>
+
+  <g transform="translate(78 72)">
+    <rect x="0" y="0" width="1044" height="486" rx="42" fill="#020617" fill-opacity=".54" stroke="#f8fafc" stroke-opacity=".09"/>
+    <rect x="34" y="34" width="976" height="418" rx="30" fill="#0b1120" fill-opacity=".58"/>
+    <path d="M72 94h884M72 386h884" stroke="#f8fafc" stroke-opacity=".08"/>
+    <path d="M148 60v366M894 60v366" stroke="#f8fafc" stroke-opacity=".06"/>
+
+    <g opacity=".42">
+      <rect x="86" y="108" width="15" height="28" rx="5" fill="#f59e0b"/>
+      <rect x="86" y="156" width="15" height="28" rx="5" fill="#f59e0b"/>
+      <rect x="86" y="204" width="15" height="28" rx="5" fill="#f59e0b"/>
+      <rect x="86" y="252" width="15" height="28" rx="5" fill="#f59e0b"/>
+      <rect x="86" y="300" width="15" height="28" rx="5" fill="#f59e0b"/>
+      <rect x="943" y="108" width="15" height="28" rx="5" fill="#22d3ee"/>
+      <rect x="943" y="156" width="15" height="28" rx="5" fill="#22d3ee"/>
+      <rect x="943" y="204" width="15" height="28" rx="5" fill="#22d3ee"/>
+      <rect x="943" y="252" width="15" height="28" rx="5" fill="#22d3ee"/>
+      <rect x="943" y="300" width="15" height="28" rx="5" fill="#22d3ee"/>
+    </g>
+
+    <g transform="translate(100 122)">
+      <rect x="0" y="0" width="194" height="194" rx="42" fill="#0b0f19"/>
+      <rect x="5" y="5" width="184" height="184" rx="37" stroke="url(#brand)" stroke-width="8"/>
+      <path d="M44 55h82c14 0 25 11 25 25v59H70c-14 0-26-12-26-26V55Z" fill="#111827" stroke="#f8fafc" stroke-opacity=".15" stroke-width="3"/>
+      <path d="M52 66h24v65H52" stroke="#f59e0b" stroke-width="6" stroke-linecap="round"/>
+      <path d="M143 71h-36c-18 0-33 15-33 33s15 33 33 33h37" stroke="#22d3ee" stroke-width="6" stroke-linecap="round"/>
+      <path d="M100 76c-14 5-24 18-24 33 0 5 1 10 3 14" stroke="#f59e0b" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="109" cy="106" r="22" stroke="#f8fafc" stroke-opacity=".72" stroke-width="5"/>
+      <circle cx="109" cy="106" r="8" fill="#f59e0b"/>
+      <path d="M56 80h16M56 98h16M56 116h16" stroke="#f8fafc" stroke-opacity=".34" stroke-width="5" stroke-linecap="round"/>
+    </g>
+
+    <text x="340" y="176" fill="#f8fafc" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="66" font-weight="780" letter-spacing="-.025em">Story Shot Video</text>
+    <text x="343" y="238" fill="#cbd5e1" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="25" font-weight="600">Script-to-scene production workspace</text>
+    <text x="343" y="273" fill="#cbd5e1" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="25" font-weight="600">for image, motion, and rough cut workflows.</text>
+    <text x="344" y="339" fill="#f59e0b" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="22" font-weight="700" letter-spacing=".14em">TEXT  /  SCENE  /  IMAGE  /  MOTION</text>
+    <text x="344" y="386" fill="#94a3b8" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="22" font-weight="560">story-shot-studio.vercel.app</text>
+  </g>
+</svg>

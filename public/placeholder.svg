@@ -53,6 +53,6 @@
     <path d="M78 110h21M78 136h21M78 162h21" stroke="#f8fafc" stroke-opacity=".34" stroke-width="7" stroke-linecap="round"/>
   </g>
 
-  <text x="600" y="516" text-anchor="middle" fill="#f8fafc" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="36" font-weight="700" letter-spacing=".02em">Story Shot Studio</text>
+  <text x="600" y="516" text-anchor="middle" fill="#f8fafc" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="36" font-weight="700" letter-spacing=".02em">Story Shot Video</text>
   <text x="600" y="554" text-anchor="middle" fill="#94a3b8" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="17" font-weight="500">Scene frame placeholder</text>
 </svg>

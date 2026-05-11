@@ -95,7 +95,7 @@ export default function Landing() {
                 AI destekli gorsel uretim hatti
               </div>
               <h1 className="text-4xl font-semibold leading-[1.06] tracking-tight sm:text-5xl">
-                Story Shot Studio
+                Story Shot Video
               </h1>
               <p className="mt-6 max-w-xl text-base leading-8 text-muted-foreground">
                 Metinden sahneye, sahneden görsele, görselden motion ve kaba kurgu akışına uzanan production workspace.
@@ -160,7 +160,7 @@ export default function Landing() {
       <footer className="border-t border-border/70 bg-background">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-6 py-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <span className="font-medium text-foreground">Story Shot Studio</span>
+            <span className="font-medium text-foreground">Story Shot Video</span>
             <span className="mx-2 text-border">/</span>
             Metinden gorsele, motion'a ve kaba kurguya uzanan production workspace.
           </div>

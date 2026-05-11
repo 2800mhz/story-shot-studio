@@ -18,7 +18,7 @@ export function BrandIcon({ className }: BrandIconProps) {
     <svg
       viewBox="0 0 48 48"
       role="img"
-      aria-label="Story Shot Studio"
+      aria-label="Story Shot Video"
       className={cn('h-10 w-10', className)}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -59,7 +59,7 @@ export function BrandLockup({
     <div className={cn('flex items-center gap-3', className)}>
       <BrandIcon className={iconClassName} />
       <div>
-        <div className={cn('font-semibold text-foreground', titleClassName)}>Story Shot Studio</div>
+        <div className={cn('font-semibold text-foreground', titleClassName)}>Story Shot Video</div>
         {subtitle ? <div className={cn('text-xs text-muted-foreground', subtitleClassName)}>{subtitle}</div> : null}
       </div>
     </div>

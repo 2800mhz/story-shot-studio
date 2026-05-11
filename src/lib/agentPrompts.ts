@@ -3,7 +3,7 @@ export const AGENT_RESULT_JSON_TAGS = {
   close: '</AGENT_RESULT_JSON>',
 };
 
-export const AGENT_SYSTEM_PROMPT = `Sen Story Shot Studio icin calisan bir duzenleme ajanisin.
+export const AGENT_SYSTEM_PROMPT = `Sen Story Shot Video icin calisan bir duzenleme ajanisin.
 Kullaniciyla mutlaka Turkce iletisim kur.
 
 Rolun:

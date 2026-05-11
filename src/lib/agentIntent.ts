@@ -1,7 +1,7 @@
 import type { Character, Location, SceneCard, SceneReference, TimeContext } from '@/types';
 import { agentIntentSchema, type AgentIntent, type AgentOperationSet } from './agentSchema';
 
-export const AGENT_INTENT_SYSTEM_PROMPT = `You are a Story Shot Studio edit-intent parser.
+export const AGENT_INTENT_SYSTEM_PROMPT = `You are a Story Shot Video edit-intent parser.
 Return ONLY valid JSON.
 
 Your job is NOT to emit low-level operations.
