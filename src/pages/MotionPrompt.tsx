@@ -14,6 +14,7 @@ import { buildMotionContextFromFields, formatFinalPrompt, type TargetModel } fro
 import type { MotionPromptAnalysis } from '@/lib/motionPromptParser';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiProvider } from '@/lib/aiProvider';
+import { BrandIcon } from '@/components/BrandMark';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 
 // ─── Types ───
@@ -513,7 +514,7 @@ export default function MotionPrompt() {
           <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <Film className="h-6 w-6 text-primary" />
+          <BrandIcon className="h-9 w-9" />
           <div>
             <h1 className="font-serif text-lg font-semibold tracking-wide text-foreground">
               MotionPrompt Generator

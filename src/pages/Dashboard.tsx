@@ -23,6 +23,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { BrandLockup } from '@/components/BrandMark';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   AlertDialog,
@@ -268,15 +269,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/70 bg-card/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <Film className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold">Prompt Forge</h1>
-              <p className="text-xs text-muted-foreground">{user?.email}</p>
-            </div>
-          </div>
+          <BrandLockup titleClassName="text-xl" subtitle={user?.email || 'Production workspace'} />
 
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>

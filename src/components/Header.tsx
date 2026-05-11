@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Settings, Download, Film, Upload, Info, Video, FolderUp } from 'lucide-react';
+import { Settings, Download, Upload, Info, Video, FolderUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { BrandLockup } from '@/components/BrandMark';
 
 interface HeaderProps {
   onUploadMain: () => void;
@@ -39,15 +40,7 @@ export function Header({
 
   return (
     <header className="flex items-center justify-between border-b border-border/70 bg-card/95 px-5 py-3 backdrop-blur-sm">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-          <Film className="h-4.5 w-4.5" />
-        </div>
-        <div>
-          <h1 className="text-base font-semibold text-foreground">Prompt Forge</h1>
-          <p className="text-xs text-muted-foreground">Episode workspace</p>
-        </div>
-      </div>
+      <BrandLockup titleClassName="text-base" subtitle="Episode workspace" />
 
       <div className="flex items-center gap-3">
         <input

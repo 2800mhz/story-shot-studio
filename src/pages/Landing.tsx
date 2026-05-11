@@ -1,8 +1,9 @@
 import React from 'react';
-import { Clapperboard, FileText, Image as ImageIcon, Layers3, Scissors, Sparkles, Video, Wand2 } from 'lucide-react';
+import { FileText, Image as ImageIcon, Layers3, Scissors, Sparkles, Video, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { BrandLockup } from '@/components/BrandMark';
 
 const FEATURE_CARDS = [
   {
@@ -77,15 +78,7 @@ export default function Landing() {
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border/70 bg-card/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Clapperboard className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-lg font-semibold">Prompt Forge</div>
-              <div className="text-xs text-muted-foreground">Storyboard, image ve motion workspace</div>
-            </div>
-          </div>
+          <BrandLockup titleClassName="text-lg" subtitle="Storyboard, image ve motion workspace" />
 
           <Button onClick={signInWithGoogle} className="h-10 px-5">
             Google ile giris yap
@@ -102,15 +95,11 @@ export default function Landing() {
                 AI destekli gorsel uretim hatti
               </div>
               <h1 className="text-4xl font-semibold leading-[1.06] tracking-tight sm:text-5xl">
-                Metinden sahneye,
-                <br />
-                sahneden gorsele,
-                <br />
-                gorselden kaba kurguya
+                Story Shot Studio
               </h1>
               <p className="mt-6 max-w-xl text-base leading-8 text-muted-foreground">
-                Story Shot Studio; metni episode ve sahne kartlarina ayiran, sahneleri img uretimine hazirlayan,
-                uretilen gorselleri motion/video akisi ve kaba kurgu mantigiyla takip eden bir production workspace.
+                Metinden sahneye, sahneden görsele, görselden motion ve kaba kurgu akışına uzanan production workspace.
+                Episode ve sahne kartlarını tek yerde yönetir.
               </p>
               <div className="mt-7 flex max-w-xl flex-wrap gap-2">
                 {PIPELINE_LABELS.map((label) => (
@@ -171,7 +160,7 @@ export default function Landing() {
       <footer className="border-t border-border/70 bg-background">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-6 py-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <span className="font-medium text-foreground">Prompt Forge</span>
+            <span className="font-medium text-foreground">Story Shot Studio</span>
             <span className="mx-2 text-border">/</span>
             Metinden gorsele, motion'a ve kaba kurguya uzanan production workspace.
           </div>
