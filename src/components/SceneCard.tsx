@@ -434,6 +434,10 @@ export function SceneCard({
     setRegenerateInstruction('');
     setIsRegenerateEditorOpen(false);
   };
+  const handleCancelRegenerateEditor = () => {
+    setRegenerateInstruction('');
+    setIsRegenerateEditorOpen(false);
+  };
 
   useEffect(() => {
     if (isRegenerateEditorOpen) {
@@ -828,24 +832,36 @@ export function SceneCard({
               )}
               <div className="mt-3 space-y-2 border-t border-border/50 pt-3">
                 {isRegenerateEditorOpen && (
-                  <input
-                    ref={regenerateInputRef}
-                    value={regenerateInstruction}
-                    onChange={(event) => setRegenerateInstruction(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault();
-                        void handleRegenerateAllClick();
-                      }
-                      if (event.key === 'Escape') {
-                        setIsRegenerateEditorOpen(false);
-                        setRegenerateInstruction('');
-                      }
-                    }}
-                    placeholder="Opsiyonel yenileme notu"
-                    className="h-7 w-full rounded-md border border-primary/45 bg-primary/5 px-2 text-[11px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/55 focus:border-primary/70"
-                    disabled={scene.status === 'generating' || isBulkGenerating}
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      ref={regenerateInputRef}
+                      value={regenerateInstruction}
+                      onChange={(event) => setRegenerateInstruction(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          void handleRegenerateAllClick();
+                        }
+                        if (event.key === 'Escape') {
+                          handleCancelRegenerateEditor();
+                        }
+                      }}
+                      placeholder="Opsiyonel yenileme notu"
+                      className="h-7 min-w-0 flex-1 rounded-md border border-primary/45 bg-primary/5 px-2 text-[11px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/55 focus:border-primary/70"
+                      disabled={scene.status === 'generating' || isBulkGenerating}
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      onClick={handleCancelRegenerateEditor}
+                      disabled={scene.status === 'generating' || isBulkGenerating}
+                      title="Yenilemeyi iptal et"
+                      aria-label="Yenilemeyi iptal et"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 )}
                 <div className="flex items-center justify-between">
                 <Button
