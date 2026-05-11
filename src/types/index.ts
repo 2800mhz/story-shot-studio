@@ -81,7 +81,7 @@ export interface TimeContext {
 }
 
 /**
- * Sinematik kamera açısı slotu — AI tarafından sahneye özel olarak tasarlanmış.
+ * Sinematik kamera açısı slotu — AI tarafından sahneye özel olarak tasarlanmış.lkljkllkjlk
  * Hardcoded enum değil; gerçek sinemacı diliyle: focal length, açı derecesi, hareket tekniği. deneme klayve çalışıyor kontrol 
  */
 export interface CameraAngleSlot {
