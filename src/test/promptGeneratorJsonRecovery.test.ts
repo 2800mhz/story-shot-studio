@@ -370,9 +370,11 @@ describe('promptGenerator JSON recovery', () => {
     expect(revisionUserMessage).toContain('PROMPT TO EDIT');
     expect(revisionUserMessage).toContain('USER CHANGE');
     expect(revisionUserMessage).toContain('Keep this label order exactly');
+    expect(revisionUserMessage).toContain('event logic');
     expect(revisionUserMessage).not.toContain('FRESH CONTEXT');
     expect(revisionUserMessage).not.toContain('clean-shaven');
     expect(generateSpy.mock.calls[0][1]).toContain('surgical text editor');
+    expect(generateSpy.mock.calls[0][1]).toContain('silently infer');
     expect(generateSpy.mock.calls[0][2]).toMatchObject({ operationType: 'prompt_revision_light' });
   });
 });

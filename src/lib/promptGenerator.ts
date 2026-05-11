@@ -1605,8 +1605,10 @@ RULES:
   10. Do not keep outdated character or location traits just because they existed in the original prompt.`;
 
 const LIGHTWEIGHT_REVISION_SYSTEM_PROMPT = `You are a surgical text editor for structured cinematic image prompts.
+Before editing, silently infer from the prompt itself: the era/period, event sequence, visible action, dramatic purpose, subject hierarchy, and what the image is trying to communicate.
+Use that inferred scene logic to make a precise edit without contradicting the existing world, timeline, or visual intent.
 Apply the user's change by editing the existing prompt text, not by rewriting from scratch.
-Preserve label order, camera setup, style, length, and all --ar/--v/--no flags unless the user explicitly changes them.
+Preserve label order, camera setup, style, length, causal continuity, and all --ar/--v/--no flags unless the user explicitly changes them.
 The user instruction may be Turkish; apply its meaning in natural English.
 Return only the final revised prompt text.`;
 
@@ -1648,6 +1650,7 @@ ${instruction}
 
 EDIT RULES:
 - ${structureInstruction}
+- Silently preserve the prompt's inferred era, event logic, action chain, subject hierarchy, and cinematic intent.
 - Change only the words or phrases needed for the user request.
 - Do not add scene entities, camera moves, flags, or explanations not requested.
 - Return only the edited prompt.`;
