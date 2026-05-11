@@ -951,9 +951,96 @@ const Index = () => {
 
 
 
-  const handleRegenerateAllPrompts = useCallback(async (sceneId: string) => {
-    await handleGeneratePromptsForScene(sceneId, true);
-  }, [handleGeneratePromptsForScene]);
+  const handleRegenerateAllPrompts = useCallback(async (sceneId: string, instruction?: string) => {
+    const revisionInstruction = instruction?.trim();
+    if (!revisionInstruction) {
+      await handleGeneratePromptsForScene(sceneId, true);
+      return;
+    }
+
+    if (!aiProvider.isInitialized() || !aiProvider.hasKeys()) {
+      setNoKeysWarning(true);
+      return;
+    }
+
+    const scene = state.sceneCards.find(s => s.id === sceneId);
+    if (!scene) return;
+
+    const slotIndexBySlotId = new Map((scene.cameraAngleSlots ?? []).map((slot, index) => [slot.id, index]));
+    const slotIndexByPromptId = new Map(
+      (scene.cameraAngleSlots ?? [])
+        .filter(slot => !!slot.promptId)
+        .map((slot) => [slot.promptId as string, slotIndexBySlotId.get(slot.id) ?? -1])
+    );
+    const promptSlotIndex = (prompt: PromptCard) => {
+      if (prompt.slotId && slotIndexBySlotId.has(prompt.slotId)) return slotIndexBySlotId.get(prompt.slotId);
+      return slotIndexByPromptId.get(prompt.id);
+    };
+    const promptsToRevise = scene.prompts.filter(prompt => {
+      const slotIndex = promptSlotIndex(prompt);
+      return slotIndex === undefined || slotIndex < 3;
+    });
+
+    if (promptsToRevise.length === 0) {
+      await handleGeneratePromptsForScene(sceneId, true);
+      return;
+    }
+
+    dispatch({ type: 'START_PROMPT_GENERATION', payload: { sceneId } });
+
+    try {
+      const revisedPromptEntries = await Promise.all(
+        promptsToRevise.map(async (prompt): Promise<[string, PromptCard]> => {
+          const revised = await revisePrompt(
+            prompt.promptText,
+            revisionInstruction,
+            '',
+            state.settings.model,
+            state.settings.temperature,
+            { existingExplanation: prompt.explanation }
+          );
+
+          return [prompt.id, {
+            ...prompt,
+            id: crypto.randomUUID(),
+            promptText: revised.promptText,
+            explanation: revised.explanation ?? prompt.explanation,
+            versions: [...prompt.versions, revised.promptText],
+            generationType: 'revision',
+            revisionPrompt: revisionInstruction,
+            isPinnedByAI: false,
+            pinReason: undefined,
+            isStale: false,
+            staleReason: undefined,
+          }];
+        })
+      );
+
+      const revisedPromptsById = new Map(revisedPromptEntries);
+      dispatch({
+        type: 'FINISH_PROMPT_GENERATION',
+        payload: {
+          sceneId,
+          prompts: scene.prompts.map(prompt => revisedPromptsById.get(prompt.id) ?? prompt),
+          analysis: scene.analysis,
+          cameraAngleSlots: scene.cameraAngleSlots,
+        },
+      });
+      toast({ title: 'Başarılı', description: 'Promptlar notuna göre hafifçe yenilendi.' });
+    } catch (error) {
+      console.error('Bulk prompt revision failed:', error);
+      dispatch({
+        type: 'FINISH_PROMPT_GENERATION',
+        payload: {
+          sceneId,
+          prompts: scene.prompts,
+          analysis: scene.analysis,
+          cameraAngleSlots: scene.cameraAngleSlots,
+        },
+      });
+      toast({ title: 'Hata', description: 'Promptlar revize edilemedi.', variant: 'destructive' });
+    }
+  }, [dispatch, handleGeneratePromptsForScene, state.sceneCards, state.settings.model, state.settings.temperature, toast]);
 
   const handleAddVariation = useCallback(async (sceneId: string) => {
     const scene = state.sceneCards.find(s => s.id === sceneId);
@@ -1067,19 +1154,21 @@ const Index = () => {
     try {
       // Optik feedback için UI'ı güncelliyoruz diye bir şey yapabiliriz ama
       // şimdilik toast ile bilgi verelim. (SceneCard içinde loading idare edilebilir)
-      const revisedText = await revisePrompt(
+      const revised = await revisePrompt(
         promptToRevise.promptText,
         instruction,
         '', // apiKey (aiProvider uses its internal key array)
         state.settings.model,
-        state.settings.temperature
+        state.settings.temperature,
+        { existingExplanation: promptToRevise.explanation }
       );
 
       const updatedPrompt: PromptCard = {
         ...promptToRevise,
         id: crypto.randomUUID(), // New UUID so upsert doesn't overwrite the original in DB
-        promptText: revisedText,
-        versions: [...promptToRevise.versions, revisedText],
+        promptText: revised.promptText,
+        explanation: revised.explanation ?? promptToRevise.explanation,
+        versions: [...promptToRevise.versions, revised.promptText],
         generationType: 'revision',
         revisionPrompt: instruction,
         isPinnedByAI: false,

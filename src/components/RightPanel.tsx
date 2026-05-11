@@ -29,7 +29,7 @@ interface RightPanelProps {
   onAddTimeContextToSceneCard?: (sceneId: string, timeContextId: string) => void;
   onRemoveTimeContextFromSceneCard?: (sceneId: string, timeContextId: string) => void;
   onAddVariation?: (sceneId: string) => void;
-  onRegenerateAllPrompts_?: (sceneId: string) => void;
+  onRegenerateAllPrompts_?: (sceneId: string, instruction?: string) => void | Promise<void>;
   onRevisePrompt?: (sceneId: string, promptId: string, instruction: string) => Promise<void>;
   onDeletePrompt?: (sceneId: string, promptId: string) => void;
   onRestorePreviousPrompt_?: (sceneId: string, entry: any) => void;

@@ -1610,9 +1610,10 @@ Use that inferred scene logic to make a precise edit without contradicting the e
 Apply the user's change by editing the existing prompt text, not by rewriting from scratch.
 Preserve label order, camera setup, style, length, causal continuity, and all --ar/--v/--no flags unless the user explicitly changes them.
 The user instruction may be Turkish; apply its meaning in natural English.
-Return only the final revised prompt text.`;
+Return only valid JSON with promptText and explanation.`;
 
 type PromptRevisionContext = {
+  existingExplanation?: string;
   shotType?: string;
   sceneText?: string;
   visualNote?: string;
@@ -1622,6 +1623,11 @@ type PromptRevisionContext = {
   locations?: Location[];
   timeContexts?: TimeContext[];
   staleReasons?: string[];
+};
+
+type PromptRevisionResult = {
+  promptText: string;
+  explanation?: string;
 };
 
 function extractPromptLabelOrder(prompt: string): string[] {
@@ -1635,15 +1641,19 @@ export async function revisePrompt(
   _apiKey?: string,
   _model?: string,
   _temperature?: number,
-  _revisionContext?: PromptRevisionContext,
-): Promise<string> {
+  revisionContext?: PromptRevisionContext,
+): Promise<PromptRevisionResult> {
   const labelOrder = extractPromptLabelOrder(originalPrompt);
   const structureInstruction = labelOrder.length > 0
     ? `Keep this label order exactly: ${labelOrder.join(' | ')}.`
     : `Keep the existing sentence order and formatting.`;
+  const explanationBlock = revisionContext?.existingExplanation?.trim()
+    ? `\nCURRENT EXPLANATION (Turkish, update to match the edited prompt):\n${revisionContext.existingExplanation.trim()}\n`
+    : '';
 
   const userMessage = `PROMPT TO EDIT:
 ${originalPrompt}
+${explanationBlock}
 
 USER CHANGE:
 ${instruction}
@@ -1652,23 +1662,36 @@ EDIT RULES:
 - ${structureInstruction}
 - Silently preserve the prompt's inferred era, event logic, action chain, subject hierarchy, and cinematic intent.
 - Change only the words or phrases needed for the user request.
-- Do not add scene entities, camera moves, flags, or explanations not requested.
-- Return only the edited prompt.`;
+- Do not add scene entities, camera moves, or flags not requested.
+- Update explanation in Turkish as one concise sentence describing the revised image and why this shot works.
+- Return only JSON: {"promptText":"...","explanation":"..."}.`;
 
   try {
     const raw = await aiProvider.generateContent(userMessage, LIGHTWEIGHT_REVISION_SYSTEM_PROMPT, {
       operationType: 'prompt_revision_light',
     });
 
-    let cleaned = raw.trim()
+    const cleaned = raw.trim()
       .replace(/^```[a-z]*\n?/, '')
       .replace(/\n?```$/, '');
 
-    if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
-      cleaned = cleaned.slice(1, -1);
+    try {
+      const parsed = tryParseJSON(cleaned) as Partial<PromptRevisionResult>;
+      const promptText = typeof parsed.promptText === 'string' ? parsed.promptText.trim() : '';
+      const explanation = typeof parsed.explanation === 'string' ? parsed.explanation.trim() : undefined;
+      if (promptText) return { promptText, explanation };
+    } catch {
+      // Some providers may still return raw edited text; keep the revision usable.
     }
 
-    return cleaned.trim();
+    const promptText = cleaned.startsWith('"') && cleaned.endsWith('"')
+      ? cleaned.slice(1, -1).trim()
+      : cleaned.trim();
+
+    return {
+      promptText,
+      explanation: revisionContext?.existingExplanation,
+    };
   } catch (error) {
     console.error('[promptEngine] Revision failed:', error);
     throw error;

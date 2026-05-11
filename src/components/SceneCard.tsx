@@ -34,7 +34,7 @@ interface SceneCardProps {
   onAddTimeContext?: (sceneId: string, timeContextId: string) => void;
   onRemoveTimeContext?: (sceneId: string, timeContextId: string) => void;
   onAddVariation?: (sceneId: string) => void;
-  onRegenerateAll?: (sceneId: string) => void;
+  onRegenerateAll?: (sceneId: string, instruction?: string) => void | Promise<void>;
   onRevisePrompt?: (sceneId: string, promptId: string, instruction: string) => Promise<void>;
   onDeletePrompt?: (sceneId: string, promptId: string) => void;
   onRestorePreviousPrompt?: (sceneId: string, entry: HistoryEntry) => void;
@@ -376,6 +376,7 @@ export function SceneCard({
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [confirmDeleteScene, setConfirmDeleteScene] = useState(false);
   const [activeTab, setActiveTab] = useState<'generated' | 'slots'>('generated');
+  const [regenerateInstruction, setRegenerateInstruction] = useState('');
   const previousGeneratedPromptCountRef = useRef(0);
   const previousStatusRef = useRef(scene.status);
   const { copiedId: copiedSlotPromptId, setCopiedId: setCopiedSlotPromptId } = useClipboardState();
@@ -419,6 +420,11 @@ export function SceneCard({
   const handleCopySlotPrompt = (prompt: PromptCard) => {
     navigator.clipboard.writeText(prompt.promptText).catch(() => {});
     setCopiedSlotPromptId(prompt.id);
+  };
+  const handleRegenerateAllClick = async () => {
+    const instruction = regenerateInstruction.trim();
+    await onRegenerateAll?.(scene.id, instruction || undefined);
+    if (instruction) setRegenerateInstruction('');
   };
 
   useEffect(() => {
@@ -806,7 +812,21 @@ export function SceneCard({
                   Bu sahnede ana prompt yok.
                 </div>
               )}
-              <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
+              <div className="mt-3 space-y-2 border-t border-border/50 pt-3">
+                <input
+                  value={regenerateInstruction}
+                  onChange={(event) => setRegenerateInstruction(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      void handleRegenerateAllClick();
+                    }
+                  }}
+                  placeholder="Opsiyonel yenileme notu"
+                  className="h-7 w-full rounded-md border border-border/70 bg-background px-2 text-[11px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/55 focus:border-primary/60"
+                  disabled={scene.status === 'generating' || isBulkGenerating}
+                />
+                <div className="flex items-center justify-between">
                 <Button
                   size="sm"
                   variant="ghost"
@@ -821,12 +841,14 @@ export function SceneCard({
                   size="sm"
                   variant="ghost"
                   className="h-6 px-2 text-[10px] font-medium text-muted-foreground hover:text-blue-600 hover:bg-blue-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={() => onRegenerateAll?.(scene.id)}
+                  onClick={() => void handleRegenerateAllClick()}
                   disabled={scene.status === 'generating' || isBulkGenerating}
+                  title={regenerateInstruction.trim() ? 'Notu mevcut promptlara hafif revizyon olarak uygula' : 'Promptlari bastan yenile'}
                 >
                   <RefreshCw className="h-3 w-3 mr-1" />
                   Tümünü Yenile
                 </Button>
+                </div>
               </div>
             </>
           ) : (
