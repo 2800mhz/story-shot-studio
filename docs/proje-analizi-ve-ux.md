@@ -20,7 +20,7 @@ Bu ürün, **set lojistiği** değil **görsel tasarım + prompt planlama** tara
 - **UI:** Tailwind CSS + shadcn‑ui bileşenleri
 - **State & Side Effects:** Reducer tabanlı global state (`useAppState`), autosave hook’u (`useAutosave`)
 - **Backend:** Supabase (PostgreSQL + Auth + Storage)
-- **AI Entegrasyonu:** Çok sağlayıcılı (Gemini/OpenAI/Anthropic/Groq/DeepInfra) `aiProvider` katmanı
+- **AI Entegrasyon Katmanı:** Çok sağlayıcılı (Gemini/OpenAI/Anthropic/Groq/DeepInfra) `aiProvider` katmanı
 - **Routing:** React Router (`src/App.tsx`)
 - **Data Fetching:** TanStack Query (temel yapı `QueryClientProvider` ile hazır)
 
@@ -165,7 +165,7 @@ Bu yapı sayesinde:
 ### 7.2 `useEpisodeWorkspace`
 - `fetchProject`, `fetchEpisode`, `fetchScenes` gibi supabase sorguları ile tüm episode verisi yüklenir
 - Yüklenen veriler reducer’a dispatch edilir
-- Episode style, references, characters, locations ve prompt’lar tek seferde hydrate edilir
+- Episode style, references, characters, locations ve prompt’lar tek seferde yüklenir
 
 ### 7.3 `useAutosave`
 - Kullanıcı her değişiklik yaptığında autosave devreye girer
