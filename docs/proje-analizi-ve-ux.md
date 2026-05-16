@@ -124,7 +124,7 @@ Bu yapı sayesinde **landing / dashboard / episode çalışma alanı** akışı 
   - Reference panel (görsel referans bağlama)
 
 - **Agent Drawer:**
-  - AI tabanlı agent ile sahne/varlık operasyonları
+  - AI tabanlı agent ile sahne/varlık (entity) operasyonları
 
 ### 5.5 Motion Prompt
 - Prompt’ları motion pipeline formatına çevirir
@@ -266,6 +266,6 @@ Projede temel doğrulama:
 
 ## 15) Özet
 
-Story Shot Studio; **preproduction odaklı**, **AI destekli** ve **prompt‑centric** bir çalışma alanıdır. Kod tabanı, frontend merkezli kalın istemci mimarisi üzerine kuruludur. Tüm kritik iş mantığı (sahne analizi, prompt üretimi, revizyon, agent operasyonları) React + TypeScript tarafında yaşar; veri kalıcılığı ve auth Supabase üzerinden sağlanır.
+Story Shot Studio; **preproduction odaklı**, **AI destekli** ve **prompt‑centric** bir çalışma alanıdır. Kod tabanı, frontend merkezli kalın istemci mimarisi (thick client) üzerine kuruludur. Tüm kritik iş mantığı (sahne analizi, prompt üretimi, revizyon, agent operasyonları) React + TypeScript tarafında yaşar; veri kalıcılığı ve auth Supabase üzerinden sağlanır.
 
 Bu doküman, projeyi baştan sona okumadan genel resmi görmek isteyen ekip üyeleri veya yeni geliştiriciler için hızlı ama ayrıntılı bir “teknik UX anlatımı” olarak kullanılabilir.
