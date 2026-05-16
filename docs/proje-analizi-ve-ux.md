@@ -728,7 +728,7 @@ Her satırda dosya adı ve kısa rol açıklaması bulunur.
 - `bun.lockb`
   - Bun paket yöneticisi lock dosyası.
 - `cd`
-  - Boş placeholder dosya.
+  - Boş placeholder dosya (repo içinde kullanım referansı yok; legacy/işaret dosyası olabilir).
 - `components.json`
   - shadcn-ui component konfigürasyonu.
 - `dist/`
@@ -738,13 +738,13 @@ Her satırda dosya adı ve kısa rol açıklaması bulunur.
 - `eslint.config.js`
   - ESLint konfigürasyonu.
 - `git`
-  - Boş placeholder dosya.
+  - Boş placeholder dosya (repo içinde kullanım referansı yok; legacy/işaret dosyası olabilir).
 - `handbook.md`
   - Ek iç kullanım rehberi.
 - `index.html`
   - Vite giriş HTML şablonu.
 - `main`
-  - Boş placeholder dosya.
+  - Boş placeholder dosya (repo içinde kullanım referansı yok; legacy/işaret dosyası olabilir).
 - `node_modules/`
   - NPM bağımlılıkları (build/test gereksinimi).
 - `package-lock.json`
@@ -792,7 +792,7 @@ Her satırda dosya adı ve kısa rol açıklaması bulunur.
 - `docs/savas-arslan-source-analysis.md`
   - Kaynak analiz notları.
 - `docs/savaş arslan güncellemesi.md`
-  - Güncelleme notları.
+  - Güncelleme notları (Savaş Arslan ile ilgili).
 
 ### 21.3 Public Assetler
 - `public/favicon-64.png`
@@ -1200,4 +1200,3 @@ Her satırda dosya adı ve kısa rol açıklaması bulunur.
   - Vite build tool.
 - vitest
   - Vitest test runner.
-
