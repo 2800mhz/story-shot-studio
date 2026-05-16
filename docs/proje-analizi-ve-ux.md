@@ -728,7 +728,7 @@ Her satırda dosya adı ve kısa rol açıklaması bulunur.
 - `bun.lockb`
   - Bun paket yöneticisi lock dosyası.
 - `cd`
-  - Boş placeholder dosya (repo içinde kullanım referansı yok; legacy/işaret dosyası olabilir).
+  - Boş placeholder dosya (repo içinde kullanım referansı yok; legacy/işaret dosyası olabilir, kullanılmıyorsa kaldırılması düşünülebilir).
 - `components.json`
   - shadcn-ui component konfigürasyonu.
 - `dist/`
@@ -738,13 +738,13 @@ Her satırda dosya adı ve kısa rol açıklaması bulunur.
 - `eslint.config.js`
   - ESLint konfigürasyonu.
 - `git`
-  - Boş placeholder dosya (repo içinde kullanım referansı yok; legacy/işaret dosyası olabilir).
+  - Boş placeholder dosya (repo içinde kullanım referansı yok; legacy/işaret dosyası olabilir, kullanılmıyorsa kaldırılması düşünülebilir).
 - `handbook.md`
   - Ek iç kullanım rehberi.
 - `index.html`
   - Vite giriş HTML şablonu.
 - `main`
-  - Boş placeholder dosya (repo içinde kullanım referansı yok; legacy/işaret dosyası olabilir).
+  - Boş placeholder dosya (repo içinde kullanım referansı yok; legacy/işaret dosyası olabilir, kullanılmıyorsa kaldırılması düşünülebilir).
 - `node_modules/`
   - NPM bağımlılıkları (build/test gereksinimi).
 - `package-lock.json`
