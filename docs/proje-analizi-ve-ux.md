@@ -6,7 +6,7 @@ Bu metin, **Story Shot Studio** kod tabanını baştan sona özetler: ürünün 
 
 ## 1) Projenin Özeti (Ne Yapar?)
 
-Story Shot Studio; **metinden sahne çıkaran**, sahneleri **görsel prodüksiyon planına dönüştüren** ve her sahne için **prompt tabanlı coverage** üreten bir **AI destekli görsel ön‑prodüksiyon (visual preproduction) workspace**’idir.
+Story Shot Studio; **metinden sahne çıkaran**, sahneleri **görsel prodüksiyon planına dönüştüren** ve her sahne için **prompt tabanlı coverage** üreten bir **AI destekli görsel ön‑prodüksiyon (visual preproduction) çalışma alanıdır**.
 
 Kullanıcı film/senaryo metnini sisteme yükler, sistem metni sahnelere böler, karakter/mekân/zaman bağlamlarını çıkarır ve her sahne için farklı planlarda (wide/medium/close‑up vb.) üretim promptları oluşturur. Üretim sonrasında prompt revizyonu yapılabilir, geçmiş prompt versiyonları korunur ve gerekiyorsa “pinned” prompt tek kaynak olarak öne çıkarılır.
 
@@ -63,12 +63,12 @@ API key yönetimi, model seçimleri ve kullanım istatistikleri burada yönetili
 - `/auth/callback` → `AuthCallback`
 - `/dashboard` → `Dashboard`
 - `/project/:id` → `ProjectWorkspace`
-- `/project/:id/episode/:episodeId` → `Index` (ana workspace)
+- `/project/:id/episode/:episodeId` → `Index` (ana çalışma alanı)
 - `/motion-prompt` → `MotionPrompt`
 - `/settings` → `Settings`
 - `*` → `NotFound`
 
-Bu yapı sayesinde **landing / dashboard / episode workspace** akışı net biçimde ayrılır.
+Bu yapı sayesinde **landing / dashboard / episode çalışma alanı** akışı net biçimde ayrılır.
 
 ---
 
@@ -142,7 +142,7 @@ Bu yapı sayesinde **landing / dashboard / episode workspace** akışı net biç
 Sistem, projeyi **episode → scene → prompt** hiyerarşisiyle modellemektedir:
 
 - `projects` → projeler
-- `episodes` → bölümler
+- `episodes` → episode'lar
 - `scenes` → sahne kartları
 - `prompts` → üretilen prompt’lar
 - `global_characters` / `global_locations` → projeye bağlı varlık havuzları
@@ -210,7 +210,7 @@ Analiz sonucu `SceneCard` yapısına dönüştürülür ve state’e eklenir.
 
 ## 10) Agent Katmanı (AI‑Assisted Operations)
 
-Agent sistemi, kullanıcı yerine workspace’te düzenlemeler yapabilen bir katmandır:
+Agent sistemi, kullanıcı yerine çalışma alanında düzenlemeler yapabilen bir katmandır:
 
 - `buildAgentContext` ile sahne ve varlık bilgileri paketlenir
 - `parseAgentOperationSet` ile AI çıktısı operasyon setine dönüştürülür
